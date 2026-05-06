@@ -539,13 +539,15 @@
             // --- 渲染器 ---
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            const cw=gameContainer.clientWidth||window.innerWidth, ch=gameContainer.clientHeight||window.innerHeight;
+            renderer.setSize(cw, ch, false);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
             // 挂到 gameContainer（visibility:hidden 保持布局尺寸，不会导致 canvas 0 尺寸）
             gameContainer.appendChild(renderer.domElement);
+            renderer.domElement.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;';
 
             // --- 场景 ---
             scene = new THREE.Scene();
@@ -588,7 +590,7 @@
             createObstacles();
 
             // --- 摄像机 ---
-            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 300);
+            camera = new THREE.PerspectiveCamera(55, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
             placeCamera();
         }
 
@@ -1555,8 +1557,8 @@
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            if(player1&&player1.group)scene.remove(player1.group);
+            const vcw=gameContainer.clientWidth||window.innerWidth, vch=gameContainer.clientHeight||window.innerHeight;
+            renderer.setSize(vcw, vch, false);
             if(player2&&player2.group)scene.remove(player2.group);
             shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
@@ -1566,7 +1568,7 @@
             createBarsForPlayer(player1);createBarsForPlayer(player2);
             player1.reloadBarGroup.visible=player1.hpBarGroup.visible=true;
             player2.reloadBarGroup.visible=player2.hpBarGroup.visible=true;
-            camera2=new THREE.PerspectiveCamera(55,window.innerWidth/window.innerHeight,.5,300);
+            camera2=new THREE.PerspectiveCamera(55,renderer.domElement.width/renderer.domElement.height,.5,300);
             tankGroup=player1.group;tankHull=player1.hull;
             leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
             reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
@@ -1719,8 +1721,8 @@
             renderer.dispose();
             renderer = new THREE.WebGLRenderer({ canvas: newCanvas, antialias: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
+            const ecw=gameContainer.clientWidth||window.innerWidth, ech=gameContainer.clientHeight||window.innerHeight;
+            renderer.setSize(ecw, ech, false);
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
@@ -1938,8 +1940,8 @@
         window.addEventListener('resize',()=>{
             // 游戏渲染器
             if(camera&&renderer){
-                const ww=window.innerWidth,wh=window.innerHeight;
-                renderer.setSize(ww,wh);
+                const rw=gameContainer.clientWidth||window.innerWidth, rh=gameContainer.clientHeight||window.innerHeight;
+                renderer.setSize(rw,rh,false);
                 const fbW=renderer.domElement.width, fbH=renderer.domElement.height;
                 if(gameMode==='versus'){
                     const halfW=Math.floor(fbW/2), rightW=fbW-halfW;
