@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.21</title>
+    <title>坦克运动demo v0.18.22</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,15 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.21</div>
+        <div class="menu-version">v0.18.22</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.21 更新 — deck归位车尾+履带Torus修复</div>
-            <div class="cl-title">🔄 v0.18.21 更新 — deck修复+轮履加宽</div>
+            <div class="cl-title">🔄 v0.18.22 更新 — deck归位车尾+履带Torus修复</div>
+            <div class="cl-title">🔄 v0.18.22 更新 — deck修复+轮履加宽</div>
             <div class="cl-item">尾部改为垂直尾板，消除5点剖面closePath长边导致的ExtrudeGeometry分离面</div>
         </div>
     </div>
@@ -1739,7 +1739,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.21  dpr:' + dpr.toFixed(2) +
+                'v0.18.22  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -1966,7 +1966,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.21 | deck车尾+履带修复');
+        console.log('🎮 坦克运动demo v0.18.22 | deck车尾+履带修复');
     </script>
 </body>
 </html>

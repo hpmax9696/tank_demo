@@ -95,13 +95,13 @@
         group.userData.hull = hullMesh;
 
                 // ── 发动机舱顶盖 + 散热格栅 ──
-        // hullMesh.rotation.y=PI/2后，shape_x=0.85→世界z=-0.85(车头)
-        // 所以车尾在世界Z=0.85方向（正值）！
+        // hullMesh.rotation.y=PI/2后，shape_x=0.85→世界z=0.85是车头！
+        // shape_x=-0.85（车尾）→世界z=-0.85，所以车尾在负Z！
         {
-            const deckFrontZ = 0.55; // 车尾前缘（靠近车体中心）
-            const deckBackZ  = 0.82; // 车尾后缘（最尾部）
+            const deckFrontZ = -0.55;
+            const deckBackZ  = -0.82;
             const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
-            const deckLen = deckBackZ - deckFrontZ;
+            const deckLen = Math.abs(deckBackZ - deckFrontZ);
 
             const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckLen);
             const deck = new THREE.Mesh(deckGeo, hullMat);
@@ -115,7 +115,7 @@
                 const bar = new THREE.Mesh(
                     new THREE.BoxGeometry(HULL_W - 0.22, 0.004, 0.014),
                     detailMat);
-                const barZ = deckFrontZ + 0.03 + (deckLen - 0.06) * g / 8;
+                const barZ = deckFrontZ - 0.03 - (deckLen - 0.06) * g / 8;
                 bar.position.set(0, HULL_TOP + 0.020, barZ);
                 group.add(bar);
             }
