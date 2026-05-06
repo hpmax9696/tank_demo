@@ -350,22 +350,22 @@
         // ========================================
         const turretGroup = new THREE.Group();
         const T_BASE_Y = HULL_TOP;              // 炮塔底面Y
-        const TBOT_R   = 0.46;                  // 炮塔底面半径
-        const TTOP_R   = 0.39;                  // 炮塔顶部半径（收窄不多）
-        const T_H      = 0.29;                  // 炮塔总高度（比v5高）
+        const TBOT_R   = 0.50;                  // 炮塔底面半径（加宽，骑在车体上）
+        const TTOP_R   = 0.32;                  // 炮塔顶部半径（明显收窄）
+        const T_H      = 0.28;                  // 炮塔总高度
 
         // ── 主体：使用 LatheGeometry 创建铸造轮廓 ──
-        // 定义炮塔侧视轮廓曲线（从底部中心到顶部中心）
+        // T-34/85炮塔特征：底部宽大 → 中部略微鼓出 → 顶部明显收窄 → 浅圆顶
         const turretPoints = [
             new THREE.Vector2(0, 0),             // 底面中心
-            new THREE.Vector2(TBOT_R * 0.92, 0),         // 底面前缘
-            new THREE.Vector2(TBOT_R, T_H * 0.08),       // 底面前缘起弧
-            new THREE.Vector2(TBOT_R * 1.02, T_H * 0.22), // 最大宽度处（防盾区）
-            new THREE.Vector2(TBOT_R * 0.98, T_H * 0.45), // 开始收窄
-            new THREE.Vector2(TTOP_R * 1.02, T_H * 0.65), // 肩部
-            new THREE.Vector2(TTOP_R * 0.94, T_H * 0.82),// 上肩
-            new THREE.Vector2(TTOP_R * 0.78, T_H * 0.93),// 顶部过渡
-            new THREE.Vector2(TTOP_R * 0.55, T_H * 0.98),// 近顶部
+            new THREE.Vector2(TBOT_R * 0.88, 0),         // 底边内收（座圈）
+            new THREE.Vector2(TBOT_R, T_H * 0.05),       // 底面外扩
+            new THREE.Vector2(TBOT_R * 1.04, T_H * 0.18), // 最大宽度处
+            new THREE.Vector2(TBOT_R * 1.00, T_H * 0.35), // 垂直段
+            new THREE.Vector2(TBOT_R * 0.92, T_H * 0.50), // 开始收窄
+            new THREE.Vector2(TTOP_R * 1.05, T_H * 0.68), // 肩部
+            new THREE.Vector2(TTOP_R * 0.90, T_H * 0.85), // 顶部收窄过渡
+            new THREE.Vector2(TTOP_R * 0.50, T_H * 0.95), // 浅圆顶起点
             new THREE.Vector2(0, T_H)                   // 顶中
         ];
         const turretLathe = new THREE.LatheGeometry(turretPoints, 36);
