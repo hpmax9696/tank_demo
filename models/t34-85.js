@@ -39,12 +39,12 @@
 
     // 行走系统
     const WL_R       = 0.155;    // 负重轮半径（加大）
-    const WL_W       = 0.058;    // 负重轮宽度
+    const WL_W       = 0.078;    // 负重轮宽度
     const IDLER_R    = 0.10;     // 诱导轮
     const SPROCKET_R = 0.17;     // 主动轮
     const SPROCKET_Y = 0.24;     // 主动轮中心Y
     const TRACK_X    = 0.54;     // 履带X位置（车轮中心）
-    const TRACK_W    = 0.095;    // 履带宽度
+    const TRACK_W    = 0.120;    // 履带宽度
 
     function createT34_85(options) {
         const { camoColor = 'green' } = options || {};
@@ -98,9 +98,9 @@
         // 注意：hullMesh旋转后shape的X→-Z轴，shape_x=-0.75对应世界z=0.75（尾部）
         {
             const deckFrontZ = -(-FRONT_Z + 0.10);  // shape x=-0.75 → 世界z=0.75
-            const deckBackZ  = -REAR_Z;             // shape x=-0.85 → 世界z=0.85
+            const deckBackZ  = -(-FRONT_Z + 0.40);  // shape x=-0.40 → 世界z=0.40
             const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
-            const deckLen = deckBackZ - deckFrontZ;
+            const deckLen = deckFrontZ - deckBackZ;
 
             // 发动机舱盖
             const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckLen);
