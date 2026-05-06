@@ -1697,17 +1697,30 @@
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
             initAudio();startEngineSound();
-            // 等待下一帧渲染，确保 gameContainer 可见后再配置 renderer
-            // 否则 canvas 在 visibility:hidden 期间渲染，首帧可能黑屏
-            requestAnimationFrame(() => {
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setScissorTest(false);
-                const dpr = renderer.getPixelRatio();
-                renderer.setViewport(0, 0, window.innerWidth * dpr, window.innerHeight * dpr);
-                camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
-                camera.updateProjectionMatrix();
-                renderer.render(scene, camera);
-            });
+            // 强制重新初始化 renderer canvas（首次进入时 gameContainer 从 hidden 切换，
+            // WebGL context 可能未正确激活，需要重新附加 canvas）
+            const oldCanvas = renderer.domElement;
+            if (oldCanvas && oldCanvas.parentNode === gameContainer) {
+                gameContainer.removeChild(oldCanvas);
+            }
+            const newCanvas = document.createElement('canvas');
+            newCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;';
+            gameContainer.insertBefore(newCanvas, gameContainer.firstChild);
+            // 创建新的 WebGLRenderer 使用新 canvas
+            renderer.dispose();
+            renderer = new THREE.WebGLRenderer({ canvas: newCanvas, antialias: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.setScissorTest(false);
+            const dpr = renderer.getPixelRatio();
+            renderer.setViewport(0, 0, window.innerWidth * dpr, window.innerHeight * dpr);
+            camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+            camera.updateProjectionMatrix();
+            renderer.render(scene, camera);
             if(!animationId){clock.getDelta();animationId=requestAnimationFrame(gameLoop);}
         }
 
