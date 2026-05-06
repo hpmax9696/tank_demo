@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.2</title>
+    <title>坦克运动demo v0.18.3</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,15 +229,16 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.2</div>
+        <div class="menu-version">v0.18.3</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.2 更新 — 修复高DPI分辨率下的viewport偏差</div>
-            <div class="cl-item">修复双人分屏偏移和单人坦克居中度：viewport计算改用canvas实际物理像素，消除高DPI浮点误差</div>
+            <div class="cl-title">🔄 v0.18.3 更新 — canvas尺寸管理重构，适配高DPI</div>
+            <div class="cl-item">canvas尺寸改用gameContainer.clientWidth+setSize(...,false)，保持容器布局一致</div>
+            <div class="cl-item">initScene渲染器也设置width:100%;height:100%的CSS，与enterGame统一</div>
         </div>
     </div>
 
@@ -1959,7 +1960,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.2 | 修复高DPI viewport偏差');
+        console.log('🎮 坦克运动demo v0.18.3 | canvas尺寸管理重构');
     </script>
 </body>
 </html>

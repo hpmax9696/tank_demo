@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.18.2** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.18.3** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 双击 `index.html` 即可运行，无需服务器。
 
@@ -215,6 +215,12 @@ fireSmokeParticles.js:
 ---
 
 ## 五、完整版本历史
+
+### v0.18.3 — canvas尺寸管理重构，适配高DPI（2026-05-06）
+**修复**：
+- **canvas尺寸管理重构**：全部 `setSize` 调用增加第三个参数 `false`（阻止Three.js覆盖CSS），改用 `gameContainer.clientWidth/Height` 替代 `window.innerWidth/innerHeight`
+- **CSS统一**：所有渲染器 canvas 统一使用 `position:absolute;top:0;left:0;width:100%;height:100%;display:block`，由容器决定实际像素尺寸
+- 消除高DPI显示器（2K/4K）下canvas buffer与CSS渲染尺寸不匹配导致的画面偏移
 
 ### v0.18.2 — 修复高DPI分辨率下的viewport偏差（2026-05-06）
 **修复**：
@@ -481,7 +487,7 @@ const TRACK_W = 0.065;        // 履带宽度
 
 ---
 
-## 八、已知问题（截至 v0.18.2）
+## 八、已知问题（截至 v0.18.3）
 
 | # | 问题 | 备注 |
 |---|------|------|
@@ -529,11 +535,11 @@ xcopy index.html + fireSmokeParticles.js + README.md + models/* → OneDrive目�
 
 ### 调试建议
 1. 打开浏览器开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.18.2 | 修复高DPI viewport偏差`
+2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.18.3 | canvas尺寸管理重构`
 3. 菜单左下角显示当前版本号和更新日志
 4. 修改代码后强制刷新（Ctrl+F5）确保不使用缓存
 
-### 代码规模（截至 v0.18.2）
+### 代码规模（截至 v0.18.3）
 - `index.html`：约 1972 行（HTML + CSS + JS 游戏引擎）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 647 行（T-34/85 v6.1 高精度坦克模型）
