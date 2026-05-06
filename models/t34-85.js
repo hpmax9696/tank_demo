@@ -70,17 +70,14 @@
         //  车体 — 带倾斜尾板的船形剖面
         // ========================================
 
-        const REAR_OVERHANG = 0.06;    // 尾板后悬
-        const REAR_BOT_Y = HULL_BOT + 0.04; // 尾板底部略高于车底（真实T-34/85特征）
-        const REAR_Z = -FRONT_Z;              // 尾板最末端Z
+        const REAR_Z = -FRONT_Z;  // 尾板Z位
 
         const hullShape = new THREE.Shape();
-        hullShape.moveTo(FRONT_Z, HULL_BOT);            // 1 前下角
-        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);      // 2 首上斜面 ~58°
-        hullShape.lineTo(-FRONT_Z + 0.10, HULL_TOP);   // 3 发动机舱顶前缘
-        hullShape.lineTo(REAR_Z, HULL_TOP - 0.05);     // 4 尾板上缘（略微降低，形成发动机舱斜顶）
-        hullShape.lineTo(REAR_Z + REAR_OVERHANG, REAR_BOT_Y); // 5 尾板末端下角（倾斜尾板）
-        hullShape.closePath();
+        hullShape.moveTo(FRONT_Z, HULL_BOT);               // 1 前下角
+        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);         // 2 首上斜面 ~58°
+        hullShape.lineTo(REAR_Z + 0.10, HULL_TOP);        // 3 发动机舱顶后缘
+        hullShape.lineTo(REAR_Z, HULL_BOT);               // 4 尾板底角（垂直尾板）
+        hullShape.closePath();                             // 5 回到前下角
 
         const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
             depth: HULL_W,
