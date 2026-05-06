@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.16.0</title>
+    <title>坦克运动demo v0.16.1</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,18 +229,18 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.16.0</div>
+        <div class="menu-version">v0.16.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.16.0 更新 — T-34-85 后期型 高精度模型</div>
-            <div class="cl-item">新增 T-34-85 后期型 (Model 1944/1945) 坦克模型：楔形车体 + 60°首上装甲 + 铸造半球炮塔 + 85mm主炮</div>
-            <div class="cl-item">5对大直径负重轮等间距排列，带诱导轮和主动轮，闭合椭圆履带环路</div>
-            <div class="cl-item">模型库新增：t34-85-green（绿色涂装）/ t34-85-desert（沙漠涂装），可在模型预览中查看</div>
-            <div class="cl-item">单人模式和对战模式仍使用原有坦克模型（新模型仅加入模型库，暂不替换）</div>
+            <div class="cl-title">🔄 v0.16.1 更新 — T-34-85 模型修正</div>
+            <div class="cl-item">车体修正：改用 ExtrudeGeometry 挤出通体楔形剖面，首上装甲60°斜板从车底前缘直达炮塔前下方</div>
+            <div class="cl-item">炮塔修正：截顶圆锥厚壁下半部 + 圆顶上收 + 宽度略大于车体 + 炮管安装于突出矩形防盾</div>
+            <div class="cl-item">主炮修正：炮管显著加长（≈车体长 2/3），更细（r=0.033），中后段添加环状抽烟器</div>
+            <div class="cl-item">行走系统修正：履带片加厚、主动轮加大加高（r=0.18, y=0.22）带14齿齿缘，与负重轮明显区分</div>
         </div>
     </div>
 
@@ -1965,7 +1965,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.16.0 | T-34-85后期型模型 + 模型预览 + 本地Three.js');
+        console.log('🎮 坦克运动demo v0.16.1 | T-34-85后期型模型v2修正 + 模型预览 + 本地Three.js');
     </script>
 </body>
 </html>

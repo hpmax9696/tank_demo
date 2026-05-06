@@ -1,17 +1,13 @@
 /**
- * T-34-85 后期型 (Model 1944/1945) 坦克模型
- * 参照详细外形描述进行高精度三维几何建模
+ * T-34-85 后期型 (Model 1944/1945) 坦克模型 — v2 修订版
  *
- * 结构特征：
- *   - 楔形车体 + 60°首上倾斜装甲
- *   - 铸造半球形炮塔（整体曲面，无明显棱角）
- *   - 85mm细长主炮 + 抽烟装置 + 矩形防盾
- *   - 5对等径大负重轮 + 诱导轮 + 主动轮
- *   - 闭合椭圆履带环路
- *   - 小型圆柱指挥塔（偏后中线）
+ * 修正要点：
+ *   1. 车体：ExtrudeGeometry 挤出楔形剖面，通体60°首上斜板，无垂直盒面
+ *   2. 炮塔：截顶圆锥厚壁下半部 + 圆顶上收 + 宽于车体 + 突出矩形防盾
+ *   3. 主炮：细长炮管(≈车体长2/3) + 环状抽烟器
+ *   4. 行走系统：加厚履带环 + 主动轮加大加高带齿缘 + 诱导轮区分
  */
 (function() {
-    // 涂装配色
     const CAMO = {
         green: {
             hull: '#4a5c2e', turret: '#3d4f25', track: '#2a2a2a',
@@ -25,17 +21,27 @@
         }
     };
 
-    // ─── 比例常量（基准：车宽=1.0 ≈ 3m） ───
-    const WL_R = 0.14;          // 负重轮半径 (0.85m)
+    // ─── 比例常量 ───
+    const HULL_W = 0.94;        // 车体宽度
+    const HULL_L = 1.70;        // 车体全长 (z范围)
+    const HULL_HI = 0.55;       // 车体顶部 Y
+    const HULL_LO = 0.25;       // 车体底部 Y
+    const HULL_H = HULL_HI - HULL_LO; // 车体高度 0.30
+
+    // 首上装甲：60°从垂直面 = 30°从水平面
+    // 高度差0.30，水平跨度 = 0.30 * tan(60°) = 0.30 * 1.732 = 0.52
+    const GLACIS_DZ = 0.52;     // 首上水平跨度
+    const FRONT_Z = HULL_L / 2; // 车体最前 0.85
+    const GLACIS_TOP_Z = FRONT_Z - GLACIS_DZ; // 首上顶部Z ≈ 0.33
+
+    const WL_R = 0.14;          // 负重轮半径
     const WL_W = 0.06;          // 负重轮宽度
-    const IDLER_R = 0.10;       // 诱导轮半径
-    const SPROCKET_R = 0.16;    // 主动轮半径
-    const WHEEL_X = 0.52;       // 车轮X偏移
-    const TRACK_TOP_Y = WL_R * 2;  // 履带顶部Y
-    const TRACK_BTM_Y = 0.01;      // 履带底部Y（贴地）
-    const HULL_BTM_Y = 0.25;       // 车体底部Y
-    const HULL_TOP_Y = 0.55;       // 车体顶部Y
-    const TURRET_BASE_Y = 0.55;    // 炮塔底座Y
+    const IDLER_R = 0.10;       // 诱导轮半径(前下方)
+    const SPROCKET_R = 0.18;    // 主动轮半径(后上方，大于负重轮)
+    const SPROCKET_Y = 0.22;    // 主动轮中心Y(高于负重轮)
+    const WHEEL_X = 0.53;       // 车轮X偏移
+
+    const TURRET_BASE_Y = HULL_HI; // 炮塔座圈Y = 0.55
 
     function createT34_85(options) {
         const { camoColor = 'green' } = options || {};
@@ -43,115 +49,105 @@
 
         const group = new THREE.Group();
 
-        // 材质
-        const hullMat   = new THREE.MeshStandardMaterial({ color: c.hull, roughness: 0.65, metalness: 0.12 });
-        const trackMat  = new THREE.MeshStandardMaterial({ color: c.track, roughness: 0.9, metalness: 0.30 });
-        const turretMat = new THREE.MeshStandardMaterial({ color: c.turret, roughness: 0.55, metalness: 0.18 });
-        const barrelMat = new THREE.MeshStandardMaterial({ color: c.barrel, roughness: 0.40, metalness: 0.60 });
-        const wheelMat  = new THREE.MeshStandardMaterial({ color: c.wheel, roughness: 0.50, metalness: 0.50 });
-        const hubMat    = new THREE.MeshStandardMaterial({ color: c.hub, roughness: 0.40, metalness: 0.55 });
-        const mantletMat= new THREE.MeshStandardMaterial({ color: c.mantlet, roughness: 0.45, metalness: 0.55 });
-        const rimMat    = new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.55, metalness: 0.45 });
-        const detailMat = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.7, metalness: 0.20 });
+        // 材质定义
+        const hullMat    = new THREE.MeshStandardMaterial({ color: c.hull, roughness: 0.65, metalness: 0.12 });
+        const trackMat   = new THREE.MeshStandardMaterial({ color: c.track, roughness: 0.90, metalness: 0.30 });
+        const turretMat  = new THREE.MeshStandardMaterial({ color: c.turret, roughness: 0.55, metalness: 0.18 });
+        const barrelMat  = new THREE.MeshStandardMaterial({ color: c.barrel, roughness: 0.40, metalness: 0.60 });
+        const wheelMat   = new THREE.MeshStandardMaterial({ color: c.wheel, roughness: 0.50, metalness: 0.50 });
+        const hubMat     = new THREE.MeshStandardMaterial({ color: c.hub, roughness: 0.40, metalness: 0.55 });
+        const mantletMat = new THREE.MeshStandardMaterial({ color: c.mantlet, roughness: 0.45, metalness: 0.55 });
+        const rimMat     = new THREE.MeshStandardMaterial({ color: c.rim, roughness: 0.55, metalness: 0.45 });
+        const detailMat  = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.70, metalness: 0.20 });
 
-        // ════════════════════════════════════════
-        //  车体 (Hull) — 楔形轮廓 + 60°首上装甲
-        // ════════════════════════════════════════
+        // ═══════════════════════════════════════════
+        //  车体 — ShapeGeometry 挤出楔形剖面
+        //  (60°首上通体斜板，无垂直盒面)
+        // ═══════════════════════════════════════════
 
-        // 1) 车体下部侧板（履带上方的垂直装甲）
-        const lowerSideGeo = new THREE.BoxGeometry(0.92, 0.08, 1.70);
-        const lowerSide = new THREE.Mesh(lowerSideGeo, hullMat);
-        lowerSide.position.set(0, HULL_BTM_Y + 0.04, 0);
-        lowerSide.castShadow = true; lowerSide.receiveShadow = true;
-        group.add(lowerSide);
+        // 侧面轮廓 (XY平面: X=前后, Y=上下)
+        const hullProfile = new THREE.Shape();
+        hullProfile.moveTo( FRONT_Z,       HULL_LO );   // 前下角
+        hullProfile.lineTo( GLACIS_TOP_Z,  HULL_HI );   // 首上顶端 (60°斜线)
+        hullProfile.lineTo(-FRONT_Z,       HULL_HI );   // 发动机舱后上角
+        hullProfile.lineTo(-FRONT_Z,       HULL_LO );   // 后下角
+        hullProfile.closePath();
 
-        // 2) 车体主装甲（垂直略内倾，梯形侧面）
-        const mainBodyGeo = new THREE.BoxGeometry(0.88, 0.28, 1.15);
-        const mainBody = new THREE.Mesh(mainBodyGeo, hullMat);
-        mainBody.position.set(0, HULL_BTM_Y + 0.14, -0.28);
-        mainBody.castShadow = true; mainBody.receiveShadow = true;
-        group.add(mainBody);
+        // 沿Z轴挤出 → 宽度，然后绕Y旋转使宽度=世界X、前后=世界Z
+        const hullGeo = new THREE.ExtrudeGeometry(hullProfile, {
+            depth: HULL_W, bevelEnabled: false
+        });
+        const hullMesh = new THREE.Mesh(hullGeo, hullMat);
+        hullMesh.rotation.y = -Math.PI / 2;  // 挤出轴Z → 世界X（宽度）
+        hullMesh.position.set(-HULL_W / 2, 0, 0); // X居中
+        hullMesh.castShadow = true;
+        hullMesh.receiveShadow = true;
+        group.add(hullMesh);
+        group.userData.hull = hullMesh;
 
-        // 3) 首上倾斜装甲板 — 60°从垂直面（30°从水平面）
-        const glacisGeo = new THREE.BoxGeometry(0.88, 0.52, 0.06);
-        const glacis = new THREE.Mesh(glacisGeo, hullMat);
-        glacis.position.set(0, HULL_BTM_Y + 0.05, 0.64);
-        glacis.rotation.x = -Math.PI / 6;  // -30° → 60° from vertical
-        glacis.castShadow = true; glacis.receiveShadow = true;
-        group.add(glacis);
+        // 车体下部侧板（履带护板 — 加宽视觉）
+        const sidePlateGeo = new THREE.BoxGeometry(0.06, 0.08, HULL_L - 0.10);
+        const lp = new THREE.Mesh(sidePlateGeo, hullMat);
+        lp.position.set(-HULL_W / 2 - 0.03, HULL_LO + 0.04, 0);
+        group.add(lp);
+        const rp = new THREE.Mesh(sidePlateGeo, hullMat);
+        rp.position.set( HULL_W / 2 + 0.03, HULL_LO + 0.04, 0);
+        group.add(rp);
 
-        // 4) 车体前下部（从首下到车底前缘）
-        const lowerNoseGeo = new THREE.BoxGeometry(0.88, 0.10, 0.22);
-        const lowerNose = new THREE.Mesh(lowerNoseGeo, hullMat);
-        lowerNose.position.set(0, HULL_BTM_Y - 0.03, 0.74);
-        lowerNose.castShadow = true; lowerNose.receiveShadow = true;
-        group.add(lowerNose);
-
-        // 5) 发动机舱盖（平坦矩形 + 后缘格栅）
-        const engineDeckGeo = new THREE.BoxGeometry(0.88, 0.06, 0.55);
+        // 发动机舱盖 — 后部平坦矩形
+        const engineDeckGeo = new THREE.BoxGeometry(HULL_W - 0.06, 0.06, 0.55);
         const engineDeck = new THREE.Mesh(engineDeckGeo, hullMat);
-        engineDeck.position.set(0, HULL_TOP_Y + 0.03, -0.55);
-        engineDeck.castShadow = true; engineDeck.receiveShadow = true;
+        engineDeck.position.set(0, HULL_HI + 0.03, -0.55);
+        engineDeck.castShadow = true;
+        engineDeck.receiveShadow = true;
         group.add(engineDeck);
 
-        // 发动机舱格栅（后缘横向镂空带 — 简化为深色薄板）
-        const grillGeo = new THREE.BoxGeometry(0.78, 0.02, 0.10);
+        // 格栅（后缘镂空带）
+        const grillGeo = new THREE.BoxGeometry(HULL_W - 0.20, 0.015, 0.10);
         const grill = new THREE.Mesh(grillGeo, detailMat);
-        grill.position.set(0, HULL_TOP_Y + 0.05, -0.82);
+        grill.position.set(0, HULL_HI + 0.05, -FRONT_Z + 0.03);
         group.add(grill);
-
-        // 格栅上的横条
         for (let g = 0; g < 5; g++) {
-            const barGeo = new THREE.BoxGeometry(0.72, 0.012, 0.012);
-            const bar = new THREE.Mesh(barGeo, new THREE.MeshStandardMaterial({ color: '#222', roughness: 0.5, metalness: 0.6 }));
-            bar.position.set(0, HULL_TOP_Y + 0.06, -0.82 + (g - 2) * 0.03);
+            const barGeo = new THREE.BoxGeometry(HULL_W - 0.26, 0.010, 0.010);
+            const bar = new THREE.Mesh(barGeo, new THREE.MeshStandardMaterial({
+                color: '#222', roughness: 0.5, metalness: 0.6
+            }));
+            bar.position.set(0, HULL_HI + 0.055, -FRONT_Z + 0.03 + (g - 2) * 0.03);
             group.add(bar);
         }
 
-        // 6) 驾驶员舱盖（首上顶端中线的矩形凸起）
-        const driverHatchGeo = new THREE.BoxGeometry(0.28, 0.04, 0.22);
-        const driverHatch = new THREE.Mesh(driverHatchGeo, hullMat);
-        driverHatch.position.set(0, HULL_TOP_Y + 0.04, 0.35);
-        driverHatch.castShadow = true;
-        group.add(driverHatch);
-
-        // 车体保存引用
-        group.userData.hull = mainBody;
+        // 驾驶员舱盖（首上顶端中线的矩形凸起）
+        const hatchGeo = new THREE.BoxGeometry(0.26, 0.04, 0.20);
+        const hatch = new THREE.Mesh(hatchGeo, hullMat);
+        hatch.position.set(0, HULL_HI + 0.03, GLACIS_TOP_Z + 0.10);
+        hatch.rotation.x = -Math.PI / 12; // 微倾贴合首上
+        hatch.castShadow = true;
+        group.add(hatch);
 
         // ═══════════════════════════════
-        //  行走系统 — 5对负重轮 + 诱导轮 + 主动轮
+        //  行走系统 — 负重轮 / 诱导轮 / 主动轮
         // ═══════════════════════════════
 
         const leftWheels = [], rightWheels = [];
-
-        // 5个负重轮Z轴等间距分布
         const roadWheelZ = [-0.40, -0.20, 0.00, 0.20, 0.40];
-        const idlerZ = 0.72;       // 诱导轮（前下方）
-        const sprocketZ = -0.65;   // 主动轮（后上方）
+        const idlerZ     = 0.75;       // 诱导轮Z（前下方）
+        const sprocketZ  = -0.68;      // 主动轮Z（后上方）
 
-        /**
-         * 创建负重轮/诱导轮组
-         * 每个轮组是一个 Group，游戏代码通过 w.rotation.x 驱动旋转
-         */
         function makeRoadWheel(radius, width, hasSpokes) {
             const wg = new THREE.Group();
-
-            // 轮毂（圆柱体，轴线沿 X）
             const hubGeo = new THREE.CylinderGeometry(radius, radius, width, 20);
             const hub = new THREE.Mesh(hubGeo, hubMat);
             hub.rotation.z = Math.PI / 2;
             wg.add(hub);
 
-            // 轮缘
             const rimGeo = new THREE.TorusGeometry(radius, 0.015, 8, 20);
             const rim = new THREE.Mesh(rimGeo, rimMat);
             rim.rotation.y = Math.PI / 2;
             wg.add(rim);
 
             if (hasSpokes) {
-                // 辐条（6根等角度分布）
                 for (let s = 0; s < 6; s++) {
-                    const spokeGeo = new THREE.BoxGeometry(radius * 1.7, 0.02, 0.03);
+                    const spokeGeo = new THREE.BoxGeometry(radius * 1.65, 0.02, 0.03);
                     const spoke = new THREE.Mesh(spokeGeo, detailMat);
                     spoke.rotation.z = (s * Math.PI) / 3;
                     wg.add(spoke);
@@ -160,29 +156,27 @@
             return wg;
         }
 
-        /**
-         * 创建主动轮组（带齿缘）
-         */
+        // 主动轮：更大、更高、带明显齿缘
         function makeSprocket(radius, width) {
             const sg = new THREE.Group();
 
-            // 轮毂
-            const hubGeo = new THREE.CylinderGeometry(radius * 0.7, radius * 0.7, width, 20);
+            // 内轮毂
+            const hubGeo = new THREE.CylinderGeometry(radius * 0.55, radius * 0.55, width, 20);
             const hub = new THREE.Mesh(hubGeo, hubMat);
             hub.rotation.z = Math.PI / 2;
             sg.add(hub);
 
-            // 齿缘环
-            const ringGeo = new THREE.TorusGeometry(radius, 0.025, 8, 24);
+            // 外齿缘环（加厚）
+            const ringGeo = new THREE.TorusGeometry(radius, 0.03, 8, 24);
             const ring = new THREE.Mesh(ringGeo, rimMat);
             ring.rotation.y = Math.PI / 2;
             sg.add(ring);
 
-            // 齿轮齿（12个）
-            for (let i = 0; i < 12; i++) {
-                const toothGeo = new THREE.BoxGeometry(0.03, 0.04, 0.04);
+            // 14个齿轮齿（更密）
+            for (let i = 0; i < 14; i++) {
+                const toothGeo = new THREE.BoxGeometry(0.04, 0.05, 0.045);
                 const tooth = new THREE.Mesh(toothGeo, wheelMat);
-                const angle = (i / 12) * Math.PI * 2;
+                const angle = (i / 14) * Math.PI * 2;
                 tooth.position.set(
                     Math.cos(angle) * radius,
                     Math.sin(angle) * radius,
@@ -194,7 +188,7 @@
             return sg;
         }
 
-        // 创建5对负重轮
+        // 5对负重轮
         for (let i = 0; i < 5; i++) {
             const lw = makeRoadWheel(WL_R, WL_W, true);
             lw.position.set(-WHEEL_X, WL_R, roadWheelZ[i]);
@@ -209,85 +203,75 @@
         const lIdler = makeRoadWheel(IDLER_R, 0.05, false);
         lIdler.position.set(-WHEEL_X, IDLER_R + 0.02, idlerZ);
         group.add(lIdler); leftWheels.push(lIdler);
-
         const rIdler = makeRoadWheel(IDLER_R, 0.05, false);
         rIdler.position.set(WHEEL_X, IDLER_R + 0.02, idlerZ);
         group.add(rIdler); rightWheels.push(rIdler);
 
-        // 主动轮（后上方，带齿）
-        const lSprocket = makeSprocket(SPROCKET_R, 0.06);
-        lSprocket.position.set(-WHEEL_X, SPROCKET_R + 0.04, sprocketZ);
+        // 主动轮（后上方，更大更高，带齿缘）
+        const lSprocket = makeSprocket(SPROCKET_R, 0.065);
+        lSprocket.position.set(-WHEEL_X, SPROCKET_Y, sprocketZ);
         group.add(lSprocket); leftWheels.push(lSprocket);
-
-        const rSprocket = makeSprocket(SPROCKET_R, 0.06);
-        rSprocket.position.set(WHEEL_X, SPROCKET_R + 0.04, sprocketZ);
+        const rSprocket = makeSprocket(SPROCKET_R, 0.065);
+        rSprocket.position.set(WHEEL_X, SPROCKET_Y, sprocketZ);
         group.add(rSprocket); rightWheels.push(rSprocket);
 
-        group.userData.leftWheels = leftWheels;
+        group.userData.leftWheels  = leftWheels;
         group.userData.rightWheels = rightWheels;
 
         // ═══════════════════════════════
-        //  履带环路 — 闭合椭圆包裹行走系统
+        //  履带环路 — 加厚，包裹行走系统
         // ═══════════════════════════════
 
         function buildTrack(sideX) {
             const tg = new THREE.Group();
-            const segGeo = new THREE.BoxGeometry(0.06, 0.025, 0.22);
-            const segLen = 0.22;
+            // 加厚履带片
+            const segGeo = new THREE.BoxGeometry(0.07, 0.035, 0.22);
 
-            // ── 底部履带段（触地，水平） ──
-            const btmSegs = 8;
-            const btmStart = -0.59, btmEnd = 0.65;
-            const btmStep = (btmEnd - btmStart) / (btmSegs - 1);
-            for (let i = 0; i < btmSegs; i++) {
+            // 底部（触地，水平）
+            const btmZ = [-0.56, -0.36, -0.16, 0.04, 0.24, 0.44, 0.62];
+            for (const z of btmZ) {
                 const seg = new THREE.Mesh(segGeo, trackMat);
-                seg.position.set(sideX, TRACK_BTM_Y, btmStart + i * btmStep);
+                seg.position.set(sideX, 0.01, z);
                 seg.castShadow = true;
                 tg.add(seg);
             }
 
-            // ── 顶部履带段（水平，在负重轮上方） ──
-            const topSegs = 7;
-            const topStart = -0.52, topEnd = 0.56;
-            const topStep = (topEnd - topStart) / (topSegs - 1);
-            for (let i = 0; i < topSegs; i++) {
+            // 顶部（水平，负重轮上方）
+            const topZ = [-0.52, -0.32, -0.12, 0.08, 0.28, 0.48, 0.62];
+            for (const z of topZ) {
                 const seg = new THREE.Mesh(segGeo, trackMat);
-                seg.position.set(sideX, TRACK_TOP_Y - 0.01, topStart + i * topStep);
+                seg.position.set(sideX, WL_R * 2 - 0.01, z);
                 seg.castShadow = true;
                 tg.add(seg);
             }
 
-            // ── 前部弧形段（环绕诱导轮） ──
-            const frontArcSegs = 5;
-            const frontR = IDLER_R + 0.03;
-            const frontCY = IDLER_R + 0.02;
-            const frontCZ = idlerZ;
-            for (let i = 0; i < frontArcSegs; i++) {
+            // 前部弧形（环绕诱导轮）
+            const faR = IDLER_R + 0.04;
+            const faCY = IDLER_R + 0.02;
+            const faCZ = idlerZ;
+            const faN = 6;
+            for (let i = 0; i < faN; i++) {
                 const seg = new THREE.Mesh(segGeo, trackMat);
-                const angle = Math.PI + (i / (frontArcSegs - 1)) * Math.PI;
-                seg.position.set(
-                    sideX,
-                    frontCY + Math.sin(angle) * frontR,
-                    frontCZ + Math.cos(angle) * frontR
-                );
+                const angle = Math.PI + (i / (faN - 1)) * Math.PI;
+                seg.position.set(sideX,
+                    faCY + Math.sin(angle) * faR,
+                    faCZ + Math.cos(angle) * faR);
                 seg.rotation.x = -angle;
                 seg.castShadow = true;
                 tg.add(seg);
             }
 
-            // ── 后部弧形段（环绕主动轮） ──
-            const rearArcSegs = 5;
-            const rearR = SPROCKET_R + 0.03;
-            const rearCY = SPROCKET_R + 0.04;
-            const rearCZ = sprocketZ;
-            for (let i = 0; i < rearArcSegs; i++) {
+            // 后部弧形（环绕主动轮 — 更大更高）
+            const raR = SPROCKET_R + 0.04;
+            const raCY = SPROCKET_Y;
+            const raCZ = sprocketZ;
+            const raN = 6;
+            for (let i = 0; i < raN; i++) {
                 const seg = new THREE.Mesh(segGeo, trackMat);
-                const angle = (i / (rearArcSegs - 1)) * Math.PI;
-                seg.position.set(
-                    sideX,
-                    rearCY - Math.sin(angle) * rearR,
-                    rearCZ + Math.cos(angle + Math.PI) * rearR
-                );
+                const angle = (i / (raN - 1)) * Math.PI;
+                seg.position.set(sideX,
+                    raCY - Math.sin(angle) * raR,
+                    raCZ + Math.cos(angle + Math.PI) * raR);
                 seg.rotation.x = -(angle + Math.PI);
                 seg.castShadow = true;
                 tg.add(seg);
@@ -296,57 +280,61 @@
             return tg;
         }
 
-        group.add(buildTrack(-WHEEL_X));  // 左履带
-        group.add(buildTrack(WHEEL_X));   // 右履带
+        group.add(buildTrack(-WHEEL_X));
+        group.add(buildTrack( WHEEL_X));
 
         // ═══════════════════════════════════════
-        //  炮塔 (Turret) — 铸造半球壳体
+        //  炮塔 — 截顶圆锥厚壁 + 圆顶上收 + 宽于车体 + 矩形防盾
         // ═══════════════════════════════════════
 
         const turretGroup = new THREE.Group();
+        const TURRET_OUTER_R = 0.53;     // 炮塔底部外径 ≈1.06 > 车宽0.94
 
-        // 炮塔下半部（近圆柱形，略大于车体宽）
-        const turretLowerGeo = new THREE.CylinderGeometry(0.48, 0.51, 0.18, 36);
+        // 炮塔下半部 — 较厚的垂直圆柱壁（截顶圆锥体）
+        const turretLowerGeo = new THREE.CylinderGeometry(
+            TURRET_OUTER_R - 0.03, // topRadius (略收)
+            TURRET_OUTER_R,        // bottomRadius (略宽于车体)
+            0.24,                  // height
+            36
+        );
         const turretLower = new THREE.Mesh(turretLowerGeo, turretMat);
-        turretLower.position.y = TURRET_BASE_Y + 0.09;
-        turretLower.castShadow = true; turretLower.receiveShadow = true;
+        turretLower.position.y = TURRET_BASE_Y + 0.12;
+        turretLower.castShadow = true;
+        turretLower.receiveShadow = true;
         turretGroup.add(turretLower);
 
-        // 炮塔上半部（半球穹顶 — 截顶圆锥 + 倒扣碗）
-        const turretDomeGeo = new THREE.SphereGeometry(0.50, 36, 20, 0, Math.PI * 2, 0, Math.PI * 0.46);
+        // 炮塔上半部 — 圆顶（从圆柱顶向上缓收）
+        const turretDomeGeo = new THREE.SphereGeometry(
+            TURRET_OUTER_R, 36, 20,
+            0, Math.PI * 2,          // phi
+            0, Math.PI * 0.42        // theta (浅穹顶)
+        );
         const turretDome = new THREE.Mesh(turretDomeGeo, turretMat);
-        turretDome.position.y = TURRET_BASE_Y + 0.18;
+        turretDome.position.y = TURRET_BASE_Y + 0.22;
         turretDome.castShadow = true;
         turretGroup.add(turretDome);
 
-        // 炮塔前部过渡（让炮塔正面更饱满）
-        const turretFrontGeo = new THREE.SphereGeometry(0.49, 24, 16, -0.25, 0.5, 0.15, Math.PI * 0.4);
-        const turretFront = new THREE.Mesh(turretFrontGeo, turretMat);
-        turretFront.position.set(0, TURRET_BASE_Y + 0.15, 0.02);
-        turretFront.castShadow = true;
-        turretGroup.add(turretFront);
-
-        // ── 火炮防盾（矩形凸起块） ──
-        const mantletGeo = new THREE.BoxGeometry(0.30, 0.22, 0.10);
+        // ── 突出矩形火炮防盾（炮管安装于此，而非直接插入炮塔壳体） ──
+        const mantletGeo = new THREE.BoxGeometry(0.32, 0.24, 0.12);
         const mantlet = new THREE.Mesh(mantletGeo, mantletMat);
-        mantlet.position.set(0, TURRET_BASE_Y + 0.18, 0.44);
+        mantlet.position.set(0, TURRET_BASE_Y + 0.18, TURRET_OUTER_R - 0.04);
         mantlet.castShadow = true;
         turretGroup.add(mantlet);
 
         // ── 指挥塔（偏后中线，小型圆柱凸起） ──
         const cupolaGeo = new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16);
         const cupola = new THREE.Mesh(cupolaGeo, turretMat);
-        cupola.position.set(0, TURRET_BASE_Y + 0.39, -0.14);
+        cupola.position.set(0, TURRET_BASE_Y + 0.39, -0.16);
         cupola.castShadow = true;
         turretGroup.add(cupola);
 
-        // 指挥塔顶盖（圆形舱盖平面）
+        // 指挥塔顶盖
         const cupolaHatchGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.02, 16);
         const cupolaHatch = new THREE.Mesh(cupolaHatchGeo, detailMat);
-        cupolaHatch.position.set(0, TURRET_BASE_Y + 0.46, -0.14);
+        cupolaHatch.position.set(0, TURRET_BASE_Y + 0.46, -0.16);
         turretGroup.add(cupolaHatch);
 
-        // 指挥塔周围小型半球凸起（3个观察口）
+        // 3个观察口半球凸起
         for (let i = 0; i < 3; i++) {
             const bumpGeo = new THREE.SphereGeometry(0.022, 8, 8);
             const bump = new THREE.Mesh(bumpGeo, detailMat);
@@ -354,7 +342,7 @@
             bump.position.set(
                 Math.cos(angle) * 0.12,
                 TURRET_BASE_Y + 0.41,
-                -0.14 + Math.sin(angle) * 0.08
+                -0.16 + Math.sin(angle) * 0.08
             );
             turretGroup.add(bump);
         }
@@ -362,41 +350,45 @@
         group.add(turretGroup);
 
         // ═══════════════════════════════════════
-        //  主炮 (85mm ZIS-S-53) — 细长圆柱体
+        //  主炮 — 细长圆柱管 (≈车体长 2/3) + 抽烟器
         // ═══════════════════════════════════════
 
         const barrelGroup = new THREE.Group();
+        const BARREL_BASE_Z = TURRET_OUTER_R + 0.02; // 防盾前面Z
 
-        // 炮管根部（防盾前方加粗段）
-        const barrelBaseGeo = new THREE.CylinderGeometry(0.055, 0.045, 0.18, 12);
-        const barrelBase = new THREE.Mesh(barrelBaseGeo, barrelMat);
-        barrelBase.rotation.x = -Math.PI / 2;
-        barrelBase.position.set(0, TURRET_BASE_Y + 0.18, 0.50 + 0.09);
-        barrelBase.castShadow = true;
-        barrelGroup.add(barrelBase);
+        // 炮管根部锥段（防盾 → 炮管过渡）
+        const barrelRootGeo = new THREE.CylinderGeometry(0.052, 0.038, 0.20, 12);
+        const barrelRoot = new THREE.Mesh(barrelRootGeo, barrelMat);
+        barrelRoot.rotation.x = -Math.PI / 2;
+        barrelRoot.position.set(0, TURRET_BASE_Y + 0.18, BARREL_BASE_Z + 0.10);
+        barrelRoot.castShadow = true;
+        barrelGroup.add(barrelRoot);
 
-        // 主炮管（4.65m → 1.55 单位长度）
-        const barrelGeo = new THREE.CylinderGeometry(0.039, 0.042, 1.48, 12);
+        // 主炮管 — 长度 ≈ 1.15（≈ 车体长1.70 的 2/3），半径0.033（细）
+        const mainBarrelLen = 1.15;
+        const barrelGeo = new THREE.CylinderGeometry(0.033, 0.035, mainBarrelLen, 12);
         const barrel = new THREE.Mesh(barrelGeo, barrelMat);
         barrel.rotation.x = -Math.PI / 2;
-        barrel.position.set(0, TURRET_BASE_Y + 0.18, 0.58 + 0.74);
+        barrel.position.set(0, TURRET_BASE_Y + 0.18, BARREL_BASE_Z + 0.20 + mainBarrelLen / 2);
         barrel.castShadow = true;
         barrelGroup.add(barrel);
 
-        // 抽烟装置（炮管中段1/3处的环状凸起）
-        const boreEvacGeo = new THREE.CylinderGeometry(0.058, 0.058, 0.09, 16);
+        // 抽烟器 — 中后段环状凸起（距根部约1/3处）
+        const boreEvacGeo = new THREE.CylinderGeometry(0.051, 0.051, 0.10, 16);
         const boreEvac = new THREE.Mesh(boreEvacGeo, new THREE.MeshStandardMaterial({
             color: '#555555', roughness: 0.35, metalness: 0.65
         }));
         boreEvac.rotation.x = -Math.PI / 2;
-        boreEvac.position.set(0, TURRET_BASE_Y + 0.18, 0.58 + 0.55);
+        boreEvac.position.set(0, TURRET_BASE_Y + 0.18,
+            BARREL_BASE_Z + 0.20 + mainBarrelLen * 0.35);
         barrelGroup.add(boreEvac);
 
-        // 炮口（略微加粗的末端）
-        const muzzleGeo = new THREE.CylinderGeometry(0.043, 0.043, 0.05, 16);
+        // 炮口（末端微加粗）
+        const muzzleGeo = new THREE.CylinderGeometry(0.036, 0.038, 0.06, 16);
         const muzzle = new THREE.Mesh(muzzleGeo, barrelMat);
         muzzle.rotation.x = -Math.PI / 2;
-        muzzle.position.set(0, TURRET_BASE_Y + 0.18, 0.58 + 1.50);
+        muzzle.position.set(0, TURRET_BASE_Y + 0.18,
+            BARREL_BASE_Z + 0.20 + mainBarrelLen - 0.03);
         barrelGroup.add(muzzle);
 
         group.add(barrelGroup);
@@ -404,7 +396,7 @@
         // ═════════════════════
         //  圆形投影阴影
         // ═════════════════════
-        const shGeo = new THREE.CircleGeometry(0.6, 32);
+        const shGeo = new THREE.CircleGeometry(0.65, 32);
         const sh = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({
             color: '#000', transparent: true, opacity: 0.3, depthWrite: false
         }));
@@ -414,7 +406,7 @@
         sh.name = 'shadow';
         group.add(sh);
 
-        // 递归启用阴影投射/接收
+        // 递归阴影
         group.traverse(c => {
             if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
         });
@@ -422,7 +414,8 @@
         return group;
     }
 
-    // ─── 注册到模型注册表 ───
-    window.ModelRegistry.register('tanks', 't34-85-green',  (opts) => createT34_85({ ...opts, camoColor: 'green' }));
-    window.ModelRegistry.register('tanks', 't34-85-desert', (opts) => createT34_85({ ...opts, camoColor: 'desert' }));
+    window.ModelRegistry.register('tanks', 't34-85-green',  (opts) =>
+        createT34_85({ ...opts, camoColor: 'green' }));
+    window.ModelRegistry.register('tanks', 't34-85-desert', (opts) =>
+        createT34_85({ ...opts, camoColor: 'desert' }));
 })();
