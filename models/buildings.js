@@ -37,7 +37,7 @@
             new THREE.ExtrudeGeometry(shp, { depth: d + oH*2, bevelEnabled: false }),
             roofM
         );
-        roofMsh.position.set(0, h, -(d + oH*2) / 2 + d / 2);
+        roofMsh.position.set(0, h, -(d + oH*2) / 2);
         g.add(roofMsh);
 
         // 窗户（正面+背面2排）
