@@ -10,18 +10,67 @@
         g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
     }
 
-    // 平房
+    // 平房（精细化：山墙屋顶+窗户+门+烟囱）
     function createBungalow() {
         const g = new THREE.Group();
-        const h = 0.8 + Math.random() * 0.3;
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9 + Math.random()*0.3, h, 0.7 + Math.random()*0.3), wallMat);
+        const h = 0.6 + Math.random() * 0.2;
+        const w = 0.8 + Math.random() * 0.2;
+        const d = 0.65 + Math.random() * 0.15;
+        const wallColors = ['#E8D5B7','#D4C5A9','#F0DCC0','#C9B896'];
+        const wallM = new THREE.MeshStandardMaterial({ color: wallColors[Math.floor(Math.random()*4)], roughness:0.85 });
+        const roofM = new THREE.MeshStandardMaterial({ color: '#A0522D', roughness: 0.8 });
+        const trimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
+        const winM  = new THREE.MeshStandardMaterial({ color:'#AACCFF', emissive:'#224466', emissiveIntensity:0.1 });
+        const doorM = new THREE.MeshStandardMaterial({ color:'#5C3317', roughness:0.6 });
+
+        // 主体
+        const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallM);
         body.position.y = h / 2;
         g.add(body);
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.35, 4), roofMat);
-        roof.position.y = h + 0.15;
-        roof.rotation.y = Math.PI / 4;
-        g.add(roof);
-        g.userData = { height: h + 0.35, radius: 0.55, color: '#D4C5A9' };
+
+        // 山墙屋顶（三角形沿Z拉伸）
+        const rH = 0.32, oH = 0.04; // 屋顶高度、屋檐出挑
+        const shp = new THREE.Shape();
+        const hw = w / 2 + oH;
+        shp.moveTo(-hw, 0); shp.lineTo(0, rH); shp.lineTo(hw, 0); shp.closePath();
+        const roofMsh = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(shp, { depth: d + oH*2, bevelEnabled: false }),
+            roofM
+        );
+        roofMsh.position.set(0, h, -(d + oH*2) / 2 + d / 2);
+        g.add(roofMsh);
+
+        // 窗户（正面+背面2排）
+        for (let side = -1; side <= 1; side += 2) {
+            for (let wi = -1; wi <= 1; wi += 2) {
+                const win = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.1), winM);
+                win.position.set(wi * w * 0.25, h * 0.55, side * (d / 2 + 0.001));
+                g.add(win);
+                // 窗框
+                const frm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.005), trimM);
+                frm.position.set(wi * w * 0.25, h * 0.55, side * (d / 2 + 0.002));
+                g.add(frm);
+            }
+        }
+
+        // 门（正面中心）
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.28, 0.01), doorM);
+        door.position.set(0, 0.14, d / 2 + 0.003);
+        g.add(door);
+        // 门框
+        const drFrm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.32, 0.008), trimM);
+        drFrm.position.set(0, 0.16, d / 2 + 0.002);
+        g.add(drFrm);
+
+        // 烟囱
+        const chm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.06), trimM);
+        chm.position.set(w * 0.28, h + rH * 0.55, d * 0.15);
+        g.add(chm);
+        const chmTop = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.09), trimM);
+        chmTop.position.set(w * 0.28, h + rH * 0.55 + 0.09, d * 0.15);
+        g.add(chmTop);
+
+        g.userData = { height: h + rH, radius: Math.max(w, d) / 2 * 1.15, color: '#' + wallM.color.getHexString() };
         addShadow(g);
         return g;
     }
