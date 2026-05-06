@@ -290,7 +290,7 @@
             // 烟雾：从中心向上升腾
             for (let i = 0; i < this.smokeCount; i++) {
                 const p = this.smokeData[i];
-                p.life = 2.0 + Math.random() * 2.0;
+                p.life = 1.0 + Math.random() * 0.5;
                 p.maxLife = p.life;
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 0.5 + Math.random() * 2.0;
