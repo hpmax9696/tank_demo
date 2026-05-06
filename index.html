@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.14.0</title>
+    <title>坦克运动demo v0.14.1</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,15 +175,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.14.0</div>
+        <div class="menu-version">v0.14.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.14.0 更新 — 优化爆炸效果逻辑</div>
-            <div class="cl-item">障碍物被击中或殉爆时不再产生爆炸火焰，只保留碎块散开效果</div>
-            <div class="cl-item">坦克爆炸时的火焰持续时间缩短至 0.25~0.5 秒，更加干脆利落</div>
+            <div class="cl-title">🔄 v0.14.1 更新 — 修复爆炸粒子渐隐效果</div>
+            <div class="cl-item">修复爆炸粒子停顿卡住后突然消失的问题，粒子现在持续扩散直到完全消失</div>
+            <div class="cl-item">粒子基于生命周期平滑渐隐，整体透明度随最后存活粒子的生命同步衰减</div>
         </div>
     </div>
 
