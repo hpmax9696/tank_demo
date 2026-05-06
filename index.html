@@ -210,6 +210,8 @@
 
     <!-- Three.js UMD 构建，通过 CDN 加载，支持 file:// 协议直接打开 -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
+    <script src="fireSmokeParticles.js"></script>
 
     <script>
         // ==================== DOM 引用 ====================
@@ -663,6 +665,11 @@
             player.hpBarGroup.add(player.hpBarFill);
             player.hpBarGroup.visible = false;
             scene.add(player.hpBarGroup);
+
+            // 损毁效果（血量 < 50 时显示火焰和烟雾）
+            player.damageEffects = new window.DamageEffects(player.group);
+            scene.add(player.damageEffects.firePoints);
+            scene.add(player.damageEffects.smokePoints);
         }
 
         // 单人模式兼容：创建传统坦克
@@ -989,6 +996,8 @@
             if (reloadBarGroup) reloadBarGroup.visible = false;
             tankGroup.position.set(0, 0, 0);
             tankGroup.rotation.set(0, 0, 0);
+            // 隐藏损毁效果（血量重置）
+            if (player1 && player1.damageEffects) player1.damageEffects.hide();
         }
 
         // ==================== 碰撞检测 ====================
@@ -1395,6 +1404,16 @@
             const shadow = tankGroup.getObjectByName('shadow');
             if (shadow) { shadow.position.y = 0.02; }
 
+            // ── 坦克损毁效果（血量 < 50 时显示火焰和烟雾） ──
+            if (player1 && player1.damageEffects) {
+                if (!player1.dead && player1.hp < 50) {
+                    if (!player1.damageEffects.active) player1.damageEffects.show();
+                    player1.damageEffects.update(dt, player1.state);
+                } else {
+                    if (player1.damageEffects.active) player1.damageEffects.hide();
+                }
+            }
+
             renderer.render(scene, camera);
             animationId = requestAnimationFrame(gameLoop);
         }
@@ -1609,6 +1628,17 @@
             updateShellsFragsMuzzle(dt);
             if(visibilityTimer>.3){updateObstacleVisibility();visibilityTimer=0;}
             for(const od of obstacleData){if(od.blades)od.blades.rotation.z+=1.5*dt;}
+            // ── 坦克损毁效果（血量 < 50 时显示火焰和烟雾） ──
+            for (const p of [player1, player2]) {
+                if (p && p.damageEffects) {
+                    if (!p.dead && p.hp < 50) {
+                        if (!p.damageEffects.active) p.damageEffects.show();
+                        p.damageEffects.update(dt, p.state);
+                    } else {
+                        if (p.damageEffects.active) p.damageEffects.hide();
+                    }
+                }
+            }
             // 分屏尺寸（使用 window.innerWidth，gameContainer 保持布局尺寸）
             const dpr = renderer.getPixelRatio();
             const cssW = window.innerWidth, cssH = window.innerHeight;
