@@ -1561,10 +1561,20 @@
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
             renderer.setSize(window.innerWidth, window.innerHeight);
 
+            // 移除旧 player1（来自 initScene 或上次游戏的残留）
+            if(player1&&player1.group)scene.remove(player1.group);
+            if(player1&&player1.reloadBarGroup)scene.remove(player1.reloadBarGroup);
+            if(player1&&player1.hpBarGroup)scene.remove(player1.hpBarGroup);
+            if(player1&&player1.damageEffects){scene.remove(player1.damageEffects.firePoints);scene.remove(player1.damageEffects.smokePoints);}
+            // 移除旧 player2（来自上次对战的残留）
             if(player2&&player2.group)scene.remove(player2.group);
+            if(player2&&player2.reloadBarGroup)scene.remove(player2.reloadBarGroup);
+            if(player2&&player2.hpBarGroup)scene.remove(player2.hpBarGroup);
+            if(player2&&player2.damageEffects){scene.remove(player2.damageEffects.firePoints);scene.remove(player2.damageEffects.smokePoints);}
             shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
+            explosions.forEach(exp=>exp.dispose());explosions=[];
             player1=createPlayer('green',-15,0,Math.PI/2,true);player2=createPlayer('desert',15,0,-Math.PI/2,false);
             createPlayerTank(player1);createPlayerTank(player2);
             createBarsForPlayer(player1);createBarsForPlayer(player2);
@@ -1697,6 +1707,9 @@
             if (player2 && player2.group) { scene.remove(player2.group); }
             if (player2 && player2.reloadBarGroup) scene.remove(player2.reloadBarGroup);
             if (player2 && player2.hpBarGroup) scene.remove(player2.hpBarGroup);
+            if (player2 && player2.damageEffects) { scene.remove(player2.damageEffects.firePoints); scene.remove(player2.damageEffects.smokePoints); }
+            // 清理所有爆炸效果残留
+            explosions.forEach(exp => exp.dispose()); explosions = [];
             // 重置 player1 state 与全局状态同步
             if (player1) {
                 player1.state.x = 0; player1.state.z = 0; player1.state.yaw = Math.PI / 2;
@@ -1705,6 +1718,7 @@
                 player1.reloadTimer = 0;
                 player1.hp = 100; player1.dead = false;
                 if (player1.group) player1.group.visible = true;
+                if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
             }
             resetTank();
             if(reloadBarGroup)reloadBarGroup.visible=true;
