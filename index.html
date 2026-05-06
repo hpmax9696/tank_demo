@@ -668,6 +668,7 @@
         // 单人模式兼容：创建传统坦克
         function createTank() {
             const p = createPlayer('green', 0, 0, Math.PI/2, true);
+            createPlayerTank(p);  // 创建 3D 模型（设置 p.group）
             // 把 player 的属性映射到全局变量
             tankGroup = p.group; tankHull = p.hull;
             leftWheels = p.leftWheels; rightWheels = p.rightWheels;
