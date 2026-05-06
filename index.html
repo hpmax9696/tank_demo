@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.15.0</title>
+    <title>坦克运动demo v0.16.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,18 +229,18 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.15.0</div>
+        <div class="menu-version">v0.16.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.15.0 更新 — 模型系统重构 + 模型预览</div>
-            <div class="cl-item">模型代码从 index.html 抽取到 models/ 目录独立管理（坦克/树木/建筑/风车）</div>
-            <div class="cl-item">新增模型预览模式：下拉菜单切换模型，鼠标拖拽旋转视角，滚轮缩放</div>
-            <div class="cl-item">Three.js 改为本地加载（three.min.js），无需网络即可运行</div>
-            <div class="cl-item">风车叶片使用 PlaneGeometry 扁平叶片，视觉效果更真实</div>
+            <div class="cl-title">🔄 v0.16.0 更新 — T-34-85 后期型 高精度模型</div>
+            <div class="cl-item">新增 T-34-85 后期型 (Model 1944/1945) 坦克模型：楔形车体 + 60°首上装甲 + 铸造半球炮塔 + 85mm主炮</div>
+            <div class="cl-item">5对大直径负重轮等间距排列，带诱导轮和主动轮，闭合椭圆履带环路</div>
+            <div class="cl-item">模型库新增：t34-85-green（绿色涂装）/ t34-85-desert（沙漠涂装），可在模型预览中查看</div>
+            <div class="cl-item">单人模式和对战模式仍使用原有坦克模型（新模型仅加入模型库，暂不替换）</div>
         </div>
     </div>
 
@@ -280,6 +280,7 @@
     <!-- 模型系统 -->
     <script src="models/modelRegistry.js"></script>
     <script src="models/tank.js"></script>
+    <script src="models/t34-85.js"></script>
     <script src="models/trees.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
@@ -1964,7 +1965,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.15.0 | 模型系统重构 + 模型预览 + 本地Three.js');
+        console.log('🎮 坦克运动demo v0.16.0 | T-34-85后期型模型 + 模型预览 + 本地Three.js');
     </script>
 </body>
 </html>
