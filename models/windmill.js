@@ -25,12 +25,18 @@
         roof.position.y = h + 0.15;
         g.add(roof);
 
-        // 风车叶片组（2根长条交叉穿过轴心，形成十字）
+        // 连接轴（从屋顶侧面伸出）
+        const axleMat = new THREE.MeshStandardMaterial({ color: '#8B6914', roughness: 0.7 });
+        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.22, 6), axleMat);
+        axle.rotation.z = Math.PI / 2;
+        axle.position.set(0.28, h + 0.22, 0);
+        g.add(axle);
+
+        // 风车叶片组（2根长条交叉穿过轴心，在磨坊侧面旋转）
         const bladeGroup = new THREE.Group();
-        bladeGroup.position.y = h + 0.35;
+        bladeGroup.position.set(0.41, h + 0.22, 0);
         const bladeLen = 0.85;
         const bladeWid = 0.18;
-        // 2根长条形穿过中心，形成 + 字
         for (let i = 0; i < 2; i++) {
             const bladeGeo = new THREE.BoxGeometry(bladeWid, bladeLen * 2, 0.02);
             const blade = new THREE.Mesh(bladeGeo, windmillBladeMat);
