@@ -1,4 +1,4 @@
-/**
+﻿/**
  * T-34-85 后期型 (Model 1944) — v6.1 修正版
  *
  * 基于 T-34/85 实车照片全面重构：
@@ -94,34 +94,33 @@
         group.add(hullMesh);
         group.userData.hull = hullMesh;
 
-                // ── 发动机舱顶盖 + 散热格栅 ──
-        // 注意：hullMesh旋转后shape的X→-Z轴，shape_x=-0.75对应世界z=0.75（尾部）
+        // ── 发动机舱顶盖 + 散热格栅 ──
+        // T-34/85 发动机舱是略微倾斜的斜面，不是平铺大盒子
         {
-            const deckFrontZ = -(-FRONT_Z + 0.10);  // shape x=-0.75 → 世界z=0.75
-            const deckBackZ  = -REAR_Z;             // shape x=-0.85 → 世界z=0.85
-            const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
-            const deckLen = deckBackZ - deckFrontZ;
+            const deckL = 0.42;
+            const deckZ = (-FRONT_Z + REAR_Z) / 2;  // 居中于尾部区域
+            const deckFrontZ = -FRONT_Z + 0.06;
+            const deckBackZ  = REAR_Z - 0.02;
 
-            // 发动机舱盖
-            const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckLen);
+            // 斜顶发动机舱盖（前高后低）
+            const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckL);
             const deck = new THREE.Mesh(deckGeo, hullMat);
-            deck.position.set(0, HULL_TOP + 0.010, deckCenterZ);
-            deck.rotation.x = -0.04;
+            deck.position.set(0, HULL_TOP + 0.008, deckZ);
+            deck.rotation.x = 0.04;  // 微微前倾
             deck.castShadow = true;
             group.add(deck);
 
-            // 散热格栅条
+            // 散热格栅（单排，更细）
             for (let g = 0; g < 9; g++) {
                 const bar = new THREE.Mesh(
                     new THREE.BoxGeometry(HULL_W - 0.22, 0.004, 0.014),
                     detailMat);
-                const t = g / 8;
-                const barZ = deckFrontZ + 0.02 + t * (deckLen - 0.04);
-                bar.position.set(0, HULL_TOP + 0.022, barZ);
+                bar.position.set(0, HULL_TOP + 0.020,
+                    deckFrontZ - 0.02 + g * 0.048);
                 group.add(bar);
             }
+
         }
-}
 
         // ── 驾驶员/机枪手舱盖区（车体前部凸起）─
         {
