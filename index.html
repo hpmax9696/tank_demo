@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.22</title>
+    <title>坦克运动demo v0.18.30</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,16 +229,23 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.22</div>
+        <div class="menu-version">v0.18.30</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔄 v0.18.28~30 更新 — 风车模型修复(旋转轴+位置)</div>
+            <div class="cl-item">叶片平面YZ法线朝X，绕X轴旋转；高度调至h-0.04避免砍地</div>
+            <div class="cl-title">🔄 v0.18.25~27 更新 — 风车模型重构</div>
+            <div class="cl-item">BoxGeometry加厚度→2根长条十字→移到侧面加连接轴</div>
+            <div class="cl-title">🔄 v0.18.24 更新 — 修复预览模式canvas残留</div>
+            <div class="cl-item">exitPreviewMode移除DOM canvas；enterPreviewMode清理残留</div>
+            <div class="cl-title">🔄 v0.18.23 更新 — 修复模式切换坦克残留</div>
+            <div class="cl-item">enterVersusMode/enterGame彻底清理旧player/爆炸/特效</div>
             <div class="cl-title">🔄 v0.18.22 更新 — deck归位车尾+履带Torus修复</div>
-            <div class="cl-title">🔄 v0.18.22 更新 — deck修复+轮履加宽</div>
-            <div class="cl-item">尾部改为垂直尾板，消除5点剖面closePath长边导致的ExtrudeGeometry分离面</div>
+            <div class="cl-item">尾部垂直尾板，消除ExtrudeGeometry分离面</div>
         </div>
     </div>
 
@@ -1753,7 +1760,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.22  dpr:' + dpr.toFixed(2) +
+                'v0.18.30  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -1990,7 +1997,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.22 | deck车尾+履带修复');
+        console.log('🎮 坦克运动demo v0.18.30 | 风车模型修复+模式切换修复');
     </script>
 </body>
 </html>
