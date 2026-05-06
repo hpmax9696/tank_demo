@@ -549,7 +549,6 @@
             renderer.toneMappingExposure = 1.2;
             // 挂到 gameContainer（visibility:hidden 保持布局尺寸，不会导致 canvas 0 尺寸）
             gameContainer.appendChild(renderer.domElement);
-            renderer.domElement.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;';
 
             // --- 场景 ---
             scene = new THREE.Scene();
@@ -1718,7 +1717,6 @@
                 gameContainer.removeChild(oldCanvas);
             }
             const newCanvas = document.createElement('canvas');
-            newCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;';
             gameContainer.insertBefore(newCanvas, gameContainer.firstChild);
             // 创建新的 WebGLRenderer 使用新 canvas
             renderer.dispose();
