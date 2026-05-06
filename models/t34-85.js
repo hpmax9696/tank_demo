@@ -70,7 +70,6 @@
         //  车体 — 带倾斜尾板的船形剖面
         // ========================================
 
-        const REAR_BOT_Y = HULL_BOT;  // 尾板底部高度
         const REAR_Z = -FRONT_Z;      // 尾板Z位
 
         let hullGeo;
@@ -121,16 +120,6 @@
                 group.add(bar);
             }
 
-            // 尾板装甲（垂直后装甲板）
-            const tailPlateGeo = new THREE.BoxGeometry(HULL_W - 0.02, HULL_TOP - REAR_BOT_Y + 0.01, 0.018);
-            const tailPlate = new THREE.Mesh(tailPlateGeo, hullMat);
-            tailPlate.position.set(REAR_Z,
-                (HULL_TOP - 0.05 + REAR_BOT_Y) / 2,
-                0);
-            tailPlate.rotation.y = Math.PI / 2;
-            tailPlate.rotation.x = -0.35;  // 向后下方倾斜
-            tailPlate.castShadow = true;
-            group.add(tailPlate);
         }
 
         // ── 驾驶员/机枪手舱盖区（车体前部凸起）─
