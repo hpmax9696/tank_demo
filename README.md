@@ -328,7 +328,63 @@ fireSmokeParticles.js:
 
 ---
 
-## 六、关键设计决策与踩坑记录
+## 六、T-34-85 模型技术参数（供后续模型接手参考）
+
+> 模型代码：`models/t34-85.js` · 仅模型预览可用 · 单人/对战模式仍用 `models/tank.js`
+
+| 部件 | 关键参数 |
+|------|---------|
+| 车体剖面 | `Shape`: (0.85,0.25)→(0.33,0.55)→(-0.85,0.55)→(-0.85,0.25), 挤出深度0.94 |
+| 首上倾角 | 60°从垂直面（30°从水平面） |
+| 炮塔下部 | `Cylinder(topR=0.50, bottomR=0.53, h=0.24, segs=36)` |
+| 炮塔穹顶 | `Sphere(r=0.53, theta=0~0.42π)` |
+| 矩形防盾 | `Box(0.32, 0.24, 0.12)`, pos `z=TURRET_R-0.04` |
+| 主炮管 | `Cylinder(r=0.033~0.035, len=1.15)`, 中段抽烟器 r=0.051 |
+| 负重轮×5 | r=0.14, y=0.14, z=-0.40,-0.20,0,0.20,0.40 |
+| 诱导轮 | r=0.10, y=0.12, z=0.75（前下方） |
+| 主动轮 | r=0.18, y=0.22, z=-0.68（后上方），14齿 |
+| 履带 | 底部 y=0.01 水平 + 顶部 y=0.27 水平 + 前后6段弧形 |
+
+### 游戏接口兼容性（userData）
+
+模型 `group.userData` 设置了以下字段（游戏代码依赖）：
+- `hull` — 车体 Mesh 引用
+- `leftWheels` — 左侧轮组 Group 数组（游戏通过 `w.rotation.x` 驱动旋转）
+- `rightWheels` — 右侧轮组 Group 数组
+- **重要**：修改模型时需保持这些字段，否则单人/对战模式的轮子动画将失效。
+
+### 快速调参指南
+
+修改 `models/t34-85.js` 顶部常量即可调整比例：
+
+```javascript
+const HULL_W = 0.94;          // 车体宽度
+const GLACIS_DZ = 0.52;      // 首上水平跨度（控制倾角）
+const WL_R = 0.14;           // 负重轮半径
+const SPROCKET_R = 0.18;     // 主动轮半径（加大则更明显）
+const SPROCKET_Y = 0.22;     // 主动轮高度（加高则更高）
+const TURRET_OUTER_R = 0.53; // 炮塔外径（加大则更宽）
+const mainBarrelLen = 1.15;  // 炮管长度
+```
+
+### 视觉验证清单（有多模态能力时对照参考图验证）
+
+1. **首上装甲**：从侧面看，车体前部是否呈现一条清晰的60°斜线？
+2. **炮塔形状**：是否像"截顶圆锥+圆顶"而非完美半球？炮塔是否比车体宽？
+3. **炮管**：是否细长（长度≈车体2/3）？防盾是否可见？
+4. **主动轮**：后上方的轮子是否明显比负重轮大且带齿？
+5. **履带**：是否形成完整环状包裹车轮？
+
+### 可能的后续任务
+
+- 将 T-34-85 模型替换到单人/对战模式中
+- 实现炮塔独立旋转（当前游戏未实现）
+- 添加履带纹理/细节
+- 增加更多涂装变体
+
+---
+
+## 七、关键设计决策与踩坑记录
 
 ### 6.1 `visibility:hidden` vs `display:none`
 - `display:none` → Canvas 从布局流移除，`width=0, height=0` → WebGL 初始化异常 → 外部浏览器黑屏
@@ -368,7 +424,7 @@ fireSmokeParticles.js:
 
 ---
 
-## 七、已知问题
+## 八、已知问题
 
 | # | 问题 | 备注 |
 |---|------|------|
@@ -378,7 +434,7 @@ fireSmokeParticles.js:
 
 ---
 
-## 八、开发者接力指南
+## 九、开发者接力指南
 
 ### 在单位电脑设置
 1. 复制整个 `坦克对战demo/` 文件夹到单位电脑
@@ -389,12 +445,26 @@ fireSmokeParticles.js:
 ### Git 仓库信息
 - **GitHub**：`git@github.com:hpmax9696/tank_demo.git`（网络不稳定，偶有超时）
 - **Gitee**：`git@gitee.com:hpmax9696/tank_demo.git`（推荐使用）
-- 每次代码更新后执行 `git add -A && git commit -m "版本号: 描述"`，然后推送两边
+- 每次代码更新后执行 `git add -A && git commit -m "vX.Y.Z: 描述"`，然后推送两边
 - GitHub 推送设置 30 秒超时，失败则跳过留待下次
+
+### OneDrive 备份目录
+- `C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\`
+- 每次代码更新后同步以下文件：`index.html`、`fireSmokeParticles.js`、`README.md`、`models/*`
+- OneDrive 目录也用于实际测试运行
+
+### 更新策略 SOP
+```
+git add -A
+git commit -m "vX.Y.Z: 描述"
+git push origin master          # Gitee
+git push github master          # GitHub (30秒超时，失败跳过)
+xcopy index.html + fireSmokeParticles.js + README.md + models/* → OneDrive目录
+```
 
 ### 调试建议
 1. 打开浏览器开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.15.0 | 模型系统重构 + 模型预览 + 本地Three.js`
+2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.16.1 | T-34-85后期型模型v2修正 + 模型预览 + 本地Three.js`
 3. 菜单左下角显示当前版本号和更新日志
 4. 修改代码后强制刷新（Ctrl+F5）确保不使用缓存
 
@@ -405,7 +475,7 @@ fireSmokeParticles.js:
 
 ---
 
-## 九、版权与许可
+## 十、版权与许可
 
 坦克 3D 模型和游戏逻辑为原创实现。  
 Three.js 使用 MIT 许可证。  
