@@ -32,15 +32,16 @@
         axle.position.set(0.28, h + 0.22, 0);
         g.add(axle);
 
-        // 风车叶片组（2根长条交叉穿过轴心，在磨坊侧面旋转）
+        // 风车叶片组（2根长条交叉，平面在YZ方向，法线朝X，绕X轴旋转）
         const bladeGroup = new THREE.Group();
         bladeGroup.position.set(0.41, h + 0.22, 0);
         const bladeLen = 0.85;
         const bladeWid = 0.18;
         for (let i = 0; i < 2; i++) {
-            const bladeGeo = new THREE.BoxGeometry(bladeWid, bladeLen * 2, 0.02);
+            // 薄面朝向X方向（depth在X=0.02），使法线指向X轴
+            const bladeGeo = new THREE.BoxGeometry(0.02, bladeLen * 2, bladeWid);
             const blade = new THREE.Mesh(bladeGeo, windmillBladeMat);
-            blade.rotation.z = (i * Math.PI) / 2;
+            blade.rotation.x = (i * Math.PI) / 2;
             blade.position.set(0, 0, 0);
             bladeGroup.add(blade);
         }

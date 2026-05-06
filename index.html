@@ -1352,7 +1352,7 @@
             // 风车叶片持续旋转
             for (const od of obstacleData) {
                 if (od.blades) {
-                    od.blades.rotation.z += 1.5 * dt;
+                    od.blades.rotation.x += 1.5 * dt;
                 }
             }
 
@@ -1608,7 +1608,7 @@
             if(!p2fire)player2.fireReady=true;
             updateShellsFragsMuzzle(dt);
             if(visibilityTimer>.3){updateObstacleVisibility();visibilityTimer=0;}
-            for(const od of obstacleData){if(od.blades)od.blades.rotation.z+=1.5*dt;}
+            for(const od of obstacleData){if(od.blades)od.blades.rotation.x+=1.5*dt;}
             // ── 坦克损毁效果（血量 < 50 时显示火焰和烟雾） ──
             for (const p of [player1, player2]) {
                 if (p && p.damageEffects) {
@@ -1860,7 +1860,7 @@
             function previewLoop() {
                 updatePreviewCamera();
                 if (previewModel && previewModel.userData && previewModel.userData.blades) {
-                    previewModel.userData.blades.rotation.z += 1.5 * 0.016;
+                    previewModel.userData.blades.rotation.x += 1.5 * 0.016;
                 }
                 previewRenderer.render(previewScene, previewCamera);
                 previewAnimId = requestAnimationFrame(previewLoop);
