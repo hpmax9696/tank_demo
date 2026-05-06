@@ -245,7 +245,7 @@
     <!-- ========== 游戏画面 ========== -->
     <div id="game-container">
         <!-- 调试信息 -->
-        <div id="debug-info" style="position:fixed;top:4px;left:4px;z-index:200;color:#0f0;font-size:12px;font-family:monospace;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:pre;line-height:1.4;"></div>
+        <div id="debug-info" style="position:fixed;top:4px;right:4px;z-index:200;color:#0f0;font-size:12px;font-family:monospace;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:pre;line-height:1.4;"></div>
         <div id="hud">
             <button id="btn-back">← 返回菜单 (ESC)</button>
         </div>
@@ -1748,11 +1748,12 @@
             const gc = document.getElementById('game-container');
             const cw = gc ? gc.clientWidth : 0, ch = gc ? gc.clientHeight : 0;
             const rdw = renderer ? renderer.domElement.width : 0, rdh = renderer ? renderer.domElement.height : 0;
-            const asp = camera ? (camera.aspect || 0).toFixed(4) : 0;
+            const asp = camera ? (camera.aspect || 0).toFixed(4) : '-';
+            const cam2asp = (typeof camera2 !== 'undefined' && camera2) ? camera2.aspect.toFixed(4) : '-';
             el.textContent =
-                'window: ' + iw + 'x' + ih + '  dpr: ' + dpr +
-                '\ncontainer: ' + cw + 'x' + ch +
-                '\ncanvas: ' + rdw + 'x' + rdh + '  aspect: ' + asp;
+                'mode: ' + gameMode + '  dpr: ' + dpr +
+                '\nwin: ' + iw + 'x' + ih + '  cont: ' + cw + 'x' + ch +
+                '\ncanv: ' + rdw + 'x' + rdh + '  camA: ' + asp + '  cam2A: ' + cam2asp;
         }
 
         function returnToMenu() {
