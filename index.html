@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.13.9</title>
+    <title>坦克运动demo v0.14.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,15 +175,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.13.9</div>
+        <div class="menu-version">v0.14.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.13.9 更新 — 优化坦克爆炸效果持续时间</div>
-            <div class="cl-item">烟雾粒子持续时间从 2-4 秒缩短到 1-1.5 秒，避免火焰消失后烟雾长时间滞留</div>
-            <div class="cl-item">爆炸烟雾升腾效果更加干脆利落，整体视觉更协调</div>
+            <div class="cl-title">🔄 v0.14.0 更新 — 优化爆炸效果逻辑</div>
+            <div class="cl-item">障碍物被击中或殉爆时不再产生爆炸火焰，只保留碎块散开效果</div>
+            <div class="cl-item">坦克爆炸时的火焰持续时间缩短至 0.25~0.5 秒，更加干脆利落</div>
         </div>
     </div>
 
@@ -1136,9 +1136,7 @@
                     const obsCenter = obs.position.clone();
                     obsCenter.y += (obsData.height || 1.5) / 2;
 
-                    // 在障碍物位置生成爆炸效果（skipChain=true 防止无限递归）
-                    spawnExplosion(obsCenter, true);
-
+                    // 障碍物被殉爆：只产生碎块效果，不需要爆炸火焰
                     // 移除障碍物
                     obs.parent.remove(obs);
                     obs.traverse(c => {
@@ -1326,8 +1324,7 @@
                         const obsWorldPos = obs.position.clone(); obsWorldPos.y += obsTop/2;
                         spawnFragments(obsWorldPos, obsData.color);
                         playExplosionSound();
-                        // 障碍物被击中：触发爆炸效果
-                        spawnExplosion(obsWorldPos);
+                        // 障碍物被击中：只产生碎块效果，不需要爆炸火焰
                         // 检查是否已被殉爆系统移除（parent可能为null）
                         if (obs.parent) {
                             obs.parent.remove(obs);
@@ -1763,8 +1760,7 @@
                     const hD=Math.sqrt(hdx*hdx+hdz*hdz);if(hD>=sR+(od2.radius||.55))continue;
                     const oT=od2.height||1.5;if(s.mesh.position.y>=-.3&&s.mesh.position.y<=oT+.3){
                         const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
-                        // 障碍物被击中：触发爆炸效果
-                        spawnExplosion(op);
+                        // 障碍物被击中：只产生碎块效果，不需要爆炸火焰
                         // 检查是否已被殉爆系统移除（parent可能为null）
                         if (obs.parent) {
                             obs.parent.remove(obs);
@@ -1877,7 +1873,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.13.9 | 优化坦克爆炸效果持续时间');
+        console.log('🎮 坦克运动demo v0.14.0 | 优化爆炸效果逻辑');
     </script>
 </body>
 </html>

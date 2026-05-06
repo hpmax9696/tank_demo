@@ -268,10 +268,10 @@
             this.firePoints.visible = true;
             this.smokePoints.visible = true;
 
-            // 火焰：从中心爆发
+            // 火焰：从中心爆发（缩短持续时间，更干脆）
             for (let i = 0; i < this.fireCount; i++) {
                 const p = this.fireData[i];
-                p.life = 0.6 + Math.random() * 0.8;
+                p.life = 0.25 + Math.random() * 0.25;
                 p.maxLife = p.life;
                 // 初始速度：从中心向四周爆发
                 const angle = Math.random() * Math.PI * 2;
