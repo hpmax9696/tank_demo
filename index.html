@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.13.5</title>
+    <title>坦克运动demo v0.13.7</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,16 +175,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.13.5</div>
+        <div class="menu-version">v0.13.7</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.13.5 更新 — 新增坦克损毁效果（血量<50显示火焰和烟雾）</div>
-            <div class="cl-item">箭头方向修复：检测目标是否在摄像机后方（project z>1），反转方向向量 + 钳制位置</div>
-            <div class="cl-item">单人模式黑屏修复：enterGame 中显式调用 renderer.render() 产生可见首帧</div>
-            <div class="cl-item">消除"先进双人再进单人"才能正常显示的依赖</div>
+            <div class="cl-title">🔄 v0.13.7 更新 — 修复殉爆系统栈溢出Bug</div>
+            <div class="cl-item">修复炮弹击中障碍物触发殉爆时的无限递归调用，导致游戏卡死（Maximum call stack size exceeded）</div>
+            <div class="cl-item">spawnExplosion 新增 skipChain 参数，殉爆链内部爆炸不再重复触发殉爆检测</div>
         </div>
     </div>
 
@@ -446,6 +445,7 @@
         let obstacleMeshes = [], obstacleData = [];
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
+        let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
 
         // 游戏参数
         const TRACK_SPACING = 3.2;
@@ -987,6 +987,9 @@
             // 清除炮口焰
             muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); });
             muzzleLights = [];
+            // 清除所有爆炸效果
+            explosions.forEach(e => { e.dispose(); });
+            explosions = [];
             // 重置装填条（PlaneGeometry: scale.y=1, 底部对齐）
             if (reloadBarFill) {
                 reloadBarFill.scale.y = 1;
@@ -1090,6 +1093,61 @@
                         (Math.random() - 0.5) * 10
                     )
                 });
+            }
+        }
+
+        // ==================== 坦克爆炸效果 & 殉爆系统 ====================
+        const EXPLOSION_RADIUS = 3.5;  // 殉爆半径（米）
+        const EXPLOSION_COLOR_TANK = '#ff6600';
+
+        // 生成坦克死亡时的大型爆炸火焰烟雾
+        // skipChain=true 时不触发连锁爆炸，防止无限递归
+        function spawnExplosion(pos, skipChain) {
+            const effect = new window.ExplosionEffects();
+            scene.add(effect.firePoints);
+            scene.add(effect.smokePoints);
+            effect.trigger(pos.clone());
+            explosions.push(effect);
+
+            // 只有初始爆炸（非殉爆连锁的爆炸）才触发殉爆检查，防止无限递归
+            if (!skipChain) {
+                checkChainExplosion(pos);
+            }
+        }
+
+        // 殉爆系统：坦克爆炸时引爆近距离的树木/建筑物，但不会伤害敌方坦克
+        function checkChainExplosion(explosionPos) {
+            const chainRadius = EXPLOSION_RADIUS;
+            const chainRadiusSq = chainRadius * chainRadius;
+
+            // 从后往前遍历，避免删除时索引问题
+            for (let i = obstacleMeshes.length - 1; i >= 0; i--) {
+                const obs = obstacleMeshes[i];
+                const obsData = obstacleData[i];
+                if (!obs.visible) continue;
+
+                const dx = explosionPos.x - obsData.x;
+                const dz = explosionPos.z - obsData.z;
+                const distSq = dx * dx + dz * dz;
+
+                // 在殉爆半径内，障碍物被引爆
+                if (distSq < chainRadiusSq) {
+                    // 获取障碍物中心点
+                    const obsCenter = obs.position.clone();
+                    obsCenter.y += (obsData.height || 1.5) / 2;
+
+                    // 在障碍物位置生成爆炸效果（skipChain=true 防止无限递归）
+                    spawnExplosion(obsCenter, true);
+
+                    // 移除障碍物
+                    obs.parent.remove(obs);
+                    obs.traverse(c => {
+                        if (c.geometry) c.geometry.dispose();
+                        if (c.material) c.material.dispose();
+                    });
+                    obstacleMeshes.splice(i, 1);
+                    obstacleData.splice(i, 1);
+                }
             }
         }
 
@@ -1268,6 +1326,8 @@
                         const obsWorldPos = obs.position.clone(); obsWorldPos.y += obsTop/2;
                         spawnFragments(obsWorldPos, obsData.color);
                         playExplosionSound();
+                        // 障碍物被击中：触发爆炸效果
+                        spawnExplosion(obsWorldPos);
                         obs.parent.remove(obs);
                         obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
                         obstacleMeshes.splice(j,1); obstacleData.splice(j,1);
@@ -1408,9 +1468,19 @@
             if (player1 && player1.damageEffects) {
                 if (!player1.dead && player1.hp < 50) {
                     if (!player1.damageEffects.active) player1.damageEffects.show();
-                    player1.damageEffects.update(dt, player1.state);
+                    // 传入包含 y 坐标的位置对象
+                    player1.damageEffects.update(dt, { x: player1.state.x, y: 0, z: player1.state.z });
                 } else {
                     if (player1.damageEffects.active) player1.damageEffects.hide();
+                }
+            }
+
+            // ── 爆炸效果更新（坦克死亡时触发的大型火焰烟雾） ──
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].update(dt);
+                if (!explosions[i].active) {
+                    explosions[i].dispose();
+                    explosions.splice(i, 1);
                 }
             }
 
@@ -1633,10 +1703,19 @@
                 if (p && p.damageEffects) {
                     if (!p.dead && p.hp < 50) {
                         if (!p.damageEffects.active) p.damageEffects.show();
-                        p.damageEffects.update(dt, p.state);
+                        // 传入包含 y 坐标的位置对象
+                        p.damageEffects.update(dt, { x: p.state.x, y: 0, z: p.state.z });
                     } else {
                         if (p.damageEffects.active) p.damageEffects.hide();
                     }
+                }
+            }
+            // ── 爆炸效果更新（坦克死亡时触发的大型火焰烟雾） ──
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                explosions[i].update(dt);
+                if (!explosions[i].active) {
+                    explosions[i].dispose();
+                    explosions.splice(i, 1);
                 }
             }
             // 分屏尺寸（使用 window.innerWidth，gameContainer 保持布局尺寸）
@@ -1681,6 +1760,8 @@
                     const hD=Math.sqrt(hdx*hdx+hdz*hdz);if(hD>=sR+(od2.radius||.55))continue;
                     const oT=od2.height||1.5;if(s.mesh.position.y>=-.3&&s.mesh.position.y<=oT+.3){
                         const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
+                        // 障碍物被击中：触发爆炸效果
+                        spawnExplosion(op);
                         obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
                         obstacleMeshes.splice(j,1);obstacleData.splice(j,1);hit=true;break;}}
                 if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
@@ -1688,6 +1769,9 @@
                         if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
                             if(en.hp<=0){en.dead=true;const ep=en.group.position.clone();ep.y+=.5;
                                 spawnFragments(ep,en.camoColor==='desert'?'#8b7d4a':'#4a5c2e');playExplosionSound();en.group.visible=false;
+                                if(en.damageEffects)en.damageEffects.hide();
+                                // 坦克死亡：触发大型爆炸火焰烟雾效果 + 殉爆检查
+                                spawnExplosion(ep);
                                 setTimeout(()=>showVersusResult(s.owner),2000);}
                             else{spawnHitSparks(s.mesh.position.clone());}}}}
                 const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
@@ -1786,7 +1870,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.13.5 | 新增坦克损毁效果');
+        console.log('🎮 坦克运动demo v0.13.7 | 修复殉爆系统栈溢出');
     </script>
 </body>
 </html>
