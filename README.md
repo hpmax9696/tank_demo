@@ -178,6 +178,23 @@ JS 部分:
 
 ## 五、完整版本历史
 
+### v0.13.5 — 新增坦克损毁效果
+**新增**：
+- 血量低于 50 时，坦克燃起火焰并散发烟雾
+- 使用 Three.js Points 粒子系统实现
+- 火焰：橙色/红色/黄色粒子，带加法混合（Additive Blending）
+- 烟雾：灰色粒子，随时间扩散并上升
+- 单人模式和双人模式均支持（双人模式下双方玩家各自独立判断）
+
+**新增文件**：
+- `fireSmokeParticles.js` — 粒子系统模块
+
+**已知问题**（未修复）：
+- 双人模式地面分割线向右偏移
+- 单人模式坦克偏右
+
+---
+
 ### v0.13.4 — 修复 createTank 未调用 createPlayerTank
 **修复**：
 - `createTank()` 缺少对 `createPlayerTank(p)` 的调用，导致 `tankGroup` 为 `null`，从而 `resetTank()` 和 `placeCamera()` 报错黑屏

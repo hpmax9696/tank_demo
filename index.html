@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.13.4</title>
+    <title>坦克运动demo v0.13.5</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,13 +175,13 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.13.4</div>
+        <div class="menu-version">v0.13.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.13.4 更新 — 修复 createTank 未调用 createPlayerTank</div>
+            <div class="cl-title">🔄 v0.13.5 更新 — 新增坦克损毁效果（血量<50显示火焰和烟雾）</div>
             <div class="cl-item">箭头方向修复：检测目标是否在摄像机后方（project z>1），反转方向向量 + 钳制位置</div>
             <div class="cl-item">单人模式黑屏修复：enterGame 中显式调用 renderer.render() 产生可见首帧</div>
             <div class="cl-item">消除"先进双人再进单人"才能正常显示的依赖</div>
@@ -1786,7 +1786,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.13.4 | 修复 createTank 未创建 3D 模型');
+        console.log('🎮 坦克运动demo v0.13.5 | 新增坦克损毁效果');
     </script>
 </body>
 </html>
