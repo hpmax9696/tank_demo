@@ -84,10 +84,7 @@
 
         const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
             depth: HULL_W,
-            bevelEnabled: true,
-            bevelThickness: 0.01,
-            bevelSize: 0.008,
-            bevelSegments: 2
+            bevelEnabled: false
         });
         const hullMesh = new THREE.Mesh(hullGeo, hullMat);
         hullMesh.rotation.y = Math.PI / 2;
