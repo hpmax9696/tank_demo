@@ -1748,12 +1748,21 @@
             const gc = document.getElementById('game-container');
             const cw = gc ? gc.clientWidth : 0, ch = gc ? gc.clientHeight : 0;
             const rdw = renderer ? renderer.domElement.width : 0, rdh = renderer ? renderer.domElement.height : 0;
-            const asp = camera ? (camera.aspect || 0).toFixed(4) : '-';
-            const cam2asp = (typeof camera2 !== 'undefined' && camera2) ? camera2.aspect.toFixed(4) : '-';
+            const asp = camera ? (camera.aspect || 0).toFixed(3) : '-';
+            const cam2asp = (typeof camera2 !== 'undefined' && camera2) ? camera2.aspect.toFixed(3) : '-';
+            // 坦克和相机位置
+            let tpos = '-', cpos = '-', clook = '-';
+            if (gameMode === 'single' && tankGroup) {
+                tpos = tankGroup.position.x.toFixed(1) + ',' + tankGroup.position.z.toFixed(1);
+                cpos = camera.position.x.toFixed(1) + ',' + camera.position.z.toFixed(1);
+            } else if (gameMode === 'versus' && player1 && player1.group) {
+                tpos = 'P1:' + player1.group.position.x.toFixed(1) + ',' + player1.group.position.z.toFixed(1);
+            }
             el.textContent =
                 'mode: ' + gameMode + '  dpr: ' + dpr +
                 '\nwin: ' + iw + 'x' + ih + '  cont: ' + cw + 'x' + ch +
-                '\ncanv: ' + rdw + 'x' + rdh + '  camA: ' + asp + '  cam2A: ' + cam2asp;
+                '\ncanv: ' + rdw + 'x' + rdh + '  camA: ' + asp + '  cam2A: ' + cam2asp +
+                '\ntank: ' + tpos + '  cam: ' + cpos;
         }
 
         function returnToMenu() {
