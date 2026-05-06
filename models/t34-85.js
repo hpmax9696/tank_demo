@@ -97,27 +97,27 @@
                 // ── 发动机舱顶盖 + 散热格栅 ──
         // 注意：hullMesh旋转后shape的X→-Z轴，shape_x=-0.75对应世界z=0.75（尾部）
         {
-            const deckFrontZ = -(-FRONT_Z + 0.10);  // shape x=-0.75 → 世界z=0.75
-            const deckBackZ  = -(-FRONT_Z + 0.40);  // shape x=-0.40 → 世界z=0.40
+            // 发动机舱盖在车尾（世界Z正值方向），回归原始坐标系
+            // hull顶部范围在世界z=-0.33~（0.），发动机舱在车尾部位
+            const deckFrontZ = 0.35;
+            const deckBackZ  = 0.70;
             const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
-            const deckLen = deckFrontZ - deckBackZ;
+            const deckLen = deckBackZ - deckFrontZ;
 
-            // 发动机舱盖
             const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckLen);
             const deck = new THREE.Mesh(deckGeo, hullMat);
             deck.position.set(0, HULL_TOP + 0.010, deckCenterZ);
-            deck.rotation.x = -0.04;
+            deck.rotation.x = 0;
             deck.castShadow = true;
             group.add(deck);
 
-            // 散热格栅条
+            // 散热格栅条（均匀分布在舱盖范围内）
             for (let g = 0; g < 9; g++) {
                 const bar = new THREE.Mesh(
                     new THREE.BoxGeometry(HULL_W - 0.22, 0.004, 0.014),
                     detailMat);
-                const t = g / 8;
-                const barZ = deckFrontZ + 0.02 + t * (deckLen - 0.04);
-                bar.position.set(0, HULL_TOP + 0.022, barZ);
+                const barZ = deckFrontZ + 0.03 + (deckLen - 0.06) * g / 8;
+                bar.position.set(0, HULL_TOP + 0.020, barZ);
                 group.add(bar);
             }
         }
@@ -319,11 +319,11 @@
             // ── 前弧：TorusGeometry 半圆绕诱导轮（连续！）─
             {
                 const arcR = IDLER_R + 0.018;
-                const arcGeo = new THREE.TorusGeometry(arcR, segH / 2, 8, 20, Math.PI);
+                const arcGeo = new THREE.TorusGeometry(arcR, segH * 0.6, 6, 16, Math.PI);
                 const arc = new THREE.Mesh(arcGeo, trackMat);
                 arc.rotation.y = Math.PI / 2;
-                arc.rotation.x = Math.PI;  // 翻转到前侧
-                arc.position.set(sx, IDLER_R + 0.018, idlerZ);
+                arc.rotation.x = Math.PI / 2;
+                arc.position.set(sx, (topY + botY) / 2, idlerZ);
                 arc.castShadow = true;
                 tg.add(arc);
             }
@@ -331,11 +331,11 @@
             // ── 后弧：TorusGeometry 绕主动轮（连续！）─
             {
                 const arcR2 = SPROCKET_R + 0.020;
-                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH / 2, 8, 20, Math.PI);
+                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH * 0.6, 6, 16, Math.PI);
                 const arc2 = new THREE.Mesh(arcGeo2, trackMat);
                 arc2.rotation.y = Math.PI / 2;
-                arc2.rotation.x = 0;  // 正向朝后
-                arc2.position.set(sx, SPROCKET_Y, sprocketZ);
+                arc2.rotation.x = Math.PI / 2;
+                arc2.position.set(sx, (topY + botY) / 2, sprocketZ);
                 arc2.castShadow = true;
                 tg.add(arc2);
             }
