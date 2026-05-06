@@ -308,13 +308,19 @@
         update(dt) {
             if (!this.active) return;
 
-            let allDead = true;
+            // 用于计算整体透明度（粒子全部死亡后的渐隐）
+            let anyAlive = false;
+            let minFireLifeRatio = 1.0;
+            let minSmokeLifeRatio = 1.0;
 
             // 火焰更新
             for (let i = 0; i < this.fireCount; i++) {
                 const p = this.fireData[i];
                 if (p.life > 0) {
                     p.life -= dt;
+                    if (p.life < 0) p.life = 0;
+                    
+                    // 持续更新位置直到生命结束
                     this.firePositions[i*3]   += p.vel.x * dt;
                     this.firePositions[i*3+1] += p.vel.y * dt;
                     this.firePositions[i*3+2] += p.vel.z * dt;
@@ -322,33 +328,47 @@
                     p.vel.y -= 3.0 * dt;
                     p.vel.x += (Math.random() - 0.5) * 4.0 * dt;
                     p.vel.z += (Math.random() - 0.5) * 4.0 * dt;
-                    allDead = false;
+                    
+                    anyAlive = true;
+                    const lifeRatio = p.life / Math.max(p.maxLife, 0.001);
+                    if (lifeRatio < minFireLifeRatio) minFireLifeRatio = lifeRatio;
+                } else {
+                    // 生命结束但保持最后位置
+                    if (minFireLifeRatio < 1.0) minFireLifeRatio = 0;
                 }
             }
             this.fireGeo.attributes.position.needsUpdate = true;
-            this.fireMat.opacity = 1.0;
+            // 火焰透明度基于最小生命周期比例，实现整体渐隐
+            this.fireMat.opacity = Math.pow(minFireLifeRatio, 0.5);
 
             // 烟雾更新
             for (let i = 0; i < this.smokeCount; i++) {
                 const p = this.smokeData[i];
                 if (p.life > 0) {
                     p.life -= dt;
+                    if (p.life < 0) p.life = 0;
+                    
+                    // 持续更新位置直到生命结束
                     this.smokePositions[i*3]   += p.vel.x * dt;
                     this.smokePositions[i*3+1] += p.vel.y * dt;
                     this.smokePositions[i*3+2] += p.vel.z * dt;
                     p.vel.y -= 0.3 * dt;
                     p.vel.x += (Math.random() - 0.5) * 1.0 * dt;
                     p.vel.z += (Math.random() - 0.5) * 1.0 * dt;
-                    allDead = false;
+                    
+                    anyAlive = true;
+                    const lifeRatio = p.life / Math.max(p.maxLife, 0.001);
+                    if (lifeRatio < minSmokeLifeRatio) minSmokeLifeRatio = lifeRatio;
+                } else {
+                    if (minSmokeLifeRatio < 1.0) minSmokeLifeRatio = 0;
                 }
             }
             this.smokeGeo.attributes.position.needsUpdate = true;
-
-            // 烟雾逐渐消失
-            this.smokeMat.opacity = Math.max(0, this.smokeMat.opacity - dt * 0.15);
+            // 烟雾透明度基于最小生命周期比例
+            this.smokeMat.opacity = Math.pow(minSmokeLifeRatio, 0.3);
 
             // 所有粒子死亡后隐藏
-            if (allDead) {
+            if (!anyAlive) {
                 this.active = false;
                 this.firePoints.visible = false;
                 this.smokePoints.visible = false;
