@@ -1,6 +1,7 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> 基于 Three.js 的单文件 3D 浏览器游戏，支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
+> **当前版本：v0.14.1** | 基于 Three.js 的单文件 3D 浏览器游戏
+> 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 双击 `index.html` 即可运行，无需服务器。
 
 ---
@@ -28,48 +29,62 @@
 | 技术 | 版本/说明 |
 |------|-----------|
 | Three.js | 0.160.0 (UMD 构建，CDN 加载) |
+| 粒子系统 | fireSmokeParticles.js（火焰/烟雾/爆炸效果） |
 | 音频 | Web Audio API（程序化生成，无外部音频文件） |
-| 部署 | 单文件 HTML，`file://` 协议直接运行 |
+| 部署 | 双文件（index.html + fireSmokeParticles.js），`file://` 协议直接运行 |
 
 ---
 
 ## 三、项目结构
 
 ```
-坦克运动demo/
-├── index.html    # 唯一的游戏文件（HTML + CSS + JS 全部内联）
-└── README.md     # 本文件
+坦克对战demo/
+├── index.html             # 主游戏文件（HTML + CSS + JS 全部内联，约1880行）
+├── fireSmokeParticles.js  # 粒子系统模块（火焰/烟雾/爆炸效果）
+└── README.md              # 本文件
 ```
 
-**全部代码在一个文件中**，约 1747 行。结构如下：
+### 代码结构
 
 ```
-HTML 部分:
-  ├── #menu-overlay     主菜单（标题 + 按钮 + 更新日志）
-  └── #game-container   游戏画面容器
-       ├── #hud          返回按钮
-       ├── #controls-hint 操作提示条
-       ├── #versus-result 双人对战结果覆盖层
-       ├── #split-line   分屏分隔线
-       └── #arrow-p1/2   方向指示箭头
+index.html:
+  ├── HTML: #menu-overlay（主菜单）、#game-container（游戏容器）
+  │       ├── 主菜单：标题 + 版本号 + 模式选择 + 更新日志
+  │       ├── HUD：返回按钮 + 操作提示条
+  │       ├── 双人：分屏分隔线 + 对战结果覆盖层 + 方向指示箭头
+  │       └── 血条/装填条：Canvas 平面（billboard 始终面向摄像机）
+  ├── CSS：响应式菜单、半透明控件、箭头 UI
+  └── JS：完整游戏引擎，见下方模块分解
 
-JS 部分:
-  ├── DOM 引用
-  ├── 音频系统（engine / fire / explosion / hit / debris）
-  ├── 状态机（gameMode: menu | single | versus）
-  ├── 键盘/手柄输入
-  ├── 玩家工厂（createPlayer）
-  ├── 场景初始化（渲染器 / 光照 / 地面 / 坦克 / 障碍物 / 摄像机）
-  ├── 地面系统（200×200 Canvas 网格纹理）
-  ├── 坦克模型（车体 + 履带 + 6对轮子 + 炮塔 + 炮管 + 圆形阴影）
-  ├── 障碍物系统（泊松盘采样 + 6种建筑/树木 + LOD可见性管理）
-  ├── 运动物理（差速驱动 / 加速制动惯性 / 碰撞检测 / 俯仰效果）
-  ├── 火炮系统（炮弹 / 炮口焰 / 碎片 / 命中火花）
-  ├── 游戏循环（gameLoop / versusGameLoop）
-  ├── 摄像机（第三人称追尾视角）
-  ├── 双人对战系统（分屏渲染 / 血条 / 装填条 / 胜负判定）
-  ├── 指向箭头系统（透视投影 + 屏幕坐标映射 + behind检测）
-  └── 事件绑定（resize / ESC 返回菜单）
+fireSmokeParticles.js:
+  ├── DamageEffects 类 — 坦克受伤时的持续火焰烟雾（40火焰 + 30烟雾）
+  └── ExplosionEffects 类 — 坦克死亡时的一次性爆炸效果（120火焰 + 80烟雾）
+      ├── 火焰粒子：白色/黄色/橙色/红色，AdditiveBlending 混合
+      ├── 烟雾粒子：灰色，NormalBlending 混合
+      └── 渐隐机制：基于最小生命周期比例平滑淡出
+```
+
+### JS 模块分解（index.html）
+
+```
+├── DOM 引用 & 状态变量
+├── 音频系统（engine / fire / explosion / hit / debris）
+├── 状态机（gameMode: menu | single | versus）
+├── 键盘/手柄输入处理
+├── 玩家工厂（createPlayer）
+├── 场景初始化（渲染器 / 光照 / 地面 / 坦克 / 障碍物 / 摄像机）
+├── 地面系统（200×200 Canvas 网格纹理）
+├── 坦克模型（车体 + 履带 + 6对轮子 + 炮塔 + 炮管 + 圆形阴影）
+├── 障碍物系统（泊松盘采样 + 6种建筑/树木 + LOD可见性管理）
+├── 运动物理（差速驱动 / 加速制动惯性 / 碰撞检测 / 俯仰效果）
+├── 火炮系统（炮弹 / 炮口焰 / 碎片 / 命中火花）
+├── 坦克爆炸系统（大型火焰烟雾 + 殉爆连锁反应）
+├── 殉爆系统（坦克爆炸引爆近距离障碍物，3.5米半径）
+├── 游戏循环（gameLoop / versusGameLoop）
+├── 摄像机（第三人称追尾视角 + 双人分屏）
+├── 双人对战系统（分屏渲染 / 血条 / 装填条 / 胜负判定）
+├── 指向箭头系统（透视投影 + 屏幕坐标映射 + behind检测）
+└── 事件绑定（resize / ESC 返回菜单）
 ```
 
 ---
@@ -109,20 +124,36 @@ JS 部分:
 | 俯仰增益 | 0.12 | 加减速车体倾斜 |
 | 最大俯仰 | 0.18 rad | ≈10° |
 
-### 4.4 炮弹系统
+### 4.4 炮弹 & 战斗系统
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
 | 初速 | 22.0 单位/秒 | 水平分量 |
-| 初始上扬 | 0.3 | 垂直初速（vy） |
-| 重力 | 1.0 | 低重力平射弹道 |
+| 初始上扬 | 0.3 | 垂直初速（vy），低弹道 |
+| 重力 | 1.0 | 平射弹道 |
 | 最大射程 | 300 单位 | 超出自毁 |
 | 装填时间 | 2.0 秒 | |
 | 伤害 | 20 HP | 5炮击杀（100 HP） |
-| 碎片数 | 12 | 命中障碍物产生 |
+| 碎片数 | 12 | 命中障碍物产生碎块 |
 | 碎片寿命 | 3.0 秒 | 渐隐消失 |
+| 殉爆半径 | 3.5 米 | 坦克爆炸触发障碍物连锁爆炸 |
 
-### 4.5 音频系统
+### 4.5 坦克爆炸效果（v0.13.5+）
+
+- **受伤效果**（HP < 50）：坦克燃起火焰 + 散发烟雾（持续粒子系统）
+  - 40个火焰粒子 + 30个烟雾粒子
+- **死亡爆炸**（HP = 0）：大型爆炸火焰烟雾（一次性粒子爆发）
+  - 120个火焰粒子 + 80个烟雾粒子
+  - 粒子从中心向四周爆发，持续扩散至自然消散
+  - 渐隐透明度基于 `minLifeRatio^0.5`（火焰）/ `minLifeRatio^0.3`（烟雾）
+
+### 4.6 殉爆系统（v0.13.6+）
+
+- 坦克死亡爆炸后，3.5米半径内的障碍物被引爆
+- 障碍物被殉爆时产生碎块散开效果（不产生火焰）
+- 防止无限递归：殉爆链内部爆炸传入 `skipChain=true`
+
+### 4.7 音频系统
 
 全部使用 Web Audio API 程序化生成，无需外部音频文件：
 
@@ -135,7 +166,7 @@ JS 部分:
 | 命中声 | 方波扫频 (600→120Hz) | 0.25秒 |
 | 碎片声 | 6个随机三角波 (600~2400Hz) | 0.07秒各 |
 
-### 4.6 摄像机
+### 4.8 摄像机
 
 - **类型**：第三人称追尾视角
 - **FOV**：55°
@@ -143,7 +174,7 @@ JS 部分:
 - **注视点**：坦克上方 3.5 单位（坦克在画面下 1/3 处）
 - **分屏时**：左半屏用 `camera`（P1 视角），右半屏用 `camera2`（P2 视角）
 
-### 4.7 双人分屏渲染流程
+### 4.9 双人分屏渲染流程
 
 ```
 每帧：
@@ -155,122 +186,89 @@ JS 部分:
 6. 更新指向箭头
 ```
 
-### 4.8 指向箭头系统
+### 4.10 指向箭头系统
 
 - **显示条件**：两玩家距离 > 25 单位
 - **隐藏条件**：距离 < 20 单位（滞后避免闪烁）
 - **P1箭头**：P1 位置投影到左半屏，指向 P2 的屏幕方向
 - **P2箭头**：P2 位置投影到右半屏，指向 P1 的屏幕方向
 - **Behind 处理**：当目标在摄像机后方时（`project().z > 1`），反转方向向量并钳制到屏幕边缘
-- **角度公式**：`CSS rotate = atan2(dy, dx) * 180/π - 90°`
-  - 原因：CSS 箭头默认朝下（0°），需旋转到 atan2 计算出的屏幕方向
 
-### 4.9 双人对战规则
+### 4.11 双人对战规则
 
 - 初始位置：P1 (–15, 0) 绿色坦克，P2 (15, 0) 沙漠色坦克
 - 初始朝向：面对面（P1 朝 +Z，P2 朝 –Z）
 - HP：100，每炮 20 伤害，5 炮击杀
-- 死亡特效：坦克碎片爆炸 + 3 秒后自动返回菜单
+- 死亡特效：坦克爆炸火焰 + 碎片 + 障碍物殉爆
 - 受伤特效：命中火花粒子 + 金属撞击声
 - 同队碰撞：两坦克互相有物理碰撞
+- 2秒后自动显示胜负结果
 
 ---
 
 ## 五、完整版本历史
 
-### v0.13.5 — 新增坦克损毁效果
+### v0.14.1 — 修复爆炸粒子渐隐效果（2026-05-06）
+**修复**：
+- 修复爆炸粒子停顿卡住后突然消失的问题，粒子现在持续扩散直到完全消失
+- 粒子基于生命周期平滑渐隐：`opacity = minLifeRatio^0.5`（火焰）/ `minLifeRatio^0.3`（烟雾）
+- 修正菜单界面版本号显示
+
+### v0.14.0 — 优化爆炸效果逻辑（2026-05-06）
+**变更**：
+- 障碍物被击中或殉爆时不再产生爆炸火焰，只保留碎块散开效果
+- 坦克爆炸时的火焰持续时间缩短至 0.25~0.5 秒
+
+### v0.13.9 — 优化烟雾持续时间（2026-05-06）
+**变更**：
+- 烟雾粒子持续时间从 2-4 秒缩短到 1-1.5 秒
+
+### v0.13.8 — 修复殉爆后障碍物重复移除（2026-05-06）
+**修复**：
+- 炮弹击中障碍物触发殉爆后，原障碍物被殉爆系统提前移除导致 parent 为 null 报错
+- 移除前增加 `obs.parent` 空值检查
+
+### v0.13.7 — 修复殉爆系统栈溢出（2026-05-06）
+**修复**：
+- `spawnExplosion` 与 `checkChainExplosion` 无限递归导致 Maximum call stack size exceeded
+- `spawnExplosion` 新增 `skipChain` 参数，殉爆链内部爆炸不再重复触发殉爆检测
+
+### v0.13.6 — 坦克爆炸效果 & 殉爆系统（2026-05-06）
+**新增**：
+- 坦克爆炸时触发大型火焰烟雾粒子（120火焰+80烟雾）
+- 殉爆系统：爆炸半径3.5米内的树木/建筑物被连锁引爆
+- 敌方坦克不受殉爆影响
+
+### v0.13.5 — 新增坦克损毁效果（2026-05-06）
 **新增**：
 - 血量低于 50 时，坦克燃起火焰并散发烟雾
-- 使用 Three.js Points 粒子系统实现
-- 火焰：橙色/红色/黄色粒子，带加法混合（Additive Blending）
-- 烟雾：灰色粒子，随时间扩散并上升
-- 单人模式和双人模式均支持（双人模式下双方玩家各自独立判断）
+- 使用 Three.js Points 粒子系统实现（DamageEffects 类）
+- 新增 `fireSmokeParticles.js` 模块
+- 双人模式下双方玩家各自独立判断
 
-**新增文件**：
-- `fireSmokeParticles.js` — 粒子系统模块
-
-**已知问题**（未修复）：
-- 双人模式地面分割线向右偏移
-- 单人模式坦克偏右
-
----
-
-### v0.13.4 — 修复 createTank 未调用 createPlayerTank
+### v0.13.4 — 修复 createTank 未调用 createPlayerTank（2026-05-06）
 **修复**：
 - `createTank()` 缺少对 `createPlayerTank(p)` 的调用，导致 `tankGroup` 为 `null`，从而 `resetTank()` 和 `placeCamera()` 报错黑屏
 
-**已知问题**（未修复）：
-- 双人模式地面分割线向右偏移
-- 单人模式坦克偏右
-
----
-
-### v0.13.3 — 修复单人模式首次进入黑屏
+### v0.13.3 — 修复单人模式首次进入黑屏（2026-05-06）
 **修复**：
-- 单人模式首次进入黑屏：将 `renderer.setSize()` 等配置移入 `requestAnimationFrame` 回调，确保在 `gameContainer` 完全可见后再渲染
+- 单人模式首次进入黑屏：重新创建 WebGLRenderer 解决初始化状态异常
 
-**已知问题**（未修复）：
-- 单人模式首次进入黑屏（真实原因：createTank 未调用 createPlayerTank）
-- 双人模式地面分割线向右偏移
-- 单人模式坦克偏右
-
----
-
-### v0.13.2 — 箭头 behind 翻转 + 单人模式首帧渲染
+### v0.13.2 — 箭头 behind 翻转 + 单人模式首帧渲染（2026-05-06）
 **修复**：
-- 箭头方向修复：检测目标是否在摄像机后方（`project().z > 1`），反转方向向量 + 钳制箭头位置
+- 箭头方向修复：检测目标是否在摄像机后方，反转方向向量 + 钳制箭头位置
 - 单人模式 `enterGame()` 中显式调用 `renderer.render(scene, camera)` 产生可见首帧
 
-**已知问题**（未修复）：
-- 单人模式首次进入黑屏，需先进双人模式再进单人才正常
-- 双人模式地面分割线向右偏移
-- 单人模式坦克偏右
-
----
-
-### v0.13.1 — 箭头方向修复 + tankState 初始化 + versus 复位
+### v0.13.1 — 箭头方向修复 + tankState 初始化（2026-05-06）
 **修复**：
-- 箭头角度从 `+90°` 改为 `-90°`（CSS 旋转映射修正）
-- `tankState.yaw` 初始值从 `0` 改为 `Math.PI/2`，与 player1 一致
+- 箭头角度公式修正为 `-90°`
+- `tankState.yaw` 初始值改为 `Math.PI/2`
 - `versusGameLoop` 每帧开头添加全屏 viewport/scissor 复位
 
----
-
-### v0.13.0 — 脱离服务器依赖
+### v0.13.0 — 脱离服务器依赖（初始版本）
 **变更**：
-- Three.js 从 ES Module（`importmap`）切换为 UMD CDN `<script>` 标签
+- Three.js 从 ES Module 切换为 UMD CDN `<script>` 标签
 - 不再需要 `python -m http.server`，双击 `index.html` 直接运行
-- `file://` 协议兼容
-
----
-
-### v0.12.0 — visibility:hidden 布局方案
-**变更**：
-- `gameContainer` 从 `display:none` 改为 `visibility:hidden`
-  - 原因：`display:none` 使 Canvas 布局尺寸坍缩为 0，WebGL 上下文异常
-  - `visibility:hidden` 保留完整布局尺寸，Canvas 初始化时即可获取正确宽高
-- Canvas 回归 `gameContainer`（之前 v0.11 曾挂载到 body）
-- 全部分屏/箭头计算回退 `window.innerWidth`
-
----
-
-### v0.11.0 — Canvas 挂载 body + getBoundingClientRect（失败尝试）
-**变更**（已回退）：
-- Canvas 脱离 `gameContainer` 直接挂载到 `document.body`
-- 使用 `getBoundingClientRect()` 获取真实渲染尺寸（在 iframe 中返回异常值）
-- 结论：此方案在 CodeBuddy 产物页面 iframe 中不可用
-
----
-
-### v0.10.0 — 状态同步 + 受击特效 + 超低弹道
-**新增**：
-- `player1.state` 每帧同步 `tankState`，炮弹方向正确
-- 受击特效：命中坦克产生火花粒子 + 金属撞击声
-- 炮弹发射角压低（`vy=0.3`），近距离也能命中车身
-
-**修复**：
-- 单人模式移除 player2 坦克和 UI 条
-- `enterGame` / `enterVersus` 重新 `setSize` 刷新 Canvas 状态
 
 ---
 
@@ -279,60 +277,75 @@ JS 部分:
 ### 6.1 `visibility:hidden` vs `display:none`
 - `display:none` → Canvas 从布局流移除，`width=0, height=0` → WebGL 初始化异常 → 外部浏览器黑屏
 - `visibility:hidden` → Canvas 保留布局空间，WebGL 正常初始化 → 切换可见即渲染
-- 当前方案使用 `visibility:hidden`
 
 ### 6.2 坐标系统
 - **世界坐标**：XZ 平面，Y 轴向上。坦克面朝 +Z 即 `yaw=π/2`
-- **坦克旋转**：`tankGroup.rotation.set(-pitch, π/2 - yaw, 0)` — 需要将世界朝向映射到 Three.js 旋转
+- **坦克旋转**：`tankGroup.rotation.set(-pitch, π/2 - yaw, 0)`
 - **摄像机位置**：`camPos = (tankX - fx*14, 10, tankZ - fz*14)` — 在坦克正后方
 
 ### 6.3 箭头角度映射
-- CSS 箭头默认朝下（由杆 + `::after` 三角头构成，`transform-origin: 50% 0%`）
+- CSS 箭头默认朝下（`transform-origin: 50% 0%`）
 - 屏幕角度 `atan2(dy, dx)` 与 CSS 旋转的映射：`rotate = angle * 180/π - 90`
-- `behind` 标志是关键：当 `project().z > 1` 时，屏幕坐标翻转，需反转方向向量
+- `behind` 标志：当 `project().z > 1` 时，屏幕坐标翻转，需反转方向向量
 
 ### 6.4 分屏渲染注意事项
-- 每帧必须先 `setScissorTest(false)` 复位全屏，再分左右两次渲染
-- 两个 viewport 的 `x + width` 必须恰好等于 framebuffer 总宽度
+- 每帧必须先 `setScissorTest(false)` 复位全屏
+- 两个 viewport 的 `x + width` 须恰好等于 framebuffer 总宽度
 - `halfCssW = Math.floor(cssW/2)` 处理奇数宽度
-- UI 分隔线用 `fixed` 定位，与 viewport 边界对齐
 
 ### 6.5 单人/双人模式切换
-- `player1` 和 `player2` 是两个独立对象，单人模式只用 player1
-- `enterGame` 需要移除 player2 的所有 3D 对象（`group` + `reloadBarGroup` + `hpBarGroup`）
-- `enterVersusMode` 需要重建 player1 和 player2（移除旧的再创建新的）
+- `player1` 和 `player2` 是独立对象，单人模式只用 player1
+- `enterGame` 需要移除 player2 的所有 3D 对象和 UI 条
+- `enterVersusMode` 需要重建 player1 和 player2
 - 全局变量 `tankGroup/leftWheels/rightWheels` 是单人模式的快捷引用
 
-### 6.6 Three.js 版本
-- 使用 Three.js 0.160.0 UMD 构建
-- `THREE.MathUtils.clamp` 在 0.160 中可用（旧版为 `THREE.Math.clamp`）
-- 阴影类型使用 `THREE.PCFSoftShadowMap`
+### 6.6 殉爆系统防递归
+- `spawnExplosion(pos, skipChain)` 参数控制是否触发殉爆链
+- 初始爆炸 `skipChain=false` → 正常触发殉爆
+- 殉爆链内部 `skipChain=true` → 阻断递归，防止栈溢出
+
+### 6.7 粒子渐隐实现
+- 每个粒子维护 `life` 和 `maxLife`
+- 整体透明度基于所有粒子中最小生命周期比例计算
+- `pow(lifeRatio, 0.5)` 使渐隐在后期加速（火焰更快消失）
+- 粒子生命耗尽后保持最后位置渲染，避免突然消失
 
 ---
 
-## 七、待修复问题
+## 七、已知问题
 
-| # | 问题 | 可能方向 |
-|---|------|----------|
-| 1 | ~~单人模式首次进入黑屏~~ | **已修复 v0.13.4**：`createTank()` 缺少 `createPlayerTank(p)` 调用导致 `tankGroup` 为 null |
-| 2 | 双人模式地面分割线向右偏移 | UI 分隔线位置正确（`halfCssW`），但两个摄像机看地面的透视不同导致视觉偏移 |
-| 3 | 单人模式坦克偏右 | 可能与初始 viewport/camera aspect 设置有关，检查 initScene 中渲染的首帧与 gameLoop 首帧的一致性 |
+| # | 问题 | 备注 |
+|---|------|------|
+| 1 | 双人模式地面分割线向右偏移 | UI 分隔线位置正确，但两摄像机看地面的透视不同导致视觉偏移 |
+| 2 | 单人模式坦克偏右 | 可能与初始 viewport/camera aspect 设置有关 |
+| 3 | GitHub 推送偶尔超时（网络问题） | Gitee 正常，不影响本地开发 |
 
 ---
 
 ## 八、开发者接力指南
 
 ### 在单位电脑设置
-1. 复制整个 `坦克运动demo/` 文件夹到单位电脑
-2. 确认 `index.html` 和 `README.md` 在同一目录
+1. 复制整个 `坦克对战demo/` 文件夹到单位电脑
+2. 确认 `index.html`、`fireSmokeParticles.js` 和 `README.md` 在同一目录
 3. 双击 `index.html` 即可运行（需要网络加载 Three.js CDN）
 4. 如果无网络，可下载 `three.min.js` 放到同目录，修改 `<script src="three.min.js">` 为本地路径
 
+### Git 仓库信息
+- **GitHub**：`git@github.com:hpmax9696/tank_demo.git`（网络不稳定，偶有超时）
+- **Gitee**：`git@gitee.com:hpmax9696/tank_demo.git`（推荐使用）
+- 每次代码更新后执行 `git add -A && git commit -m "版本号: 描述"`，然后推送两边
+- GitHub 推送设置 30 秒超时，失败则跳过留待下次
+
 ### 调试建议
 1. 打开浏览器开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.13.2`
+2. 当前版本 console.log 输出：`🎮 坦克运动demo v0.14.1 | 修复爆炸粒子渐隐效果`
 3. 菜单左下角显示当前版本号和更新日志
 4. 修改代码后强制刷新（Ctrl+F5）确保不使用缓存
+
+### 代码规模
+- `index.html`：约 1880 行（HTML + CSS + JS）
+- `fireSmokeParticles.js`：约 370 行（粒子系统模块）
+- 总计约 2250 行
 
 ---
 
