@@ -244,6 +244,8 @@
 
     <!-- ========== 游戏画面 ========== -->
     <div id="game-container">
+        <!-- 调试信息 -->
+        <div id="debug-info" style="position:fixed;top:4px;left:4px;z-index:200;color:#0f0;font-size:12px;font-family:monospace;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:pre;line-height:1.4;"></div>
         <div id="hud">
             <button id="btn-back">← 返回菜单 (ESC)</button>
         </div>
@@ -1639,6 +1641,7 @@
             togglePlayerBars(player1, true); togglePlayerBars(player2, true);
             // 指向箭头（传入 framebuffer 坐标）
             updateArrows(renderer.getPixelRatio(), halfW, rightW, fbH);
+            updateDebugInfo();
             animationId=requestAnimationFrame(versusGameLoop);
         }
 
@@ -1733,7 +1736,23 @@
             camera.aspect = fbW / fbH;
             camera.updateProjectionMatrix();
             renderer.render(scene, camera);
+            updateDebugInfo();
             if(!animationId){clock.getDelta();animationId=requestAnimationFrame(gameLoop);}
+        }
+
+        function updateDebugInfo() {
+            const el = document.getElementById('debug-info');
+            if (!el) return;
+            const dpr = window.devicePixelRatio || 1;
+            const iw = window.innerWidth, ih = window.innerHeight;
+            const gc = document.getElementById('game-container');
+            const cw = gc ? gc.clientWidth : 0, ch = gc ? gc.clientHeight : 0;
+            const rdw = renderer ? renderer.domElement.width : 0, rdh = renderer ? renderer.domElement.height : 0;
+            const asp = camera ? (camera.aspect || 0).toFixed(4) : 0;
+            el.textContent =
+                'window: ' + iw + 'x' + ih + '  dpr: ' + dpr +
+                '\ncontainer: ' + cw + 'x' + ch +
+                '\ncanvas: ' + rdw + 'x' + rdh + '  aspect: ' + asp;
         }
 
         function returnToMenu() {
