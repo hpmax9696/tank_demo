@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.7</title>
+    <title>坦克运动demo v0.18.8</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,15 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.7</div>
+        <div class="menu-version">v0.18.8</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.7 更新 — 简化canvas管理回归标准Three.js</div>
-            <div class="cl-item">不再重建canvas/renderer，统一CSS:fixed定位+setSize，移除resizeCanvas</div>
+            <div class="cl-title">🔄 v0.18.8 更新 — viewport改用CSS像素解决高DPI偏移</div>
+            <div class="cl-item">gameLoop/versusGameLoop/viewport全部使用CSS像素而非物理像素</div>
         </div>
     </div>
 
@@ -1106,9 +1106,9 @@
         function gameLoop() {
             // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
             renderer.setScissorTest(false);
-            const fbW = renderer.domElement.width, fbH = renderer.domElement.height;
-            renderer.setViewport(0, 0, fbW, fbH);
-            camera.aspect = fbW / fbH;
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            renderer.setViewport(0, 0, cssW, cssH);
+            camera.aspect = cssW / cssH;
             camera.updateProjectionMatrix();
 
             const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
@@ -1579,9 +1579,11 @@
 
         function versusGameLoop() {
             // 先复位为全屏（清除上一帧的 scissor/viewport 残留）
-            const fbW = renderer.domElement.width, fbH = renderer.domElement.height;
+            const dpr = renderer.getPixelRatio();
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            const fbW = cssW * dpr, fbH = cssH * dpr;
             renderer.setScissorTest(false);
-            renderer.setViewport(0, 0, fbW, fbH);
+            renderer.setViewport(0, 0, cssW, cssH);
 
             const dt=Math.min(clock.getDelta(),.1);visibilityTimer+=dt;
             const p1i=getInputForPlayer(1),p2i=getInputForPlayer(2);
@@ -1616,29 +1618,27 @@
                     explosions.splice(i, 1);
                 }
             }
-            // 分屏尺寸（基于canvas实际物理像素，避免高DPI浮点误差）
-            const halfW = Math.floor(fbW / 2);
-            const rightW = fbW - halfW;
-            // 分屏分隔线（CSS像素）
-            const halfCssW = Math.floor(window.innerWidth / 2);
+            // 分屏尺寸
+            const halfCssW = Math.floor(cssW / 2), rightCssW = cssW - halfCssW;
+            const halfW = Math.floor(fbW / 2), rightW = fbW - halfW;
             splitLine.style.left = halfCssW + 'px';
             // 左半屏 (P1)
             togglePlayerBars(player1, true); togglePlayerBars(player2, false);
             renderer.setScissorTest(true);
-            renderer.setViewport(0, 0, halfW, fbH); renderer.setScissor(0, 0, halfW, fbH);
-            camera.aspect = halfW / fbH; camera.updateProjectionMatrix();
+            renderer.setViewport(0, 0, halfCssW, cssH); renderer.setScissor(0, 0, halfCssW, cssH);
+            camera.aspect = halfCssW / cssH; camera.updateProjectionMatrix();
             placeCameraFor(player1, camera); updateBarsForCamera(player1, camera);
             renderer.render(scene, camera);
             // 右半屏 (P2)
             togglePlayerBars(player1, false); togglePlayerBars(player2, true);
-            renderer.setViewport(halfW, 0, rightW, fbH); renderer.setScissor(halfW, 0, rightW, fbH);
-            camera2.aspect = rightW / fbH; camera2.updateProjectionMatrix();
+            renderer.setViewport(halfCssW, 0, rightCssW, cssH); renderer.setScissor(halfCssW, 0, rightCssW, cssH);
+            camera2.aspect = rightCssW / cssH; camera2.updateProjectionMatrix();
             placeCameraFor(player2, camera2); updateBarsForCamera(player2, camera2);
             renderer.render(scene, camera2);
             renderer.setScissorTest(false);
             togglePlayerBars(player1, true); togglePlayerBars(player2, true);
             // 指向箭头（传入 framebuffer 坐标）
-            updateArrows(renderer.getPixelRatio(), halfW, rightW, fbH);
+            updateArrows(dpr, halfW, rightW, fbH);
             updateDebugInfo();
             animationId=requestAnimationFrame(versusGameLoop);
         }
@@ -1716,9 +1716,9 @@
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
             renderer.setScissorTest(false);
-            const fbW = renderer.domElement.width, fbH = renderer.domElement.height;
-            renderer.setViewport(0, 0, fbW, fbH);
-            camera.aspect = fbW / fbH;
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            renderer.setViewport(0, 0, cssW, cssH);
+            camera.aspect = cssW / cssH;
             camera.updateProjectionMatrix();
             renderer.render(scene, camera);
             updateDebugInfo();
@@ -1738,7 +1738,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.7  dpr:' + dpr.toFixed(2) +
+                'v0.18.8  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -1948,13 +1948,12 @@
         window.addEventListener('resize',()=>{
             // 游戏渲染器
             if(camera&&renderer){
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                const fbW=renderer.domElement.width, fbH=renderer.domElement.height;
+                const cssW=window.innerWidth, cssH=window.innerHeight;
+                renderer.setSize(cssW, cssH);
                 if(gameMode==='versus'){
-                    const halfW=Math.floor(fbW/2), rightW=fbW-halfW;
-                    camera.aspect=halfW/fbH; camera.updateProjectionMatrix();
-                    if(camera2){camera2.aspect=rightW/fbH; camera2.updateProjectionMatrix();}}
-                else{camera.aspect=fbW/fbH; camera.updateProjectionMatrix();}
+                    camera.aspect=0.5*cssW/cssH; camera.updateProjectionMatrix();
+                    if(camera2){camera2.aspect=0.5*cssW/cssH; camera2.updateProjectionMatrix();}}
+                else{camera.aspect=cssW/cssH; camera.updateProjectionMatrix();}
             }
             // 预览渲染器
             if (previewRenderer && previewCamera) {
@@ -1966,7 +1965,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.7 | 简化canvas管理');
+        console.log('🎮 坦克运动demo v0.18.8 | viewport CSS像素');
     </script>
 </body>
 </html>
