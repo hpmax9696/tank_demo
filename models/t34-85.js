@@ -1,12 +1,13 @@
 /**
- * T-34-85 后期型 (Model 1944) — v6 真实照片对标版
+ * T-34-85 后期型 (Model 1944) — v6.1 修正版
  *
  * 基于 T-34/85 实车照片全面重构：
- *   1. 炮塔：LatheGeometry 铸造轮廓，圆润"胖蘑菇"形，无巨大穹顶
+ *   1. 炮塔：LatheGeometry 铸造轮廓，圆润"胖蘑菇"形
  *   2. 防盾：大型铸造包裹式防盾，与炮塔正面融合
- *   3. 指挥塔：小型圆柱体+舱门（非巨型圆顶）
- *   4. 车体：降低高度，加宽翼子板，修正首上角度
- *   5. 负重轮加大，履带加宽
+ *   3. 指挥塔：小型圆柱体+舱门
+ *   4. 车体：带倾斜尾板的船形剖面，发动机舱斜顶
+ *   5. 履带：TorusGeometry连续圆弧+密集小段，真正包覆负重轮
+ *   6. 负重轮加大，履带加宽
  */
 (function() {
     const CAMO = {
@@ -66,14 +67,19 @@
         const rubberMat    = new THREE.MeshStandardMaterial({ color: '#1a1a1a', roughness: 0.95, metalness: 0.04 });
 
         // ========================================
-        //  车体 — 船形剖面 ExtrudeGeometry
+        //  车体 — 带倾斜尾板的船形剖面
         // ========================================
 
+        const REAR_OVERHANG = 0.06;    // 尾板后悬
+        const REAR_BOT_Y = HULL_BOT + 0.04; // 尾板底部略高于车底（真实T-34/85特征）
+        const REAR_Z = -FRONT_Z;              // 尾板最末端Z
+
         const hullShape = new THREE.Shape();
-        hullShape.moveTo(FRONT_Z, HULL_BOT);           // 前下角
-        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);       // 首上斜面 ~58°
-        hullShape.lineTo(-FRONT_Z + 0.06, HULL_TOP);   // 发动机舱顶（略短）
-        hullShape.lineTo(-FRONT_Z, HULL_BOT);          // 后下角
+        hullShape.moveTo(FRONT_Z, HULL_BOT);            // 1 前下角
+        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);      // 2 首上斜面 ~58°
+        hullShape.lineTo(-FRONT_Z + 0.10, HULL_TOP);   // 3 发动机舱顶前缘
+        hullShape.lineTo(REAR_Z, HULL_TOP - 0.05);     // 4 尾板上缘（略微降低，形成发动机舱斜顶）
+        hullShape.lineTo(REAR_Z + REAR_OVERHANG, REAR_BOT_Y); // 5 尾板末端下角（倾斜尾板）
         hullShape.closePath();
 
         const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
@@ -92,26 +98,41 @@
         group.userData.hull = hullMesh;
 
         // ── 发动机舱顶盖 + 散热格栅 ──
+        // T-34/85 发动机舱是略微倾斜的斜面，不是平铺大盒子
         {
-            const deckL = 0.50;
-            const deckZ = -FRONT_Z + deckL / 2 + 0.03;
-            const deck = new THREE.Mesh(
-                new THREE.BoxGeometry(HULL_W - 0.04, 0.025, deckL), hullMat);
-            deck.position.set(0, HULL_TOP + 0.012, deckZ);
+            const deckL = 0.42;
+            const deckZ = (-FRONT_Z + REAR_Z) / 2;  // 居中于尾部区域
+            const deckFrontZ = -FRONT_Z + 0.06;
+            const deckBackZ  = REAR_Z - 0.02;
+
+            // 斜顶发动机舱盖（前高后低）
+            const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckL);
+            const deck = new THREE.Mesh(deckGeo, hullMat);
+            deck.position.set(0, HULL_TOP + 0.008, deckZ);
+            deck.rotation.x = 0.04;  // 微微前倾
             deck.castShadow = true;
             group.add(deck);
 
-            // 双排散热格栅
-            for (let row = 0; row < 2; row++) {
-                for (let g = 0; g < 7; g++) {
-                    const bar = new THREE.Mesh(
-                        new THREE.BoxGeometry(HULL_W - 0.18, 0.005, 0.018),
-                        detailMat);
-                    bar.position.set(0, HULL_TOP + 0.03,
-                        deckZ - deckL/2 + 0.045 + g*0.07 + row*0.008);
-                    group.add(bar);
-                }
+            // 散热格栅（单排，更细）
+            for (let g = 0; g < 9; g++) {
+                const bar = new THREE.Mesh(
+                    new THREE.BoxGeometry(HULL_W - 0.22, 0.004, 0.014),
+                    detailMat);
+                bar.position.set(0, HULL_TOP + 0.020,
+                    deckFrontZ - 0.02 + g * 0.048);
+                group.add(bar);
             }
+
+            // 尾板装甲（倾斜的后装甲板）
+            const tailPlateGeo = new THREE.BoxGeometry(HULL_W - 0.02, HULL_TOP - REAR_BOT_Y + 0.01, 0.018);
+            const tailPlate = new THREE.Mesh(tailPlateGeo, hullMat);
+            tailPlate.position.set((REAR_Z + REAR_Z + REAR_OVERHANG) / 2,
+                (HULL_TOP - 0.05 + REAR_BOT_Y) / 2,
+                REAR_Z + REAR_OVERHANG / 2);
+            tailPlate.rotation.y = Math.PI / 2;
+            tailPlate.rotation.x = -0.35;  // 向后下方倾斜
+            tailPlate.castShadow = true;
+            group.add(tailPlate);
         }
 
         // ── 驾驶员/机枪手舱盖区（车体前部凸起）─
@@ -266,40 +287,72 @@
         group.userData.rightWheels = rightWheels;
 
         // ========================================
-        //  履带
+        //  履带 — 连续包覆式
+        //  底部/顶部用密集小段 + 前后圆弧用 Torus
         // ========================================
         function buildTrack(sx) {
             const tg = new THREE.Group();
-            const segGeo = new THREE.BoxGeometry(TRACK_W, 0.026, 0.17);
 
-            // 底部段
-            for (const z of [-0.48, -0.31, -0.14, 0.03, 0.20, 0.37, 0.53]) {
+            // 履带段尺寸（小且密集）
+            const segW = TRACK_W;
+            const segH = 0.022;
+            const segL = 0.095;   // 每段长度（略重叠消除间隙）
+            const segGeo = new THREE.BoxGeometry(segW, segH, segL);
+
+            // 计算履带环参数
+            const botY = 0.006;                          // 底部Y
+            const topY = WL_R * 2 - 0.004;               // 顶部Y（紧贴轮顶）
+            const wheelBaseZ = roadZ[0] - 0.06;          // 后端轮起始Z
+            const wheelEndZ = roadZ[roadZ.length-1] + 0.06; // 前端轮结束Z
+
+            // ── 底部：密集水平段 ──
+            const botStart = sprocketZ + SPROCKET_R * 0.7;
+            const botEnd = idlerZ - IDLER_R * 0.7;
+            const botCount = Math.ceil((botEnd - botStart) / (segL * 0.82));
+            for (let i = 0; i < botCount; i++) {
+                const z = botStart + (i / (botCount - 1)) * (botEnd - botStart);
                 const s = new THREE.Mesh(segGeo, trackMat);
-                s.position.set(sx, 0.007, z); s.castShadow = true; tg.add(s);
+                s.position.set(sx, botY, z);
+                s.castShadow = true;
+                tg.add(s);
             }
-            // 顶部段
-            for (const z of [-0.42, -0.25, -0.08, 0.09, 0.26, 0.44]) {
+
+            // ── 顶部：密集水平段 ──
+            const topStart = sprocketZ + SPROCKET_R * 0.65;
+            const topEnd = idlerZ - IDLER_R * 0.65;
+            const topCount = Math.ceil((topEnd - topStart) / (segL * 0.82));
+            for (let i = 0; i < topCount; i++) {
+                const z = topStart + (i / (topCount - 1)) * (topEnd - topStart);
                 const s = new THREE.Mesh(segGeo, trackMat);
-                s.position.set(sx, WL_R * 2 + 0.008, z); s.castShadow = true; tg.add(s);
+                s.position.set(sx, topY, z);
+                s.castShadow = true;
+                tg.add(s);
             }
-            // 前弧（绕诱导轮）
-            for (let i = 0; i < 5; i++) {
-                const s = new THREE.Mesh(segGeo, trackMat);
-                const a = Math.PI + (i / 4) * Math.PI;
-                const ir = IDLER_R + 0.025;
-                s.position.set(sx, IDLER_R + 0.018 + Math.sin(a) * ir,
-                    idlerZ + Math.cos(a) * ir);
-                s.rotation.x = -a; s.castShadow = true; tg.add(s);
+
+            // ── 前弧：TorusGeometry 半圆绕诱导轮（连续！）─
+            {
+                const arcR = IDLER_R + 0.018;
+                const arcGeo = new THREE.TorusGeometry(arcR, segH / 2, 8, 20, Math.PI);
+                const arc = new THREE.Mesh(arcGeo, trackMat);
+                arc.rotation.y = Math.PI / 2;
+                arc.rotation.x = Math.PI;  // 翻转到前侧
+                arc.position.set(sx, IDLER_R + 0.018, idlerZ);
+                arc.castShadow = true;
+                tg.add(arc);
             }
-            // 后弧（绕主动轮）
-            for (let i = 0; i < 5; i++) {
-                const s = new THREE.Mesh(segGeo, trackMat);
-                const a = (i / 4) * Math.PI;
-                const sr = SPROCKET_R + 0.025;
-                s.position.set(sx, SPROCKET_Y - Math.sin(a) * sr,
-                    sprocketZ + Math.cos(a + Math.PI) * sr);
-                s.rotation.x = -(a + Math.PI); s.castShadow = true; tg.add(s);
+
+            // ── 后弧：TorusGeometry 绕主动轮（连续！）─
+            {
+                const arcR2 = SPROCKET_R + 0.020;
+                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH / 2, 8, 20, Math.PI);
+                const arc2 = new THREE.Mesh(arcGeo2, trackMat);
+                arc2.rotation.y = Math.PI / 2;
+                arc2.rotation.x = 0;  // 正向朝后
+                arc2.position.set(sx, SPROCKET_Y, sprocketZ);
+                arc2.castShadow = true;
+                tg.add(arc2);
             }
+
             return tg;
         }
         group.add(buildTrack(-TRACK_X));

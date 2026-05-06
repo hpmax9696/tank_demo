@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.0</title>
+    <title>坦克运动demo v0.18.1</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,14 +229,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.0</div>
+        <div class="menu-version">v0.18.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.0 更新 — T-34/85模型v6真实照片对标</div>
+            <div class="cl-title">🔄 v0.18.1 更新 — T-34/85模型v6.1尾部+履带修正</div>
             <div class="cl-item">车体修正：改用 ExtrudeGeometry 挤出通体楔形剖面，首上装甲60°斜板从车底前缘直达炮塔前下方</div>
             <div class="cl-item">炮塔修正：截顶圆锥厚壁下半部 + 圆顶上收 + 宽度略大于车体 + 炮管安装于突出矩形防盾</div>
             <div class="cl-item">主炮修正：炮管显著加长（≈车体长 2/3），更细（r=0.033），中后段添加环状抽烟器</div>
@@ -1966,7 +1966,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.0 | T-34/85后期型模型v6 LatheGeometry铸造轮廓');
+        console.log('🎮 坦克运动demo v0.18.1 | T-34/85后期型模型v6.1 倾斜尾板+连续履带');
     </script>
 </body>
 </html>
