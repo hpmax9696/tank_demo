@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.13.7</title>
+    <title>坦克运动demo v0.13.8</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,15 +175,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.13.7</div>
+        <div class="menu-version">v0.13.8</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.13.7 更新 — 修复殉爆系统栈溢出Bug</div>
-            <div class="cl-item">修复炮弹击中障碍物触发殉爆时的无限递归调用，导致游戏卡死（Maximum call stack size exceeded）</div>
-            <div class="cl-item">spawnExplosion 新增 skipChain 参数，殉爆链内部爆炸不再重复触发殉爆检测</div>
+            <div class="cl-title">🔄 v0.13.8 更新 — 修复殉爆后障碍物重复移除Bug</div>
+            <div class="cl-item">修复炮弹击中障碍物触发殉爆后，原障碍物被殉爆系统提前移除导致 parent 为 null 报错</div>
+            <div class="cl-item">移除前增加 obs.parent 空值检查，避免 Cannot read properties of null 崩溃</div>
         </div>
     </div>
 
@@ -1328,8 +1328,11 @@
                         playExplosionSound();
                         // 障碍物被击中：触发爆炸效果
                         spawnExplosion(obsWorldPos);
-                        obs.parent.remove(obs);
-                        obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                        // 检查是否已被殉爆系统移除（parent可能为null）
+                        if (obs.parent) {
+                            obs.parent.remove(obs);
+                            obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                        }
                         obstacleMeshes.splice(j,1); obstacleData.splice(j,1);
                         hit = true; break;
                     }
@@ -1762,7 +1765,11 @@
                         const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
                         // 障碍物被击中：触发爆炸效果
                         spawnExplosion(op);
-                        obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+                        // 检查是否已被殉爆系统移除（parent可能为null）
+                        if (obs.parent) {
+                            obs.parent.remove(obs);
+                            obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                        }
                         obstacleMeshes.splice(j,1);obstacleData.splice(j,1);hit=true;break;}}
                 if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
                     if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
@@ -1870,7 +1877,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.13.7 | 修复殉爆系统栈溢出');
+        console.log('🎮 坦克运动demo v0.13.8 | 修复殉爆后障碍物重复移除Bug');
     </script>
 </body>
 </html>
