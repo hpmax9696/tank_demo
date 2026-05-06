@@ -95,12 +95,11 @@
         group.userData.hull = hullMesh;
 
                 // ── 发动机舱顶盖 + 散热格栅 ──
-        // 注意：hullMesh旋转后shape的X→-Z轴，shape_x=-0.75对应世界z=0.75（尾部）
+        // hullMesh.rotation.y=PI/2后，shape_x=0.85→世界z=-0.85(车头)
+        // 所以车尾在世界Z=0.85方向（正值）！
         {
-            // 发动机舱盖在车尾（世界Z正值方向），回归原始坐标系
-            // hull顶部范围在世界z=-0.33~（0.），发动机舱在车尾部位
-            const deckFrontZ = 0.55; // 车尾前缘
-            const deckBackZ  = 0.82; // 车尾后缘
+            const deckFrontZ = 0.55; // 车尾前缘（靠近车体中心）
+            const deckBackZ  = 0.82; // 车尾后缘（最尾部）
             const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
             const deckLen = deckBackZ - deckFrontZ;
 
