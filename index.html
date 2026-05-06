@@ -1101,13 +1101,16 @@
             return false;
         }
 
-        let _savedSize = { w: 0, h: 0 };
         function resizeCanvas() {
             if (!renderer) return;
-            let iw = window.innerWidth, ih = window.innerHeight;
-            // 如果尺寸异常小（DevTools打开导致），取保存的正确尺寸
-            if (ih < 300 && _savedSize.h > 300) { ih = _savedSize.h; iw = _savedSize.w; }
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            let iw = window.innerWidth, ih = window.innerHeight;
+            // DevTools打开时innerHeight异常小，根据screen推算合理值
+            const minIH = Math.floor(screen.availHeight * 0.5 / dpr);
+            if (ih < minIH) {
+                ih = Math.floor(screen.availHeight * 0.92 / dpr);
+                iw = Math.floor(screen.availWidth / dpr);
+            }
             const w = Math.floor(iw * dpr);
             const h = Math.floor(ih * dpr);
             renderer.setPixelRatio(dpr);
@@ -1115,7 +1118,6 @@
             renderer.domElement.height = h;
             renderer.domElement.style.width = iw + 'px';
             renderer.domElement.style.height = ih + 'px';
-            if (ih > 300) { _savedSize.w = iw; _savedSize.h = ih; }
         }
 
         function gameLoop() {
