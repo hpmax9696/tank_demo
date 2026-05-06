@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.6</title>
+    <title>坦克运动demo v0.18.7</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,15 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.6</div>
+        <div class="menu-version">v0.18.7</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.6 更新 — resizeCanvas防DevTools压缩</div>
-            <div class="cl-item">保存初始窗口正确尺寸，检测到异常小高度时自动恢复</div>
+            <div class="cl-title">🔄 v0.18.7 更新 — 简化canvas管理回归标准Three.js</div>
+            <div class="cl-item">不再重建canvas/renderer，统一CSS:fixed定位+setSize，移除resizeCanvas</div>
         </div>
     </div>
 
@@ -541,7 +541,9 @@
             // --- 渲染器 ---
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            resizeCanvas();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.domElement.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:block;';
+            renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
@@ -1101,25 +1103,6 @@
             return false;
         }
 
-        function resizeCanvas() {
-            if (!renderer) return;
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
-            let iw = window.innerWidth, ih = window.innerHeight;
-            // DevTools打开时innerHeight异常小，根据screen推算合理值
-            const minIH = Math.floor(screen.availHeight * 0.5 / dpr);
-            if (ih < minIH) {
-                ih = Math.floor(screen.availHeight * 0.92 / dpr);
-                iw = Math.floor(screen.availWidth / dpr);
-            }
-            const w = Math.floor(iw * dpr);
-            const h = Math.floor(ih * dpr);
-            renderer.setPixelRatio(dpr);
-            renderer.domElement.width = w;
-            renderer.domElement.height = h;
-            renderer.domElement.style.width = iw + 'px';
-            renderer.domElement.style.height = ih + 'px';
-        }
-
         function gameLoop() {
             // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
             renderer.setScissorTest(false);
@@ -1575,7 +1558,7 @@
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
-            resizeCanvas();
+            renderer.setSize(window.innerWidth, window.innerHeight);
 
             if(player2&&player2.group)scene.remove(player2.group);
             shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
@@ -1727,19 +1710,8 @@
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
             initAudio();startEngineSound();
-            // 强制重新初始化 renderer canvas（首次进入时 gameContainer 从 hidden 切换，
-            // WebGL context 可能未正确激活，需要重新附加 canvas）
-            const oldCanvas = renderer.domElement;
-            if (oldCanvas && oldCanvas.parentNode === gameContainer) {
-                gameContainer.removeChild(oldCanvas);
-            }
-            const newCanvas = document.createElement('canvas');
-            gameContainer.insertBefore(newCanvas, gameContainer.firstChild);
-            // 创建新的 WebGLRenderer 使用新 canvas
-            renderer.dispose();
-            renderer = new THREE.WebGLRenderer({ canvas: newCanvas, antialias: true });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            resizeCanvas();
+            // 确保 canvas 尺寸匹配窗口
+            renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
@@ -1766,7 +1738,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.6  dpr:' + dpr.toFixed(2) +
+                'v0.18.7  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -1976,7 +1948,7 @@
         window.addEventListener('resize',()=>{
             // 游戏渲染器
             if(camera&&renderer){
-                resizeCanvas();
+                renderer.setSize(window.innerWidth, window.innerHeight);
                 const fbW=renderer.domElement.width, fbH=renderer.domElement.height;
                 if(gameMode==='versus'){
                     const halfW=Math.floor(fbW/2), rightW=fbW-halfW;
@@ -1994,7 +1966,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.6 | resizeCanvas防DevTools');
+        console.log('🎮 坦克运动demo v0.18.7 | 简化canvas管理');
     </script>
 </body>
 </html>
