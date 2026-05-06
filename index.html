@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.13.2</title>
+    <title>坦克运动demo v0.13.3</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -1679,12 +1679,6 @@
             gameMode='single';menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='键盘 W/S/↑/↓  |  手柄 左摇杆/右摇杆  |  空格/RT 开炮';
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setScissorTest(false);
-            const dpr = renderer.getPixelRatio();
-            renderer.setViewport(0, 0, window.innerWidth * dpr, window.innerHeight * dpr);
-            camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
-            camera.updateProjectionMatrix();
             // 移除双人模式的 player2 坦克和 UI
             if (player2 && player2.group) { scene.remove(player2.group); }
             if (player2 && player2.reloadBarGroup) scene.remove(player2.reloadBarGroup);
@@ -1702,10 +1696,18 @@
             if(reloadBarGroup)reloadBarGroup.visible=true;
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
-            // 强制渲染一帧（gameContainer 刚从 visibility:hidden 切换为 visible，
-            // 之前 initScene 渲染的帧可能被浏览器丢弃，需要立即刷新避免黑屏/偏移）
-            renderer.render(scene, camera);
             initAudio();startEngineSound();
+            // 等待下一帧渲染，确保 gameContainer 可见后再配置 renderer
+            // 否则 canvas 在 visibility:hidden 期间渲染，首帧可能黑屏
+            requestAnimationFrame(() => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setScissorTest(false);
+                const dpr = renderer.getPixelRatio();
+                renderer.setViewport(0, 0, window.innerWidth * dpr, window.innerHeight * dpr);
+                camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+                camera.updateProjectionMatrix();
+                renderer.render(scene, camera);
+            });
             if(!animationId){clock.getDelta();animationId=requestAnimationFrame(gameLoop);}
         }
 
@@ -1740,7 +1742,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.13.2 | 箭头behind翻转 + 首帧渲染修复');
+        console.log('🎮 坦克运动demo v0.13.3 | 修复单人模式首次黑屏');
     </script>
 </body>
 </html>
