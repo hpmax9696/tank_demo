@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.3</title>
+    <title>坦克运动demo v0.18.4</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,16 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.3</div>
+        <div class="menu-version">v0.18.4</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.3 更新 — canvas尺寸管理重构，适配高DPI</div>
-            <div class="cl-item">canvas尺寸改用gameContainer.clientWidth+setSize(...,false)，保持容器布局一致</div>
-            <div class="cl-item">initScene渲染器也设置width:100%;height:100%的CSS，与enterGame统一</div>
+            <div class="cl-title">🔄 v0.18.4 更新 — 移除canvas手动CSS，恢复Three.js标准行为</div>
+            <div class="cl-item">移除canvas的position:absolute/width:100%手动CSS，让Three.js setSize全权管理</div>
         </div>
     </div>
 
@@ -1984,7 +1983,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.3 | canvas尺寸管理重构');
+        console.log('🎮 坦克运动demo v0.18.4 | 移除canvas手动CSS');
     </script>
 </body>
 </html>
