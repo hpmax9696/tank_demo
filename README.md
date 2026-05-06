@@ -28,10 +28,10 @@
 
 | 技术 | 版本/说明 |
 |------|-----------|
-| Three.js | 0.160.0 (UMD 构建，CDN 加载) |
+| Three.js | 0.160.0 (UMD 构建，本地加载) |
 | 粒子系统 | fireSmokeParticles.js（火焰/烟雾/爆炸效果） |
 | 音频 | Web Audio API（程序化生成，无外部音频文件） |
-| 部署 | 双文件（index.html + fireSmokeParticles.js），`file://` 协议直接运行 |
+| 部署 | 三文件（index.html + three.min.js + fireSmokeParticles.js），`file://` 协议直接运行，无需网络 |
 
 ---
 
@@ -40,6 +40,7 @@
 ```
 坦克对战demo/
 ├── index.html             # 主游戏文件（HTML + CSS + JS 全部内联，约1880行）
+├── three.min.js           # Three.js 库（UMD 构建，约654KB，本地加载）
 ├── fireSmokeParticles.js  # 粒子系统模块（火焰/烟雾/爆炸效果）
 └── README.md              # 本文件
 ```
