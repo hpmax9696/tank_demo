@@ -178,11 +178,22 @@ JS 部分:
 
 ## 五、完整版本历史
 
+### v0.13.4 — 修复 createTank 未调用 createPlayerTank
+**修复**：
+- `createTank()` 缺少对 `createPlayerTank(p)` 的调用，导致 `tankGroup` 为 `null`，从而 `resetTank()` 和 `placeCamera()` 报错黑屏
+
+**已知问题**（未修复）：
+- 双人模式地面分割线向右偏移
+- 单人模式坦克偏右
+
+---
+
 ### v0.13.3 — 修复单人模式首次进入黑屏
 **修复**：
 - 单人模式首次进入黑屏：将 `renderer.setSize()` 等配置移入 `requestAnimationFrame` 回调，确保在 `gameContainer` 完全可见后再渲染
 
 **已知问题**（未修复）：
+- 单人模式首次进入黑屏（真实原因：createTank 未调用 createPlayerTank）
 - 双人模式地面分割线向右偏移
 - 单人模式坦克偏右
 
@@ -286,7 +297,7 @@ JS 部分:
 
 | # | 问题 | 可能方向 |
 |---|------|----------|
-| 1 | ~~单人模式首次进入黑屏~~ | **已修复 v0.13.3**：使用 `requestAnimationFrame` 等待 DOM 更新后再渲染 |
+| 1 | ~~单人模式首次进入黑屏~~ | **已修复 v0.13.4**：`createTank()` 缺少 `createPlayerTank(p)` 调用导致 `tankGroup` 为 null |
 | 2 | 双人模式地面分割线向右偏移 | UI 分隔线位置正确（`halfCssW`），但两个摄像机看地面的透视不同导致视觉偏移 |
 | 3 | 单人模式坦克偏右 | 可能与初始 viewport/camera aspect 设置有关，检查 initScene 中渲染的首帧与 gameLoop 首帧的一致性 |
 
