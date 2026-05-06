@@ -29,12 +29,12 @@
         const axleMat = new THREE.MeshStandardMaterial({ color: '#8B6914', roughness: 0.7 });
         const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.22, 6), axleMat);
         axle.rotation.z = Math.PI / 2;
-        axle.position.set(0.15, h * 0.65, 0);
+        axle.position.set(0.15, h - 0.04, 0);
         g.add(axle);
 
         // 风车叶片组（2根长条交叉，平面在YZ方向，法线朝X，绕X轴旋转）
         const bladeGroup = new THREE.Group();
-        bladeGroup.position.set(0.30, h * 0.65, 0);
+        bladeGroup.position.set(0.30, h - 0.04, 0);
         const bladeLen = 0.85;
         const bladeWid = 0.18;
         for (let i = 0; i < 2; i++) {
