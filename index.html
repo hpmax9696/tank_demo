@@ -237,10 +237,9 @@
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
             <div class="cl-title">🔄 v0.18.1 更新 — T-34/85模型v6.1尾部+履带修正</div>
-            <div class="cl-item">车体修正：改用 ExtrudeGeometry 挤出通体楔形剖面，首上装甲60°斜板从车底前缘直达炮塔前下方</div>
-            <div class="cl-item">炮塔修正：截顶圆锥厚壁下半部 + 圆顶上收 + 宽度略大于车体 + 炮管安装于突出矩形防盾</div>
-            <div class="cl-item">主炮修正：炮管显著加长（≈车体长 2/3），更细（r=0.033），中后段添加环状抽烟器</div>
-            <div class="cl-item">行走系统修正：履带片加厚、主动轮加大加高（r=0.18, y=0.22）带14齿齿缘，与负重轮明显区分</div>
+            <div class="cl-item">车体尾部：5点倾斜剖面（REAR_OVERHANG=0.06），新增-35°后倾尾板装甲板</div>
+            <div class="cl-item">发动机舱顶盖：缩窄（HULL_W-0.10）+ 微前倾4°，散热格栅改为单排9条细条</div>
+            <div class="cl-item">履带系统重写：底部/顶部动态密集小段(segL=0.095) + TorusGeometry半圆环连续无断点</div>
         </div>
     </div>
 
@@ -705,7 +704,7 @@
             scene.add(player.damageEffects.smokePoints);
         }
 
-        // 单人模式兼容：创建传统坦克
+        // 创建单人模式坦克（T-34/85 模型）
         function createTank() {
             const p = createPlayer('green', 0, 0, Math.PI/2, true);
             createPlayerTank(p);  // 创建 3D 模型（设置 p.group）

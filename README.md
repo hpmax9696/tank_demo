@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.18.1** | 基于 Three.js 的单文件 3D 浏览器游戏
+> **当前版本：v0.18.1** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 双击 `index.html` 即可运行，无需服务器。
 
@@ -39,7 +39,7 @@
 
 ```
 坦克对战demo/
-├── index.html             # 主游戏文件（HTML + CSS + JS，含游戏逻辑和预览系统）
+├── index.html             # 主入口文件（HTML + CSS + JS 游戏引擎，模型逻辑已拆分至 models/）
 ├── three.min.js           # Three.js 库（UMD 构建，~654KB，本地加载）
 ├── fireSmokeParticles.js  # 粒子系统模块（火焰/烟雾/爆炸效果）
 ├── README.md              # 本文件
@@ -82,7 +82,7 @@ fireSmokeParticles.js:
 ├── 玩家工厂（createPlayer）
 ├── 场景初始化（渲染器 / 光照 / 地面 / 坦克 / 障碍物 / 摄像机）
 ├── 地面系统（200×200 Canvas 网格纹理）
-├── 坦克模型（车体 + 履带 + 6对轮子 + 炮塔 + 炮管 + 圆形阴影）+ T-34-85模型库
+├── T-34/85 坦克模型（v6.1 高精度，单人/双人对战使用）+ 简化坦克（备选）
 ├── 障碍物系统（泊松盘采样 + 6种建筑/树木 + LOD可见性管理）
 ├── 运动物理（差速驱动 / 加速制动惯性 / 碰撞检测 / 俯仰效果）
 ├── 火炮系统（炮弹 / 炮口焰 / 碎片 / 命中火花）
@@ -361,7 +361,7 @@ fireSmokeParticles.js:
 
 ## 六、T-34-85 模型技术参数（v6.1 — 当前版本）
 
-> 模型代码：`models/t34-85.js` · **v6.1 基于真实 T-34/85 照片重构** · 仅模型预览可用 · 单人/对战模式仍用 `models/tank.js`
+> 模型代码：`models/t34-85.js` · **v6.1 基于真实 T-34/85 照片重构** · 已实装单人/双人对战模式 · `models/tank.js` 简化模型保留为备选
 
 ### 核心几何参数
 
@@ -428,7 +428,7 @@ const TRACK_W = 0.065;        // 履带宽度
 
 ### 可能的后续任务
 
-- [ ] 将 T-34-85 v6.1 模型替换到单人/对战模式中（替换 `models/tank.js`）
+- [x] 将 T-34-85 v6.1 模型替换到单人/对战模式中（替换 `models/tank.js`）
 - [ ] 实现炮塔独立旋转（当前游戏未实现）
 - [ ] 添加履带纹理/细节（履带板、诱导齿等）
 - [ ] 增加更多涂装变体（冬季雪地迷彩、1944年工厂涂装等）
@@ -484,7 +484,6 @@ const TRACK_W = 0.065;        // 履带宽度
 | 1 | 双人模式地面分割线向右偏移 | UI 分隔线位置正确，但两摄像机看地面的透视不同导致视觉偏移 |
 | 2 | 单人模式坦克偏右 | 可能与初始 viewport/camera aspect 设置有关 |
 | 3 | GitHub 推送偶尔超时（网络问题） | Gitee 正常，不影响本地开发；已设 30 秒超时自动跳过 |
-| 4 | T-34/85 模型仅用于预览 | 单人/对战模式仍使用 `models/tank.js` 简化模型，尚未替换 |
 
 ### 模型待改进项（供后续迭代参考）
 
@@ -501,9 +500,10 @@ const TRACK_W = 0.065;        // 履带宽度
 
 ### 在单位电脑设置
 1. 复制整个 `坦克对战demo/` 文件夹到单位电脑
-2. 确认 `index.html`、`fireSmokeParticles.js` 和 `README.md` 在同一目录
-3. 双击 `index.html` 即可运行（需要网络加载 Three.js CDN）
-4. 如果无网络，可下载 `three.min.js` 放到同目录，修改 `<script src="three.min.js">` 为本地路径
+2. 确认以下文件结构完整（同一文件夹内）：
+   - `index.html`、`three.min.js`、`fireSmokeParticles.js`、`README.md`
+   - `models/` 目录及其全部 6 个 JS 文件
+3. 双击 `index.html` 即可运行（Three.js 已本地化，完全离线）
 
 ### Git 仓库信息
 - **GitHub**：`git@github.com:hpmax9696/tank_demo.git`（网络不稳定，偶有超时）
@@ -532,11 +532,11 @@ xcopy index.html + fireSmokeParticles.js + README.md + models/* → OneDrive目�
 4. 修改代码后强制刷新（Ctrl+F5）确保不使用缓存
 
 ### 代码规模（截至 v0.18.1）
-- `index.html`：约 2000+ 行（HTML + CSS + JS 完整游戏引擎）
-- `fireSmokeParticles.js`：约 370 行（粒子系统模块）
-- `models/t34-85.js`：约 560 行（T-34/85 v6.1 高精度坦克模型）
-- 其他模型文件：约 800 行（tank / trees / buildings / windmill / modelRegistry）
-- **总计约 3700+ 行**
+- `index.html`：约 1972 行（HTML + CSS + JS 游戏引擎）
+- `fireSmokeParticles.js`：约 390 行（粒子系统模块）
+- `models/t34-85.js`：约 647 行（T-34/85 v6.1 高精度坦克模型）
+- 其他模型文件：约 331 行（tank / trees / buildings / windmill / modelRegistry）
+- **总计约 3340 行**
 
 ---
 
