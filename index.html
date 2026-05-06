@@ -880,13 +880,16 @@
             // 风车叶片（4片，十字形钉在轴心旋转）
             const bladeGroup = new THREE.Group();
             bladeGroup.position.y = h + 0.35;
+            const bladeLen = 0.85;   // 叶片长度
+            const bladeWid = 0.15;   // 叶片宽度
             for (let i = 0; i < 4; i++) {
-                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.02), windmillBladeMat);
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(bladeWid, bladeLen, 0.03), windmillBladeMat);
                 const angle = (i * Math.PI) / 2;
                 blade.rotation.z = angle;
-                // 沿叶片旋转后的方向偏移半长，使叶片一端在bladeGroup原点
-                blade.position.x = Math.cos(angle) * 0.275;
-                blade.position.y = Math.sin(angle) * 0.275;
+                // 沿叶片方向偏移半长，使叶片一端在bladeGroup原点（轴心）
+                blade.position.x = Math.cos(angle) * (bladeLen / 2);
+                blade.position.y = Math.sin(angle) * (bladeLen / 2);
                 bladeGroup.add(blade);
             }
             bladeGroup.name = 'blades';
