@@ -70,19 +70,23 @@
         //  车体 — 带倾斜尾板的船形剖面
         // ========================================
 
-        const REAR_Z = -FRONT_Z;  // 尾板Z位
+        const REAR_BOT_Y = HULL_BOT;  // 尾板底部高度
+        const REAR_Z = -FRONT_Z;      // 尾板Z位
 
-        const hullShape = new THREE.Shape();
-        hullShape.moveTo(FRONT_Z, HULL_BOT);               // 1 前下角
-        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);         // 2 首上斜面 ~58°
-        hullShape.lineTo(REAR_Z + 0.10, HULL_TOP);        // 3 发动机舱顶后缘
-        hullShape.lineTo(REAR_Z, HULL_BOT);               // 4 尾板底角（垂直尾板）
-        hullShape.closePath();                             // 5 回到前下角
-
-        const hullGeo = new THREE.ExtrudeGeometry(hullShape, {
-            depth: HULL_W,
-            bevelEnabled: false
-        });
+        let hullGeo;
+        try {
+            const hullShape = new THREE.Shape();
+            hullShape.moveTo(FRONT_Z, HULL_BOT);
+            hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);
+            hullShape.lineTo(REAR_Z + 0.10, HULL_TOP);
+            hullShape.lineTo(REAR_Z, HULL_BOT);
+            hullShape.closePath();
+            hullGeo = new THREE.ExtrudeGeometry(hullShape, { depth: HULL_W, bevelEnabled: false });
+        } catch(e) {
+            // ExtrudeGeometry兜底：用BoxGeometry近似
+            console.warn('ExtrudeGeometry fallback:', e);
+            hullGeo = new THREE.BoxGeometry(HULL_W, HULL_H, HULL_L);
+        }
         const hullMesh = new THREE.Mesh(hullGeo, hullMat);
         hullMesh.rotation.y = Math.PI / 2;
         hullMesh.position.set(-HULL_W / 2, 0, 0);
