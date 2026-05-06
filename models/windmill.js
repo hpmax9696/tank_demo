@@ -1,6 +1,6 @@
 /**
  * 风车磨坊模型
- * 4片叶片围绕轴心旋转，使用 BoxGeometry(0.02厚度) 保证侧面可见
+ * 2根长条形穿过轴心形成 + 字，使用 BoxGeometry(0.02厚度) 保证侧面可见
  */
 (function() {
     const windmillBodyMat  = new THREE.MeshStandardMaterial({ color: '#D2B48C', roughness: 0.8 });
@@ -25,19 +25,17 @@
         roof.position.y = h + 0.15;
         g.add(roof);
 
-        // 风车叶片组（4片扁平叶片，十字形从轴心向外）
+        // 风车叶片组（2根长条交叉穿过轴心，形成十字）
         const bladeGroup = new THREE.Group();
         bladeGroup.position.y = h + 0.35;
         const bladeLen = 0.85;
         const bladeWid = 0.18;
-        for (let i = 0; i < 4; i++) {
-            const bladeGeo = new THREE.BoxGeometry(bladeWid, bladeLen, 0.02);
+        // 2根长条形穿过中心，形成 + 字
+        for (let i = 0; i < 2; i++) {
+            const bladeGeo = new THREE.BoxGeometry(bladeWid, bladeLen * 2, 0.02);
             const blade = new THREE.Mesh(bladeGeo, windmillBladeMat);
-            const angle = (i * Math.PI) / 2;
-            blade.rotation.z = angle;
-            // 沿叶片长度方向偏移半长，使叶片一端在bladeGroup原点（轴心）
-            blade.position.x = Math.cos(angle) * (bladeLen / 2);
-            blade.position.y = Math.sin(angle) * (bladeLen / 2);
+            blade.rotation.z = (i * Math.PI) / 2;
+            blade.position.set(0, 0, 0);
             bladeGroup.add(blade);
         }
         bladeGroup.name = 'blades';
