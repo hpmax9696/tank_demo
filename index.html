@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.14.3</title>
+    <title>坦克运动demo v0.15.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -76,6 +76,60 @@
         }
         #game-container.active {
             visibility: visible; pointer-events: auto;
+        }
+
+        /* ========== 模型预览 ========== */
+        #preview-container {
+            position: fixed; inset: 0;
+            visibility: hidden; pointer-events: none;
+            background: #1a1a2e;
+            z-index: 90;
+        }
+        #preview-container.active {
+            visibility: visible; pointer-events: auto;
+        }
+        #preview-hud {
+            position: fixed; top: 20px; left: 20px;
+            z-index: 95;
+            display: flex; gap: 12px; align-items: center;
+        }
+        #btn-preview-back {
+            padding: 8px 18px;
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.55);
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        #btn-preview-back:hover {
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+        }
+        #preview-select {
+            padding: 8px 14px;
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.55);
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            min-width: 160px;
+        }
+        #preview-select:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.3);
+        }
+        #preview-select option {
+            background: #1a1a2e;
+            color: #ccc;
+        }
+        #preview-label {
+            color: #666;
+            font-size: 0.8rem;
         }
 
         /* HUD */
@@ -175,14 +229,18 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.14.3</div>
+        <div class="menu-version">v0.15.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
+        <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.14.3 更新 — 修复风车叶片旋转（二次修复）</div>
-            <div class="cl-item">彻底修复风车叶片旋转：4片叶片位置根据各自旋转角度计算，使十字形中心精确钉在磨坊轴心上</div>
+            <div class="cl-title">🔄 v0.15.0 更新 — 模型系统重构 + 模型预览</div>
+            <div class="cl-item">模型代码从 index.html 抽取到 models/ 目录独立管理（坦克/树木/建筑/风车）</div>
+            <div class="cl-item">新增模型预览模式：下拉菜单切换模型，鼠标拖拽旋转视角，滚轮缩放</div>
+            <div class="cl-item">Three.js 改为本地加载（three.min.js），无需网络即可运行</div>
+            <div class="cl-item">风车叶片使用 PlaneGeometry 扁平叶片，视觉效果更真实</div>
         </div>
     </div>
 
@@ -206,10 +264,25 @@
         <div id="arrow-p2" class="arrow-ui" style="display:none;"></div>
     </div>
 
+    <!-- ========== 模型预览 ========== -->
+    <div id="preview-container">
+        <div id="preview-hud">
+            <button id="btn-preview-back">← 返回菜单 (ESC)</button>
+            <select id="preview-select"></select>
+            <span id="preview-label">拖拽鼠标旋转模型 | 滚轮缩放</span>
+        </div>
+    </div>
+
     <!-- Three.js UMD 构建，本地加载，无需网络 -->
     <script src="three.min.js"></script>
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
     <script src="fireSmokeParticles.js"></script>
+    <!-- 模型系统 -->
+    <script src="models/modelRegistry.js"></script>
+    <script src="models/tank.js"></script>
+    <script src="models/trees.js"></script>
+    <script src="models/buildings.js"></script>
+    <script src="models/windmill.js"></script>
 
     <script>
         // ==================== DOM 引用 ====================
@@ -406,8 +479,12 @@
         const keys = {};
         window.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-            if (e.code === 'Escape' && gameMode !== 'menu') {
-                returnToMenu();
+            if (e.code === 'Escape') {
+                if (previewContainer.classList.contains('active')) {
+                    exitPreviewMode();
+                } else if (gameMode !== 'menu') {
+                    returnToMenu();
+                }
             }
             if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) {
                 e.preventDefault();
@@ -582,62 +659,18 @@
             scene.add(edgeLine);
         }
 
-        // ==================== 坦克模型 ====================
-        const CAMO_GREEN  = { hull:'#4a5c2e', turret:'#3d4f25' };
-        const CAMO_DESERT = { hull:'#8b7d4a', turret:'#6d6038' };
-
+        // ==================== 坦克模型（使用模型注册表） ====================
         function createPlayerTank(player) {
-            const c = player.camoColor === 'desert' ? CAMO_DESERT : CAMO_GREEN;
-            player.group = new THREE.Group();
-
-            const hullMat   = new THREE.MeshStandardMaterial({ color: c.hull, roughness: 0.6, metalness: 0.15 });
-            const beltMat   = new THREE.MeshStandardMaterial({ color: '#2a2a2a', roughness: 0.9, metalness: 0.25 });
-            const turretMat = new THREE.MeshStandardMaterial({ color: c.turret, roughness: 0.6, metalness: 0.2 });
-            const barrelMat = new THREE.MeshStandardMaterial({ color: '#444444', roughness: 0.45, metalness: 0.55 });
-
-            const hullGeo = new THREE.BoxGeometry(1.05, 0.45, 1.6);
-            player.hull = new THREE.Mesh(hullGeo, hullMat);
-            player.hull.position.y = 0.225;
-            player.hull.castShadow = true; player.hull.receiveShadow = true;
-            player.group.add(player.hull);
-
-            const beltGeo = new THREE.BoxGeometry(0.12, 0.06, 1.55);
-            const lb = new THREE.Mesh(beltGeo, beltMat); lb.position.set(-0.52, 0.04, 0); lb.castShadow = true; player.group.add(lb);
-            const rb = new THREE.Mesh(beltGeo, beltMat); rb.position.set(0.52, 0.04, 0); rb.castShadow = true; player.group.add(rb);
-
-            const hubMat = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.5, metalness: 0.5 });
-            const spokeMat = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.7, metalness: 0.2 });
-            const rimMat = new THREE.MeshStandardMaterial({ color: '#555555', roughness: 0.6, metalness: 0.4 });
-            const wheelZ = [-0.55, -0.35, -0.15, 0.15, 0.35, 0.55];
-            player.leftWheels = []; player.rightWheels = [];
-
-            for (let i = 0; i < 6; i++) {
-                const lwg = new THREE.Group(); lwg.position.set(-0.52, -0.08, wheelZ[i]);
-                const lHub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 16), hubMat); lHub.rotation.z = Math.PI/2; lwg.add(lHub);
-                for (let s = 0; s < 4; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, 0.04), spokeMat); sp.rotation.z = (s*Math.PI)/4; lwg.add(sp); }
-                const lRim = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.018, 8, 16), rimMat); lRim.rotation.y = Math.PI/2; lwg.add(lRim);
-                player.group.add(lwg); player.leftWheels.push(lwg);
-
-                const rwg = new THREE.Group(); rwg.position.set(0.52, -0.08, wheelZ[i]);
-                const rHub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 16), hubMat); rHub.rotation.z = Math.PI/2; rwg.add(rHub);
-                for (let s = 0; s < 4; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, 0.04), spokeMat); sp.rotation.z = (s*Math.PI)/4; rwg.add(sp); }
-                const rRim = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.018, 8, 16), rimMat); rRim.rotation.y = Math.PI/2; rwg.add(rRim);
-                player.group.add(rwg); player.rightWheels.push(rwg);
-            }
-
-            const turretGeo = new THREE.CylinderGeometry(0.32, 0.36, 0.26, 24);
-            const turret = new THREE.Mesh(turretGeo, turretMat); turret.position.y = 0.58; turret.castShadow = true; turret.receiveShadow = true;
-            player.group.add(turret);
-
-            const barrelGeo = new THREE.CylinderGeometry(0.05, 0.07, 1.1, 12);
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat); barrel.rotation.x = -Math.PI/2; barrel.position.set(0, 0.58, 0.55); barrel.castShadow = true;
-            player.group.add(barrel);
-
-            const shGeo = new THREE.CircleGeometry(0.6, 32);
-            const sh = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ color:'#000', transparent:true, opacity:0.3, depthWrite:false }));
-            sh.rotation.x = -Math.PI/2; sh.position.y = 0.02; sh.renderOrder = 1; sh.name = 'shadow';
-            player.group.add(sh);
-
+            const camo = player.camoColor === 'desert' ? 'desert' : 'green';
+            const tankGroup = window.ModelRegistry.getModel('tanks', camo)({
+                camoColor: player.camoColor,
+                position: { x: player.state.x, y: 0, z: player.state.z },
+                yaw: player.state.yaw
+            });
+            player.group = tankGroup;
+            player.hull = tankGroup.userData.hull;
+            player.leftWheels = tankGroup.userData.leftWheels;
+            player.rightWheels = tankGroup.userData.rightWheels;
             player.group.position.set(player.state.x, 0, player.state.z);
             scene.add(player.group);
         }
@@ -769,135 +802,7 @@
             return points;
         }
 
-        // ==================== 树木/建筑生成 ====================
-        const trunkMat  = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9 });
-        const crownMat1 = new THREE.MeshStandardMaterial({ color: '#3B7A3B', roughness: 0.8 }); // 锥形树冠
-        const crownMat2 = new THREE.MeshStandardMaterial({ color: '#4A8B3F', roughness: 0.8 }); // 球形树冠
-        const wallMat   = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.9 }); // 建筑墙面
-        const roofMat   = new THREE.MeshStandardMaterial({ color: '#8B4513', roughness: 0.85 }); // 屋顶
-        const aptMat    = new THREE.MeshStandardMaterial({ color: '#C0C0C0', roughness: 0.7 }); // 公寓墙面
-        const windmillBodyMat = new THREE.MeshStandardMaterial({ color: '#D2B48C', roughness: 0.8 });
-        const windmillBladeMat = new THREE.MeshStandardMaterial({ color: '#DEB887', roughness: 0.7 });
-
-        function addShadow(g) {
-            g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-        }
-
-        function makeConicalTree() {
-            const g = new THREE.Group();
-            const h = 0.7 + Math.random() * 0.9; // 树高 0.7~1.6
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, h * 0.5, 6), trunkMat);
-            trunk.position.y = h * 0.25;
-            g.add(trunk);
-            const crown = new THREE.Mesh(new THREE.ConeGeometry(0.25 + Math.random() * 0.25, h * 0.6, 8), crownMat1);
-            crown.position.y = h * 0.5 + h * 0.3;
-            g.add(crown);
-            g.userData = { height: h, radius: 0.45, color: '#3B7A3B' };
-            addShadow(g);
-            return g;
-        }
-
-        function makeSphericalTree() {
-            const g = new THREE.Group();
-            const h = 0.7 + Math.random() * 0.7;
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, h * 0.45, 6), trunkMat);
-            trunk.position.y = h * 0.225;
-            g.add(trunk);
-            const r = 0.25 + Math.random() * 0.3;
-            const crown = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), crownMat2);
-            crown.position.y = h * 0.45 + r * 0.7;
-            g.add(crown);
-            g.userData = { height: h, radius: 0.45, color: '#4A8B3F' };
-            addShadow(g);
-            return g;
-        }
-
-        function makeBungalow() {
-            const g = new THREE.Group();
-            const h = 0.8 + Math.random() * 0.3;
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.9 + Math.random()*0.3, h, 0.7 + Math.random()*0.3), wallMat);
-            body.position.y = h / 2;
-            g.add(body);
-            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.35, 4), roofMat);
-            roof.position.y = h + 0.15;
-            roof.rotation.y = Math.PI / 4;
-            g.add(roof);
-            g.userData = { height: h + 0.35, radius: 0.55, color: '#D4C5A9' };
-            addShadow(g);
-            return g;
-        }
-
-        function makeVilla() {
-            const g = new THREE.Group();
-            const h = 1.2 + Math.random() * 0.4;
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, h, 0.75), wallMat);
-            body.position.y = h / 2;
-            g.add(body);
-            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.45, 4), roofMat);
-            roof.position.y = h + 0.2;
-            roof.rotation.y = Math.PI / 4;
-            g.add(roof);
-            // 窗户暗示
-            for (let wy = 0.35; wy < h; wy += 0.4) {
-                const win = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.16), new THREE.MeshBasicMaterial({ color: '#8899cc' }));
-                win.position.set(0.43, wy, 0);
-                g.add(win);
-            }
-            g.userData = { height: h + 0.45, radius: 0.55, color: '#D4C5A9' };
-            addShadow(g);
-            return g;
-        }
-
-        function makeApartment() {
-            const g = new THREE.Group();
-            const h = 1.6 + Math.random() * 0.5;
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, h, 0.75), aptMat);
-            body.position.y = h / 2;
-            g.add(body);
-            // 窗户阵列
-            const winMat = new THREE.MeshBasicMaterial({ color: '#aaccff' });
-            for (let wy = 0.3; wy < h; wy += 0.3) {
-                for (let wx = -0.2; wx <= 0.2; wx += 0.2) {
-                    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.12), winMat);
-                    win.position.set(wx, wy, 0.38);
-                    g.add(win);
-                }
-            }
-            g.userData = { height: h, radius: 0.55, color: '#C0C0C0' };
-            addShadow(g);
-            return g;
-        }
-
-        function makeWindmill() {
-            const g = new THREE.Group();
-            const h = 1.0 + Math.random() * 0.5;
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, h, 8), windmillBodyMat);
-            body.position.y = h / 2;
-            g.add(body);
-            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.35, 8), roofMat);
-            roof.position.y = h + 0.15;
-            g.add(roof);
-            // 风车叶片（4片，十字形钉在轴心旋转）
-            const bladeGroup = new THREE.Group();
-            bladeGroup.position.y = h + 0.35;
-            const bladeLen = 0.85;   // 叶片长度
-            const bladeWid = 0.15;   // 叶片宽度
-            for (let i = 0; i < 4; i++) {
-                const blade = new THREE.Mesh(
-                    new THREE.BoxGeometry(bladeWid, bladeLen, 0.03), windmillBladeMat);
-                const angle = (i * Math.PI) / 2;
-                blade.rotation.z = angle;
-                // 沿叶片方向偏移半长，使叶片一端在bladeGroup原点（轴心）
-                blade.position.x = Math.cos(angle) * (bladeLen / 2);
-                blade.position.y = Math.sin(angle) * (bladeLen / 2);
-                bladeGroup.add(blade);
-            }
-            bladeGroup.name = 'blades';
-            g.add(bladeGroup);
-            g.userData = { height: h + 0.7, radius: 0.5, color: '#D2B48C', blades: bladeGroup };
-            addShadow(g);
-            return g;
-        }
+        // ==================== 障碍物生成（使用模型注册表） ====================
 
         // ==================== 障碍物遮挡物的动态可见更新 ====================
         function updateObstacleVisibility() {
@@ -923,22 +828,10 @@
 
             const points = poissonDiskSampling(0, 0, SPAWN_RADIUS, POISSON_MIN_DIST, SAFE_ZONE_RADIUS, OBSTACLE_COUNT);
 
-            const makers = [
-                makeConicalTree, makeSphericalTree,  // 树 35%+35%
-                makeBungalow,                        // 平房 10%
-                makeVilla,                           // 别墅 10%
-                makeApartment,                       // 公寓 7%
-                makeWindmill,                        // 风车 3%
-            ];
-            const weights = [35, 35, 10, 10, 7, 3]; // 百分比
-            const totalW = weights.reduce((a,b)=>a+b, 0);
-
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
-                let r = Math.random() * totalW;
-                let idx = 0;
-                while (r > weights[idx] && idx < weights.length - 1) { r -= weights[idx]; idx++; }
-                const group = makers[idx]();
+                const makeFn = window.ModelRegistry.randomObstacleMaker();
+                const group = makeFn();
                 group.position.set(p.x, 0, p.z);
                 group.visible = false;
                 group.name = `obs-${i}`;
@@ -1860,10 +1753,196 @@
 
         function exitGame(){window.close();setTimeout(()=>{document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#ccc;font-family:sans-serif;font-size:1.2rem;">请关闭浏览器标签页以退出</div>';},300);}
 
+        // ==================== 模型预览系统 ====================
+        const previewContainer = document.getElementById('preview-container');
+        const previewSelect = document.getElementById('preview-select');
+        const previewLabel = document.getElementById('preview-label');
+        const btnPreview = document.getElementById('btn-preview');
+        const btnPreviewBack = document.getElementById('btn-preview-back');
+
+        let previewScene = null, previewCamera = null, previewRenderer = null;
+        let previewModel = null;
+        let previewAnimId = null;
+        // 轨道旋转状态
+        let previewTheta = 0, previewPhi = Math.PI / 4, previewRadius = 5;
+        let previewIsDragging = false, previewPrevMouse = { x: 0, y: 0 };
+        const PREVIEW_ROTATE_SPEED = 0.005;
+        const PREVIEW_ZOOM_SPEED = 0.1;
+        const PREVIEW_MIN_RADIUS = 0.8;
+        const PREVIEW_MAX_RADIUS = 15;
+
+        function enterPreviewMode() {
+            menuOverlay.classList.add('hidden');
+            previewContainer.classList.add('active');
+
+            // 创建预览渲染器
+            previewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            previewRenderer.setSize(window.innerWidth, window.innerHeight);
+            previewRenderer.shadowMap.enabled = true;
+            previewRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            previewRenderer.toneMappingExposure = 1.2;
+            previewContainer.appendChild(previewRenderer.domElement);
+
+            // 预览场景
+            previewScene = new THREE.Scene();
+            previewScene.background = new THREE.Color('#1a1a2e');
+
+            // 光照
+            previewScene.add(new THREE.AmbientLight('#ffffff', 0.6));
+            previewScene.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
+            const sun = new THREE.DirectionalLight('#fffef0', 2.5);
+            sun.position.set(5, 8, 5);
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = 1024;
+            sun.shadow.mapSize.height = 1024;
+            sun.shadow.camera.near = 0.5;
+            sun.shadow.camera.far = 50;
+            sun.shadow.camera.left = -10;
+            sun.shadow.camera.right = 10;
+            sun.shadow.camera.top = 10;
+            sun.shadow.camera.bottom = -10;
+            previewScene.add(sun);
+
+            // 地面
+            const groundGeo = new THREE.PlaneGeometry(20, 20);
+            const groundMat = new THREE.MeshStandardMaterial({ color: '#62994a', roughness: 0.9 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.01;
+            ground.receiveShadow = true;
+            previewScene.add(ground);
+
+            // 摄像机
+            previewCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            updatePreviewCamera();
+
+            // 填充下拉菜单
+            populatePreviewSelect();
+
+            // 显示第一个模型
+            if (previewSelect.options.length > 0) {
+                previewSelect.selectedIndex = 0;
+                switchPreviewModel();
+            }
+
+            // 鼠标事件
+            previewRenderer.domElement.addEventListener('mousedown', onPreviewMouseDown);
+            window.addEventListener('mousemove', onPreviewMouseMove);
+            window.addEventListener('mouseup', onPreviewMouseUp);
+            previewRenderer.domElement.addEventListener('wheel', onPreviewWheel, { passive: false });
+            previewSelect.addEventListener('change', switchPreviewModel);
+
+            // 动画循环
+            function previewLoop() {
+                updatePreviewCamera();
+                if (previewModel && previewModel.userData && previewModel.userData.blades) {
+                    previewModel.userData.blades.rotation.z += 1.5 * 0.016;
+                }
+                previewRenderer.render(previewScene, previewCamera);
+                previewAnimId = requestAnimationFrame(previewLoop);
+            }
+            previewAnimId = requestAnimationFrame(previewLoop);
+        }
+
+        function populatePreviewSelect() {
+            previewSelect.innerHTML = '';
+            const models = window.ModelRegistry.getAllModels();
+            for (const m of models) {
+                const opt = document.createElement('option');
+                opt.value = `${m.category}/${m.name}`;
+                opt.textContent = `[${m.categoryLabel}] ${m.name}`;
+                previewSelect.appendChild(opt);
+            }
+        }
+
+        function switchPreviewModel() {
+            const val = previewSelect.value;
+            if (!val) return;
+            const [cat, name] = val.split('/');
+            const fn = window.ModelRegistry.getModel(cat, name);
+            if (!fn) return;
+
+            // 移除旧模型
+            if (previewModel && previewModel.parent) {
+                previewModel.parent.remove(previewModel);
+                previewModel.traverse(c => {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                });
+            }
+
+            // 创建新模型
+            previewModel = fn({ camoColor: name === 'desert' ? 'desert' : 'green' });
+            previewScene.add(previewModel);
+            previewLabel.textContent = `拖拽鼠标旋转模型 | 滚轮缩放 | 当前: ${cat}/${name}`;
+        }
+
+        function updatePreviewCamera() {
+            const x = previewRadius * Math.sin(previewPhi) * Math.cos(previewTheta);
+            const y = previewRadius * Math.cos(previewPhi);
+            const z = previewRadius * Math.sin(previewPhi) * Math.sin(previewTheta);
+            previewCamera.position.set(x, y, z);
+            previewCamera.lookAt(0, 1, 0);
+        }
+
+        function onPreviewMouseDown(e) {
+            previewIsDragging = true;
+            previewPrevMouse.x = e.clientX;
+            previewPrevMouse.y = e.clientY;
+        }
+
+        function onPreviewMouseMove(e) {
+            if (!previewIsDragging) return;
+            const dx = e.clientX - previewPrevMouse.x;
+            const dy = e.clientY - previewPrevMouse.y;
+            previewTheta -= dx * PREVIEW_ROTATE_SPEED;
+            previewPhi -= dy * PREVIEW_ROTATE_SPEED;
+            previewPhi = Math.max(0.1, Math.min(Math.PI - 0.1, previewPhi));
+            previewPrevMouse.x = e.clientX;
+            previewPrevMouse.y = e.clientY;
+        }
+
+        function onPreviewMouseUp(e) {
+            previewIsDragging = false;
+        }
+
+        function onPreviewWheel(e) {
+            e.preventDefault();
+            previewRadius += e.deltaY * PREVIEW_ZOOM_SPEED * 0.01;
+            previewRadius = Math.max(PREVIEW_MIN_RADIUS, Math.min(PREVIEW_MAX_RADIUS, previewRadius));
+        }
+
+        function exitPreviewMode() {
+            if (previewAnimId) { cancelAnimationFrame(previewAnimId); previewAnimId = null; }
+            if (previewRenderer && previewRenderer.domElement) {
+                previewRenderer.domElement.removeEventListener('mousedown', onPreviewMouseDown);
+                previewRenderer.domElement.removeEventListener('wheel', onPreviewWheel);
+            }
+            window.removeEventListener('mousemove', onPreviewMouseMove);
+            window.removeEventListener('mouseup', onPreviewMouseUp);
+            if (previewSelect) previewSelect.removeEventListener('change', switchPreviewModel);
+            if (previewModel && previewModel.parent) {
+                previewModel.parent.remove(previewModel);
+                previewModel.traverse(c => {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                });
+                previewModel = null;
+            }
+            if (previewRenderer) { previewRenderer.dispose(); previewRenderer = null; }
+            previewContainer.classList.remove('active');
+            menuOverlay.classList.remove('hidden');
+        }
+
         // ==================== 事件绑定 ====================
         btnEnter.addEventListener('click',enterGame);btnVersus.addEventListener('click',enterVersusMode);
+        btnPreview.addEventListener('click', enterPreviewMode);
         btnExit.addEventListener('click',exitGame);btnBack.addEventListener('click',returnToMenu);
+        btnPreviewBack.addEventListener('click', exitPreviewMode);
         window.addEventListener('resize',()=>{
+            // 游戏渲染器
             if(camera&&renderer){
                 const ww=window.innerWidth,wh=window.innerHeight;
                 renderer.setSize(ww,wh);
@@ -1874,11 +1953,18 @@
                     camera.aspect=(hcw*dpr)/bh; camera.updateProjectionMatrix();
                     if(camera2){camera2.aspect=(rcw*dpr)/bh; camera2.updateProjectionMatrix();}}
                 else{camera.aspect=bw/bh; camera.updateProjectionMatrix();}
-            }});
+            }
+            // 预览渲染器
+            if (previewRenderer && previewCamera) {
+                previewRenderer.setSize(window.innerWidth, window.innerHeight);
+                previewCamera.aspect = window.innerWidth / window.innerHeight;
+                previewCamera.updateProjectionMatrix();
+            }
+        });
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.14.3 | 修复风车叶片旋转中心（二次修复）');
+        console.log('🎮 坦克运动demo v0.15.0 | 模型系统重构 + 模型预览 + 本地Three.js');
     </script>
 </body>
 </html>
