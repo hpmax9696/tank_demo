@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.16.1</title>
+    <title>坦克运动demo v0.17.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -662,7 +662,7 @@
 
         // ==================== 坦克模型（使用模型注册表） ====================
         function createPlayerTank(player) {
-            const camo = player.camoColor === 'desert' ? 'desert' : 'green';
+            const camo = player.camoColor === 'desert' ? 't34-85-desert' : 't34-85-green';
             const tankGroup = window.ModelRegistry.getModel('tanks', camo)({
                 camoColor: player.camoColor,
                 position: { x: player.state.x, y: 0, z: player.state.z },
@@ -1874,8 +1874,9 @@
                 });
             }
 
-            // 创建新模型
-            previewModel = fn({ camoColor: name === 'desert' ? 'desert' : 'green' });
+            // 创建新模型（支持普通名和带前缀名如 t34-85-desert）
+            const detectedCamo = name.includes('desert') ? 'desert' : 'green';
+            previewModel = fn({ camoColor: detectedCamo });
             previewScene.add(previewModel);
             previewLabel.textContent = `拖拽鼠标旋转模型 | 滚轮缩放 | 当前: ${cat}/${name}`;
         }
