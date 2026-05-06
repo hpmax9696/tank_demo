@@ -121,12 +121,12 @@
                 group.add(bar);
             }
 
-            // 尾板装甲（倾斜的后装甲板）
+            // 尾板装甲（垂直后装甲板）
             const tailPlateGeo = new THREE.BoxGeometry(HULL_W - 0.02, HULL_TOP - REAR_BOT_Y + 0.01, 0.018);
             const tailPlate = new THREE.Mesh(tailPlateGeo, hullMat);
-            tailPlate.position.set((REAR_Z + REAR_Z + REAR_OVERHANG) / 2,
+            tailPlate.position.set(REAR_Z,
                 (HULL_TOP - 0.05 + REAR_BOT_Y) / 2,
-                REAR_Z + REAR_OVERHANG / 2);
+                0);
             tailPlate.rotation.y = Math.PI / 2;
             tailPlate.rotation.x = -0.35;  // 向后下方倾斜
             tailPlate.castShadow = true;
