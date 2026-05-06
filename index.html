@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.32</title>
+    <title>坦克运动demo v0.18.33</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,13 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.32</div>
+        <div class="menu-version">v0.18.33</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
+            <div class="cl-item">游戏效果概述、移交清单、功能状态表、SOP检查清单</div>
             <div class="cl-title">🔄 v0.18.32 更新 — 别墅精细化(二层退台/阳台/烟囱)</div>
             <div class="cl-item">二楼退台+石墙/木墙分层；山墙屋顶；阳台栏杆；四面窗；台阶</div>
             <div class="cl-title">🔄 v0.18.31 更新 — 障碍物随机朝向+平房精细化</div>
@@ -1765,7 +1767,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.32  dpr:' + dpr.toFixed(2) +
+                'v0.18.33  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2002,7 +2004,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.32 | 别墅精细化+平房+风车修复');
+        console.log('🎮 坦克运动demo v0.18.33 | README移交准备+建筑精细化');
     </script>
 </body>
 </html>

@@ -1,8 +1,15 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.18.32** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.18.33** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
-> 双击 `index.html` 即可运行，无需服务器。
+> 游戏效果一览：
+- **T-34/85 高精度坦克模型**（v6.1）：车体/炮塔/履带/散热格栅完整结构
+- **3 种建筑**：平房（山墙屋顶+窗框+门+烟囱）、别墅（二层退台+阳台+四面窗）、公寓（窗户阵列）
+- **2 种树木**：锥形树、球形树
+- **风车磨坊**：十字叶片+连接轴，带旋转动画
+- **粒子系统**：火焰/烟雾/爆炸/碎片/炮口焰/火花
+- **音频系统**：全套 Web Audio API 程序化音效
+- **双人分屏对战**：2个独立视口 + 指向箭头 + 殉爆系统
 
 ---
 
@@ -48,8 +55,8 @@
     ├── tank.js            # 简化坦克模型（绿色/沙漠色，备选）
     ├── t34-85.js          # T-34-85 后期型高精度模型（绿色/沙漠色）
     ├── trees.js           # 树木模型（锥形树/球形树）
-    ├── buildings.js       # 建筑模型（平房/别墅/公寓）
-    └── windmill.js        # 风车磨坊模型（PlaneGeometry叶片）
+    ├── buildings.js       # 建筑模型（平房精细化/别墅精细化/公寓）
+    └── windmill.js        # 风车磨坊模型（BoxGeometry十字叶片+连接轴）
 ```
 
 ### 代码结构
@@ -114,10 +121,10 @@ fireSmokeParticles.js:
 |------|------|----------|------|
 | 锥形树 | 35% | 0.45 | 0.7~1.6 高度随机 |
 | 球形树 | 35% | 0.45 | 0.7~1.4 高度随机 |
-| 平房 | 10% | 0.55 | 带锥形屋顶 |
-| 别墅 | 10% | 0.55 | 带窗户 |
+| 平房 | 10% | 0.55 | 山墙屋顶+窗框+门+烟囱（精细化） |
+| 别墅 | 10% | 0.55 | 二层退台+石墙木墙+阳台+四面窗（精细化） |
 | 公寓 | 7% | 0.55 | 带窗户阵列 |
-| 风车 | 3% | 0.50 | 4片旋转叶片 |
+| 风车 | 3% | 0.50 | BoxGeometry十字叶片，绕X轴旋转 |
 
 ### 坦克物理
 
@@ -184,6 +191,14 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.18.33 — README 移交准备（2026-05-06）
+**移交更新**：
+- 新增游戏总体效果概述
+- 项目移交清单（文件列表/功能状态表/已知问题更新）
+- 更新细化的更新 SOP（含版本号同步检查清单）
+- 更新模型描述/代码规模统计
+- 标注已修复问题的状态
 
 ### v0.18.32 — 别墅精细化（2026-05-06）
 **升级**：二层退台+石墙/木墙分层；山墙屋顶；阳台栏杆；四面窗；烟囱；台阶
@@ -343,52 +358,104 @@ const TRACK_W    = 0.120;      // 履带宽度
 | 🟡 中 | 模型整体比例 | 用户反馈"不像" | 对照 T-34/85 参考照片，调整车体/炮塔/履带比例 |
 | 🟢 低 | 履带纹理细化 | 当前为纯色 | 添加履带板凸起、诱导齿等细节 |
 | 🟢 低 | 炮塔轮廓微调 | LatheGeometry 轮廓可精调 | 根据更多角度照片微调 10 个控制点 |
-| 🟢 低 | GitHub 推送超时 | 网络问题 | Gitee 正常，GitHub SSH 密钥已生成待验证 |
+| ~~🔴 高~~ | ~~模式切换坦克残留~~ | ~~已修复 v0.18.23~~ | — |
+| ~~🔴 高~~ | ~~预览模式canvas残留~~ | ~~已修复 v0.18.24~~ | — |
+| ~~🟡 中~~ | ~~风车叶片方框/错位~~ | ~~已修复 v0.18.25~30~~ | — |
+| ~~🟢 低~~ | ~~平房别墅精细化~~ | ~~已升级 v0.18.31~32~~ | — |
+| ~~🟢 低~~ | ~~障碍物同朝向~~ | ~~已修复 v0.18.31~~ | — |
 
 ---
 
-## 开发者接力指南
+## 项目移交清单
 
-### 在单位电脑设置
-1. 复制整个 `坦克对战demo/` 文件夹到单位电脑
-2. 确认以下文件结构完整（同一文件夹内）：
-   - `index.html`、`three.min.js`、`fireSmokeParticles.js`、`README.md`
-   - `models/` 目录及其全部 6 个 JS 文件
-3. 双击 `index.html` 即可运行（Three.js 已本地化，完全离线）
+### 文件交付
+| 文件 | 行数 | 说明 |
+|------|:----:|------|
+| `index.html` | ~1972 | HTML+CSS+JS 游戏引擎主体 |
+| `three.min.js` | — | Three.js 库（本地加载，无需 CDN） |
+| `fireSmokeParticles.js` | ~390 | 火焰/烟雾/爆炸粒子系统 |
+| `models/modelRegistry.js` | ~66 | 模型注册表 |
+| `models/tank.js` | ~85 | 简化坦克模型（备选） |
+| `models/t34-85.js` | ~640 | T-34/85 v6.1 高精度坦克模型 |
+| `models/trees.js` | ~60 | 2 种树木模型 |
+| `models/buildings.js` | ~125 | 3 种建筑模型（平房/别墅/公寓） |
+| `models/windmill.js` | ~59 | 风车磨坊模型 |
+| `README.md` | — | 本文件 |
+| **总计** | **~3400 行** | **纯 JavaScript + HTML + CSS** |
+
+> 全部文件离线可用，无须网络、无须服务器、无须包管理器。
+
+### 运行方式
+1. 复制整个 `坦克对战demo/` 文件夹到目标电脑
+2. **双击 `index.html`** —— 立即运行，无须任何配置
+3. 修改代码后**关闭标签页重新双击**，确保不使用缓存
+4. 所有现代浏览器均可运行（Chrome / Edge / Firefox）
+
+### 当前功能状态
+
+| 模块 | 状态 | 说明 |
+|------|:----:|------|
+| 单人模式 | ✅ 完成 | WASD + 空格 + 鼠标视角 |
+| 双人对战 | ✅ 完成 | 1P键盘 + 2P手柄，分屏渲染 |
+| 模型预览 | ✅ 完成 | 拖拽/缩放/切换模型 |
+| T-34/85 坦克模型 | ✅ v6.1 | 车体/炮塔/履带/格栅完整结构 |
+| 平房建筑 | ✅ 精细化 | 山墙屋顶+窗框+门+烟囱 |
+| 别墅建筑 | ✅ 精细化 | 二层退台+石墙木墙+阳台+四面窗 |
+| 公寓建筑 | ✅ | 窗户阵列 |
+| 风车磨坊 | ✅ 三修复 | 十字叶片+连接轴+侧面旋转 |
+| 粒子系统 | ✅ | 火焰/烟雾/爆炸/碎片/炮口焰/火花 |
+| 音频系统 | ✅ | Web Audio API 原生生成 |
+| 殉爆系统 | ✅ | 坦克爆炸引爆附近障碍物 |
+| 障碍物随机朝向 | ✅ | 各方向随机旋转 |
+| 游戏模式切换 | ✅ 已修复 | 进出模式坦克/特效正确清理 |
+| 预览模式切换 | ✅ 已修复 | canvas 清理防止叠加 |
+| T-34/85 deck/履带 | ⚠️ 未完成 | deck坐标/履带闭合/虚线圆圈 |
+| GitHub 同步 | ⚠️ 待处理 | SSH 密钥已生成待验证 |
 
 ### Git 仓库信息
-- **Gitee**（主仓库）：`git@gitee.com:hpmax9696/tank_demo.git`
-- **GitHub**（备用）：`git@github.com:hpmax9696/tank_demo.git`（SSH 密钥已生成待验证）
-- **SSH 公钥**：`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAqJMglvgHJIR8Z+AT4mo+ES3FYzvc4dx58l+ic7116v hpmax9696@github`
-- 更新后执行 `git add -A && git commit -m "vX.Y.Z: 描述"`，然后推送两边
-- GitHub 推送设置 30 秒超时，失败则跳过留待下次
+- **Gitee**（主仓库）：`https://gitee.com/hpmax9696/tank_demo.git`
+- **GitHub**（备用）：`git@github.com:hpmax9696/tank_demo.git`（SSH 密钥已验证域名）
+- **远端配置**：`origin` → Gitee，`github` → GitHub
+- **提交格式**：`git commit -m "vX.Y.Z: 描述"`
 
-### OneDrive 备份目录
-- `C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\`
-- 每次更新后同步：`index.html` + `fireSmokeParticles.js` + `README.md` + `models/*`
-
-### 更新策略 SOP
-```
+### 更新 SOP（每次修改后执行）
+```bash
 git add -A
 git commit -m "vX.Y.Z: 描述"
-git push origin master          # Gitee
-git push github master          # GitHub (30秒超时，失败跳过)
-xcopy index.html + fireSmokeParticles.js + README.md + models/* → OneDrive目录
+git push origin master              # Gitee
+git push github master              # GitHub（失败跳过）
+
+# 同步 OneDrive 备份
+xcopy /Y /I "index.html" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
+xcopy /Y /I "README.md" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
+xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\"
 ```
+
+### ⚠️ 版本号同步检查清单（每次更新必须执行）
+1. `index.html` `<title>` 标签中的版本号
+2. `index.html` `.menu-version` 菜单版本显示
+3. `index.html` `.changelog` 追加当前版本更新记录
+4. `index.html` 调试信息中的版本号（`'vX.Y.Z  dpr:' + ...`）
+5. `index.html` `console.log('🎮 坦克运动demo vX.Y.Z | ...')`
+6. `README.md` 开头版本号
+7. `README.md` 版本历史中追加当前版本
+8. `README.md` 代码规模 / console.log示例中的版本号
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.18.32`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.18.33`
 3. 页面右上角有调试信息（尺寸/DPR/canvas/camera aspect）
 4. 修改代码后**关闭标签页重新双击**，确保不使用缓存
 5. `file://` 协议下 `Ctrl+F5` 可能无效，建议关标签页重开
 
-### 代码规模（截至 v0.18.32）
+### 代码规模（截至 v0.18.33）
 - `index.html`：约 1972 行（HTML + CSS + JS 游戏引擎）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 v6.1 高精度坦克模型）
-- 其他模型文件：约 331 行（tank / trees / buildings / windmill / modelRegistry）
-- **总计约 3330 行**
+- `models/buildings.js`：约 125 行（平房/别墅/公寓精细化）
+- `models/windmill.js`：约 59 行（风车磨坊已修复）
+- 其他模型文件：约 211 行（tank / trees / modelRegistry）
+- **总计约 3400 行**
 
 ---
 
