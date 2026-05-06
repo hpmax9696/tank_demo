@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坦克运动demo v0.13.2</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: #1a1a2e;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ========== 主菜单 ========== */
+        #menu-overlay {
+            position: fixed; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1e 100%);
+            z-index: 100;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        #menu-overlay.hidden {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+        #menu-overlay .menu-title {
+            font-size: 3rem; font-weight: bold;
+            color: #f5954a;
+            text-shadow: 0 0 30px rgba(245,149,74,0.4);
+            margin-bottom: 0.5rem;
+        }
+        #menu-overlay .menu-version {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 3rem;
+            letter-spacing: 0.15em;
+        }
+        #menu-overlay .menu-btn {
+            width: 240px; padding: 14px 0;
+            margin: 8px 0;
+            font-size: 1.15rem; font-weight: bold;
+            border: none; border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            letter-spacing: 0.05em;
+        }
+        #menu-overlay .menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        #menu-overlay .menu-btn:active {
+            transform: translateY(0);
+        }
+        #btn-enter {
+            background: linear-gradient(135deg, #f5954a, #e07020);
+            color: #fff;
+        }
+        #btn-exit {
+            background: rgba(255,255,255,0.08);
+            color: #aaa;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        #menu-overlay .menu-hint {
+            margin-top: 2.5rem;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        /* ========== 游戏画面 ========== */
+        #game-container {
+            position: fixed; inset: 0;
+            visibility: hidden; pointer-events: none;
+        }
+        #game-container.active {
+            visibility: visible; pointer-events: auto;
+        }
+
+        /* HUD */
+        #hud {
+            position: fixed; top: 20px; left: 20px;
+            z-index: 50;
+            display: flex; gap: 12px;
+            align-items: center;
+        }
+        #btn-back {
+            padding: 8px 18px;
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.55);
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        #btn-back:hover {
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+        }
+        #controls-hint {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            padding: 10px 22px;
+            background: rgba(0,0,0,0.55);
+            color: #aaa;
+            font-size: 0.8rem;
+            border-radius: 20px;
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+            letter-spacing: 0.03em;
+        }
+
+        /* ========== 对方指向箭头（杆+三角头） ========== */
+        .arrow-ui {
+            position: fixed;
+            width: 3px;
+            height: 28px;
+            background: #ff4444;
+            z-index: 56;
+            pointer-events: none;
+            border-radius: 2px;
+            transform-origin: 50% 0%;
+            filter: drop-shadow(0 0 4px rgba(0,0,0,0.6));
+        }
+        .arrow-ui::after {
+            content: '';
+            position: absolute;
+            bottom: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 14px solid #ff4444;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
+        }
+        #arrow-p1 { background: #ff4444; }
+        #arrow-p1::after { border-top-color: #ff4444; }
+        #arrow-p2 { background: #ffaa00; }
+        #arrow-p2::after { border-top-color: #ffaa00; }
+
+        /* ========== 版本更新Tips ========== */
+        .changelog {
+            margin-top: 2rem;
+            max-width: 360px;
+            text-align: left;
+        }
+        .changelog .cl-title {
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+        .changelog .cl-item {
+            color: #666;
+            font-size: 0.75rem;
+            padding: 3px 0;
+            padding-left: 16px;
+            position: relative;
+            line-height: 1.5;
+        }
+        .changelog .cl-item::before {
+            content: '•';
+            position: absolute;
+            left: 4px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== 主菜单 ========== -->
+    <div id="menu-overlay">
+        <div class="menu-title">🎮 坦克运动demo</div>
+        <div class="menu-version">v0.13.2</div>
+        <button class="menu-btn" id="btn-enter">单人模式</button>
+        <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
+        <button class="menu-btn" id="btn-exit">退出游戏</button>
+        <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
+        <div class="changelog">
+            <div class="cl-title">🔄 v0.13.2 更新 — 箭头 behind 翻转 + 单人模式首帧渲染</div>
+            <div class="cl-item">箭头方向修复：检测目标是否在摄像机后方（project z>1），反转方向向量 + 钳制位置</div>
+            <div class="cl-item">单人模式黑屏修复：enterGame 中显式调用 renderer.render() 产生可见首帧</div>
+            <div class="cl-item">消除"先进双人再进单人"才能正常显示的依赖</div>
+        </div>
+    </div>
+
+    <!-- ========== 游戏画面 ========== -->
+    <div id="game-container">
+        <div id="hud">
+            <button id="btn-back">← 返回菜单 (ESC)</button>
+        </div>
+        <div id="controls-hint"></div>
+        <!-- 双人对战结束覆盖 -->
+        <div id="versus-result" style="display:none;position:fixed;inset:0;z-index:60;pointer-events:none;">
+            <div style="display:flex;height:100%;">
+                <div id="result-p1" style="flex:1;display:flex;align-items:center;justify-content:center;font-size:3rem;font-weight:bold;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.8);"></div>
+                <div id="result-p2" style="flex:1;display:flex;align-items:center;justify-content:center;font-size:3rem;font-weight:bold;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.8);"></div>
+            </div>
+        </div>
+        <!-- 分屏分隔线 -->
+        <div id="split-line" style="display:none;position:fixed;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.3);z-index:55;pointer-events:none;"></div>
+        <!-- 对方指向箭头 -->
+        <div id="arrow-p1" class="arrow-ui" style="display:none;"></div>
+        <div id="arrow-p2" class="arrow-ui" style="display:none;"></div>
+    </div>
+
+    <!-- Three.js UMD 构建，通过 CDN 加载，支持 file:// 协议直接打开 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+    <script>
+        // ==================== DOM 引用 ====================
+        const menuOverlay = document.getElementById('menu-overlay');
+        const gameContainer = document.getElementById('game-container');
+        const btnEnter = document.getElementById('btn-enter');
+        const btnVersus = document.getElementById('btn-versus');
+        const btnExit = document.getElementById('btn-exit');
+        const btnBack = document.getElementById('btn-back');
+        const hintBar = document.getElementById('controls-hint');
+        const splitLine = document.getElementById('split-line');
+        const arrowP1 = document.getElementById('arrow-p1');
+        const arrowP2 = document.getElementById('arrow-p2');
+        const versusResult = document.getElementById('versus-result');
+        const resultP1 = document.getElementById('result-p1');
+        const resultP2 = document.getElementById('result-p2');
+
+        // ==================== 音频系统（Web Audio API 程序化生成） ====================
+        let audioCtx = null;
+        let engineNodes = null;   // { osc, gain, noiseNode, noiseGain }
+        let audioStarted = false;
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function ensureAudio() {
+            if (!audioCtx) initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function startEngineSound() {
+            ensureAudio();
+            if (engineNodes) return;
+            // 低频引擎轰鸣（锯齿波 + 次谐波）
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc1.type = 'sawtooth'; osc1.frequency.value = 35;
+            osc2.type = 'sawtooth'; osc2.frequency.value = 70;
+            gain.gain.value = 0;
+            osc1.connect(gain); osc2.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc1.start(); osc2.start();
+
+            // 履带咔嗒声（白噪声 → 带通滤波）
+            const bufSize = audioCtx.sampleRate * 2;
+            const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const data = noiseBuf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+            const noiseSrc = audioCtx.createBufferSource();
+            noiseSrc.buffer = noiseBuf;
+            noiseSrc.loop = true;
+            const bpFilter = audioCtx.createBiquadFilter();
+            bpFilter.type = 'bandpass';
+            bpFilter.frequency.value = 600;
+            bpFilter.Q.value = 2;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = 0;
+            noiseSrc.connect(bpFilter);
+            bpFilter.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noiseSrc.start();
+
+            engineNodes = { osc1, osc2, gain, noiseGain, bpFilter };
+        }
+
+        function updateEngineSound(speed) {
+            if (!engineNodes) return;
+            const absSpeed = Math.abs(speed);
+            const vol = Math.min(0.1, absSpeed * 0.025);
+            engineNodes.gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
+            const freq = 30 + absSpeed * 6;
+            engineNodes.osc1.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+            engineNodes.osc2.frequency.setTargetAtTime(freq * 2, audioCtx.currentTime, 0.1);
+            // 履带声
+            engineNodes.noiseGain.gain.setTargetAtTime(
+                Math.min(0.06, absSpeed * 0.015), audioCtx.currentTime, 0.08);
+            engineNodes.bpFilter.frequency.setTargetAtTime(
+                400 + absSpeed * 80, audioCtx.currentTime, 0.08);
+        }
+
+        function stopEngineSound() {
+            if (!engineNodes) return;
+            engineNodes.gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+            engineNodes.noiseGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+            setTimeout(() => {
+                if (engineNodes) {
+                    try { engineNodes.osc1.stop(); } catch(e){}
+                    try { engineNodes.osc2.stop(); } catch(e){}
+                    engineNodes = null;
+                }
+            }, 500);
+        }
+
+        function playFireSound() {
+            ensureAudio();
+            const now = audioCtx.currentTime;
+            // 低频炮击声
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(now); osc.stop(now + 0.45);
+            // 高频爆鸣
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.2);
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.03));
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const g2 = audioCtx.createGain(); g2.gain.value = 0.3;
+            src.connect(g2); g2.connect(audioCtx.destination);
+            src.start(now);
+        }
+
+        function playExplosionSound() {
+            ensureAudio();
+            const now = audioCtx.currentTime;
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.6);
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.1));
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const gain = audioCtx.createGain(); gain.gain.value = 0.4;
+            const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
+            lp.frequency.setValueAtTime(800, now);
+            lp.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+            src.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
+            src.start(now);
+        }
+
+        function playHitSound() {
+            ensureAudio();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(now); osc.stop(now + 0.25);
+        }
+
+        function spawnHitSparks(pos) {
+            playHitSound();
+            for (let i = 0; i < 10; i++) {
+                const size = 0.03 + Math.random() * 0.06;
+                const geo = new THREE.SphereGeometry(size, 4, 4);
+                const mat = new THREE.MeshBasicMaterial({ color: '#ffcc44', transparent: true, opacity: 1 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.copy(pos);
+                scene.add(mesh);
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 3,
+                    Math.random() * 2,
+                    (Math.random() - 0.5) * 3
+                );
+                fragments.push({
+                    mesh, vel,
+                    life: 0.4 + Math.random() * 0.3,
+                    rotSpeed: new THREE.Vector3(0, 0, 0)
+                });
+            }
+        }
+
+        function playDebrisSound() {
+            ensureAudio();
+            const now = audioCtx.currentTime;
+            for (let i = 0; i < 6; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = 600 + Math.random() * 1800;
+                const t = now + Math.random() * 0.2;
+                gain.gain.setValueAtTime(0.08, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(t); osc.stop(t + 0.07);
+            }
+        }
+
+        // ==================== 状态机 ====================
+        let gameMode = 'menu'; // 'menu' | 'single' | 'versus'
+        let animationId = null;
+
+        // ==================== 键盘输入 ====================
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Escape' && gameMode !== 'menu') {
+                returnToMenu();
+            }
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        // ==================== 玩家工厂 ====================
+        function createPlayer(camoColor, startX, startZ, startYaw, isP1) {
+            return {
+                group: null, hull: null,
+                leftWheels: [], rightWheels: [],
+                state: { x: startX, z: startZ, yaw: startYaw },
+                leftWheelAngle: 0, rightWheelAngle: 0,
+                currentLeftSpeed: 0, currentRightSpeed: 0,
+                prevForwardSpeed: 0, pitch: 0,
+                hp: 100, maxHp: 100, dead: false,
+                reloadTimer: 0,
+                hpBarGroup: null, hpBarFill: null,
+                reloadBarGroup: null, reloadBarFill: null,
+                camoColor, isP1,
+                fireReady: true
+            };
+        }
+
+        // ==================== 场景变量 ====================
+        let scene, camera, renderer;
+        // 单人模式引用（向后兼容）
+        let tankGroup, tankHull, leftWheels = [], rightWheels = [];
+        let reloadTimer = 0, reloadBarGroup = null, reloadBarFill = null;
+        // 通用
+        let player1 = null, player2 = null; // 双人模式玩家
+        const TANK_HALF_W = 0.55;
+        let obstacleMeshes = [], obstacleData = [];
+        let groundPlane;
+        let shells = [], fragments = [], muzzleLights = [];
+
+        // 游戏参数
+        const TRACK_SPACING = 3.2;
+        const MAX_SPEED = 4.0;
+        const TRACK_ACCEL = 6.0, TRACK_DECEL = 10.0, TRACK_COAST = 3.5;
+        const PITCH_GAIN = 0.12, PITCH_MAX = 0.18, PITCH_SMOOTH = 8.0;
+        const WORLD_HALF = 100;
+        const OBSTACLE_COUNT = 350;
+        const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
+        const OBS_VISIBLE_RADIUS = 65;
+        const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
+        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
+        const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
+        const SHELL_DAMAGE = 20;
+
+        function initScene() {
+            // --- 渲染器 ---
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            // 挂到 gameContainer（visibility:hidden 保持布局尺寸，不会导致 canvas 0 尺寸）
+            gameContainer.appendChild(renderer.domElement);
+
+            // --- 场景 ---
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#000000');   // 虚空黑色
+            scene.fog = new THREE.Fog('#000000', 100, 160);  // 黑雾：仅边界外渐隐
+
+            // --- 光照 ---
+            const ambientLight = new THREE.AmbientLight('#ffffff', 0.6);
+            scene.add(ambientLight);
+
+            const hemisphereLight = new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5);
+            scene.add(hemisphereLight);
+
+            const sunLight = new THREE.DirectionalLight('#fffef0', 2.5);
+            sunLight.position.set(30, 40, 20);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 250;
+            sunLight.shadow.camera.left = -110;
+            sunLight.shadow.camera.right = 110;
+            sunLight.shadow.camera.top = 110;
+            sunLight.shadow.camera.bottom = -110;
+            sunLight.shadow.bias = -0.0002;
+            scene.add(sunLight);
+
+            // --- 地面 ---
+            createGround();
+
+            // --- 坦克 ---
+            createTank();
+            // 单人模式兼容：将 player1 的条映射到全局
+            if (player1) {
+                reloadBarGroup = player1.reloadBarGroup;
+                reloadBarFill = player1.reloadBarFill;
+            }
+
+            // --- 障碍物 ---
+            createObstacles();
+
+            // --- 摄像机 ---
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 300);
+            placeCamera();
+        }
+
+        // ==================== 地面（200×200 = 1km² 瓷砖格子） ====================
+        function createGround() {
+            const SIZE = WORLD_HALF * 2; // 200
+
+            // Canvas 生成瓷砖纹理
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 草地底色
+            ctx.fillStyle = '#62994a';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // 细网格（每格 ≈2 单位）
+            ctx.strokeStyle = '#4d7838';
+            ctx.lineWidth = 1.5;
+            const cellPx = 16;
+            for (let i = 0; i <= 512; i += cellPx) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+
+            // 粗网格（每 5 格一条粗线）
+            ctx.strokeStyle = '#3a5e2a';
+            ctx.lineWidth = 3;
+            for (let i = 0; i <= 512; i += cellPx * 5) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(SIZE / 5, SIZE / 5); // 覆盖 200×200 的地面
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.generateMipmaps = true;
+
+            const groundGeo = new THREE.PlaneGeometry(SIZE, SIZE);
+            const groundMat = new THREE.MeshStandardMaterial({
+                map: texture,
+                roughness: 0.9,
+                metalness: 0.0,
+            });
+
+            groundPlane = new THREE.Mesh(groundGeo, groundMat);
+            groundPlane.rotation.x = -Math.PI / 2;
+            groundPlane.position.y = -0.01;
+            groundPlane.receiveShadow = true;
+            groundPlane.name = 'ground';
+            scene.add(groundPlane);
+
+            // 边界线框（世界边缘标记）
+            const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SIZE, SIZE));
+            const edgeLine = new THREE.LineSegments(
+                edgeGeo,
+                new THREE.LineBasicMaterial({ color: '#c8e0b0', transparent: true, opacity: 0.4 })
+            );
+            edgeLine.rotation.x = -Math.PI / 2;
+            edgeLine.position.y = 0.03;
+            scene.add(edgeLine);
+        }
+
+        // ==================== 坦克模型 ====================
+        const CAMO_GREEN  = { hull:'#4a5c2e', turret:'#3d4f25' };
+        const CAMO_DESERT = { hull:'#8b7d4a', turret:'#6d6038' };
+
+        function createPlayerTank(player) {
+            const c = player.camoColor === 'desert' ? CAMO_DESERT : CAMO_GREEN;
+            player.group = new THREE.Group();
+
+            const hullMat   = new THREE.MeshStandardMaterial({ color: c.hull, roughness: 0.6, metalness: 0.15 });
+            const beltMat   = new THREE.MeshStandardMaterial({ color: '#2a2a2a', roughness: 0.9, metalness: 0.25 });
+            const turretMat = new THREE.MeshStandardMaterial({ color: c.turret, roughness: 0.6, metalness: 0.2 });
+            const barrelMat = new THREE.MeshStandardMaterial({ color: '#444444', roughness: 0.45, metalness: 0.55 });
+
+            const hullGeo = new THREE.BoxGeometry(1.05, 0.45, 1.6);
+            player.hull = new THREE.Mesh(hullGeo, hullMat);
+            player.hull.position.y = 0.225;
+            player.hull.castShadow = true; player.hull.receiveShadow = true;
+            player.group.add(player.hull);
+
+            const beltGeo = new THREE.BoxGeometry(0.12, 0.06, 1.55);
+            const lb = new THREE.Mesh(beltGeo, beltMat); lb.position.set(-0.52, 0.04, 0); lb.castShadow = true; player.group.add(lb);
+            const rb = new THREE.Mesh(beltGeo, beltMat); rb.position.set(0.52, 0.04, 0); rb.castShadow = true; player.group.add(rb);
+
+            const hubMat = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.5, metalness: 0.5 });
+            const spokeMat = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.7, metalness: 0.2 });
+            const rimMat = new THREE.MeshStandardMaterial({ color: '#555555', roughness: 0.6, metalness: 0.4 });
+            const wheelZ = [-0.55, -0.35, -0.15, 0.15, 0.35, 0.55];
+            player.leftWheels = []; player.rightWheels = [];
+
+            for (let i = 0; i < 6; i++) {
+                const lwg = new THREE.Group(); lwg.position.set(-0.52, -0.08, wheelZ[i]);
+                const lHub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 16), hubMat); lHub.rotation.z = Math.PI/2; lwg.add(lHub);
+                for (let s = 0; s < 4; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, 0.04), spokeMat); sp.rotation.z = (s*Math.PI)/4; lwg.add(sp); }
+                const lRim = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.018, 8, 16), rimMat); lRim.rotation.y = Math.PI/2; lwg.add(lRim);
+                player.group.add(lwg); player.leftWheels.push(lwg);
+
+                const rwg = new THREE.Group(); rwg.position.set(0.52, -0.08, wheelZ[i]);
+                const rHub = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.07, 16), hubMat); rHub.rotation.z = Math.PI/2; rwg.add(rHub);
+                for (let s = 0; s < 4; s++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, 0.04), spokeMat); sp.rotation.z = (s*Math.PI)/4; rwg.add(sp); }
+                const rRim = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.018, 8, 16), rimMat); rRim.rotation.y = Math.PI/2; rwg.add(rRim);
+                player.group.add(rwg); player.rightWheels.push(rwg);
+            }
+
+            const turretGeo = new THREE.CylinderGeometry(0.32, 0.36, 0.26, 24);
+            const turret = new THREE.Mesh(turretGeo, turretMat); turret.position.y = 0.58; turret.castShadow = true; turret.receiveShadow = true;
+            player.group.add(turret);
+
+            const barrelGeo = new THREE.CylinderGeometry(0.05, 0.07, 1.1, 12);
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat); barrel.rotation.x = -Math.PI/2; barrel.position.set(0, 0.58, 0.55); barrel.castShadow = true;
+            player.group.add(barrel);
+
+            const shGeo = new THREE.CircleGeometry(0.6, 32);
+            const sh = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ color:'#000', transparent:true, opacity:0.3, depthWrite:false }));
+            sh.rotation.x = -Math.PI/2; sh.position.y = 0.02; sh.renderOrder = 1; sh.name = 'shadow';
+            player.group.add(sh);
+
+            player.group.position.set(player.state.x, 0, player.state.z);
+            scene.add(player.group);
+        }
+
+        function createBarsForPlayer(player) {
+            // 装填条（右方悬浮）
+            player.reloadBarGroup = new THREE.Group();
+            const bgGeo = new THREE.PlaneGeometry(0.18, 0.72);
+            player.reloadBarGroup.add(new THREE.Mesh(bgGeo, new THREE.MeshBasicMaterial({ color: '#444', side: THREE.DoubleSide, depthTest: false })));
+            const fillGeo = new THREE.PlaneGeometry(0.14, 0.66);
+            player.reloadBarFill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: '#ffff00', side: THREE.DoubleSide, depthTest: false }));
+            player.reloadBarFill.renderOrder = 1; player.reloadBarFill.position.z = 0.001;
+            player.reloadBarGroup.add(player.reloadBarFill);
+            player.reloadBarGroup.visible = false;
+            scene.add(player.reloadBarGroup);
+
+            // 血量条（左方悬浮）
+            player.hpBarGroup = new THREE.Group();
+            const hpBgGeo = new THREE.PlaneGeometry(0.18, 0.72);
+            player.hpBarGroup.add(new THREE.Mesh(hpBgGeo, new THREE.MeshBasicMaterial({ color: '#444', side: THREE.DoubleSide, depthTest: false })));
+            const hpFillGeo = new THREE.PlaneGeometry(0.14, 0.66);
+            player.hpBarFill = new THREE.Mesh(hpFillGeo, new THREE.MeshBasicMaterial({ color: '#00ff00', side: THREE.DoubleSide, depthTest: false }));
+            player.hpBarFill.renderOrder = 1; player.hpBarFill.position.z = 0.001;
+            player.hpBarGroup.add(player.hpBarFill);
+            player.hpBarGroup.visible = false;
+            scene.add(player.hpBarGroup);
+        }
+
+        // 单人模式兼容：创建传统坦克
+        function createTank() {
+            const p = createPlayer('green', 0, 0, Math.PI/2, true);
+            // 把 player 的属性映射到全局变量
+            tankGroup = p.group; tankHull = p.hull;
+            leftWheels = p.leftWheels; rightWheels = p.rightWheels;
+            player1 = p;
+            createBarsForPlayer(p);
+        }
+
+        // ==================== 泊松盘采样 ====================
+        function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints) {
+            const cellSize = minDist / Math.sqrt(2);
+            const gridSize = Math.ceil(2 * totalRadius / cellSize) + 1;
+            const grid = new Array(gridSize * gridSize).fill(-1);
+            const points = [];
+            const active = [];
+
+            function worldToGrid(x, z) {
+                const gx = Math.floor((x - cx + totalRadius) / cellSize);
+                const gz = Math.floor((z - cz + totalRadius) / cellSize);
+                return { gx, gz };
+            }
+            function gridIdx(gx, gz) {
+                return gz * gridSize + gx;
+            }
+            function inSafeZone(x, z) {
+                return (x - cx) ** 2 + (z - cz) ** 2 < safeRadius ** 2;
+            }
+            function inBounds(x, z) {
+                return Math.abs(x - cx) < totalRadius && Math.abs(z - cz) < totalRadius;
+            }
+            function hasConflict(x, z, gx, gz) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    for (let dz = -2; dz <= 2; dz++) {
+                        const nx = gx + dx, nz = gz + dz;
+                        if (nx < 0 || nx >= gridSize || nz < 0 || nz >= gridSize) continue;
+                        const idx = grid[gridIdx(nx, nz)];
+                        if (idx === -1) continue;
+                        const p = points[idx];
+                        if ((x - p.x) ** 2 + (z - p.z) ** 2 < minDist ** 2) return true;
+                    }
+                }
+                return false;
+            }
+
+            // 第一个点
+            let first = null;
+            for (let a = 0; a < 200; a++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = safeRadius + minDist + Math.random() * (totalRadius - safeRadius - minDist);
+                const tx = cx + Math.cos(angle) * dist;
+                const tz = cz + Math.sin(angle) * dist;
+                if (inBounds(tx, tz) && !inSafeZone(tx, tz)) {
+                    first = { x: tx, z: tz };
+                    break;
+                }
+            }
+            if (!first) {
+                first = { x: cx + safeRadius + minDist, z: cz };
+            }
+
+            points.push(first);
+            active.push(0);
+            const { gx: fgx, gz: fgz } = worldToGrid(first.x, first.z);
+            grid[gridIdx(fgx, fgz)] = 0;
+
+            while (active.length > 0 && points.length < maxPoints) {
+                const ai = Math.floor(Math.random() * active.length);
+                const bi = active[ai];
+                const base = points[bi];
+                let found = false;
+
+                for (let k = 0; k < 30; k++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = minDist + Math.random() * minDist;
+                    const nx = base.x + Math.cos(angle) * dist;
+                    const nz = base.z + Math.sin(angle) * dist;
+
+                    if (!inBounds(nx, nz) || inSafeZone(nx, nz)) continue;
+                    const { gx, gz } = worldToGrid(nx, nz);
+                    if (hasConflict(nx, nz, gx, gz)) continue;
+
+                    const np = { x: nx, z: nz };
+                    points.push(np);
+                    const ni = points.length - 1;
+                    active.push(ni);
+                    grid[gridIdx(gx, gz)] = ni;
+                    found = true;
+                    break;
+                }
+                if (!found) active.splice(ai, 1);
+            }
+
+            return points;
+        }
+
+        // ==================== 树木/建筑生成 ====================
+        const trunkMat  = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9 });
+        const crownMat1 = new THREE.MeshStandardMaterial({ color: '#3B7A3B', roughness: 0.8 }); // 锥形树冠
+        const crownMat2 = new THREE.MeshStandardMaterial({ color: '#4A8B3F', roughness: 0.8 }); // 球形树冠
+        const wallMat   = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.9 }); // 建筑墙面
+        const roofMat   = new THREE.MeshStandardMaterial({ color: '#8B4513', roughness: 0.85 }); // 屋顶
+        const aptMat    = new THREE.MeshStandardMaterial({ color: '#C0C0C0', roughness: 0.7 }); // 公寓墙面
+        const windmillBodyMat = new THREE.MeshStandardMaterial({ color: '#D2B48C', roughness: 0.8 });
+        const windmillBladeMat = new THREE.MeshStandardMaterial({ color: '#DEB887', roughness: 0.7 });
+
+        function addShadow(g) {
+            g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+        }
+
+        function makeConicalTree() {
+            const g = new THREE.Group();
+            const h = 0.7 + Math.random() * 0.9; // 树高 0.7~1.6
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, h * 0.5, 6), trunkMat);
+            trunk.position.y = h * 0.25;
+            g.add(trunk);
+            const crown = new THREE.Mesh(new THREE.ConeGeometry(0.25 + Math.random() * 0.25, h * 0.6, 8), crownMat1);
+            crown.position.y = h * 0.5 + h * 0.3;
+            g.add(crown);
+            g.userData = { height: h, radius: 0.45, color: '#3B7A3B' };
+            addShadow(g);
+            return g;
+        }
+
+        function makeSphericalTree() {
+            const g = new THREE.Group();
+            const h = 0.7 + Math.random() * 0.7;
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, h * 0.45, 6), trunkMat);
+            trunk.position.y = h * 0.225;
+            g.add(trunk);
+            const r = 0.25 + Math.random() * 0.3;
+            const crown = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), crownMat2);
+            crown.position.y = h * 0.45 + r * 0.7;
+            g.add(crown);
+            g.userData = { height: h, radius: 0.45, color: '#4A8B3F' };
+            addShadow(g);
+            return g;
+        }
+
+        function makeBungalow() {
+            const g = new THREE.Group();
+            const h = 0.8 + Math.random() * 0.3;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.9 + Math.random()*0.3, h, 0.7 + Math.random()*0.3), wallMat);
+            body.position.y = h / 2;
+            g.add(body);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.35, 4), roofMat);
+            roof.position.y = h + 0.15;
+            roof.rotation.y = Math.PI / 4;
+            g.add(roof);
+            g.userData = { height: h + 0.35, radius: 0.55, color: '#D4C5A9' };
+            addShadow(g);
+            return g;
+        }
+
+        function makeVilla() {
+            const g = new THREE.Group();
+            const h = 1.2 + Math.random() * 0.4;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, h, 0.75), wallMat);
+            body.position.y = h / 2;
+            g.add(body);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.45, 4), roofMat);
+            roof.position.y = h + 0.2;
+            roof.rotation.y = Math.PI / 4;
+            g.add(roof);
+            // 窗户暗示
+            for (let wy = 0.35; wy < h; wy += 0.4) {
+                const win = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.16), new THREE.MeshBasicMaterial({ color: '#8899cc' }));
+                win.position.set(0.43, wy, 0);
+                g.add(win);
+            }
+            g.userData = { height: h + 0.45, radius: 0.55, color: '#D4C5A9' };
+            addShadow(g);
+            return g;
+        }
+
+        function makeApartment() {
+            const g = new THREE.Group();
+            const h = 1.6 + Math.random() * 0.5;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, h, 0.75), aptMat);
+            body.position.y = h / 2;
+            g.add(body);
+            // 窗户阵列
+            const winMat = new THREE.MeshBasicMaterial({ color: '#aaccff' });
+            for (let wy = 0.3; wy < h; wy += 0.3) {
+                for (let wx = -0.2; wx <= 0.2; wx += 0.2) {
+                    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.12), winMat);
+                    win.position.set(wx, wy, 0.38);
+                    g.add(win);
+                }
+            }
+            g.userData = { height: h, radius: 0.55, color: '#C0C0C0' };
+            addShadow(g);
+            return g;
+        }
+
+        function makeWindmill() {
+            const g = new THREE.Group();
+            const h = 1.0 + Math.random() * 0.5;
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, h, 8), windmillBodyMat);
+            body.position.y = h / 2;
+            g.add(body);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.35, 8), roofMat);
+            roof.position.y = h + 0.15;
+            g.add(roof);
+            // 风车叶片（4片）
+            const bladeGroup = new THREE.Group();
+            bladeGroup.position.y = h + 0.35;
+            for (let i = 0; i < 4; i++) {
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.02), windmillBladeMat);
+                blade.position.x = 0.25;
+                blade.rotation.z = (i * Math.PI) / 2;
+                bladeGroup.add(blade);
+            }
+            bladeGroup.name = 'blades';
+            g.add(bladeGroup);
+            g.userData = { height: h + 0.7, radius: 0.5, color: '#D2B48C', blades: bladeGroup };
+            addShadow(g);
+            return g;
+        }
+
+        // ==================== 障碍物遮挡物的动态可见更新 ====================
+        function updateObstacleVisibility() {
+            const tx = tankState.x, tz = tankState.z;
+            const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
+            for (let i = 0; i < obstacleMeshes.length; i++) {
+                const o = obstacleData[i];
+                const dx = tx - o.x, dz = tz - o.z;
+                const visible = (dx * dx + dz * dz) < r2;
+                if (obstacleMeshes[i].visible !== visible) {
+                    obstacleMeshes[i].visible = visible;
+                }
+            }
+        }
+
+        function createObstacles() {
+            obstacleMeshes.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            obstacleMeshes = [];
+            obstacleData = [];
+
+            const points = poissonDiskSampling(0, 0, SPAWN_RADIUS, POISSON_MIN_DIST, SAFE_ZONE_RADIUS, OBSTACLE_COUNT);
+
+            const makers = [
+                makeConicalTree, makeSphericalTree,  // 树 35%+35%
+                makeBungalow,                        // 平房 10%
+                makeVilla,                           // 别墅 10%
+                makeApartment,                       // 公寓 7%
+                makeWindmill,                        // 风车 3%
+            ];
+            const weights = [35, 35, 10, 10, 7, 3]; // 百分比
+            const totalW = weights.reduce((a,b)=>a+b, 0);
+
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                let r = Math.random() * totalW;
+                let idx = 0;
+                while (r > weights[idx] && idx < weights.length - 1) { r -= weights[idx]; idx++; }
+                const group = makers[idx]();
+                group.position.set(p.x, 0, p.z);
+                group.visible = false;
+                group.name = `obs-${i}`;
+                const ud = group.userData;
+                scene.add(group);
+                obstacleMeshes.push(group);
+                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius, height: ud.height, color: ud.color, blades: ud.blades || null });
+            }
+
+            updateObstacleVisibility();
+        }
+
+        // ==================== 运动状态 ====================
+        const tankState = {
+            x: 0,
+            z: 0,
+            yaw: Math.PI / 2,  // 朝向 +Z，与 player1 初始方向一致
+        };
+        let leftWheelAngle = 0;    // 左履带轮累积转动角
+        let rightWheelAngle = 0;   // 右履带轮累积转动角
+
+        // 缓动状态（平滑履带速度 + 俯仰）
+        let currentLeftSpeed  = 0;
+        let currentRightSpeed = 0;
+        let prevForwardSpeed  = 0;
+        let tankPitch         = 0;
+
+        function moveToward(current, target, maxDelta) {
+            if (Math.abs(target - current) <= maxDelta) return target;
+            return current + Math.sign(target - current) * maxDelta;
+        }
+
+        function resetTank() {
+            tankState.x = 0;
+            tankState.z = 0;
+            tankState.yaw = Math.PI / 2; // 面向 +Z
+            leftWheelAngle = 0;
+            rightWheelAngle = 0;
+            currentLeftSpeed = 0;
+            currentRightSpeed = 0;
+            prevForwardSpeed = 0;
+            tankPitch = 0;
+            reloadTimer = 0;
+            if (player1) player1.reloadTimer = 0;  // 同步玩家对象
+            // 清除所有炮弹
+            shells.forEach(s => { scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose(); });
+            shells = [];
+            // 清除所有碎块
+            fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); });
+            fragments = [];
+            // 清除炮口焰
+            muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); });
+            muzzleLights = [];
+            // 重置装填条（PlaneGeometry: scale.y=1, 底部对齐）
+            if (reloadBarFill) {
+                reloadBarFill.scale.y = 1;
+                reloadBarFill.position.y = -0.36 + 0.33; // = -0.03, 满条中心偏下
+                reloadBarFill.material.color.setRGB(1, 1, 0);
+            }
+            if (reloadBarGroup) reloadBarGroup.visible = false;
+            tankGroup.position.set(0, 0, 0);
+            tankGroup.rotation.set(0, 0, 0);
+        }
+
+        // ==================== 碰撞检测 ====================
+        function checkCollision(x, z) {
+            for (const obs of obstacleData) {
+                const dx = x - obs.x;
+                const dz = z - obs.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                const minDist = TANK_HALF_W + obs.radius;
+                if (dist < minDist) {
+                    // 推回
+                    const nx = dx / (dist || 0.001);
+                    const nz = dz / (dist || 0.001);
+                    const pushX = nx * (minDist - dist);
+                    const pushZ = nz * (minDist - dist);
+                    return { hit: true, pushX, pushZ };
+                }
+            }
+            return { hit: false, pushX: 0, pushZ: 0 };
+        }
+
+        // ==================== 火炮系统 ====================
+        function fireShell(player) {
+            if (!player && player1) player = player1; // 单人模式向后兼容
+            if (player.reloadTimer > 0 || player.dead) return;
+            player.reloadTimer = RELOAD_TIME;
+            playFireSound();
+
+            const barrelTipLocal = new THREE.Vector3(0, 0.58, 1.1);
+            const barrelTipWorld = barrelTipLocal.clone().applyMatrix4(player.group.matrixWorld);
+            const fx = Math.cos(player.state.yaw);
+            const fz = Math.sin(player.state.yaw);
+
+            const flashLight = new THREE.PointLight('#ffcc44', 15, 8, 2);
+            flashLight.position.copy(barrelTipWorld); scene.add(flashLight);
+            muzzleLights.push({ light: flashLight, life: 0.15 });
+
+            const f1 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({ color:'#ffaa00', transparent:true, opacity:0.9 }));
+            f1.position.copy(barrelTipWorld); scene.add(f1); muzzleLights.push({ light: f1, life: 0.25 });
+
+            const f2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color:'#ff6600', transparent:true, opacity:0.7 }));
+            f2.position.copy(barrelTipWorld); scene.add(f2); muzzleLights.push({ light: f2, life: 0.35 });
+
+            const shellMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6),
+                new THREE.MeshStandardMaterial({ color:'#ccaa44', roughness:0.2, metalness:0.8, emissive:'#331100', emissiveIntensity:0.5 })
+            );
+            shellMesh.rotation.x = Math.PI/2; shellMesh.position.copy(barrelTipWorld); shellMesh.castShadow = true;
+            scene.add(shellMesh);
+
+            const vel = new THREE.Vector3(fx * SHELL_SPEED, 0.3, fz * SHELL_SPEED);
+            shells.push({ mesh: shellMesh, vel, owner: player });
+        }
+
+        function spawnFragments(pos, color) {
+            playDebrisSound();
+            const fragMat = new THREE.MeshStandardMaterial({
+                color, roughness: 0.6, metalness: 0.1
+            });
+
+            for (let i = 0; i < FRAG_COUNT; i++) {
+                const size = 0.08 + Math.random() * 0.2;
+                const geo = new THREE.BoxGeometry(
+                    size * (0.5 + Math.random()),
+                    size * (0.5 + Math.random()),
+                    size * (0.5 + Math.random())
+                );
+                const mesh = new THREE.Mesh(geo, fragMat);
+                mesh.position.copy(pos);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                scene.add(mesh);
+
+                const angle = Math.random() * Math.PI * 2;
+                const upBias = 0.3 + Math.random() * 0.7;
+                const speed = FRAG_SPEED * (0.4 + Math.random() * 0.6);
+                const vel = new THREE.Vector3(
+                    Math.cos(angle) * speed * (1 - upBias),
+                    speed * upBias * 1.5,
+                    Math.sin(angle) * speed * (1 - upBias)
+                );
+
+                fragments.push({
+                    mesh,
+                    vel,
+                    life: FRAG_LIFE * (0.7 + Math.random() * 0.3),
+                    rotSpeed: new THREE.Vector3(
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 10
+                    )
+                });
+            }
+        }
+
+        // ==================== 游戏循环 ====================
+        const clock = new THREE.Clock();
+        let visibilityTimer = 0;
+
+        // ── 手柄 ──
+        let gamepadFireReady = true; // 扳机松开后才允许再次开炮
+
+        function getGamepad() {
+            const gps = navigator.getGamepads();
+            for (const gp of gps) {
+                if (gp && gp.connected) return gp;
+            }
+            return null;
+        }
+
+        function stickToTarget(value) {
+            // 摇杆推到底 → 全速；中等 → 2/3速；轻推 → 1/3速
+            const abs = Math.abs(value);
+            const sign = Math.sign(value);
+            if (abs > 0.8) return sign;        // 3档 = 100%
+            if (abs > 0.5) return sign * 0.66; // 2档 = 66%
+            if (abs > 0.2) return sign * 0.33; // 1档 = 33%
+            return 0;
+        }
+
+        function getTrackInput() {
+            let left = 0, right = 0;
+
+            // 键盘：W/S 左履带  ↑/↓ 右履带
+            if (keys['KeyW']) left += 1;
+            if (keys['KeyS']) left -= 1;
+            if (keys['ArrowUp']) right += 1;
+            if (keys['ArrowDown']) right -= 1;
+
+            // 手柄：左摇杆Y→左履带  右摇杆Y→右履带  取摇杆/键盘中绝对值大者
+            const gp = getGamepad();
+            if (gp) {
+                const gpLeft  = stickToTarget(-gp.axes[1]); // Y轴向上为负
+                const gpRight = stickToTarget(-gp.axes[3]);
+                if (Math.abs(gpLeft)  > Math.abs(left))  left  = gpLeft;
+                if (Math.abs(gpRight) > Math.abs(right)) right = gpRight;
+            }
+
+            return { left, right };
+        }
+
+        function isFirePressed() {
+            // 键盘空格
+            if (keys['Space']) return true;
+            // 手柄 RT扳机 (buttons[7] 模拟值 0~1)
+            const gp = getGamepad();
+            if (gp && gp.buttons[7] && gp.buttons[7].value > 0.3) return true;
+            return false;
+        }
+
+        function gameLoop() {
+            // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
+            renderer.setScissorTest(false);
+            const dpr = renderer.getPixelRatio();
+            const fbW = window.innerWidth * dpr, fbH = window.innerHeight * dpr;
+            renderer.setViewport(0, 0, fbW, fbH);
+            camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+            camera.updateProjectionMatrix();
+
+            const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
+            visibilityTimer += dt;
+
+            const { left: targetLeft, right: targetRight } = getTrackInput();
+
+            // ── 履带速度缓动（加速 / 制动 / 惯性滑行） ──
+            // 左履带
+            if (targetLeft !== 0) {
+                const tgt = targetLeft * MAX_SPEED;
+                const sameDir = Math.sign(tgt) === Math.sign(currentLeftSpeed) || currentLeftSpeed === 0;
+                const rate = sameDir ? TRACK_ACCEL * dt : TRACK_DECEL * dt; // 换向时先急刹
+                currentLeftSpeed = moveToward(currentLeftSpeed, tgt, rate);
+            } else {
+                currentLeftSpeed = moveToward(currentLeftSpeed, 0, TRACK_COAST * dt);
+            }
+            // 右履带
+            if (targetRight !== 0) {
+                const tgt = targetRight * MAX_SPEED;
+                const sameDir = Math.sign(tgt) === Math.sign(currentRightSpeed) || currentRightSpeed === 0;
+                const rate = sameDir ? TRACK_ACCEL * dt : TRACK_DECEL * dt;
+                currentRightSpeed = moveToward(currentRightSpeed, tgt, rate);
+            } else {
+                currentRightSpeed = moveToward(currentRightSpeed, 0, TRACK_COAST * dt);
+            }
+
+            // ── 差速驱动 ──
+            const v     = (currentLeftSpeed + currentRightSpeed) / 2;
+            const omega = (currentLeftSpeed - currentRightSpeed) / TRACK_SPACING;
+
+            // 引擎/履带音效
+            updateEngineSound(v);
+
+            tankState.yaw += omega * dt;
+
+            const forwardX = Math.cos(tankState.yaw);
+            const forwardZ = Math.sin(tankState.yaw);
+            let newX = tankState.x + forwardX * v * dt;
+            let newZ = tankState.z + forwardZ * v * dt;
+
+            for (let iter = 0; iter < 3; iter++) {
+                const result = checkCollision(newX, newZ);
+                if (result.hit) { newX += result.pushX; newZ += result.pushZ; } else break;
+            }
+            // 空气墙
+            const wallMargin = TANK_HALF_W;
+            newX = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newX));
+            newZ = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newZ));
+            tankState.x = newX;
+            tankState.z = newZ;
+
+            // ── 俯仰效果（加减速时车体前倾/后仰） ──
+            const forwardAccel = (v - prevForwardSpeed) / Math.max(dt, 0.001);
+            const pitchTarget = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, forwardAccel * PITCH_GAIN));
+            tankPitch += (pitchTarget - tankPitch) * Math.min(PITCH_SMOOTH * dt, 1);
+            prevForwardSpeed = v;
+
+            // ── 坦克3D更新 ──
+            tankGroup.position.set(tankState.x, 0, tankState.z);
+            tankGroup.rotation.set(-tankPitch, Math.PI / 2 - tankState.yaw, 0);
+            // 同步 player1.state，fireShell 依赖它
+            if (player1) {
+                player1.state.x = tankState.x;
+                player1.state.z = tankState.z;
+                player1.state.yaw = tankState.yaw;
+            }
+
+            // ── 履带轮动画（使用当前实际速度驱动） ──
+            const WHEEL_R = 0.13;
+            leftWheelAngle  += currentLeftSpeed  * dt / WHEEL_R;
+            rightWheelAngle += currentRightSpeed * dt / WHEEL_R;
+            leftWheels.forEach(w => { w.rotation.x = leftWheelAngle; });
+            rightWheels.forEach(w => { w.rotation.x = rightWheelAngle; });
+
+            // ── 开炮（键盘空格 / 手柄RT扳机） ──
+            const fireNow = isFirePressed();
+            if (fireNow && gameMode === 'single' && gamepadFireReady) {
+                fireShell();
+                gamepadFireReady = false;
+                keys['Space'] = false;
+            }
+            if (!fireNow) {
+                gamepadFireReady = true;
+            }
+
+            // ── 炮弹更新 ──
+            for (let i = shells.length - 1; i >= 0; i--) {
+                const s = shells[i];
+                s.vel.y -= SHELL_GRAVITY * dt;
+                s.mesh.position.x += s.vel.x * dt;
+                s.mesh.position.y += s.vel.y * dt;
+                s.mesh.position.z += s.vel.z * dt;
+                if (s.vel.lengthSq() > 0.01) {
+                    s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
+                }
+
+                // 碰撞检测：炮弹 vs 障碍物（水平+垂直分离检测）
+                let hit = false;
+                const shellR = 0.15;
+                for (let j = obstacleMeshes.length - 1; j >= 0; j--) {
+                    const obs = obstacleMeshes[j];
+                    if (!obs.visible) continue;
+                    const obsData = obstacleData[j];
+                    const hdx = s.mesh.position.x - obs.position.x;
+                    const hdz = s.mesh.position.z - obs.position.z;
+                    const horizDist = Math.sqrt(hdx * hdx + hdz * hdz);
+                    if (horizDist >= shellR + (obsData.radius||0.55)) continue;
+                    const obsTop = obsData.height || 1.5;
+                    if (s.mesh.position.y >= -0.3 && s.mesh.position.y <= obsTop + 0.3) {
+                        const obsWorldPos = obs.position.clone(); obsWorldPos.y += obsTop/2;
+                        spawnFragments(obsWorldPos, obsData.color);
+                        playExplosionSound();
+                        obs.parent.remove(obs);
+                        obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                        obstacleMeshes.splice(j,1); obstacleData.splice(j,1);
+                        hit = true; break;
+                    }
+                }
+
+                // 双人模式：炮弹 vs 敌方坦克
+                if (!hit && gameMode === 'versus' && s.owner) {
+                    const enemy = s.owner === player1 ? player2 : player1;
+                    if (enemy && !enemy.dead) {
+                        const edx = s.mesh.position.x - enemy.state.x;
+                        const edz = s.mesh.position.z - enemy.state.z;
+                        const eDist = Math.sqrt(edx*edx + edz*edz);
+                        if (eDist < TANK_HALF_W + 0.2 && s.mesh.position.y < 1.0) {
+                            enemy.hp -= SHELL_DAMAGE;
+                            if (enemy.hp < 0) enemy.hp = 0;
+                            hit = true;
+                            if (enemy.hp <= 0) {
+                                enemy.dead = true;
+                                const ep = enemy.group.position.clone(); ep.y += 0.5;
+                                spawnFragments(ep, enemy.camoColor==='desert'?'#8b7d4a':'#4a5c2e');
+                                playExplosionSound();
+                                enemy.group.visible = false;
+                                setTimeout(() => showVersusResult(s.owner), 2000);
+                            } else {
+                                // 受伤但不致命：火花 + 命中音效
+                                const hitPos = s.mesh.position.clone();
+                                spawnHitSparks(hitPos);
+                            }
+                        }
+                    }
+                }
+
+                // 删除条件
+                const distRef = gameMode === 'versus' && s.owner ? s.owner : { state: tankState };
+                const refX = distRef.state ? distRef.state.x : tankState.x;
+                const refZ = distRef.state ? distRef.state.z : tankState.z;
+                const distToTank = Math.sqrt((s.mesh.position.x-refX)**2 + (s.mesh.position.z-refZ)**2);
+                if (hit || s.mesh.position.y < -2 || distToTank > SHELL_MAX_DIST ||
+                    Math.abs(s.mesh.position.x) > WORLD_HALF+50 || Math.abs(s.mesh.position.z) > WORLD_HALF+50) {
+                    scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose();
+                    shells.splice(i, 1);
+                }
+            }
+
+            // ── 碎块更新 ──
+            for (let i = fragments.length - 1; i >= 0; i--) {
+                const f = fragments[i];
+                f.life -= dt;
+                f.vel.y -= SHELL_GRAVITY * dt;
+                f.mesh.position.x += f.vel.x * dt;
+                f.mesh.position.y += f.vel.y * dt;
+                f.mesh.position.z += f.vel.z * dt;
+                f.mesh.rotation.x += f.rotSpeed.x * dt;
+                f.mesh.rotation.y += f.rotSpeed.y * dt;
+                f.mesh.rotation.z += f.rotSpeed.z * dt;
+
+                // 落地后停在地面
+                if (f.mesh.position.y < 0.05) {
+                    f.mesh.position.y = 0.05;
+                    f.vel.set(0, 0, 0);
+                }
+
+                // 渐隐
+                const alpha = Math.max(0, f.life / FRAG_LIFE);
+                f.mesh.material.opacity = alpha;
+                f.mesh.material.transparent = alpha < 1;
+
+                if (f.life <= 0) {
+                    scene.remove(f.mesh);
+                    f.mesh.geometry.dispose();
+                    f.mesh.material.dispose();
+                    fragments.splice(i, 1);
+                }
+            }
+
+            // ── 炮口焰更新 ──
+            for (let i = muzzleLights.length - 1; i >= 0; i--) {
+                const ml = muzzleLights[i];
+                ml.life -= dt;
+                if (ml.light.isPointLight) {
+                    ml.light.intensity = Math.max(0, ml.light.intensity * (1 - dt * 10));
+                } else if (ml.light.isMesh) {
+                    ml.light.scale.multiplyScalar(1 + dt * 8);
+                    ml.light.material.opacity = Math.max(0, ml.life / 0.35);
+                }
+                if (ml.life <= 0) {
+                    scene.remove(ml.light);
+                    if (ml.light.geometry) ml.light.geometry.dispose();
+                    if (ml.light.material) ml.light.material.dispose();
+                    muzzleLights.splice(i, 1);
+                }
+            }
+
+            // ── 装填计时器 + 进度条 ──
+            if (player1 && player1.reloadTimer > 0) {
+                player1.reloadTimer -= dt;
+                if (player1.reloadTimer < 0) player1.reloadTimer = 0;
+            }
+            // 同步全局引用（向后兼容）
+            reloadTimer = player1 ? player1.reloadTimer : 0;
+            if (reloadBarGroup && reloadBarFill) {
+                const rightX = Math.cos(tankState.yaw + Math.PI / 2);
+                const rightZ = Math.sin(tankState.yaw + Math.PI / 2);
+                reloadBarGroup.position.set(
+                    tankState.x + rightX * 1.0,
+                    1.4,
+                    tankState.z + rightZ * 1.0
+                );
+                reloadBarGroup.lookAt(camera.position);
+                const progress = Math.max(0.01, 1 - reloadTimer / RELOAD_TIME);
+                reloadBarFill.scale.y = progress;
+                reloadBarFill.position.y = -0.36 + 0.33 * progress;
+                reloadBarFill.material.color.setRGB(1, progress >= 1 ? 1 : 0, 0);
+            }
+
+            // 障碍物动态可见性 + 风车叶片旋转
+            if (visibilityTimer > 0.3) {
+                updateObstacleVisibility();
+                visibilityTimer = 0;
+            }
+            // 风车叶片持续旋转
+            for (const od of obstacleData) {
+                if (od.blades) {
+                    od.blades.rotation.z += 1.5 * dt;
+                }
+            }
+
+            // 摄像机
+            placeCamera();
+
+            // 影子
+            const shadow = tankGroup.getObjectByName('shadow');
+            if (shadow) { shadow.position.y = 0.02; }
+
+            renderer.render(scene, camera);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== 摄像机 ====================
+        // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
+        const CAMERA_BEHIND = 14;   // 摄像机在球后方距离
+        const CAMERA_ABOVE = 10;    // 摄像机在球上方高度
+
+        function placeCamera() {
+            const fx = Math.cos(tankState.yaw);
+            const fz = Math.sin(tankState.yaw);
+            camera.position.set(
+                tankGroup.position.x - fx * CAMERA_BEHIND,
+                tankGroup.position.y + CAMERA_ABOVE,
+                tankGroup.position.z - fz * CAMERA_BEHIND
+            );
+            // 看向坦克上方使坦克下沉到画面 1/3 高度
+            camera.lookAt(tankGroup.position.x, 3.5, tankGroup.position.z);
+        }
+
+        // ==================== 菜单与状态切换 ====================
+        // ==================== 双人对战系统 ====================
+        let camera2 = null;
+
+        function getInputForPlayer(pNum) {
+            let l=0,r=0;
+            if (pNum===1) {
+                if (keys['KeyW']) l=1; if (keys['KeyS']) l=-1;
+                if (keys['ArrowUp']) r=1; if (keys['ArrowDown']) r=-1;
+            } else {
+                const gp=getGamepad();
+                if (gp) { l=stickToTarget(-gp.axes[1]); r=stickToTarget(-gp.axes[3]); }
+            }
+            return {left:l, right:r};
+        }
+
+        function updatePlayerPhysics(p, dt, tL, tR) {
+            if (p.dead) return;
+            const mt=moveToward;
+            if (tL!==0){const tg=tL*MAX_SPEED;const sd=Math.sign(tg)===Math.sign(p.currentLeftSpeed)||p.currentLeftSpeed===0;
+                p.currentLeftSpeed=mt(p.currentLeftSpeed,tg,(sd?TRACK_ACCEL:TRACK_DECEL)*dt);}
+            else p.currentLeftSpeed=mt(p.currentLeftSpeed,0,TRACK_COAST*dt);
+            if (tR!==0){const tg=tR*MAX_SPEED;const sd=Math.sign(tg)===Math.sign(p.currentRightSpeed)||p.currentRightSpeed===0;
+                p.currentRightSpeed=mt(p.currentRightSpeed,tg,(sd?TRACK_ACCEL:TRACK_DECEL)*dt);}
+            else p.currentRightSpeed=mt(p.currentRightSpeed,0,TRACK_COAST*dt);
+            const v=(p.currentLeftSpeed+p.currentRightSpeed)/2;
+            const om=(p.currentLeftSpeed-p.currentRightSpeed)/TRACK_SPACING;
+            p.state.yaw+=om*dt;
+            const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);
+            let nx=p.state.x+fx*v*dt,nz=p.state.z+fz*v*dt;
+            for(let it=0;it<3;it++){const cr=checkCollision(nx,nz);if(cr.hit){nx+=cr.pushX;nz+=cr.pushZ;}else break;}
+            if(gameMode==='versus'){const o=p===player1?player2:player1;
+                if(o&&!o.dead){const tdx=nx-o.state.x,tdz=nz-o.state.z,td=Math.sqrt(tdx*tdx+tdz*tdz);
+                    if(td<TANK_HALF_W*2){const pu=(TANK_HALF_W*2-td)/Math.max(td,.001);nx+=tdx*pu*.5;nz+=tdz*pu*.5;}}}
+            const wm=TANK_HALF_W;
+            p.state.x=Math.max(-WORLD_HALF+wm,Math.min(WORLD_HALF-wm,nx));
+            p.state.z=Math.max(-WORLD_HALF+wm,Math.min(WORLD_HALF-wm,nz));
+            const acc=(v-p.prevForwardSpeed)/Math.max(dt,.001);
+            const pt=Math.max(-PITCH_MAX,Math.min(PITCH_MAX,acc*PITCH_GAIN));
+            p.pitch+=(pt-p.pitch)*Math.min(PITCH_SMOOTH*dt,1);
+            p.prevForwardSpeed=v;
+            p.group.position.set(p.state.x,0,p.state.z);
+            p.group.rotation.set(-p.pitch,Math.PI/2-p.state.yaw,0);
+            const WR=.13;
+            p.leftWheelAngle+=p.currentLeftSpeed*dt/WR;p.rightWheelAngle+=p.currentRightSpeed*dt/WR;
+            p.leftWheels.forEach(w=>w.rotation.x=p.leftWheelAngle);
+            p.rightWheels.forEach(w=>w.rotation.x=p.rightWheelAngle);
+            if(p.reloadTimer>0){p.reloadTimer-=dt;if(p.reloadTimer<0)p.reloadTimer=0;}
+        }
+
+        function togglePlayerBars(p, visible) {
+            if (p.reloadBarGroup) p.reloadBarGroup.visible = visible;
+            if (p.hpBarGroup) p.hpBarGroup.visible = visible;
+        }
+
+        function updateBarsForCamera(p, cam) {
+            const bo=1.0;
+            if(p.reloadBarGroup){const rx=Math.cos(p.state.yaw+Math.PI/2),rz=Math.sin(p.state.yaw+Math.PI/2);
+                p.reloadBarGroup.position.set(p.state.x+rx*bo,1.4,p.state.z+rz*bo);p.reloadBarGroup.lookAt(cam.position);
+                const pg=Math.max(.01,1-p.reloadTimer/RELOAD_TIME);
+                p.reloadBarFill.scale.y=pg;p.reloadBarFill.position.y=-.36+.33*pg;
+                p.reloadBarFill.material.color.setRGB(1,pg>=1?1:0,0);}
+            if(p.hpBarGroup){const lx=Math.cos(p.state.yaw-Math.PI/2),lz=Math.sin(p.state.yaw-Math.PI/2);
+                p.hpBarGroup.position.set(p.state.x+lx*bo,1.4,p.state.z+lz*bo);p.hpBarGroup.lookAt(cam.position);
+                const hr=Math.max(.01,p.hp/p.maxHp);
+                p.hpBarFill.scale.y=hr;p.hpBarFill.position.y=-.36+.33*hr;
+                p.hpBarFill.material.color.setRGB(hr<.5?1:2-hr*2, hr<.5?hr*2:1, 0);}
+        }
+
+        function showVersusResult(winner) {
+            versusResult.style.display='block';
+            if(winner===player1){resultP1.textContent='🏆 你赢了！';resultP2.textContent='💀 你输了';resultP1.style.color='#44ff44';resultP2.style.color='#ff4444';}
+            else{resultP1.textContent='💀 你输了';resultP2.textContent='🏆 你赢了！';resultP1.style.color='#ff4444';resultP2.style.color='#44ff44';}
+            setTimeout(returnToMenu,3000);
+        }
+
+        // ==================== 指向箭头系统 ====================
+        const ARROW_SHOW_DIST = 25; // 超过此距离显示箭头
+        const ARROW_HIDE_DIST = 20; // 进入此距离隐藏箭头（滞后避免闪烁）
+
+        function projectToScreen(worldPos, cam, vpW, vpH) {
+            const v = worldPos.clone().project(cam);
+            return {
+                x: (v.x * 0.5 + 0.5) * vpW,
+                y: (-v.y * 0.5 + 0.5) * vpH,
+                behind: v.z > 1
+            };
+        }
+
+        function updateArrows(dpr, halfW, rightW, fbH) {
+            if (!player1 || !player2 || player1.dead || player2.dead) {
+                arrowP1.style.display = 'none';
+                arrowP2.style.display = 'none';
+                return;
+            }
+            const dx = player1.state.x - player2.state.x;
+            const dz = player1.state.z - player2.state.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist > ARROW_SHOW_DIST) {
+                const p1wp = new THREE.Vector3(player1.state.x, 0.4, player1.state.z);
+                const p2wp = new THREE.Vector3(player2.state.x, 0.4, player2.state.z);
+
+                // === P1 箭头（投影到左半屏） ===
+                const p1s = projectToScreen(p1wp, camera, halfW, fbH);
+                let p2s = projectToScreen(p2wp, camera, halfW, fbH);
+                let dsx = p2s.x - p1s.x, dsy = p2s.y - p1s.y;
+                if (p2s.behind) {
+                    // 目标在摄像机后方时投影坐标反转，需翻转方向并钳制位置
+                    dsx = -(p2s.x - p1s.x);
+                    dsy = -(p2s.y - p1s.y);
+                    // 把箭头位置钳制到屏幕边缘
+                    const cssW = halfW / dpr, cssH = fbH / dpr;
+                    const arrowCssX = THREE.MathUtils.clamp(p1s.x / dpr, 20, cssW - 20);
+                    const arrowCssY = THREE.MathUtils.clamp(p1s.y / dpr + 38, 60, cssH - 20);
+                    arrowP1.style.left = arrowCssX + 'px';
+                    arrowP1.style.top = arrowCssY + 'px';
+                } else {
+                    arrowP1.style.left = (p1s.x / dpr) + 'px';
+                    arrowP1.style.top = (p1s.y / dpr + 38) + 'px';
+                }
+                const angle1 = Math.atan2(dsy, dsx);
+                arrowP1.style.display = 'block';
+                arrowP1.style.transform = `rotate(${angle1 * 180 / Math.PI - 90}deg)`;
+
+                // === P2 箭头（投影到右半屏） ===
+                let p1s2 = projectToScreen(p1wp, camera2, rightW, fbH);
+                const p2s2 = projectToScreen(p2wp, camera2, rightW, fbH);
+                let dsx2 = p1s2.x - p2s2.x, dsy2 = p1s2.y - p2s2.y;
+                if (p1s2.behind) {
+                    dsx2 = -(p1s2.x - p2s2.x);
+                    dsy2 = -(p1s2.y - p2s2.y);
+                    const cssW = rightW / dpr, cssH = fbH / dpr;
+                    const arrowCssX = THREE.MathUtils.clamp((halfW + p2s2.x) / dpr, halfW/dpr + 20, halfW/dpr + cssW - 20);
+                    const arrowCssY = THREE.MathUtils.clamp(p2s2.y / dpr + 38, 60, cssH - 20);
+                    arrowP2.style.left = arrowCssX + 'px';
+                    arrowP2.style.top = arrowCssY + 'px';
+                } else {
+                    arrowP2.style.left = ((halfW + p2s2.x) / dpr) + 'px';
+                    arrowP2.style.top = (p2s2.y / dpr + 38) + 'px';
+                }
+                const angle2 = Math.atan2(dsy2, dsx2);
+                arrowP2.style.display = 'block';
+                arrowP2.style.transform = `rotate(${angle2 * 180 / Math.PI - 90}deg)`;
+            } else if (dist < ARROW_HIDE_DIST) {
+                arrowP1.style.display = 'none';
+                arrowP2.style.display = 'none';
+            }
+        }
+
+        function enterVersusMode() {
+            gameMode='versus';menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
+            splitLine.style.display='block';versusResult.style.display='none';
+            arrowP1.style.display='none';arrowP2.style.display='none';
+            hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if(player1&&player1.group)scene.remove(player1.group);
+            if(player2&&player2.group)scene.remove(player2.group);
+            shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
+            fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
+            muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
+            player1=createPlayer('green',-15,0,Math.PI/2,true);player2=createPlayer('desert',15,0,-Math.PI/2,false);
+            createPlayerTank(player1);createPlayerTank(player2);
+            createBarsForPlayer(player1);createBarsForPlayer(player2);
+            player1.reloadBarGroup.visible=player1.hpBarGroup.visible=true;
+            player2.reloadBarGroup.visible=player2.hpBarGroup.visible=true;
+            camera2=new THREE.PerspectiveCamera(55,window.innerWidth/window.innerHeight,.5,300);
+            tankGroup=player1.group;tankHull=player1.hull;
+            leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
+            reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
+            initAudio();startEngineSound();
+            if(!animationId){clock.getDelta();animationId=requestAnimationFrame(versusGameLoop);}
+        }
+
+        function versusGameLoop() {
+            // 先复位为全屏（清除上一帧的 scissor/viewport 残留）
+            renderer.setScissorTest(false);
+            const resetDpr = renderer.getPixelRatio();
+            renderer.setViewport(0, 0, window.innerWidth * resetDpr, window.innerHeight * resetDpr);
+
+            const dt=Math.min(clock.getDelta(),.1);visibilityTimer+=dt;
+            const p1i=getInputForPlayer(1),p2i=getInputForPlayer(2);
+            updatePlayerPhysics(player1,dt,p1i.left,p1i.right);updatePlayerPhysics(player2,dt,p2i.left,p2i.right);
+            updateEngineSound(Math.max(Math.abs((player1.currentLeftSpeed+player1.currentRightSpeed)/2),Math.abs((player2.currentLeftSpeed+player2.currentRightSpeed)/2)));
+            const p1fire=keys['Space'];
+            if(p1fire&&player1.fireReady){fireShell(player1);player1.fireReady=false;keys['Space']=false;}
+            if(!p1fire)player1.fireReady=true;
+            const gp=getGamepad();const p2fire=gp&&gp.buttons[7]&&gp.buttons[7].value>.3;
+            if(p2fire&&player2.fireReady){fireShell(player2);player2.fireReady=false;}
+            if(!p2fire)player2.fireReady=true;
+            updateShellsFragsMuzzle(dt);
+            if(visibilityTimer>.3){updateObstacleVisibility();visibilityTimer=0;}
+            for(const od of obstacleData){if(od.blades)od.blades.rotation.z+=1.5*dt;}
+            // 分屏尺寸（使用 window.innerWidth，gameContainer 保持布局尺寸）
+            const dpr = renderer.getPixelRatio();
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            const halfCssW = Math.floor(cssW / 2);
+            const rightCssW = cssW - halfCssW;
+            const halfW = halfCssW * dpr;
+            const rightW = rightCssW * dpr;
+            const fbH = cssH * dpr;
+            // 分屏分隔线
+            splitLine.style.left = halfCssW + 'px';
+            // 左半屏 (P1)
+            togglePlayerBars(player1, true); togglePlayerBars(player2, false);
+            renderer.setScissorTest(true);
+            renderer.setViewport(0, 0, halfW, fbH); renderer.setScissor(0, 0, halfW, fbH);
+            camera.aspect = halfW / fbH; camera.updateProjectionMatrix();
+            placeCameraFor(player1, camera); updateBarsForCamera(player1, camera);
+            renderer.render(scene, camera);
+            // 右半屏 (P2)
+            togglePlayerBars(player1, false); togglePlayerBars(player2, true);
+            renderer.setViewport(halfW, 0, rightW, fbH); renderer.setScissor(halfW, 0, rightW, fbH);
+            camera2.aspect = rightW / fbH; camera2.updateProjectionMatrix();
+            placeCameraFor(player2, camera2); updateBarsForCamera(player2, camera2);
+            renderer.render(scene, camera2);
+            renderer.setScissorTest(false);
+            togglePlayerBars(player1, true); togglePlayerBars(player2, true);
+            // 指向箭头（传入 framebuffer 坐标）
+            updateArrows(dpr, halfW, rightW, fbH);
+            animationId=requestAnimationFrame(versusGameLoop);
+        }
+
+        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);cam.position.set(p.state.x-fx*14,10,p.state.z-fz*14);cam.lookAt(p.state.x,3.5,p.state.z);}
+
+        function updateShellsFragsMuzzle(dt) {
+            for(let i=shells.length-1;i>=0;i--){const s=shells[i];s.vel.y-=SHELL_GRAVITY*dt;
+                s.mesh.position.x+=s.vel.x*dt;s.mesh.position.y+=s.vel.y*dt;s.mesh.position.z+=s.vel.z*dt;
+                if(s.vel.lengthSq()>.01)s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
+                let hit=false;const sR=.15;
+                for(let j=obstacleMeshes.length-1;j>=0;j--){const obs=obstacleMeshes[j];if(!obs.visible)continue;
+                    const od2=obstacleData[j];const hdx=s.mesh.position.x-obs.position.x,hdz=s.mesh.position.z-obs.position.z;
+                    const hD=Math.sqrt(hdx*hdx+hdz*hdz);if(hD>=sR+(od2.radius||.55))continue;
+                    const oT=od2.height||1.5;if(s.mesh.position.y>=-.3&&s.mesh.position.y<=oT+.3){
+                        const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
+                        obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+                        obstacleMeshes.splice(j,1);obstacleData.splice(j,1);hit=true;break;}}
+                if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
+                    if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
+                        if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
+                            if(en.hp<=0){en.dead=true;const ep=en.group.position.clone();ep.y+=.5;
+                                spawnFragments(ep,en.camoColor==='desert'?'#8b7d4a':'#4a5c2e');playExplosionSound();en.group.visible=false;
+                                setTimeout(()=>showVersusResult(s.owner),2000);}
+                            else{spawnHitSparks(s.mesh.position.clone());}}}}
+                const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
+                if(hit||s.mesh.position.y<-2||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50)
+                {scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();shells.splice(i,1);}}
+            for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
+                f.mesh.position.x+=f.vel.x*dt;f.mesh.position.y+=f.vel.y*dt;f.mesh.position.z+=f.vel.z*dt;
+                f.mesh.rotation.x+=f.rotSpeed.x*dt;f.mesh.rotation.y+=f.rotSpeed.y*dt;f.mesh.rotation.z+=f.rotSpeed.z*dt;
+                if(f.mesh.position.y<.05){f.mesh.position.y=.05;f.vel.set(0,0,0);}
+                f.mesh.material.opacity=Math.max(0,f.life/FRAG_LIFE);f.mesh.material.transparent=f.life/FRAG_LIFE<1;
+                if(f.life<=0){scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();fragments.splice(i,1);}}
+            for(let i=muzzleLights.length-1;i>=0;i--){const ml=muzzleLights[i];ml.life-=dt;
+                if(ml.light.isPointLight)ml.light.intensity=Math.max(0,ml.light.intensity*(1-dt*10));
+                else if(ml.light.isMesh){ml.light.scale.multiplyScalar(1+dt*8);ml.light.material.opacity=Math.max(0,ml.life/.35);}
+                if(ml.life<=0){scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();muzzleLights.splice(i,1);}}
+        }
+
+        // ==================== 菜单与状态切换 ====================
+        function enterGame() {
+            gameMode='single';menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
+            splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
+            hintBar.textContent='键盘 W/S/↑/↓  |  手柄 左摇杆/右摇杆  |  空格/RT 开炮';
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setScissorTest(false);
+            const dpr = renderer.getPixelRatio();
+            renderer.setViewport(0, 0, window.innerWidth * dpr, window.innerHeight * dpr);
+            camera.aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+            camera.updateProjectionMatrix();
+            // 移除双人模式的 player2 坦克和 UI
+            if (player2 && player2.group) { scene.remove(player2.group); }
+            if (player2 && player2.reloadBarGroup) scene.remove(player2.reloadBarGroup);
+            if (player2 && player2.hpBarGroup) scene.remove(player2.hpBarGroup);
+            // 重置 player1 state 与全局状态同步
+            if (player1) {
+                player1.state.x = 0; player1.state.z = 0; player1.state.yaw = Math.PI / 2;
+                player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+                player1.prevForwardSpeed = 0; player1.pitch = 0;
+                player1.reloadTimer = 0;
+                player1.hp = 100; player1.dead = false;
+                if (player1.group) player1.group.visible = true;
+            }
+            resetTank();
+            if(reloadBarGroup)reloadBarGroup.visible=true;
+            if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
+            placeCamera();
+            // 强制渲染一帧（gameContainer 刚从 visibility:hidden 切换为 visible，
+            // 之前 initScene 渲染的帧可能被浏览器丢弃，需要立即刷新避免黑屏/偏移）
+            renderer.render(scene, camera);
+            initAudio();startEngineSound();
+            if(!animationId){clock.getDelta();animationId=requestAnimationFrame(gameLoop);}
+        }
+
+        function returnToMenu() {
+            gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
+            splitLine.style.display='none';versusResult.style.display='none';
+            arrowP1.style.display='none';arrowP2.style.display='none';
+            if(reloadBarGroup)reloadBarGroup.visible=false;
+            if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
+            if(player2&&player2.hpBarGroup)player2.hpBarGroup.visible=false;
+            if(player2&&player2.reloadBarGroup)player2.reloadBarGroup.visible=false;
+            stopEngineSound();if(animationId){cancelAnimationFrame(animationId);animationId=null;}
+        }
+
+        function exitGame(){window.close();setTimeout(()=>{document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#ccc;font-family:sans-serif;font-size:1.2rem;">请关闭浏览器标签页以退出</div>';},300);}
+
+        // ==================== 事件绑定 ====================
+        btnEnter.addEventListener('click',enterGame);btnVersus.addEventListener('click',enterVersusMode);
+        btnExit.addEventListener('click',exitGame);btnBack.addEventListener('click',returnToMenu);
+        window.addEventListener('resize',()=>{
+            if(camera&&renderer){
+                const ww=window.innerWidth,wh=window.innerHeight;
+                renderer.setSize(ww,wh);
+                const dpr=renderer.getPixelRatio();
+                const bw=ww*dpr,bh=wh*dpr;
+                if(gameMode==='versus'){
+                    const hcw=Math.floor(ww/2), rcw=ww-hcw;
+                    camera.aspect=(hcw*dpr)/bh; camera.updateProjectionMatrix();
+                    if(camera2){camera2.aspect=(rcw*dpr)/bh; camera2.updateProjectionMatrix();}}
+                else{camera.aspect=bw/bh; camera.updateProjectionMatrix();}
+            }});
+
+        // ==================== 初始化 ====================
+        initScene();placeCamera();renderer.render(scene,camera);
+        console.log('🎮 坦克运动demo v0.13.2 | 箭头behind翻转 + 首帧渲染修复');
+    </script>
+</body>
+</html>
