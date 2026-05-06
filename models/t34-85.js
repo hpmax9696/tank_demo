@@ -99,8 +99,8 @@
         {
             // 发动机舱盖在车尾（世界Z正值方向），回归原始坐标系
             // hull顶部范围在世界z=-0.33~（0.），发动机舱在车尾部位
-            const deckFrontZ = 0.35;
-            const deckBackZ  = 0.70;
+            const deckFrontZ = 0.55; // 车尾前缘
+            const deckBackZ  = 0.82; // 车尾后缘
             const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
             const deckLen = deckBackZ - deckFrontZ;
 
@@ -319,7 +319,7 @@
             // ── 前弧：TorusGeometry 半圆绕诱导轮（连续！）─
             {
                 const arcR = IDLER_R + 0.018;
-                const arcGeo = new THREE.TorusGeometry(arcR, segH * 0.6, 6, 16, Math.PI);
+                const arcGeo = new THREE.TorusGeometry(arcR, segH * 0.5, 8, 24, Math.PI);
                 const arc = new THREE.Mesh(arcGeo, trackMat);
                 arc.rotation.y = Math.PI / 2;
                 arc.rotation.x = Math.PI / 2;
@@ -331,7 +331,7 @@
             // ── 后弧：TorusGeometry 绕主动轮（连续！）─
             {
                 const arcR2 = SPROCKET_R + 0.020;
-                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH * 0.6, 6, 16, Math.PI);
+                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH * 0.5, 8, 24, Math.PI);
                 const arc2 = new THREE.Mesh(arcGeo2, trackMat);
                 arc2.rotation.y = Math.PI / 2;
                 arc2.rotation.x = Math.PI / 2;
