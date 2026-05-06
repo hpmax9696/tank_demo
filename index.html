@@ -1793,6 +1793,10 @@
             menuOverlay.classList.add('hidden');
             previewContainer.classList.add('active');
 
+            // 清理残留的旧 canvas（防止上次退出时 DOM 未清理干净）
+            const staleCanvases = previewContainer.querySelectorAll('canvas');
+            staleCanvases.forEach(c => c.remove());
+
             // 创建预览渲染器
             previewRenderer = new THREE.WebGLRenderer({ antialias: true });
             previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1950,7 +1954,13 @@
                 });
                 previewModel = null;
             }
-            if (previewRenderer) { previewRenderer.dispose(); previewRenderer = null; }
+            if (previewRenderer) {
+                // 从 DOM 移除 canvas（dispose 不会自动移除 DOM 元素）
+                if (previewRenderer.domElement && previewRenderer.domElement.parentNode) {
+                    previewRenderer.domElement.parentNode.removeChild(previewRenderer.domElement);
+                }
+                previewRenderer.dispose(); previewRenderer = null;
+            }
             previewContainer.classList.remove('active');
             menuOverlay.classList.remove('hidden');
         }
