@@ -542,8 +542,7 @@
             // --- 渲染器 ---
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            const cw=gameContainer.clientWidth||window.innerWidth, ch=gameContainer.clientHeight||window.innerHeight;
-            renderer.setSize(cw, ch, false);
+            renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1560,8 +1559,8 @@
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
-            const vcw=gameContainer.clientWidth||window.innerWidth, vch=gameContainer.clientHeight||window.innerHeight;
-            renderer.setSize(vcw, vch, false);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
             if(player2&&player2.group)scene.remove(player2.group);
             shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
@@ -1725,8 +1724,7 @@
             renderer.dispose();
             renderer = new THREE.WebGLRenderer({ canvas: newCanvas, antialias: true });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            const ecw=gameContainer.clientWidth||window.innerWidth, ech=gameContainer.clientHeight||window.innerHeight;
-            renderer.setSize(ecw, ech, false);
+            renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
@@ -1970,8 +1968,7 @@
         window.addEventListener('resize',()=>{
             // 游戏渲染器
             if(camera&&renderer){
-                const rw=gameContainer.clientWidth||window.innerWidth, rh=gameContainer.clientHeight||window.innerHeight;
-                renderer.setSize(rw,rh,false);
+                renderer.setSize(window.innerWidth, window.innerHeight);
                 const fbW=renderer.domElement.width, fbH=renderer.domElement.height;
                 if(gameMode==='versus'){
                     const halfW=Math.floor(fbW/2), rightW=fbW-halfW;
