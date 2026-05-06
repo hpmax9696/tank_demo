@@ -44,7 +44,7 @@
     const SPROCKET_R = 0.17;     // 主动轮
     const SPROCKET_Y = 0.24;     // 主动轮中心Y
     const TRACK_X    = 0.54;     // 履带X位置（车轮中心）
-    const TRACK_W    = 0.065;    // 履带宽度（加宽）
+    const TRACK_W    = 0.095;    // 履带宽度
 
     function createT34_85(options) {
         const { camoColor = 'green' } = options || {};
@@ -70,22 +70,16 @@
         //  车体 — 带倾斜尾板的船形剖面
         // ========================================
 
-        const REAR_Z = -FRONT_Z;      // 尾板Z位
+        const REAR_Z = -FRONT_Z;  // 尾板Z位
 
-        let hullGeo;
-        try {
-            const hullShape = new THREE.Shape();
-            hullShape.moveTo(FRONT_Z, HULL_BOT);
-            hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);
-            hullShape.lineTo(REAR_Z + 0.10, HULL_TOP);
-            hullShape.lineTo(REAR_Z, HULL_BOT);
-            hullShape.closePath();
-            hullGeo = new THREE.ExtrudeGeometry(hullShape, { depth: HULL_W, bevelEnabled: false });
-        } catch(e) {
-            // ExtrudeGeometry兜底：用BoxGeometry近似
-            console.warn('ExtrudeGeometry fallback:', e);
-            hullGeo = new THREE.BoxGeometry(HULL_W, HULL_H, HULL_L);
-        }
+        const hullShape = new THREE.Shape();
+        hullShape.moveTo(FRONT_Z, HULL_BOT);
+        hullShape.lineTo(GLACIS_TOP_Z, HULL_TOP);
+        hullShape.lineTo(REAR_Z + 0.10, HULL_TOP);
+        hullShape.lineTo(REAR_Z, HULL_BOT);
+        hullShape.closePath();
+
+        const hullGeo = new THREE.ExtrudeGeometry(hullShape, { depth: HULL_W, bevelEnabled: false });
         const hullMesh = new THREE.Mesh(hullGeo, hullMat);
         hullMesh.rotation.y = Math.PI / 2;
         hullMesh.position.set(-HULL_W / 2, 0, 0);
@@ -95,31 +89,32 @@
         group.userData.hull = hullMesh;
 
         // ── 发动机舱顶盖 + 散热格栅 ──
-        // T-34/85 发动机舱是略微倾斜的斜面，不是平铺大盒子
+        // 注意：hullMesh旋转后，shape的X轴变成世界-Z轴
+        // shape中REAR_Z(-0.85)对应世界Z=0.85（尾部）
         {
-            const deckL = 0.42;
-            const deckZ = (-FRONT_Z + REAR_Z) / 2;  // 居中于尾部区域
-            const deckFrontZ = -FRONT_Z + 0.06;
-            const deckBackZ  = REAR_Z - 0.02;
+            const deckFrontZ = -(-FRONT_Z + 0.10);  // shape x=-0.75 → 世界z=0.75
+            const deckBackZ  = -REAR_Z;             // shape x=-0.85 → 世界z=0.85
+            const deckCenterZ = (deckFrontZ + deckBackZ) / 2;
+            const deckLen = deckBackZ - deckFrontZ;
 
-            // 斜顶发动机舱盖（前高后低）
-            const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckL);
+            // 发动机舱盖
+            const deckGeo = new THREE.BoxGeometry(HULL_W - 0.10, 0.020, deckLen);
             const deck = new THREE.Mesh(deckGeo, hullMat);
-            deck.position.set(0, HULL_TOP + 0.008, deckZ);
-            deck.rotation.x = 0.04;  // 微微前倾
+            deck.position.set(0, HULL_TOP + 0.010, deckCenterZ);
+            deck.rotation.x = -0.04;
             deck.castShadow = true;
             group.add(deck);
 
-            // 散热格栅（单排，更细）
+            // 散热格栅条
             for (let g = 0; g < 9; g++) {
                 const bar = new THREE.Mesh(
                     new THREE.BoxGeometry(HULL_W - 0.22, 0.004, 0.014),
                     detailMat);
-                bar.position.set(0, HULL_TOP + 0.020,
-                    deckFrontZ - 0.02 + g * 0.048);
+                const t = g / 8;
+                const barZ = deckFrontZ + 0.02 + t * (deckLen - 0.04);
+                bar.position.set(0, HULL_TOP + 0.022, barZ);
                 group.add(bar);
             }
-
         }
 
         // ── 驾驶员/机枪手舱盖区（车体前部凸起）─
@@ -147,44 +142,39 @@
         }
 
         // ── 备用履带段（首上右侧）─
-        for (let i = 0; i < 3; i++) {
-            const link = new THREE.Mesh(
-                new THREE.BoxGeometry(0.010, 0.055, 0.048), detailMat);
-            link.position.set(HULL_W/2 - 0.02, HULL_BOT + 0.06 + i*0.06,
-                FRONT_Z - 0.07 - i*0.035);
-            link.rotation.y = 0.12;
-            link.castShadow = true;
-            group.add(link);
+        {
+            for (let i = 0; i < 3; i++) {
+                const seg = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.012, 0.038), trackMat);
+                seg.position.set(0.30 + i * 0.039, HULL_TOP + 0.012, GLACIS_TOP_Z - 0.04);
+                group.add(seg);
+            }
         }
 
-        // ========================================
-        //  翼子板 — 宽厚覆盖行走系统
-        // ========================================
-        for (let side = -1; side <= 1; side += 2) {
-            const sx = side * (HULL_W / 2 + 0.055);
-            const fy = HULL_BOT + 0.10;
+        // ── 翼子板（车体两侧挡泥板）─
+        {
+            for (let side = -1; side <= 1; side += 2) {
+                const fender = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.030, 0.006, 1.12),
+                    fenderMat);
+                fender.position.set(side * (HULL_W / 2 + 0.015), HULL_BOT + 0.09, -0.02);
+                fender.castShadow = true;
+                group.add(fender);
 
-            // 主翼子板（从前到后）
-            const fender = new THREE.Mesh(
-                new THREE.BoxGeometry(0.048, 0.010, HULL_L - 0.08), fenderMat);
-            fender.position.set(sx, fy, 0);
-            fender.castShadow = true;
-            group.add(fender);
+                // 前挡泥板弯曲
+                const frontFlap = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.030, 0.018, 0.05), fenderMat);
+                frontFlap.position.set(side * (HULL_W / 2 + 0.015), HULL_BOT + 0.07, 0.86);
+                frontFlap.rotation.x = 0.2;
+                group.add(frontFlap);
 
-            // 前挡泥板（向下弯曲）
-            const lip = new THREE.Mesh(
-                new THREE.BoxGeometry(0.040, 0.035, 0.010), fenderMat);
-            lip.position.set(sx, fy + 0.015, FRONT_Z - 0.04);
-            lip.rotation.x = 0.38;
-            lip.castShadow = true;
-            group.add(lip);
-
-            // 后挡泥板
-            const lipR = new THREE.Mesh(
-                new THREE.BoxGeometry(0.035, 0.028, 0.009), fenderMat);
-            lipR.position.set(sx, fy + 0.012, -FRONT_Z + 0.02);
-            lipR.rotation.x = -0.25;
-            group.add(lipR);
+                // 后挡泥板弯曲
+                const rearFlap = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.030, 0.018, 0.05), fenderMat);
+                rearFlap.position.set(side * (HULL_W / 2 + 0.015), HULL_BOT + 0.07, -0.86);
+                rearFlap.rotation.x = -0.2;
+                group.add(rearFlap);
+            }
         }
 
         // ========================================
@@ -274,343 +264,65 @@
         group.userData.rightWheels = rightWheels;
 
         // ========================================
-        //  履带 — 连续包覆式
-        //  底部/顶部用密集小段 + 前后圆弧用 Torus
+        //  履带 — 闭合环路
         // ========================================
-        function buildTrack(sx) {
-            const tg = new THREE.Group();
 
-            // 履带段尺寸（小且密集）
-            const segW = TRACK_W;
-            const segH = 0.022;
-            const segL = 0.095;   // 每段长度（略重叠消除间隙）
-            const segGeo = new THREE.BoxGeometry(segW, segH, segL);
+        function makeTrackBand(side) {
+            const band = new THREE.Group();
 
-            // 计算履带环参数
-            const botY = 0.006;                          // 底部Y
-            const topY = WL_R * 2 - 0.004;               // 顶部Y（紧贴轮顶）
-            const wheelBaseZ = roadZ[0] - 0.06;          // 后端轮起始Z
-            const wheelEndZ = roadZ[roadZ.length-1] + 0.06; // 前端轮结束Z
-
-            // ── 底部：密集水平段 ──
-            const botStart = sprocketZ + SPROCKET_R * 0.7;
-            const botEnd = idlerZ - IDLER_R * 0.7;
-            const botCount = Math.ceil((botEnd - botStart) / (segL * 0.82));
-            for (let i = 0; i < botCount; i++) {
-                const z = botStart + (i / (botCount - 1)) * (botEnd - botStart);
-                const s = new THREE.Mesh(segGeo, trackMat);
-                s.position.set(sx, botY, z);
-                s.castShadow = true;
-                tg.add(s);
+            // 底部履带段（从后绕过诱导轮到前）
+            const bottomSegs = 24;
+            const botStartZ = sprocketZ;
+            const botEndZ = idlerZ;
+            for (let b = 0; b < bottomSegs; b++) {
+                const seg = new THREE.Mesh(
+                    new THREE.BoxGeometry(TRACK_W, 0.018, 0.038), trackMat);
+                const t = b / (bottomSegs - 1);
+                const z = botStartZ + t * (botEndZ - botStartZ);
+                seg.position.set(side * (TRACK_X + 0.01), 0.008, z);
+                band.add(seg);
             }
 
-            // ── 顶部：密集水平段 ──
-            const topStart = sprocketZ + SPROCKET_R * 0.65;
-            const topEnd = idlerZ - IDLER_R * 0.65;
-            const topCount = Math.ceil((topEnd - topStart) / (segL * 0.82));
-            for (let i = 0; i < topCount; i++) {
-                const z = topStart + (i / (topCount - 1)) * (topEnd - topStart);
-                const s = new THREE.Mesh(segGeo, trackMat);
-                s.position.set(sx, topY, z);
-                s.castShadow = true;
-                tg.add(s);
+            // 顶部履带段（从主动轮到诱导轮）
+            const topSegs = 22;
+            const topStartZ = sprocketZ;
+            const topEndZ = idlerZ;
+            for (let b = 0; b < topSegs; b++) {
+                const seg = new THREE.Mesh(
+                    new THREE.BoxGeometry(TRACK_W, 0.018, 0.038), trackMat);
+                const t = b / (topSegs - 1);
+                const z = topStartZ + t * (topEndZ - topStartZ);
+                seg.position.set(side * (TRACK_X + 0.01), SPROCKET_Y + 0.02, z);
+                band.add(seg);
             }
 
-            // ── 前弧：TorusGeometry 半圆绕诱导轮（连续！）─
-            {
-                const arcR = IDLER_R + 0.018;
-                const arcGeo = new THREE.TorusGeometry(arcR, segH / 2, 8, 20, Math.PI);
-                const arc = new THREE.Mesh(arcGeo, trackMat);
-                arc.rotation.y = Math.PI / 2;
-                arc.rotation.x = Math.PI;  // 翻转到前侧
-                arc.position.set(sx, IDLER_R + 0.018, idlerZ);
-                arc.castShadow = true;
-                tg.add(arc);
-            }
+            // 前弧：从顶部前端到诱导轮 — 使用TorusGeometry半圆
+            const frontArc = new THREE.Mesh(
+                new THREE.TorusGeometry(0.095, TRACK_W * 0.5, 8, 12, Math.PI),
+                trackMat);
+            frontArc.position.set(side * (TRACK_X + 0.01), SPROCKET_Y + 0.02 + 0.095, idlerZ);
+            frontArc.rotation.x = -Math.PI / 2;
+            band.add(frontArc);
 
-            // ── 后弧：TorusGeometry 绕主动轮（连续！）─
-            {
-                const arcR2 = SPROCKET_R + 0.020;
-                const arcGeo2 = new THREE.TorusGeometry(arcR2, segH / 2, 8, 20, Math.PI);
-                const arc2 = new THREE.Mesh(arcGeo2, trackMat);
-                arc2.rotation.y = Math.PI / 2;
-                arc2.rotation.x = 0;  // 正向朝后
-                arc2.position.set(sx, SPROCKET_Y, sprocketZ);
-                arc2.castShadow = true;
-                tg.add(arc2);
-            }
+            // 后弧：从主动轮到顶部后端
+            const rearArc = new THREE.Mesh(
+                new THREE.TorusGeometry(0.095, TRACK_W * 0.5, 8, 12, Math.PI),
+                trackMat);
+            rearArc.position.set(side * (TRACK_X + 0.01), SPROCKET_Y + 0.02 + 0.095, sprocketZ);
+            rearArc.rotation.x = Math.PI / 2;
+            band.add(rearArc);
 
-            return tg;
+            band.position.y = 0;
+            return band;
         }
-        group.add(buildTrack(-TRACK_X));
-        group.add(buildTrack(TRACK_X));
 
-        // ========================================
-        //  炮塔 — 核心改进：LatheGeometry 铸造轮廓
-        // ========================================
-        const turretGroup = new THREE.Group();
-        const T_BASE_Y = HULL_TOP;              // 炮塔底面Y
-        const TBOT_R   = 0.50;                  // 炮塔底面半径（加宽，骑在车体上）
-        const TTOP_R   = 0.32;                  // 炮塔顶部半径（明显收窄）
-        const T_H      = 0.28;                  // 炮塔总高度
-
-        // ── 主体：使用 LatheGeometry 创建铸造轮廓 ──
-        // T-34/85炮塔特征：底部宽大 → 中部略微鼓出 → 顶部明显收窄 → 浅圆顶
-        const turretPoints = [
-            new THREE.Vector2(0, 0),             // 底面中心
-            new THREE.Vector2(TBOT_R * 0.88, 0),         // 底边内收（座圈）
-            new THREE.Vector2(TBOT_R, T_H * 0.05),       // 底面外扩
-            new THREE.Vector2(TBOT_R * 1.04, T_H * 0.18), // 最大宽度处
-            new THREE.Vector2(TBOT_R * 1.00, T_H * 0.35), // 垂直段
-            new THREE.Vector2(TBOT_R * 0.92, T_H * 0.50), // 开始收窄
-            new THREE.Vector2(TTOP_R * 1.05, T_H * 0.68), // 肩部
-            new THREE.Vector2(TTOP_R * 0.90, T_H * 0.85), // 顶部收窄过渡
-            new THREE.Vector2(TTOP_R * 0.50, T_H * 0.95), // 浅圆顶起点
-            new THREE.Vector2(0, T_H)                   // 顶中
-        ];
-        const turretLathe = new THREE.LatheGeometry(turretPoints, 36);
-        const turretMesh = new THREE.Mesh(turretLathe, turretMat);
-        turretMesh.position.y = T_BASE_Y;
-        turretMesh.castShadow = true;
-        turretMesh.receiveShadow = true;
-        turretGroup.add(turretMesh);
-
-        // 炮塔座圈环
-        const ringGeo = new THREE.TorusGeometry(TBOT_R + 0.015, 0.016, 8, 40);
-        const ring = new THREE.Mesh(ringGeo, detailMat);
-        ring.position.y = T_BASE_Y + 0.002;
-        ring.rotation.x = Math.PI / 2;
-        turretGroup.add(ring);
-
-        // ── 防盾（大型铸造包裹式）─
-        // 使用变形球体模拟铸造防盾的有机形状
-        const mGroup = new THREE.Group();
-        const MY = T_BASE_Y + T_H * 0.22;  // 防盾中心Y
-        const MZ = TBOT_R * 0.95;          // 防盾前伸Z
-
-        // 防盾主体（扁球体）
-        const mantletCore = new THREE.Mesh(
-            new THREE.SphereGeometry(0.14, 18, 14), mantletMat);
-        mantletCore.scale.set(1.1, 0.75, 0.75);
-        mantletCore.position.set(0, MY, MZ);
-        mantletCore.castShadow = true;
-        mGroup.add(mantletCore);
-
-        // 防盾左右延伸（铸造耳）
+        // 左右两侧履带
         for (let side = -1; side <= 1; side += 2) {
-            const ear = new THREE.Mesh(
-                new THREE.SphereGeometry(0.07, 12, 10), mantletMat);
-            ear.scale.set(0.7, 1.0, 0.8);
-            ear.position.set(side * 0.19, MY, MZ - 0.02);
-            ear.castShadow = true;
-            mGroup.add(ear);
+            const band = makeTrackBand(side);
+            group.add(band);
         }
 
-        // 防盾顶部盖
-        const mTop = new THREE.Mesh(
-            new THREE.BoxGeometry(0.24, 0.025, 0.10), mantletMat);
-        mTop.position.set(0, MY + 0.11, MZ - 0.01);
-        mGroup.add(mTop);
-
-        turretGroup.add(mGroup);
-
-        // ── 指挥塔（小型！后部偏左）─
-        const CUP_Y = T_BASE_Y + T_H - 0.01;
-        const cupZ = -0.13;  // 略偏后
-
-        // 指挥塔基座
-        const cupBase = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.085, 0.095, 0.042, 14), turretMat);
-        cupBase.position.set(0, CUP_Y - 0.021, cupZ);
-        cupBase.castShadow = true;
-        turretGroup.add(cupBase);
-
-        // 指挥塔舱门
-        const cupHatch = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.082, 0.082, 0.015, 14), detailMat);
-        cupHatch.position.set(0, CUP_Y + 0.007, cupZ);
-        turretGroup.add(cupHatch);
-
-        // 潜望镜 × 3（围绕指挥塔）
-        for (let i = 0; i < 3; i++) {
-            const ang = (i / 3) * Math.PI * 2 - Math.PI / 2;
-            const peri = new THREE.Mesh(
-                new THREE.BoxGeometry(0.010, 0.018, 0.026), detailMat);
-            peri.position.set(
-                Math.cos(ang) * 0.082,
-                CUP_Y + 0.016,
-                cupZ + Math.sin(ang) * 0.065);
-            turretGroup.add(peri);
-        }
-
-        // ── 装填手舱盖（炮塔右前方）─
-        const loaderHatch = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.055, 0.055, 0.012, 12), detailMat);
-        loaderHatch.position.set(0.14, T_BASE_Y + T_H - 0.008, 0.10);
-        turretGroup.add(loaderHatch);
-
-        group.add(turretGroup);
-
-        // ========================================
-        //  主炮 — 85mm ZiS-S-53
-        // ========================================
-        const bGroup = new THREE.Group();
-        const BROOT_Z = TBOT_R * 0.88;   // 炮根Z
-        const B_Y     = T_BASE_Y + T_H * 0.22;  // 炮管轴心Y
-
-        // 炮管根部（退壳器区域）
-        const root = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.042, 0.034, 0.14, 14), barrelMat);
-        root.rotation.x = -Math.PI / 2;
-        root.position.set(0, B_Y, BROOT_Z + 0.07);
-        root.castShadow = true;
-        bGroup.add(root);
-
-        // 主炮管
-        const BLEN = 1.20;
-        const barrel = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.026, 0.030, BLEN, 16), barrelMat);
-        barrel.rotation.x = -Math.PI / 2;
-        barrel.position.set(0, B_Y, BROOT_Z + 0.14 + BLEN / 2);
-        barrel.castShadow = true;
-        bGroup.add(barrel);
-
-        // 抽烟器（特征性粗段）
-        const evacMat = new THREE.MeshStandardMaterial({
-            color: '#4a4a4a', roughness: 0.35, metalness: 0.64 });
-        const evac = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.043, 0.043, 0.065, 18), evacMat);
-        evac.rotation.x = -Math.PI / 2;
-        evac.position.set(0, B_Y, BROOT_Z + 0.14 + BLEN * 0.34);
-        bGroup.add(evac);
-
-        // 抽烟器肋环
-        for (const off of [-0.004, 0.004]) {
-            const rib = new THREE.Mesh(
-                new THREE.TorusGeometry(0.048, 0.0045, 8, 18), barrelMat);
-            rib.rotation.x = -Math.PI / 2;
-            rib.position.set(0, B_Y, BROOT_Z + 0.14 + BLEN * 0.34 + off);
-            bGroup.add(rib);
-        }
-
-        // 炮口制退器
-        const muzzle = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.036, 0.040, 0.075, 18), barrelMat);
-        muzzle.rotation.x = -Math.PI / 2;
-        muzzle.position.set(0, B_Y, BROOT_Z + 0.14 + BLEN + 0.038);
-        bGroup.add(muzzle);
-
-        // 同轴机枪（简化的DT同轴机枪）
-        const coax = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.008, 0.008, 0.18, 8), detailMat);
-        coax.rotation.x = -Math.PI / 2;
-        coax.position.set(0.050, B_Y - 0.025, BROOT_Z + 0.20);
-        bGroup.add(coax);
-
-        group.add(bGroup);
-
-        // ========================================
-        //  外部附件
-        // ========================================
-
-        // 圆筒形外挂油箱 × 2（后部侧面）
-        const ftGeo = new THREE.CylinderGeometry(0.068, 0.068, 0.34, 14);
-        for (let side = -1; side <= 1; side += 2) {
-            const ft = new THREE.Mesh(ftGeo, fuelTankMat);
-            ft.rotation.z = Math.PI / 2;
-            ft.position.set(side * (HULL_W / 2 + 0.125), HULL_BOT + 0.068,
-                -FRONT_Z + 0.10);
-            ft.castShadow = true;
-            group.add(ft);
-            // 油箱固定架
-            for (let b = 0; b < 2; b++) {
-                const band = new THREE.Mesh(
-                    new THREE.TorusGeometry(0.070, 0.005, 6, 14), detailMat);
-                band.rotation.y = Math.PI / 2;
-                band.position.set(side * (HULL_W / 2 + 0.125),
-                    HULL_BOT + 0.068, -FRONT_Z + 0.10 - 0.10 + b * 0.20);
-                band.position.y = HULL_BOT + 0.068;
-                band.position.z = -FRONT_Z + (-0.02) + b * 0.18;
-                group.add(band);
-            }
-        }
-
-        // 工具箱（尾部中央）
-        const toolbox = new THREE.Mesh(
-            new THREE.BoxGeometry(0.15, 0.048, 0.085), toolBoxMat);
-        toolbox.position.set(-0.02, HULL_BOT + 0.03, -FRONT_Z + 0.34);
-        toolbox.castShadow = true;
-        group.add(toolbox);
-
-        // 牵引缆绳（右侧）
-        const cableMat = new THREE.MeshStandardMaterial({
-            color: '#3a3a3a', roughness: 0.82, metalness: 0.38 });
-        for (let ci = 0; ci < 2; ci++) {
-            const cable = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.006, 0.006, 0.48, 6), cableMat);
-            cable.rotation.x = Math.PI / 2 + 0.12;
-            cable.rotation.z = 0.08;
-            cable.position.set(HULL_W / 2 + 0.095, HULL_BOT + 0.085,
-                -0.01 + ci * 0.30);
-            group.add(cable);
-        }
-
-        // 圆头斧/工具（尾板）
-        const axe = new THREE.Mesh(
-            new THREE.BoxGeometry(0.018, 0.008, 0.065), detailMat);
-        axe.position.set(HULL_W / 2 + 0.02, HULL_BOT + 0.035, -FRONT_Z + 0.28);
-        axe.rotation.y = 0.2;
-        group.add(axe);
-
-        // 前灯（左翼子板前部）
-        const hlG = new THREE.Group();
-        const hlBase = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.032, 0.036, 0.032, 12), detailMat);
-        hlBase.rotation.x = Math.PI / 2;
-        hlG.add(hlBase);
-        const hlLens = new THREE.Mesh(
-            new THREE.SphereGeometry(0.027, 12, 12, 0, Math.PI*2, 0, Math.PI/2),
-            new THREE.MeshStandardMaterial({
-                color: '#ffffee', roughness: 0.08, metalness: 0.04,
-                emissive: '#ffeecc', emissiveIntensity: 0.12 }));
-        hlLens.rotation.x = -Math.PI / 2;
-        hlLens.position.z = 0.032;
-        hlG.add(hlLens);
-        hlG.position.set(HULL_W / 2 + 0.075, HULL_BOT + 0.055, FRONT_Z - 0.16);
-        group.add(hlG);
-
-        // 排气管 × 2（尾部）
-        for (let side = -1; side <= 1; side += 2) {
-            const pipe = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.021, 0.025, 0.065, 10), detailMat);
-            pipe.rotation.x = Math.PI / 2;
-            pipe.position.set(side * 0.17, HULL_BOT + 0.018, -FRONT_Z - 0.025);
-            group.add(pipe);
-            // 排气管保护罩
-            const cap = new THREE.Mesh(
-                new THREE.TorusGeometry(0.028, 0.005, 8, 12), detailMat);
-            cap.rotation.y = Math.PI / 2;
-            cap.position.set(side * 0.17, HULL_BOT + 0.018, -FRONT_Z - 0.025);
-            group.add(cap);
-        }
-
-        // 天线基座（炮塔右后方）
-        const antBase = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.012, 0.014, 0.025, 8), detailMat);
-        antBase.position.set(0.18, T_BASE_Y + T_H - 0.005, -0.08);
-        turretGroup.add(antBase);
-
-        // 天线杆
-        const antenna = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.003, 0.003, 0.35, 6),
-            new THREE.MeshStandardMaterial({color:'#222',roughness:0.5,metalness:0.6}));
-        antenna.position.set(0.18, T_BASE_Y + T_H + 0.17, -0.08);
-        antenna.rotation.z = 0.15;
-        turretGroup.add(antenna);
-
-        // ========================================
-        //  地面阴影
-        // ========================================
+        // 地面阴影
         const shadow = new THREE.Mesh(
             new THREE.CircleGeometry(0.66, 32),
             new THREE.MeshBasicMaterial({
