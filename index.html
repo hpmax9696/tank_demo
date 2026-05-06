@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.1</title>
+    <title>坦克运动demo v0.18.2</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -229,17 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.1</div>
+        <div class="menu-version">v0.18.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.1 更新 — T-34/85模型v6.1尾部+履带修正</div>
-            <div class="cl-item">车体尾部：5点倾斜剖面（REAR_OVERHANG=0.06），新增-35°后倾尾板装甲板</div>
-            <div class="cl-item">发动机舱顶盖：缩窄（HULL_W-0.10）+ 微前倾4°，散热格栅改为单排9条细条</div>
-            <div class="cl-item">履带系统重写：底部/顶部动态密集小段(segL=0.095) + TorusGeometry半圆环连续无断点</div>
+            <div class="cl-title">🔄 v0.18.2 更新 — 修复高DPI分辨率下的viewport偏差</div>
+            <div class="cl-item">修复双人分屏偏移和单人坦克居中度：viewport计算改用canvas实际物理像素，消除高DPI浮点误差</div>
         </div>
     </div>
 
@@ -1959,7 +1957,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.1 | T-34/85后期型模型v6.1 倾斜尾板+连续履带');
+        console.log('🎮 坦克运动demo v0.18.2 | 修复高DPI viewport偏差');
     </script>
 </body>
 </html>
