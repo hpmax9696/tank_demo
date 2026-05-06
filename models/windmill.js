@@ -1,6 +1,6 @@
 /**
  * 风车磨坊模型
- * 4片叶片围绕轴心旋转，使用 PlaneGeometry 扁平叶片
+ * 4片叶片围绕轴心旋转，使用 BoxGeometry(0.02厚度) 保证侧面可见
  */
 (function() {
     const windmillBodyMat  = new THREE.MeshStandardMaterial({ color: '#D2B48C', roughness: 0.8 });
@@ -31,7 +31,7 @@
         const bladeLen = 0.85;
         const bladeWid = 0.18;
         for (let i = 0; i < 4; i++) {
-            const bladeGeo = new THREE.PlaneGeometry(bladeWid, bladeLen);
+            const bladeGeo = new THREE.BoxGeometry(bladeWid, bladeLen, 0.02);
             const blade = new THREE.Mesh(bladeGeo, windmillBladeMat);
             const angle = (i * Math.PI) / 2;
             blade.rotation.z = angle;
