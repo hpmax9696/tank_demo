@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.14.2</title>
+    <title>坦克运动demo v0.14.3</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -175,14 +175,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.14.2</div>
+        <div class="menu-version">v0.14.3</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.14.2 更新 — 修复风车叶片旋转</div>
-            <div class="cl-item">修复风车磨坊叶片围绕错误原点旋转的问题，现在4片叶片从中心向外辐射，正确围绕轴心旋转</div>
+            <div class="cl-title">🔄 v0.14.3 更新 — 修复风车叶片旋转（二次修复）</div>
+            <div class="cl-item">彻底修复风车叶片旋转：4片叶片位置根据各自旋转角度计算，使十字形中心精确钉在磨坊轴心上</div>
         </div>
     </div>
 
@@ -877,14 +877,16 @@
             const roof = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.35, 8), roofMat);
             roof.position.y = h + 0.15;
             g.add(roof);
-            // 风车叶片（4片，从中心向外辐射）
+            // 风车叶片（4片，十字形钉在轴心旋转）
             const bladeGroup = new THREE.Group();
             bladeGroup.position.y = h + 0.35;
             for (let i = 0; i < 4; i++) {
                 const blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.02), windmillBladeMat);
-                // 叶片沿Y方向偏移半个长度，使一端在bladeGroup中心
-                blade.position.y = 0.275;
-                blade.rotation.z = (i * Math.PI) / 2;
+                const angle = (i * Math.PI) / 2;
+                blade.rotation.z = angle;
+                // 沿叶片旋转后的方向偏移半长，使叶片一端在bladeGroup原点
+                blade.position.x = Math.cos(angle) * 0.275;
+                blade.position.y = Math.sin(angle) * 0.275;
                 bladeGroup.add(blade);
             }
             bladeGroup.name = 'blades';
@@ -1873,7 +1875,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.14.2 | 修复风车叶片旋转中心');
+        console.log('🎮 坦克运动demo v0.14.3 | 修复风车叶片旋转中心（二次修复）');
     </script>
 </body>
 </html>
