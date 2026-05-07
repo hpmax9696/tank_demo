@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.40</title>
+    <title>坦克运动demo v0.19.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,14 +231,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.40</div>
+        <div class="menu-version">v0.19.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.40 更新 — 恢复three.js版本并修复GLTFLoader兼容性，彻底解决泛白和模型加载</div>
+            <div class="cl-title">🔄 v0.19.0 大版本 — 单人/双人场景分离；单人地图加入河流和桥梁；坦克仅能过桥不能涉水；A点出生B点预留</div>
             <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
@@ -522,7 +522,7 @@
         }
 
         // ==================== 场景变量 ====================
-        let scene, camera, renderer;
+        let scene, scene1, scene2, camera, renderer;
         // 单人模式引用（向后兼容）
         let tankGroup, tankHull, leftWheels = [], rightWheels = [];
         let reloadTimer = 0, reloadBarGroup = null, reloadBarFill = null;
@@ -532,6 +532,8 @@
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
+        let obstacleMeshes1 = [], obstacleData1 = [];
+        let obstacleMeshes2 = [], obstacleData2 = [];
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
@@ -550,6 +552,16 @@
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
         const SHELL_DAMAGE = 20;
 
+        // ==================== 单人模式地图常量 ====================
+        const RIVER_WIDTH = 3.5;              // 河流宽度
+        const RIVER_COLL_RADIUS = 2.0;        // 河流碰撞圆半径（略大于半宽）
+        const BRIDGE_LENGTH = 8;              // 桥长
+        const BRIDGE_WIDTH = 4;               // 桥宽
+        const POINT_A_X = -65, POINT_A_Z = -65;   // A 点（出生点）
+        const POINT_B_X = 65, POINT_B_Z = 65;     // B 点（预留 BOSS）
+        const RIVER_SAMPLE_COUNT = 120;       // 河流碰撞采样点数量
+        let riverColliders = [];              // 河流碰撞圆圈 { x, z, radius }
+
         function initScene() {
             // --- 渲染器 ---
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -560,48 +572,57 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
-            // 挂到 gameContainer（visibility:hidden 保持布局尺寸，不会导致 canvas 0 尺寸）
             gameContainer.appendChild(renderer.domElement);
 
-            // --- 场景 ---
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color('#000000');   // 虚空黑色
-            scene.fog = new THREE.Fog('#000000', 100, 160);  // 黑雾：仅边界外渐隐
+            // --- 共享光照添加到场景 ---
+            function addLightingTo(trg) {
+                trg.background = new THREE.Color('#000000');
+                trg.fog = new THREE.Fog('#000000', 100, 160);
+                trg.add(new THREE.AmbientLight('#ffffff', 0.6));
+                trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
+                const sun = new THREE.DirectionalLight('#fffef0', 2.5);
+                sun.position.set(30, 40, 20);
+                sun.castShadow = true;
+                sun.shadow.mapSize.width = 2048;
+                sun.shadow.mapSize.height = 2048;
+                sun.shadow.camera.near = 0.5;
+                sun.shadow.camera.far = 250;
+                sun.shadow.camera.left = -110;
+                sun.shadow.camera.right = 110;
+                sun.shadow.camera.top = 110;
+                sun.shadow.camera.bottom = -110;
+                sun.shadow.bias = -0.0002;
+                trg.add(sun);
+            }
 
-            // --- 光照 ---
-            const ambientLight = new THREE.AmbientLight('#ffffff', 0.6);
-            scene.add(ambientLight);
+            // --- 场景1：单人模式（含河流、桥梁、A点） ---
+            scene1 = new THREE.Scene();
+            addLightingTo(scene1);
+            createGround(scene1);
+            createRiver(scene1);
+            createBridge(scene1);
+            createABMarkers(scene1);
+            createObstacles(scene1, true);
+            obstacleMeshes1 = obstacleMeshes; obstacleData1 = obstacleData; // 保存场景1的障碍物
 
-            const hemisphereLight = new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5);
-            scene.add(hemisphereLight);
+            // --- 场景2：双人对战（标准平地） ---
+            scene2 = new THREE.Scene();
+            addLightingTo(scene2);
+            createGround(scene2);
+            createObstacles(scene2, false);
+            obstacleMeshes2 = obstacleMeshes; obstacleData2 = obstacleData; // 保存场景2的障碍物
 
-            const sunLight = new THREE.DirectionalLight('#fffef0', 2.5);
-            sunLight.position.set(30, 40, 20);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.width = 2048;
-            sunLight.shadow.mapSize.height = 2048;
-            sunLight.shadow.camera.near = 0.5;
-            sunLight.shadow.camera.far = 250;
-            sunLight.shadow.camera.left = -110;
-            sunLight.shadow.camera.right = 110;
-            sunLight.shadow.camera.top = 110;
-            sunLight.shadow.camera.bottom = -110;
-            sunLight.shadow.bias = -0.0002;
-            scene.add(sunLight);
+            // --- 默认活跃场景（单人） ---
+            scene = scene1;
+            obstacleMeshes = obstacleMeshes1; obstacleData = obstacleData1;
 
-            // --- 地面 ---
-            createGround();
-
-            // --- 坦克 ---
+            // --- 单人模式坦克（初始创建，但位置在 init 后会被 enterGame 重置） ---
+            scene = scene1;
             createTank();
-            // 单人模式兼容：将 player1 的条映射到全局
             if (player1) {
                 reloadBarGroup = player1.reloadBarGroup;
                 reloadBarFill = player1.reloadBarFill;
             }
-
-            // --- 障碍物 ---
-            createObstacles();
 
             // --- 摄像机 ---
             camera = new THREE.PerspectiveCamera(55, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
@@ -609,7 +630,7 @@
         }
 
         // ==================== 地面（200×200 = 1km² 瓷砖格子） ====================
-        function createGround() {
+        function createGround(targetScene) {
             const SIZE = WORLD_HALF * 2; // 200
 
             // Canvas 生成瓷砖纹理
@@ -660,7 +681,7 @@
             groundPlane.position.y = -0.01;
             groundPlane.receiveShadow = true;
             groundPlane.name = 'ground';
-            scene.add(groundPlane);
+            targetScene.add(groundPlane);
 
             // 边界线框（世界边缘标记）
             const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SIZE, SIZE));
@@ -670,7 +691,182 @@
             );
             edgeLine.rotation.x = -Math.PI / 2;
             edgeLine.position.y = 0.03;
-            scene.add(edgeLine);
+            targetScene.add(edgeLine);
+        }
+
+        // ==================== 河流（单人模式） ====================
+        // 控制点定义一条从左下到右上的弯曲河流
+        const _riverControls = [
+            [-96, -88], [-80, -72], [-55, -55], [-28, -32],
+            [-5, -5],   [18, 18],   [42, 42],   [62, 62],
+            [80, 76],   [92, 92]
+        ];
+
+        function createRiver(targetScene) {
+            riverColliders = [];
+            riverBridgeClearIndex = [];
+
+            // 构建 CatmullRom 曲线
+            const pts = _riverControls.map(p => new THREE.Vector3(p[0], 0, p[1]));
+            const curve = new THREE.CatmullRomCurve3(pts);
+
+            // --- 可视化河流（带状水面对应河流宽度） ---
+            const samples = 80;
+            const halfW = RIVER_WIDTH / 2;
+            const positions = [];
+            const uvs = [];
+
+            for (let i = 0; i <= samples; i++) {
+                const t = i / samples;
+                const p = curve.getPoint(t);
+                const tangent = curve.getTangent(t).normalize();
+                // 垂直方向（河流横向）
+                const perp = new THREE.Vector3(-tangent.z, 0, tangent.x);
+                // 左右边界
+                const lx = p.x + perp.x * halfW, lz = p.z + perp.z * halfW;
+                const rx = p.x - perp.x * halfW, rz = p.z - perp.z * halfW;
+                positions.push(lx, 0.02, lz, rx, 0.02, rz);
+                uvs.push(0, i / samples, 1, i / samples);
+            }
+
+            const indices = [];
+            for (let i = 0; i < samples; i++) {
+                const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+                indices.push(a, c, b, b, c, d);
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: '#2a6b9e',
+                roughness: 0.1,
+                metalness: 0.3,
+                transparent: true,
+                opacity: 0.75,
+                side: THREE.DoubleSide,
+            });
+            const water = new THREE.Mesh(geo, mat);
+            water.receiveShadow = false;
+            water.name = 'river';
+            targetScene.add(water);
+
+            // --- 河流碰撞圈（采样点组成的圆序列，桥所在区域跳过，坦克仅能从桥过河） ---
+            for (let i = 0; i <= RIVER_SAMPLE_COUNT; i++) {
+                const t = i / RIVER_SAMPLE_COUNT;
+                const p = curve.getPoint(t);
+                // 跳过桥附近的 collider（坦克在桥面上不受河流阻挡）
+                const distToCenter = Math.sqrt(p.x * p.x + p.z * p.z);
+                if (distToCenter < BRIDGE_LENGTH * 0.7) continue;
+                riverColliders.push({ x: p.x, z: p.z, radius: RIVER_COLL_RADIUS });
+            }
+        }
+
+        // ==================== 桥梁（河流上方的过河通道） ====================
+        function createBridge(targetScene) {
+            // 找到河流曲线中心的点
+            const pts = _riverControls.map(p => new THREE.Vector3(p[0], 0, p[1]));
+            const curve = new THREE.CatmullRomCurve3(pts);
+            const center = curve.getPoint(0.5);
+            const tangent = curve.getTangent(0.5).normalize();
+            // 垂直方向 = 桥梁的宽度方向
+            const perp = new THREE.Vector3(-tangent.z, 0, tangent.x);
+
+            const group = new THREE.Group();
+
+            // 桥面（棕色木质）
+            const deckGeo = new THREE.PlaneGeometry(BRIDGE_LENGTH, BRIDGE_WIDTH);
+            const deckMat = new THREE.MeshStandardMaterial({
+                color: '#8b6b3a',
+                roughness: 0.9,
+                metalness: 0.0,
+                side: THREE.DoubleSide,
+            });
+            const deck = new THREE.Mesh(deckGeo, deckMat);
+            deck.rotation.x = -Math.PI / 2;
+            deck.position.y = 0.08;
+            deck.receiveShadow = true;
+            group.add(deck);
+
+            // 桥面横纹
+            const plankCount = 14;
+            for (let i = 0; i < plankCount; i++) {
+                const t = -0.45 + (i / (plankCount - 1)) * 0.9;
+                const plank = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.2, BRIDGE_WIDTH - 0.4),
+                    new THREE.MeshStandardMaterial({ color: '#7a5c2a', roughness: 0.95, side: THREE.DoubleSide })
+                );
+                plank.rotation.x = -Math.PI / 2;
+                plank.position.set(t * BRIDGE_LENGTH * 0.5, 0.1, 0);
+                group.add(plank);
+            }
+
+            // 两侧栏杆
+            const railMat = new THREE.MeshStandardMaterial({ color: '#6b4f23', roughness: 0.8 });
+            for (const side of [-1, 1]) {
+                // 横栏杆
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE_LENGTH * 0.9, 0.06, 0.08), railMat);
+                rail.position.set(0, 0.3, side * BRIDGE_WIDTH * 0.5);
+                group.add(rail);
+                // 立柱
+                for (let j = 0; j < 6; j++) {
+                    const t2 = -0.4 + (j / 5) * 0.8;
+                    const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.06), railMat);
+                    post.position.set(t2 * BRIDGE_LENGTH * 0.5, 0.25, side * BRIDGE_WIDTH * 0.5);
+                    group.add(post);
+                }
+            }
+
+            // 定位桥到河流中心
+            group.position.set(center.x, 0, center.z);
+            // 旋转使桥的长度方向垂直河流（垂直于切线）
+            const angle = Math.atan2(perp.z, perp.x); // 桥的长度方向沿 perp
+            group.rotation.y = -angle + Math.PI / 2;
+
+            group.name = 'bridge';
+            targetScene.add(group);
+        }
+
+        // ==================== A / B 点标记 ====================
+        function createABMarkers(targetScene) {
+            function makeMarker(x, z, label) {
+                const g = new THREE.Group();
+                // 地面圆盘
+                const disc = new THREE.Mesh(
+                    new THREE.RingGeometry(1.2, 1.8, 24),
+                    new THREE.MeshStandardMaterial({
+                        color: label === 'A' ? '#44ff44' : '#ff4444',
+                        transparent: true, opacity: 0.7, side: THREE.DoubleSide,
+                    })
+                );
+                disc.rotation.x = -Math.PI / 2;
+                disc.position.y = 0.03;
+                g.add(disc);
+                // 中央立柱
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.08, 0.08, 2, 8),
+                    new THREE.MeshStandardMaterial({ color: label === 'A' ? '#44ff44' : '#ff4444', emissive: label === 'A' ? '#226622' : '#662222' })
+                );
+                pole.position.y = 1;
+                g.add(pole);
+                // 头顶发光小球
+                const ball = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.25, 12, 12),
+                    new THREE.MeshStandardMaterial({ color: label === 'A' ? '#44ff44' : '#ff4444', emissive: label === 'A' ? '#44ff44' : '#ff4444', emissiveIntensity: 0.5 })
+                );
+                ball.position.y = 2.2;
+                g.add(ball);
+                g.position.set(x, 0.02, z);
+                g.name = 'marker-' + label;
+                return g;
+            }
+            // 保存引用以便后续更新 BOSS
+            targetScene.add(makeMarker(POINT_A_X, POINT_A_Z, 'A'));
+            // B 点预留（当前仅作标记）
+            targetScene.add(makeMarker(POINT_B_X, POINT_B_Z, 'B'));
         }
 
         // ==================== 坦克模型（双 GLB：1P绿色 + 2P黄色，程序化回退） ====================
@@ -830,7 +1026,7 @@
         }
 
         // ==================== 泊松盘采样 ====================
-        function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints) {
+        function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints, excludeFn) {
             const cellSize = minDist / Math.sqrt(2);
             const gridSize = Math.ceil(2 * totalRadius / cellSize) + 1;
             const grid = new Array(gridSize * gridSize).fill(-1);
@@ -847,6 +1043,9 @@
             }
             function inSafeZone(x, z) {
                 return (x - cx) ** 2 + (z - cz) ** 2 < safeRadius ** 2;
+            }
+            function inExcluded(x, z) {
+                return excludeFn ? excludeFn(x, z) : false;
             }
             function inBounds(x, z) {
                 return Math.abs(x - cx) < totalRadius && Math.abs(z - cz) < totalRadius;
@@ -872,7 +1071,7 @@
                 const dist = safeRadius + minDist + Math.random() * (totalRadius - safeRadius - minDist);
                 const tx = cx + Math.cos(angle) * dist;
                 const tz = cz + Math.sin(angle) * dist;
-                if (inBounds(tx, tz) && !inSafeZone(tx, tz)) {
+                if (inBounds(tx, tz) && !inSafeZone(tx, tz) && !inExcluded(tx, tz)) {
                     first = { x: tx, z: tz };
                     break;
                 }
@@ -898,7 +1097,7 @@
                     const nx = base.x + Math.cos(angle) * dist;
                     const nz = base.z + Math.sin(angle) * dist;
 
-                    if (!inBounds(nx, nz) || inSafeZone(nx, nz)) continue;
+                    if (!inBounds(nx, nz) || inSafeZone(nx, nz) || inExcluded(nx, nz)) continue;
                     const { gx, gz } = worldToGrid(nx, nz);
                     if (hasConflict(nx, nz, gx, gz)) continue;
 
@@ -940,7 +1139,7 @@
             }
         }
 
-        function createObstacles() {
+        function createObstacles(targetScene, excludeRiver) {
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
@@ -948,14 +1147,32 @@
             obstacleMeshes = [];
             obstacleData = [];
 
-            const points = poissonDiskSampling(0, 0, SPAWN_RADIUS, POISSON_MIN_DIST, SAFE_ZONE_RADIUS, OBSTACLE_COUNT);
+            // 如果需要排除河流区域，构建排除函数
+            let excludeFn = null;
+            if (excludeRiver && riverColliders.length > 0) {
+                // 还排除 AB 点附近
+                excludeFn = (x, z) => {
+                    // 河流
+                    for (const rc of riverColliders) {
+                        const dx = x - rc.x, dz = z - rc.z;
+                        if (dx * dx + dz * dz < (rc.radius + POISSON_MIN_DIST) * (rc.radius + POISSON_MIN_DIST))
+                            return true;
+                    }
+                    // A 点安全区
+                    if ((x - POINT_A_X) ** 2 + (z - POINT_A_Z) ** 2 < (SAFE_ZONE_RADIUS * 0.8) ** 2) return true;
+                    // B 点预留区
+                    if ((x - POINT_B_X) ** 2 + (z - POINT_B_Z) ** 2 < (SAFE_ZONE_RADIUS * 0.5) ** 2) return true;
+                    return false;
+                };
+            }
+
+            const points = poissonDiskSampling(0, 0, SPAWN_RADIUS, POISSON_MIN_DIST, SAFE_ZONE_RADIUS, OBSTACLE_COUNT, excludeFn);
 
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
                 const ud = group.userData;
-                // 按目标高度范围（米）反算缩放因子，与模型原始尺寸解耦
                 const baseHeightM = ud.height * METERS_PER_UNIT;
                 const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
                 const s = targetHeightM / baseHeightM;
@@ -964,11 +1181,10 @@
                 group.rotation.y = Math.random() * Math.PI * 2;
                 group.visible = false;
                 group.name = `obs-${i}`;
-                scene.add(group);
+                targetScene.add(group);
                 obstacleMeshes.push(group);
                 obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });
             }
-
 
             updateObstacleVisibility();
         }
@@ -994,9 +1210,9 @@
         }
 
         function resetTank() {
-            tankState.x = 0;
-            tankState.z = 0;
-            tankState.yaw = Math.PI / 2; // 面向 +Z
+            tankState.x = POINT_A_X;
+            tankState.z = POINT_A_Z;
+            tankState.yaw = Math.PI / 4; // 面向东北（朝桥梁/地图中心方向）
             leftWheelAngle = 0;
             rightWheelAngle = 0;
             currentLeftSpeed = 0;
@@ -1032,17 +1248,31 @@
 
         // ==================== 碰撞检测 ====================
         function checkCollision(x, z) {
+            // 障碍物碰撞
             for (const obs of obstacleData) {
                 const dx = x - obs.x;
                 const dz = z - obs.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
                 const minDist = TANK_HALF_W + obs.radius;
                 if (dist < minDist) {
-                    // 推回
                     const nx = dx / (dist || 0.001);
                     const nz = dz / (dist || 0.001);
                     const pushX = nx * (minDist - dist);
                     const pushZ = nz * (minDist - dist);
+                    return { hit: true, pushX, pushZ };
+                }
+            }
+            // 河流碰撞（桥所在位置的 collider 已跳过）
+            for (const rc of riverColliders) {
+                const rdx = x - rc.x;
+                const rdz = z - rc.z;
+                const rDist = Math.sqrt(rdx * rdx + rdz * rdz);
+                const rMinDist = TANK_HALF_W + rc.radius;
+                if (rDist < rMinDist) {
+                    const rnx = rdx / (rDist || 0.001);
+                    const rnz = rdz / (rDist || 0.001);
+                    const pushX = rnx * (rMinDist - rDist);
+                    const pushZ = rnz * (rMinDist - rDist);
                     return { hit: true, pushX, pushZ };
                 }
             }
@@ -1683,22 +1913,25 @@
 
         function enterVersusMode() {
             gameMode='versus';menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
+            scene = scene2; // 切换到双人对战场景（标准平地）
+            obstacleMeshes = obstacleMeshes2; obstacleData = obstacleData2;
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
             renderer.setSize(window.innerWidth, window.innerHeight);
 
-            // 移除旧 player1（来自 initScene 或上次游戏的残留）
-            if(player1&&player1.group)scene.remove(player1.group);
-            if(player1&&player1.reloadBarGroup)scene.remove(player1.reloadBarGroup);
-            if(player1&&player1.hpBarGroup)scene.remove(player1.hpBarGroup);
-            if(player1&&player1.damageEffects){scene.remove(player1.damageEffects.firePoints);scene.remove(player1.damageEffects.smokePoints);}
-            // 移除旧 player2（来自上次对战的残留）
-            if(player2&&player2.group)scene.remove(player2.group);
-            if(player2&&player2.reloadBarGroup)scene.remove(player2.reloadBarGroup);
-            if(player2&&player2.hpBarGroup)scene.remove(player2.hpBarGroup);
-            if(player2&&player2.damageEffects){scene.remove(player2.damageEffects.firePoints);scene.remove(player2.damageEffects.smokePoints);}
-            shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
+            // 移除旧 player1（可能来自场景1）
+            if(player1&&player1.group&&player1.group.parent)player1.group.parent.remove(player1.group);
+            if(player1&&player1.reloadBarGroup&&player1.reloadBarGroup.parent)player1.reloadBarGroup.parent.remove(player1.reloadBarGroup);
+            if(player1&&player1.hpBarGroup&&player1.hpBarGroup.parent)player1.hpBarGroup.parent.remove(player1.hpBarGroup);
+            if(player1&&player1.damageEffects){if(player1.damageEffects.firePoints.parent)player1.damageEffects.firePoints.parent.remove(player1.damageEffects.firePoints);if(player1.damageEffects.smokePoints.parent)player1.damageEffects.smokePoints.parent.remove(player1.damageEffects.smokePoints);}
+            // 移除旧 player2
+            if(player2&&player2.group&&player2.group.parent)player2.group.parent.remove(player2.group);
+            if(player2&&player2.reloadBarGroup&&player2.reloadBarGroup.parent)player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
+            if(player2&&player2.hpBarGroup&&player2.hpBarGroup.parent)player2.hpBarGroup.parent.remove(player2.hpBarGroup);
+            if(player2&&player2.damageEffects){if(player2.damageEffects.firePoints.parent)player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints);if(player2.damageEffects.smokePoints.parent)player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints);}
+            // 清除所有炮弹/碎块/爆炸（它们已在当前场景中）
+            shells.forEach(s=>{if(s.mesh.parent)s.mesh.parent.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
             explosions.forEach(exp=>exp.dispose());explosions=[];
@@ -1832,16 +2065,35 @@
             gameMode='single';menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='键盘 W/S/↑/↓  |  手柄 左摇杆/右摇杆  |  空格/RT 开炮';
-            // 移除双人模式的 player2 坦克和 UI
-            if (player2 && player2.group) { scene.remove(player2.group); }
-            if (player2 && player2.reloadBarGroup) scene.remove(player2.reloadBarGroup);
-            if (player2 && player2.hpBarGroup) scene.remove(player2.hpBarGroup);
-            if (player2 && player2.damageEffects) { scene.remove(player2.damageEffects.firePoints); scene.remove(player2.damageEffects.smokePoints); }
+            scene = scene1; // 切换到单人模式场景（含河流桥梁）
+            obstacleMeshes = obstacleMeshes1; obstacleData = obstacleData1;
+
+            // 移除双人模式的 player2 坦克和 UI（可能从场景2移除）
+            if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
+            if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
+            if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
+            if (player2 && player2.damageEffects) { if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints); if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints); }
             // 清理所有爆炸效果残留
             explosions.forEach(exp => exp.dispose()); explosions = [];
-            // 重置 player1 state 与全局状态同步
+            // 重置 player1 state 到 A 点
             if (player1) {
-                player1.state.x = 0; player1.state.z = 0; player1.state.yaw = Math.PI / 2;
+                player1.state.x = POINT_A_X; player1.state.z = POINT_A_Z; player1.state.yaw = Math.PI / 4;
+                player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+                player1.prevForwardSpeed = 0; player1.pitch = 0;
+                player1.reloadTimer = 0;
+                player1.hp = 100; player1.dead = false;
+                if (player1.group) {
+                    player1.group.visible = true;
+                    player1.group.position.set(POINT_A_X, 0, POINT_A_Z);
+                    player1.group.rotation.set(0, Math.PI / 2 - Math.PI / 4, 0);
+                }
+                if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+            }
+            resetTank();
+            if(reloadBarGroup)reloadBarGroup.visible=true;
+            if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
+            placeCamera();
+            initAudio();startEngineSound();
                 player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
                 player1.prevForwardSpeed = 0; player1.pitch = 0;
                 player1.reloadTimer = 0;
@@ -1882,7 +2134,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.40  dpr:' + dpr.toFixed(2) +
+                'v0.19.0  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2163,7 +2415,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.40 | 恢复three.js版本+修复GLTFLoader');
+        console.log('🎮 坦克运动demo v0.19.0 | 场景分离+河流桥梁+A点出生');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
