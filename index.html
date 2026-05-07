@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.38</title>
+    <title>坦克运动demo v0.18.39</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,14 +231,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.38</div>
+        <div class="menu-version">v0.18.39</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.38 更新 — 双GLB模型(1P绿色+2P黄色)，修复阴影，2P坦克区分度大幅提升</div>
+            <div class="cl-title">🔄 v0.18.39 更新 — 修复GLTFLoader版本兼容性；模型预览支持GLB模型查看</div>
             <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
@@ -1882,7 +1882,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.38  dpr:' + dpr.toFixed(2) +
+                'v0.18.39  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2006,14 +2006,22 @@
                 opt.textContent = `[${m.categoryLabel}] ${m.name}`;
                 previewSelect.appendChild(opt);
             }
+            // 追加 GLB 模型
+            const glbModels = [
+                { value: 'glb/t34-green', label: '[GLB坦克] T-34/85 绿色 (1P)' },
+                { value: 'glb/t34-yellow', label: '[GLB坦克] T-34/85 黄色 (2P)' }
+            ];
+            for (const g of glbModels) {
+                const opt = document.createElement('option');
+                opt.value = g.value;
+                opt.textContent = g.label;
+                previewSelect.appendChild(opt);
+            }
         }
 
         function switchPreviewModel() {
             const val = previewSelect.value;
             if (!val) return;
-            const [cat, name] = val.split('/');
-            const fn = window.ModelRegistry.getModel(cat, name);
-            if (!fn) return;
 
             // 移除旧模型
             if (previewModel && previewModel.parent) {
@@ -2023,8 +2031,44 @@
                     if (c.material) c.material.dispose();
                 });
             }
+            previewModel = null;
 
-            // 创建新模型（支持普通名和带前缀名如 t34-85-desert）
+            // GLB 模型分支
+            if (val.startsWith('glb/')) {
+                const glbName = val.split('/')[1];
+                const glbPath = glbName === 't34-yellow'
+                    ? 'models/glb/t34-85_textured_yellow.glb'
+                    : 'models/glb/t34-85_textured.glb';
+
+                const loader = new THREE.GLTFLoader();
+                loader.load(glbPath, (gltf) => {
+                    const model = gltf.scene;
+                    // 计算包围盒并缩放到预览高度 ~3.5
+                    const bbox = new THREE.Box3().setFromObject(model);
+                    const sz = new THREE.Vector3(); bbox.getSize(sz);
+                    const targetH = 3.5;
+                    const s = targetH / Math.max(sz.x, sz.y, sz.z);
+                    model.scale.setScalar(s);
+                    // 居中
+                    const center = new THREE.Vector3(); bbox.getCenter(center);
+                    model.position.set(-center.x * s, -bbox.min.y * s, -center.z * s);
+                    // 阴影
+                    model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+                    previewModel = model;
+                    previewScene.add(model);
+                    previewLabel.textContent = `拖拽鼠标旋转模型 | 滚轮缩放 | 当前: GLB ${glbName}`;
+                }, undefined, (err) => {
+                    console.warn('预览GLB加载失败:', err.message);
+                    previewLabel.textContent = 'GLB 模型加载失败';
+                });
+                return;
+            }
+
+            // 程序化模型分支
+            const [cat, name] = val.split('/');
+            const fn = window.ModelRegistry.getModel(cat, name);
+            if (!fn) return;
+
             const detectedCamo = name.includes('desert') ? 'desert' : 'green';
             previewModel = fn({ camoColor: detectedCamo });
             previewScene.add(previewModel);
@@ -2119,7 +2163,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.38 | 双GLB(绿1P+黄2P) + 阴影修复');
+        console.log('🎮 坦克运动demo v0.18.39 | 修复GLTFLoader + 模型预览GLB');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
