@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.6</title>
+    <title>坦克运动demo v0.19.7</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,15 +231,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.6</div>
+        <div class="menu-version">v0.19.7</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.19.6 更新 — sRGB颜色空间修复+桥梁旋转修正+河床加大+gameLoop保护</div>
-            <div class="cl-item">颜色恢复：texture.encoding = THREE.sRGBEncoding 修复场景泛白；桥梁旋转公式修正为 atan2(-perp.z, perp.x) 确凿横跨；河床加宽(3.0)+加深(1.0)+底部缩至30%斜坡加宽至35%形成明显V形；gameLoop添加try/catch防止单帧错误终止循环</div>
+            <div class="cl-title">🔄 v0.19.7 更新 — 河床简化扁平化+桥梁抬升+障碍物可见半径加大+调试信息增强</div>
+            <div class="cl-item">河流改为扁平河底(-0.15)+斜坡岸+半透水面，确保视觉效果；桥面抬升y=0.35解决坦克沉入；OBS_VISIBLE_RADIUS加大到30；调试区显示坦克坐标和可见障碍物数量</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
             <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
@@ -547,7 +547,7 @@
         const WORLD_HALF = 50;                  // 地图半边长 50 单位 ≈ 235 米
         const OBSTACLE_COUNT = 120;             // 障碍物数量（地图缩小后减少）
         const POISSON_MIN_DIST = 3.0, SAFE_ZONE_RADIUS = 5.0, SPAWN_RADIUS = 48;
-        const OBS_VISIBLE_RADIUS = 18;          // 障碍物可见范围
+        const OBS_VISIBLE_RADIUS = 30;          // 障碍物可见范围（加大以确保障碍物在视野内）
         const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;
         const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 150.0;
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
@@ -708,13 +708,12 @@
             const pts = _riverControls.map(p => new THREE.Vector3(p[0], 0, p[1]));
             const curve = new THREE.CatmullRomCurve3(pts);
 
-            const samples = 80;
             const halfW = RIVER_WIDTH / 2;
-            const depth = 1.0;      // 河床深度（加大使 V 形更明显）
 
-            // 辅助：创建一条带状 mesh（每段由左右两个顶点组成）
+            // 辅助：创建一条扁平带状 mesh（所有顶点在同一 y 高度）
             function makeStrip(getLeftRight, mat) {
-                const pos = [], uvs = [];
+                const samples = 60;
+                const pos = [];
                 for (let i = 0; i <= samples; i++) {
                     const t = i / samples;
                     const p = curve.getPoint(t);
@@ -722,7 +721,6 @@
                     const perp = new THREE.Vector3(-tangent.z, 0, tangent.x);
                     const { l, r } = getLeftRight(p, perp);
                     pos.push(l.x, l.y, l.z, r.x, r.y, r.z);
-                    uvs.push(0, t, 1, t);
                 }
                 const idx = [];
                 for (let i = 0; i < samples; i++) {
@@ -731,7 +729,6 @@
                 }
                 const geo = new THREE.BufferGeometry();
                 geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-                geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
                 geo.setIndex(idx);
                 geo.computeVertexNormals();
                 const mesh = new THREE.Mesh(geo, mat);
@@ -739,56 +736,40 @@
                 return mesh;
             }
 
-            const bedMat = new THREE.MeshStandardMaterial({ color: '#5c4030', roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide });
+            // 河底：深棕色扁平带，比地面略低
+            const bedMat = new THREE.MeshStandardMaterial({ color: '#4a3020', roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide });
+            const bed = makeStrip((p, perp) => ({
+                l: { x: p.x + perp.x * halfW, y: -0.15, z: p.z + perp.z * halfW },
+                r: { x: p.x - perp.x * halfW, y: -0.15, z: p.z - perp.z * halfW }
+            }), bedMat);
+            bed.name = 'riverbed';
+            targetScene.add(bed);
 
-            // 左岸坡：左岸(地面 y=0) → 左坡底(y=-depth)
-            // 河底 factor=0.3（底部宽 30%），两岸斜坡各 35%，V 形清晰可见
+            // 河岸坡面：左岸和右岸，从 y=0 到 y=-0.15 的斜坡使河床边缘有立体感
+            const bankMat = new THREE.MeshStandardMaterial({ color: '#5c4030', roughness: 1.0, side: THREE.DoubleSide });
+            // 左岸：地面(y=0)下沉到河底(y=-0.15)
             const leftBank = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW, y: 0.01, z: p.z + perp.z * halfW },
-                r: { x: p.x + perp.x * halfW * 0.3, y: -depth, z: p.z + perp.z * halfW * 0.3 }
-            }), bedMat);
-            leftBank.name = 'riverbed-left';
+                l: { x: p.x + perp.x * (halfW + 0.2), y: 0.005, z: p.z + perp.z * (halfW + 0.2) },
+                r: { x: p.x + perp.x * halfW, y: -0.15, z: p.z + perp.z * halfW }
+            }), bankMat);
+            leftBank.name = 'riverbank-left';
             targetScene.add(leftBank);
-
-            // 河底：左坡底 → 右坡底（都是 -depth）
-            const bottom = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.3, y: -depth, z: p.z + perp.z * halfW * 0.3 },
-                r: { x: p.x - perp.x * halfW * 0.3, y: -depth, z: p.z - perp.z * halfW * 0.3 }
-            }), bedMat);
-            bottom.name = 'riverbed-bottom';
-            targetScene.add(bottom);
-
-            // 右岸坡：右坡底(y=-depth) → 右岸(地面 y=0)
+            // 右岸
             const rightBank = makeStrip((p, perp) => ({
-                l: { x: p.x - perp.x * halfW * 0.3, y: -depth, z: p.z - perp.z * halfW * 0.3 },
-                r: { x: p.x - perp.x * halfW, y: 0.01, z: p.z - perp.z * halfW }
-            }), bedMat);
-            rightBank.name = 'riverbed-right';
+                l: { x: p.x - perp.x * halfW, y: -0.15, z: p.z - perp.z * halfW },
+                r: { x: p.x - perp.x * (halfW + 0.2), y: 0.005, z: p.z - perp.z * (halfW + 0.2) }
+            }), bankMat);
+            rightBank.name = 'riverbank-right';
             targetScene.add(rightBank);
 
-            // 河水表面：在河底上方
-            const waterY = -depth + 0.12;
-            // 程序化水纹理（深浅条纹，UV 偏移实现流动感）
-            const waterCanvas = document.createElement('canvas');
-            waterCanvas.width = 256; waterCanvas.height = 256;
-            const wctx = waterCanvas.getContext('2d');
-            for (let y = 0; y < 256; y++) {
-                const bright = 0.3 + 0.15 * Math.sin(y * 0.08) + 0.1 * Math.sin(y * 0.15);
-                const r = Math.floor(26 * bright), g = Math.floor(92 * bright), b = Math.floor(138 * bright);
-                wctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
-                wctx.fillRect(0, y, 256, 1);
-            }
-            const waterTex = new THREE.CanvasTexture(waterCanvas);
-            waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
-            waterTex.repeat.set(6, 1);
+            // 河水表面：半透明蓝色，浮在河底上方
             const waterMat = new THREE.MeshStandardMaterial({
-                map: waterTex,
-                color: '#1a5c8a', roughness: 0.05, metalness: 0.4,
-                transparent: true, opacity: 0.6, side: THREE.DoubleSide,
+                color: '#2a7aaa', roughness: 0.1, metalness: 0.2,
+                transparent: true, opacity: 0.55, side: THREE.DoubleSide,
             });
             const water = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.2, y: waterY, z: p.z + perp.z * halfW * 0.2 },
-                r: { x: p.x - perp.x * halfW * 0.2, y: waterY, z: p.z - perp.z * halfW * 0.2 }
+                l: { x: p.x + perp.x * halfW * 0.85, y: 0.0, z: p.z + perp.z * halfW * 0.85 },
+                r: { x: p.x - perp.x * halfW * 0.85, y: 0.0, z: p.z - perp.z * halfW * 0.85 }
             }), waterMat);
             water.name = 'riverWater';
             water.userData = { waterMat };
@@ -815,12 +796,12 @@
 
             const group = new THREE.Group();
 
-            // 桥面：BoxGeometry 明确三维尺寸，无需旋转到水平面
+            // 桥面：BoxGeometry，坦克 y=0 需在桥面上方，桥面提升到 y=0.3
             const deck = new THREE.Mesh(
                 new THREE.BoxGeometry(BRIDGE_LENGTH, 0.12, BRIDGE_WIDTH),
                 new THREE.MeshStandardMaterial({ color: '#8b6b3a', roughness: 0.9 })
             );
-            deck.position.y = 0.15;
+            deck.position.y = 0.35;
             deck.receiveShadow = true;
             deck.castShadow = true;
             group.add(deck);
@@ -833,7 +814,7 @@
                     new THREE.BoxGeometry(0.15, 0.02, BRIDGE_WIDTH - 0.4),
                     new THREE.MeshStandardMaterial({ color: '#7a5c2a', roughness: 0.95 })
                 );
-                plank.position.set(t * BRIDGE_LENGTH * 0.5, 0.23, 0);
+                plank.position.set(t * BRIDGE_LENGTH * 0.5, 0.43, 0);
                 group.add(plank);
             }
 
@@ -842,13 +823,13 @@
             for (const side of [-1, 1]) {
                 // 横栏杆
                 const rail = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE_LENGTH * 0.9, 0.06, 0.08), railMat);
-                rail.position.set(0, 0.45, side * BRIDGE_WIDTH * 0.5);
+                rail.position.set(0, 0.65, side * BRIDGE_WIDTH * 0.5);
                 group.add(rail);
                 // 立柱
                 for (let j = 0; j < 6; j++) {
                     const t2 = -0.4 + (j / 5) * 0.8;
                     const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), railMat);
-                    post.position.set(t2 * BRIDGE_LENGTH * 0.5, 0.35, side * BRIDGE_WIDTH * 0.5);
+                    post.position.set(t2 * BRIDGE_LENGTH * 0.5, 0.55, side * BRIDGE_WIDTH * 0.5);
                     group.add(post);
                 }
             }
@@ -2140,11 +2121,14 @@
             const cam2asp = (typeof camera2 !== 'undefined' && camera2) ? camera2.aspect.toFixed(3) : '-';
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
+            const distM = totalDistance * METERS_PER_UNIT;
+            const tankP = tankState ? ('pos:' + tankState.x.toFixed(0) + ',' + tankState.z.toFixed(0)) : 'no-tank';
+            const obsV = obstacleMeshes.reduce((s,o) => s + (o.visible ? 1 : 0), 0);
             el.textContent =
-                'v0.19.6  dpr:' + dpr.toFixed(2) +
-                '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
-                '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp +
-                '\n🚀 里程: ' + (totalDistance * METERS_PER_UNIT).toFixed(1) + ' 米';
+                'v0.19.7  dpr:' + dpr.toFixed(2) +
+                '\nwin:' + iw + 'x' + ih +
+                '\n🚀 里程: ' + distM.toFixed(1) + ' 米' +
+                '\n' + tankP + ' obs可见:' + obsV;
         }
 
         function returnToMenu() {
@@ -2423,7 +2407,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.19.6 | V形河床+sRGB颜色+桥梁横跨+A点出生');
+        console.log('🎮 坦克运动demo v0.19.7 | 扁平河床+桥梁抬升+障碍物可见性增强');
     </script>
 </body>
 </html>
