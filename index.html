@@ -859,6 +859,11 @@
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
                 const ud = group.userData;
+                // 🔍 首个障碍物诊断
+                if (i === 0) {
+                    console.log(`🔬 首个障碍物 ud: height=${ud.height} radius=${ud.radius} tMin=${ud.targetHeightMinM} tMax=${ud.targetHeightMaxM} METERS_PER_UNIT=${METERS_PER_UNIT}`);
+                    console.log(`🔬 baseHeightM=${ud.height}*${METERS_PER_UNIT}=${ud.height * METERS_PER_UNIT}`);
+                }
                 // 按目标高度范围（米）反算缩放因子，与模型原始尺寸解耦
                 const baseHeightM = ud.height * METERS_PER_UNIT;
                 const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
@@ -878,10 +883,28 @@
             const visCount = obstacleMeshes.filter(m => m.visible).length;
             console.log(`🏗️ createObstacles: 共创建 ${obstacleMeshes.length} 个障碍物, ${visCount} 个可见`);
             console.log(`   tankState位置: (${tankState.x}, ${tankState.z}), 可见半径: ${OBS_VISIBLE_RADIUS}`);
-            // 检查几个样本数据
+            // 检查几个样本数据（第一个障碍物）
             if (obstacleData.length > 0) {
-                const s = obstacleData[0];
-                console.log(`   样本障碍物: pos=(${s.x.toFixed(1)}, ${s.z.toFixed(1)}) radius=${s.radius.toFixed(2)} height=${s.height.toFixed(2)}`);
+                const s0 = obstacleData[0];
+                const m0 = obstacleMeshes[0];
+                console.log(`   📦 障碍物[0] 数据: pos=(${s0.x.toFixed(1)},${s0.z.toFixed(1)}) radius=${s0.radius} height=${s0.height}`);
+                console.log(`   🎯 障碍物[0] 网格: position=(${m0.position.x.toFixed(2)},${m0.position.y.toFixed(2)},${m0.position.z.toFixed(2)}) scale=(${m0.scale.x.toFixed(4)},${m0.scale.y.toFixed(4)},${m0.scale.z.toFixed(4)}) visible=${m0.visible}`);
+                console.log(`   🎯 children数=${m0.children.length} name="${m0.name}"`);
+                if (m0.children.length > 0) {
+                    const c0 = m0.children[0];
+                    console.log(`   🎯 子节点[0]: type=${c0.type} visible=${c0.visible} hasGeometry=${!!c0.geometry} hasMaterial=${!!c0.material}`);
+                }
+            }
+            // 检查一个可见的障碍物（距原点最近的）
+            const visIdx = obstacleMeshes.findIndex(m => m.visible);
+            if (visIdx >= 0) {
+                const mv = obstacleMeshes[visIdx];
+                console.log(`   👀 可见障碍物[${visIdx}]: position=(${mv.position.x.toFixed(2)},${mv.position.y.toFixed(2)},${mv.position.z.toFixed(2)}) scale=(${mv.scale.x.toFixed(4)},${mv.scale.y.toFixed(4)},${mv.scale.z.toFixed(4)})`);
+                if (mv.children.length > 0) {
+                    console.log(`   👀 子节点数=${mv.children.length}, 首个子节点 visible=${mv.children[0].visible} type=${mv.children[0].type}`);
+                }
+            } else {
+                console.log(`   ❌ 没有找到任何 visible=true 的障碍物！`);
             }
         }
 
