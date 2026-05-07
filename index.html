@@ -816,16 +816,31 @@
         // ==================== 障碍物生成（使用模型注册表） ====================
 
         // ==================== 障碍物遮挡物的动态可见更新 ====================
-        function updateObstacleVisibility() {
-            const tx = tankState.x, tz = tankState.z;
+        let _obsVisLogged = false;
+        function updateObstacleVisibility(extraPositions) {
             const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
+            let madeVisible = 0, madeHidden = 0;
             for (let i = 0; i < obstacleMeshes.length; i++) {
                 const o = obstacleData[i];
-                const dx = tx - o.x, dz = tz - o.z;
-                const visible = (dx * dx + dz * dz) < r2;
+                let visible = false;
+                // 主坦克位置
+                const dx0 = tankState.x - o.x, dz0 = tankState.z - o.z;
+                if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
+                // 额外位置（对战模式中的其他玩家）
+                if (!visible && extraPositions) {
+                    for (const ep of extraPositions) {
+                        const dx = ep.x - o.x, dz = ep.z - o.z;
+                        if ((dx * dx + dz * dz) < r2) { visible = true; break; }
+                    }
+                }
                 if (obstacleMeshes[i].visible !== visible) {
                     obstacleMeshes[i].visible = visible;
+                    if (visible) madeVisible++; else madeHidden++;
                 }
+            }
+            if (!_obsVisLogged) {
+                _obsVisLogged = true;
+                console.log(`👁️ updateObstacleVisibility 首次调用: ${madeVisible}个设为可见, ${madeHidden}个设为隐藏, tankState=(${tankState.x.toFixed(1)},${tankState.z.toFixed(1)}) r2=${r2}`);
             }
         }
 
@@ -859,6 +874,15 @@
             }
 
             updateObstacleVisibility();
+            // 🔍 诊断日志
+            const visCount = obstacleMeshes.filter(m => m.visible).length;
+            console.log(`🏗️ createObstacles: 共创建 ${obstacleMeshes.length} 个障碍物, ${visCount} 个可见`);
+            console.log(`   tankState位置: (${tankState.x}, ${tankState.z}), 可见半径: ${OBS_VISIBLE_RADIUS}`);
+            // 检查几个样本数据
+            if (obstacleData.length > 0) {
+                const s = obstacleData[0];
+                console.log(`   样本障碍物: pos=(${s.x.toFixed(1)}, ${s.z.toFixed(1)}) radius=${s.radius.toFixed(2)} height=${s.height.toFixed(2)}`);
+            }
         }
 
         // ==================== 运动状态 ====================
@@ -1614,6 +1638,8 @@
             const dt=Math.min(clock.getDelta(),.1);visibilityTimer+=dt;
             const p1i=getInputForPlayer(1),p2i=getInputForPlayer(2);
             updatePlayerPhysics(player1,dt,p1i.left,p1i.right);updatePlayerPhysics(player2,dt,p2i.left,p2i.right);
+            // 同步 tankState 到 player1（供 updateObstacleVisibility 主逻辑使用）
+            tankState.x = player1.state.x; tankState.z = player1.state.z;
             updateEngineSound(Math.max(Math.abs((player1.currentLeftSpeed+player1.currentRightSpeed)/2),Math.abs((player2.currentLeftSpeed+player2.currentRightSpeed)/2)));
             const p1fire=keys['Space'];
             if(p1fire&&player1.fireReady){fireShell(player1);player1.fireReady=false;keys['Space']=false;}
@@ -1622,7 +1648,7 @@
             if(p2fire&&player2.fireReady){fireShell(player2);player2.fireReady=false;}
             if(!p2fire)player2.fireReady=true;
             updateShellsFragsMuzzle(dt);
-            if(visibilityTimer>.3){updateObstacleVisibility();visibilityTimer=0;}
+            if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);visibilityTimer=0;}
             for(const od of obstacleData){if(od.blades)od.blades.rotation.x+=1.5*dt;}
             // ── 坦克损毁效果（血量 < 50 时显示火焰和烟雾） ──
             for (const p of [player1, player2]) {
@@ -2006,6 +2032,16 @@
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
         console.log('🎮 坦克运动demo v0.18.35 | 障碍物等比例同步缩放(底面积+高度)');
+        // 🔍 诊断：检查场景内容
+        const allObs = obstacleMeshes.length;
+        const visObs = obstacleMeshes.filter(m => m.visible).length;
+        console.log(`🔍 初始渲染后: scene.children=${scene.children.length}, 障碍物=${allObs}, 可见=${visObs}`);
+        // 列出场景中所有顶层对象的前10个
+        const topNames = scene.children.slice(0, 10).map(c => c.name || `[unnamed:${c.type}]`).join(', ');
+        console.log(`   场景顶层对象(前10): ${topNames}`);
+        // 搜索obs对象
+        const obsInScene = scene.children.filter(c => c.name && c.name.startsWith('obs-')).length;
+        console.log(`   场景中以'obs-'命名的对象: ${obsInScene}`);
     </script>
 </body>
 </html>
