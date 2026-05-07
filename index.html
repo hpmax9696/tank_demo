@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.2</title>
+    <title>坦克运动demo v0.19.4</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,15 +231,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.2</div>
+        <div class="menu-version">v0.19.4</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.19.2 更新 — 河床下陷+河水流动效果；桥梁横跨河流；移除A/B点标志；清理FBXLoader残留代码</div>
-            <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
+            <div class="cl-title">🔄 v0.19.4 更新 — 河床底部加宽+桥梁方向修正+障碍物可见修复+里程表+日志清理</div>
+            <div class="cl-item">河床底部宽度从5%加宽到70%，V形河床清晰可见；桥梁 atan2 参数修正正确横跨河流；进入游戏时立即刷新障碍物可见性；右上角显示坦克行驶里程（米）；抑制GLB加载进度控制台输出；修复双人模式摄像机参数</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
             <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
@@ -537,6 +537,7 @@
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
+        let totalDistance = 0;   // 坦克行驶总里程（单位）
 
         // 游戏参数
         const TRACK_SPACING = 3.2;
@@ -743,22 +744,22 @@
             // 左岸坡：左岸(地面 y=0) → 左坡底(y=-depth)
             const leftBank = makeStrip((p, perp) => ({
                 l: { x: p.x + perp.x * halfW, y: 0.01, z: p.z + perp.z * halfW },
-                r: { x: p.x + perp.x * halfW * 0.05, y: -depth, z: p.z + perp.z * halfW * 0.05 }
+                r: { x: p.x + perp.x * halfW * 0.7, y: -depth, z: p.z + perp.z * halfW * 0.7 }
             }), bedMat);
             leftBank.name = 'riverbed-left';
             targetScene.add(leftBank);
 
             // 河底：左坡底 → 右坡底（都是 -depth）
             const bottom = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.05, y: -depth, z: p.z + perp.z * halfW * 0.05 },
-                r: { x: p.x - perp.x * halfW * 0.05, y: -depth, z: p.z - perp.z * halfW * 0.05 }
+                l: { x: p.x + perp.x * halfW * 0.7, y: -depth, z: p.z + perp.z * halfW * 0.7 },
+                r: { x: p.x - perp.x * halfW * 0.7, y: -depth, z: p.z - perp.z * halfW * 0.7 }
             }), bedMat);
             bottom.name = 'riverbed-bottom';
             targetScene.add(bottom);
 
             // 右岸坡：右坡底(y=-depth) → 右岸(地面 y=0)
             const rightBank = makeStrip((p, perp) => ({
-                l: { x: p.x - perp.x * halfW * 0.05, y: -depth, z: p.z - perp.z * halfW * 0.05 },
+                l: { x: p.x - perp.x * halfW * 0.7, y: -depth, z: p.z - perp.z * halfW * 0.7 },
                 r: { x: p.x - perp.x * halfW, y: 0.01, z: p.z - perp.z * halfW }
             }), bedMat);
             rightBank.name = 'riverbed-right';
@@ -766,13 +767,28 @@
 
             // 河水表面：在河底上方
             const waterY = -depth + 0.12;
+            // 程序化水纹理（深浅条纹，UV 偏移实现流动感）
+            const waterCanvas = document.createElement('canvas');
+            waterCanvas.width = 256; waterCanvas.height = 256;
+            const wctx = waterCanvas.getContext('2d');
+            for (let y = 0; y < 256; y++) {
+                const bright = 0.3 + 0.15 * Math.sin(y * 0.08) + 0.1 * Math.sin(y * 0.15);
+                const r = Math.floor(26 * bright), g = Math.floor(92 * bright), b = Math.floor(138 * bright);
+                wctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+                wctx.fillRect(0, y, 256, 1);
+            }
+            const waterTex = new THREE.CanvasTexture(waterCanvas);
+            waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
+            waterTex.repeat.set(6, 1);
+            waterTex.colorSpace = THREE.SRGBColorSpace;
             const waterMat = new THREE.MeshStandardMaterial({
+                map: waterTex,
                 color: '#1a5c8a', roughness: 0.05, metalness: 0.4,
                 transparent: true, opacity: 0.6, side: THREE.DoubleSide,
             });
             const water = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.8, y: waterY, z: p.z + perp.z * halfW * 0.8 },
-                r: { x: p.x - perp.x * halfW * 0.8, y: waterY, z: p.z - perp.z * halfW * 0.8 }
+                l: { x: p.x + perp.x * halfW * 0.6, y: waterY, z: p.z + perp.z * halfW * 0.6 },
+                r: { x: p.x - perp.x * halfW * 0.6, y: waterY, z: p.z - perp.z * halfW * 0.6 }
             }), waterMat);
             water.name = 'riverWater';
             water.userData = { waterMat };
@@ -840,8 +856,8 @@
             // 定位：桥中心在河流中心，高度略高于地面
             group.position.set(center.x, 0, center.z);
             // 旋转使桥的局部 X 轴（长度方向）对齐 perp（横跨河流）
-            // BoxGeometry 默认 X 轴为长度，所以 rotation.y 直接对齐 perp
-            group.rotation.y = Math.atan2(perp.x, perp.z);
+            // 修正：atan2(y, x) 中 y=perp.z, x=perp.x 使 X 轴指向上方向
+            group.rotation.y = Math.atan2(perp.z, perp.x);
 
             group.name = 'bridge';
             targetScene.add(group);
@@ -901,8 +917,7 @@
                         bag.pending.forEach(p => spawnFromCache(p.player, p.group, bag));
                         bag.pending.length = 0;
                     },
-                    (p) => { if (p.total && bag.pending.length > 0)
-                        console.log('📥 GLB(' + label + '):', Math.round(p.loaded / p.total * 100) + '%'); },
+                    (p) => { /* 进度回调已屏蔽，减少控制台输出 */ },
                     (err) => {
                         console.warn('⚠️ GLB(' + label + ') 加载失败，回退程序化:', err.message);
                         bag.pending.forEach(p => fallbackProgrammatic(p.player, p.group));
@@ -1494,6 +1509,8 @@
             const wallMargin = TANK_HALF_W;
             newX = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newX));
             newZ = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newZ));
+            // 累积行驶距离
+            totalDistance += Math.sqrt((newX - tankState.x) ** 2 + (newZ - tankState.z) ** 2);
             tankState.x = newX;
             tankState.z = newZ;
 
@@ -2002,7 +2019,7 @@
             animationId=requestAnimationFrame(versusGameLoop);
         }
 
-        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);cam.position.set(p.state.x-fx*14,10,p.state.z-fz*14);cam.lookAt(p.state.x,3.5,p.state.z);}
+        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);cam.position.set(p.state.x-fx*CAMERA_BEHIND,0+CAMERA_ABOVE,p.state.z-fz*CAMERA_BEHIND);cam.lookAt(p.state.x,1.8,p.state.z);}
 
         function updateShellsFragsMuzzle(dt) {
             for(let i=shells.length-1;i>=0;i--){const s=shells[i];s.vel.y-=SHELL_GRAVITY*dt;
@@ -2076,6 +2093,10 @@
                 if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
             }
             resetTank();
+            totalDistance = 0; // 重置里程
+            // 立即刷新障碍物可见性（tankState 已更新为 A 点位置）
+            visibilityTimer = 0;
+            updateObstacleVisibility();
             if(reloadBarGroup)reloadBarGroup.visible=true;
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
@@ -2108,9 +2129,10 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.19.2  dpr:' + dpr.toFixed(2) +
+                'v0.19.4  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
-                '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
+                '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp +
+                '\n🚀 里程: ' + (totalDistance * METERS_PER_UNIT).toFixed(1) + ' 米';
         }
 
         function returnToMenu() {
