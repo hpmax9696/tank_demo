@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.0</title>
+    <title>坦克运动demo v0.19.2</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,14 +231,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.0</div>
+        <div class="menu-version">v0.19.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.19.0 大版本 — 单人/双人场景分离；单人地图加入河流和桥梁；坦克仅能过桥不能涉水；A点出生B点预留</div>
+            <div class="cl-title">🔄 v0.19.2 更新 — 河床下陷+河水流动效果；桥梁横跨河流；移除A/B点标志；清理FBXLoader残留代码</div>
             <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
@@ -601,7 +601,6 @@
             createGround(scene1);
             createRiver(scene1);
             createBridge(scene1);
-            createABMarkers(scene1);
             createObstacles(scene1, true);
             obstacleMeshes1 = obstacleMeshes; obstacleData1 = obstacleData; // 保存场景1的障碍物
 
@@ -704,63 +703,103 @@
 
         function createRiver(targetScene) {
             riverColliders = [];
-            riverBridgeClearIndex = [];
 
             // 构建 CatmullRom 曲线
             const pts = _riverControls.map(p => new THREE.Vector3(p[0], 0, p[1]));
             const curve = new THREE.CatmullRomCurve3(pts);
 
-            // --- 可视化河流（带状水面对应河流宽度） ---
             const samples = 80;
             const halfW = RIVER_WIDTH / 2;
-            const positions = [];
-            const uvs = [];
+            const depth = 0.8;      // 河床深度
 
-            for (let i = 0; i <= samples; i++) {
-                const t = i / samples;
+            // --- 河床（V 形下陷：两侧 = 地面高度，中心 = -depth）---
+            const bedPositions = [];
+            const bedUVs = [];
+            // 每段河床含 3 条带：左岸→左坡底→右坡底→右岸
+            const strips = samples;
+            for (let i = 0; i <= strips; i++) {
+                const t = i / strips;
                 const p = curve.getPoint(t);
                 const tangent = curve.getTangent(t).normalize();
-                // 垂直方向（河流横向）
                 const perp = new THREE.Vector3(-tangent.z, 0, tangent.x);
-                // 左右边界
+                // 左岸（地面高度 0）
                 const lx = p.x + perp.x * halfW, lz = p.z + perp.z * halfW;
+                // 左坡底（-depth）
+                const lix = p.x + perp.x * halfW * 0.15, liz = p.z + perp.z * halfW * 0.15;
+                // 中心河底（-depth）
+                const mx = p.x, mz = p.z;
+                // 右坡底（-depth）
+                const rix = p.x - perp.x * halfW * 0.15, riz = p.z - perp.z * halfW * 0.15;
+                // 右岸（地面高度 0）
                 const rx = p.x - perp.x * halfW, rz = p.z - perp.z * halfW;
-                positions.push(lx, 0.02, lz, rx, 0.02, rz);
-                uvs.push(0, i / samples, 1, i / samples);
+                bedPositions.push(lx, 0.01, lz, lix, -depth, liz, mx, -depth, mz, rix, -depth, riz, rx, 0.01, rz);
+                bedUVs.push(0, t, 0.2, t, 0.5, t, 0.8, t, 1, t);
             }
+            const bedIndices = [];
+            for (let i = 0; i < strips; i++) {
+                const a = i * 5, b = i * 5 + 1, c = i * 5 + 2, d = i * 5 + 3, e = i * 5 + 4;
+                const na = (i + 1) * 5, nb = (i + 1) * 5 + 1, nc = (i + 1) * 5 + 2, nd = (i + 1) * 5 + 3, ne = (i + 1) * 5 + 4;
+                bedIndices.push(a, na, b, b, na, nb, b, nb, c, c, nb, nc, c, nc, d, d, nc, nd, d, nd, e, e, nd, ne);
+            }
+            const bedGeo = new THREE.BufferGeometry();
+            bedGeo.setAttribute('position', new THREE.Float32BufferAttribute(bedPositions, 3));
+            bedGeo.setAttribute('uv', new THREE.Float32BufferAttribute(bedUVs, 2));
+            bedGeo.setIndex(bedIndices);
+            bedGeo.computeVertexNormals();
+            const bedMat = new THREE.MeshStandardMaterial({
+                color: '#4a3520', roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide,
+            });
+            const bed = new THREE.Mesh(bedGeo, bedMat);
+            bed.receiveShadow = true;
+            bed.name = 'riverbed';
+            targetScene.add(bed);
 
-            const indices = [];
-            for (let i = 0; i < samples; i++) {
+            // --- 河水表面（略低于地面，带 UV 流动动画）---
+            const waterPositions = [];
+            const waterUVs = [];
+            for (let i = 0; i <= strips; i++) {
+                const t = i / strips;
+                const p = curve.getPoint(t);
+                const tangent = curve.getTangent(t).normalize();
+                const perp = new THREE.Vector3(-tangent.z, 0, tangent.x);
+                const waterY = -depth + 0.15; // 水面在河底上方
+                const lx = p.x + perp.x * halfW * 0.85, lz = p.z + perp.z * halfW * 0.85;
+                const rx = p.x - perp.x * halfW * 0.85, rz = p.z - perp.z * halfW * 0.85;
+                waterPositions.push(lx, waterY, lz, rx, waterY, rz);
+                waterUVs.push(0, t, 1, t);
+            }
+            const waterIndices = [];
+            for (let i = 0; i < strips; i++) {
                 const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
-                indices.push(a, c, b, b, c, d);
+                waterIndices.push(a, c, b, b, c, d);
             }
-
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-            geo.setIndex(indices);
-            geo.computeVertexNormals();
-
-            const mat = new THREE.MeshStandardMaterial({
-                color: '#2a6b9e',
-                roughness: 0.1,
-                metalness: 0.3,
+            const waterGeo = new THREE.BufferGeometry();
+            waterGeo.setAttribute('position', new THREE.Float32BufferAttribute(waterPositions, 3));
+            waterGeo.setAttribute('uv', new THREE.Float32BufferAttribute(waterUVs, 2));
+            waterGeo.setIndex(waterIndices);
+            waterGeo.computeVertexNormals();
+            const waterMat = new THREE.MeshStandardMaterial({
+                color: '#1a5c8a',
+                roughness: 0.05,
+                metalness: 0.4,
                 transparent: true,
-                opacity: 0.75,
+                opacity: 0.65,
                 side: THREE.DoubleSide,
             });
-            const water = new THREE.Mesh(geo, mat);
+            const water = new THREE.Mesh(waterGeo, waterMat);
             water.receiveShadow = false;
-            water.name = 'river';
+            water.name = 'riverWater';
+            water.userData = { waterMat }; // 保存引用用于 UV 动画
             targetScene.add(water);
 
-            // --- 河流碰撞圈（采样点组成的圆序列，桥所在区域跳过，坦克仅能从桥过河） ---
+            // --- 河流碰撞圈 ---
+            // 桥位于曲线中点(t=0.5)，桥长 BRIDGE_LENGTH 沿曲线方向约需清除 ±BRIDGE_LENGTH/2 的范围
+            const bridgeClearHalf = (BRIDGE_LENGTH * 0.5) / curve.getLength(); // 将长度换算为 t 的范围
             for (let i = 0; i <= RIVER_SAMPLE_COUNT; i++) {
                 const t = i / RIVER_SAMPLE_COUNT;
+                // 桥附近的采样点不参与碰撞（坦克可从桥面过河）
+                if (Math.abs(t - 0.5) < bridgeClearHalf * 0.7) continue;
                 const p = curve.getPoint(t);
-                // 跳过桥附近的 collider（坦克在桥面上不受河流阻挡）
-                const distToCenter = Math.sqrt(p.x * p.x + p.z * p.z);
-                if (distToCenter < BRIDGE_LENGTH * 0.7) continue;
                 riverColliders.push({ x: p.x, z: p.z, radius: RIVER_COLL_RADIUS });
             }
         }
@@ -820,53 +859,13 @@
                 }
             }
 
-            // 定位桥到河流中心
-            group.position.set(center.x, 0, center.z);
-            // 旋转使桥的长度方向垂直河流（垂直于切线）
-            const angle = Math.atan2(perp.z, perp.x); // 桥的长度方向沿 perp
-            group.rotation.y = -angle + Math.PI / 2;
+            // 定位桥到河流中心，抬高到地面以上
+            group.position.set(center.x, 0.05, center.z);
+            // 桥的长度方向应垂直河流（沿 perp 方向），rotation.y 使局部 X 轴对齐 perp
+            group.rotation.y = Math.atan2(perp.z, perp.x);
 
             group.name = 'bridge';
             targetScene.add(group);
-        }
-
-        // ==================== A / B 点标记 ====================
-        function createABMarkers(targetScene) {
-            function makeMarker(x, z, label) {
-                const g = new THREE.Group();
-                // 地面圆盘
-                const disc = new THREE.Mesh(
-                    new THREE.RingGeometry(1.2, 1.8, 24),
-                    new THREE.MeshStandardMaterial({
-                        color: label === 'A' ? '#44ff44' : '#ff4444',
-                        transparent: true, opacity: 0.7, side: THREE.DoubleSide,
-                    })
-                );
-                disc.rotation.x = -Math.PI / 2;
-                disc.position.y = 0.03;
-                g.add(disc);
-                // 中央立柱
-                const pole = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.08, 0.08, 2, 8),
-                    new THREE.MeshStandardMaterial({ color: label === 'A' ? '#44ff44' : '#ff4444', emissive: label === 'A' ? '#226622' : '#662222' })
-                );
-                pole.position.y = 1;
-                g.add(pole);
-                // 头顶发光小球
-                const ball = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.25, 12, 12),
-                    new THREE.MeshStandardMaterial({ color: label === 'A' ? '#44ff44' : '#ff4444', emissive: label === 'A' ? '#44ff44' : '#ff4444', emissiveIntensity: 0.5 })
-                );
-                ball.position.y = 2.2;
-                g.add(ball);
-                g.position.set(x, 0.02, z);
-                g.name = 'marker-' + label;
-                return g;
-            }
-            // 保存引用以便后续更新 BOSS
-            targetScene.add(makeMarker(POINT_A_X, POINT_A_Z, 'A'));
-            // B 点预留（当前仅作标记）
-            targetScene.add(makeMarker(POINT_B_X, POINT_B_Z, 'B'));
         }
 
         // ==================== 坦克模型（双 GLB：1P绿色 + 2P黄色，程序化回退） ====================
@@ -1712,6 +1711,13 @@
                     od.blades.rotation.x += 1.5 * dt;
                 }
             }
+            // 河水流动 UV 动画
+            if (scene === scene1) {
+                const waterMesh = scene1.getObjectByName('riverWater');
+                if (waterMesh && waterMesh.userData.waterMat && waterMesh.userData.waterMat.map) {
+                    waterMesh.userData.waterMat.map.offset.x += 0.3 * dt;
+                }
+            }
 
             // 摄像机
             placeCamera();
@@ -2122,7 +2128,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.19.0  dpr:' + dpr.toFixed(2) +
+                'v0.19.2  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2403,46 +2409,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.19.0 | 场景分离+河流桥梁+A点出生');
-
-        // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
-        if (typeof THREE.FBXLoader !== 'undefined') {
-            console.log('🔬 开始加载 FBX 模型以检查层级结构...');
-            const fbxLoader = new THREE.FBXLoader();
-            fbxLoader.load('models/fbx/t34-85_textured.fbx', function(fbxGroup) {
-                console.log('✅ FBX 加载成功！层级结构如下：');
-                fbxGroup.name = 'fbx-root';
-                function printHierarchy(obj, depth) {
-                    const indent = '  '.repeat(depth);
-                    const name = obj.name || '[unnamed]';
-                    const type = obj.type || 'unknown';
-                    const pos = obj.position ? `pos=(${obj.position.x.toFixed(2)},${obj.position.y.toFixed(2)},${obj.position.z.toFixed(2)})` : '';
-                    const children = obj.children ? obj.children.length : 0;
-                    const meshInfo = obj.isMesh ? ` geo=${obj.geometry?.type||'?'} verts=${obj.geometry?.attributes?.position?.count||0}` : '';
-                    console.log(`${indent}├─ "${name}" [${type}] ${pos} children=${children}${meshInfo}`);
-                    if (obj.children) {
-                        for (const child of obj.children) {
-                            printHierarchy(child, depth + 1);
-                        }
-                    }
-                }
-                printHierarchy(fbxGroup, 0);
-                const bbox = new THREE.Box3().setFromObject(fbxGroup);
-                const size = new THREE.Vector3(); bbox.getSize(size);
-                console.log(`📦 FBX 包围盒: min=(${bbox.min.x.toFixed(2)},${bbox.min.y.toFixed(2)},${bbox.min.z.toFixed(2)}) max=(${bbox.max.x.toFixed(2)},${bbox.max.y.toFixed(2)},${bbox.max.z.toFixed(2)})`);
-                console.log(`📐 FBX 尺寸: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
-                const meshes = [];
-                fbxGroup.traverse(c => { if (c.isMesh && c.name) meshes.push(c.name); });
-                console.log(`🎯 FBX 命名网格列表 (${meshes.length}个): ${meshes.join(', ')}`);
-                console.log('🔬 FBX 诊断完成，请将以上层级信息贴给我');
-            }, function(progress) {
-                if (progress.total) console.log(`📥 FBX 加载进度: ${Math.round(progress.loaded/progress.total*100)}%`);
-            }, function(err) {
-                console.error('❌ FBX 加载失败:', err);
-            });
-        } else {
-            console.log('⚠️ THREE.FBXLoader 不可用（CDN 可能被 Edge 追踪防护拦截），跳过 FBX 诊断');
-        }
+        console.log('🎮 坦克运动demo v0.19.2 | 河床下陷+桥梁横跨+A点出生');
     </script>
 </body>
 </html>
