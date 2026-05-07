@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.5</title>
+    <title>坦克运动demo v0.19.6</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,15 +231,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.5</div>
+        <div class="menu-version">v0.19.6</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.19.5 更新 — 地图缩小到1/4 + 双人摄像机修正 + file://协议回退 + 里程表正式上线</div>
-            <div class="cl-item">地图 WORLD_HALF 100→50（≈235×235米紧凑战场）；河床底部70%宽+V形河床+水纹理；桥梁方向修正横跨河流；双人分屏摄像机拉远(10后6上)；file://协议自动回退程序化坦克模型；右上角里程表显示行驶米数；障碍物进入游戏时立即可见</div>
+            <div class="cl-title">🔄 v0.19.6 更新 — sRGB颜色空间修复+桥梁旋转修正+河床加大+gameLoop保护</div>
+            <div class="cl-item">颜色恢复：texture.encoding = THREE.sRGBEncoding 修复场景泛白；桥梁旋转公式修正为 atan2(-perp.z, perp.x) 确凿横跨；河床加宽(3.0)+加深(1.0)+底部缩至30%斜坡加宽至35%形成明显V形；gameLoop添加try/catch防止单帧错误终止循环</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
             <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
@@ -554,8 +554,8 @@
         const SHELL_DAMAGE = 20;
 
         // ==================== 单人模式地图常量 ====================
-        const RIVER_WIDTH = 2.0;              // 河流宽度
-        const RIVER_COLL_RADIUS = 1.2;        // 河流碰撞圆半径（略大于半宽）
+        const RIVER_WIDTH = 3.0;              // 河流宽度
+        const RIVER_COLL_RADIUS = 1.8;        // 河流碰撞圆半径（略大于半宽）
         const BRIDGE_LENGTH = 4;              // 桥长
         const BRIDGE_WIDTH = 2.5;             // 桥宽
         const POINT_A_X = -32, POINT_A_Z = -32;   // A 点（出生点）
@@ -664,6 +664,7 @@
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.set(SIZE / 5, SIZE / 5); // 覆盖 200×200 的地面
+            texture.encoding = THREE.sRGBEncoding;
             texture.magFilter = THREE.LinearFilter;
             texture.minFilter = THREE.LinearMipmapLinearFilter;
             texture.generateMipmaps = true;
@@ -709,7 +710,7 @@
 
             const samples = 80;
             const halfW = RIVER_WIDTH / 2;
-            const depth = 0.4;      // 河床深度（地图缩小后减半）
+            const depth = 1.0;      // 河床深度（加大使 V 形更明显）
 
             // 辅助：创建一条带状 mesh（每段由左右两个顶点组成）
             function makeStrip(getLeftRight, mat) {
@@ -741,24 +742,25 @@
             const bedMat = new THREE.MeshStandardMaterial({ color: '#5c4030', roughness: 1.0, metalness: 0.0, side: THREE.DoubleSide });
 
             // 左岸坡：左岸(地面 y=0) → 左坡底(y=-depth)
+            // 河底 factor=0.3（底部宽 30%），两岸斜坡各 35%，V 形清晰可见
             const leftBank = makeStrip((p, perp) => ({
                 l: { x: p.x + perp.x * halfW, y: 0.01, z: p.z + perp.z * halfW },
-                r: { x: p.x + perp.x * halfW * 0.7, y: -depth, z: p.z + perp.z * halfW * 0.7 }
+                r: { x: p.x + perp.x * halfW * 0.3, y: -depth, z: p.z + perp.z * halfW * 0.3 }
             }), bedMat);
             leftBank.name = 'riverbed-left';
             targetScene.add(leftBank);
 
             // 河底：左坡底 → 右坡底（都是 -depth）
             const bottom = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.7, y: -depth, z: p.z + perp.z * halfW * 0.7 },
-                r: { x: p.x - perp.x * halfW * 0.7, y: -depth, z: p.z - perp.z * halfW * 0.7 }
+                l: { x: p.x + perp.x * halfW * 0.3, y: -depth, z: p.z + perp.z * halfW * 0.3 },
+                r: { x: p.x - perp.x * halfW * 0.3, y: -depth, z: p.z - perp.z * halfW * 0.3 }
             }), bedMat);
             bottom.name = 'riverbed-bottom';
             targetScene.add(bottom);
 
             // 右岸坡：右坡底(y=-depth) → 右岸(地面 y=0)
             const rightBank = makeStrip((p, perp) => ({
-                l: { x: p.x - perp.x * halfW * 0.7, y: -depth, z: p.z - perp.z * halfW * 0.7 },
+                l: { x: p.x - perp.x * halfW * 0.3, y: -depth, z: p.z - perp.z * halfW * 0.3 },
                 r: { x: p.x - perp.x * halfW, y: 0.01, z: p.z - perp.z * halfW }
             }), bedMat);
             rightBank.name = 'riverbed-right';
@@ -785,8 +787,8 @@
                 transparent: true, opacity: 0.6, side: THREE.DoubleSide,
             });
             const water = makeStrip((p, perp) => ({
-                l: { x: p.x + perp.x * halfW * 0.6, y: waterY, z: p.z + perp.z * halfW * 0.6 },
-                r: { x: p.x - perp.x * halfW * 0.6, y: waterY, z: p.z - perp.z * halfW * 0.6 }
+                l: { x: p.x + perp.x * halfW * 0.2, y: waterY, z: p.z + perp.z * halfW * 0.2 },
+                r: { x: p.x - perp.x * halfW * 0.2, y: waterY, z: p.z - perp.z * halfW * 0.2 }
             }), waterMat);
             water.name = 'riverWater';
             water.userData = { waterMat };
@@ -854,8 +856,9 @@
             // 定位：桥中心在河流中心，高度略高于地面
             group.position.set(center.x, 0, center.z);
             // 旋转使桥的局部 X 轴（长度方向）对齐 perp（横跨河流）
-            // 修正：atan2(y, x) 中 y=perp.z, x=perp.x 使 X 轴指向上方向
-            group.rotation.y = Math.atan2(perp.z, perp.x);
+            // Three.js 绕 Y 旋转: X' = (cos(θ), 0, -sin(θ)), 需 X' = perp/|perp|
+            // → cos(θ)=perp.x, -sin(θ)=perp.z → sin(θ)=-perp.z → θ=atan2(-perp.z, perp.x)
+            group.rotation.y = Math.atan2(-perp.z, perp.x);
 
             group.name = 'bridge';
             targetScene.add(group);
@@ -1460,6 +1463,7 @@
         }
 
         function gameLoop() {
+            try {
             // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
             renderer.setScissorTest(false);
             const cssW = window.innerWidth, cssH = window.innerHeight;
@@ -1748,6 +1752,7 @@
             }
 
             renderer.render(scene, camera);
+            } catch(e) { console.warn('gameLoop error:', e.message); }
             animationId = requestAnimationFrame(gameLoop);
         }
 
@@ -2136,7 +2141,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.19.5  dpr:' + dpr.toFixed(2) +
+                'v0.19.6  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp +
                 '\n🚀 里程: ' + (totalDistance * METERS_PER_UNIT).toFixed(1) + ' 米';
@@ -2418,7 +2423,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.19.5 | 地图缩小+河床V形+桥梁横跨+A点出生');
+        console.log('🎮 坦克运动demo v0.19.6 | V形河床+sRGB颜色+桥梁横跨+A点出生');
     </script>
 </body>
 </html>
