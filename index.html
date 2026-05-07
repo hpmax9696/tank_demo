@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.35</title>
+    <title>坦克运动demo v0.18.36</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -817,10 +817,8 @@
         // ==================== 障碍物生成（使用模型注册表） ====================
 
         // ==================== 障碍物遮挡物的动态可见更新 ====================
-        let _obsVisLogged = false;
         function updateObstacleVisibility(extraPositions) {
             const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
-            let madeVisible = 0, madeHidden = 0;
             for (let i = 0; i < obstacleMeshes.length; i++) {
                 const o = obstacleData[i];
                 let visible = false;
@@ -836,12 +834,7 @@
                 }
                 if (obstacleMeshes[i].visible !== visible) {
                     obstacleMeshes[i].visible = visible;
-                    if (visible) madeVisible++; else madeHidden++;
                 }
-            }
-            if (!_obsVisLogged) {
-                _obsVisLogged = true;
-                console.log(`👁️ updateObstacleVisibility 首次调用: ${madeVisible}个设为可见, ${madeHidden}个设为隐藏, tankState=(${tankState.x.toFixed(1)},${tankState.z.toFixed(1)}) r2=${r2}`);
             }
         }
 
@@ -860,11 +853,6 @@
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
                 const ud = group.userData;
-                // 🔍 首个障碍物诊断
-                if (i === 0) {
-                    console.log(`🔬 首个障碍物 ud: height=${ud.height} radius=${ud.radius} tMin=${ud.targetHeightMinM} tMax=${ud.targetHeightMaxM} METERS_PER_UNIT=${METERS_PER_UNIT}`);
-                    console.log(`🔬 baseHeightM=${ud.height}*${METERS_PER_UNIT}=${ud.height * METERS_PER_UNIT}`);
-                }
                 // 按目标高度范围（米）反算缩放因子，与模型原始尺寸解耦
                 const baseHeightM = ud.height * METERS_PER_UNIT;
                 const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
@@ -879,34 +867,8 @@
                 obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });
             }
 
+
             updateObstacleVisibility();
-            // 🔍 诊断日志
-            const visCount = obstacleMeshes.filter(m => m.visible).length;
-            console.log(`🏗️ createObstacles: 共创建 ${obstacleMeshes.length} 个障碍物, ${visCount} 个可见`);
-            console.log(`   tankState位置: (${tankState.x}, ${tankState.z}), 可见半径: ${OBS_VISIBLE_RADIUS}`);
-            // 检查几个样本数据（第一个障碍物）
-            if (obstacleData.length > 0) {
-                const s0 = obstacleData[0];
-                const m0 = obstacleMeshes[0];
-                console.log(`   📦 障碍物[0] 数据: pos=(${s0.x.toFixed(1)},${s0.z.toFixed(1)}) radius=${s0.radius} height=${s0.height}`);
-                console.log(`   🎯 障碍物[0] 网格: position=(${m0.position.x.toFixed(2)},${m0.position.y.toFixed(2)},${m0.position.z.toFixed(2)}) scale=(${m0.scale.x.toFixed(4)},${m0.scale.y.toFixed(4)},${m0.scale.z.toFixed(4)}) visible=${m0.visible}`);
-                console.log(`   🎯 children数=${m0.children.length} name="${m0.name}"`);
-                if (m0.children.length > 0) {
-                    const c0 = m0.children[0];
-                    console.log(`   🎯 子节点[0]: type=${c0.type} visible=${c0.visible} hasGeometry=${!!c0.geometry} hasMaterial=${!!c0.material}`);
-                }
-            }
-            // 检查一个可见的障碍物（距原点最近的）
-            const visIdx = obstacleMeshes.findIndex(m => m.visible);
-            if (visIdx >= 0) {
-                const mv = obstacleMeshes[visIdx];
-                console.log(`   👀 可见障碍物[${visIdx}]: position=(${mv.position.x.toFixed(2)},${mv.position.y.toFixed(2)},${mv.position.z.toFixed(2)}) scale=(${mv.scale.x.toFixed(4)},${mv.scale.y.toFixed(4)},${mv.scale.z.toFixed(4)})`);
-                if (mv.children.length > 0) {
-                    console.log(`   👀 子节点数=${mv.children.length}, 首个子节点 visible=${mv.children[0].visible} type=${mv.children[0].type}`);
-                }
-            } else {
-                console.log(`   ❌ 没有找到任何 visible=true 的障碍物！`);
-            }
         }
 
         // ==================== 运动状态 ====================
@@ -1818,7 +1780,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.35  dpr:' + dpr.toFixed(2) +
+                'v0.18.36  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2055,17 +2017,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.35 | 障碍物等比例同步缩放(底面积+高度)');
-        // 🔍 诊断：检查场景内容
-        const allObs = obstacleMeshes.length;
-        const visObs = obstacleMeshes.filter(m => m.visible).length;
-        console.log(`🔍 初始渲染后: scene.children=${scene.children.length}, 障碍物=${allObs}, 可见=${visObs}`);
-        // 列出场景中所有顶层对象的前10个
-        const topNames = scene.children.slice(0, 10).map(c => c.name || `[unnamed:${c.type}]`).join(', ');
-        console.log(`   场景顶层对象(前10): ${topNames}`);
-        // 搜索obs对象
-        const obsInScene = scene.children.filter(c => c.name && c.name.startsWith('obs-')).length;
-        console.log(`   场景中以'obs-'命名的对象: ${obsInScene}`);
+        console.log('🎮 坦克运动demo v0.18.36 | 障碍物等比例同步缩放(底面积+高度)');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
