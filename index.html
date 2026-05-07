@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.4</title>
+    <title>坦克运动demo v0.19.5</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,15 +231,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.4</div>
+        <div class="menu-version">v0.19.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.19.4 更新 — 河床底部加宽+桥梁方向修正+障碍物可见修复+里程表+日志清理</div>
-            <div class="cl-item">河床底部宽度从5%加宽到70%，V形河床清晰可见；桥梁 atan2 参数修正正确横跨河流；进入游戏时立即刷新障碍物可见性；右上角显示坦克行驶里程（米）；抑制GLB加载进度控制台输出；修复双人模式摄像机参数</div>
+            <div class="cl-title">🔄 v0.19.5 更新 — 地图缩小到1/4 + 双人摄像机修正 + file://协议回退 + 里程表正式上线</div>
+            <div class="cl-item">地图 WORLD_HALF 100→50（≈235×235米紧凑战场）；河床底部70%宽+V形河床+水纹理；桥梁方向修正横跨河流；双人分屏摄像机拉远(10后6上)；file://协议自动回退程序化坦克模型；右上角里程表显示行驶米数；障碍物进入游戏时立即可见</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
             <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
@@ -544,22 +544,22 @@
         const MAX_SPEED = 4.0;
         const TRACK_ACCEL = 6.0, TRACK_DECEL = 10.0, TRACK_COAST = 3.5;
         const PITCH_GAIN = 0.12, PITCH_MAX = 0.18, PITCH_SMOOTH = 8.0;
-        const WORLD_HALF = 100;
-        const OBSTACLE_COUNT = 350;
-        const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
-        const OBS_VISIBLE_RADIUS = 22;  // 摄像机拉近后，视野范围约 20-25 单位
-        const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
-        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
+        const WORLD_HALF = 50;                  // 地图半边长 50 单位 ≈ 235 米
+        const OBSTACLE_COUNT = 120;             // 障碍物数量（地图缩小后减少）
+        const POISSON_MIN_DIST = 3.0, SAFE_ZONE_RADIUS = 5.0, SPAWN_RADIUS = 48;
+        const OBS_VISIBLE_RADIUS = 18;          // 障碍物可见范围
+        const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;
+        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 150.0;
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
         const SHELL_DAMAGE = 20;
 
         // ==================== 单人模式地图常量 ====================
-        const RIVER_WIDTH = 3.5;              // 河流宽度
-        const RIVER_COLL_RADIUS = 2.0;        // 河流碰撞圆半径（略大于半宽）
-        const BRIDGE_LENGTH = 8;              // 桥长
-        const BRIDGE_WIDTH = 4;               // 桥宽
-        const POINT_A_X = -65, POINT_A_Z = -65;   // A 点（出生点）
-        const POINT_B_X = 65, POINT_B_Z = 65;     // B 点（预留 BOSS）
+        const RIVER_WIDTH = 2.0;              // 河流宽度
+        const RIVER_COLL_RADIUS = 1.2;        // 河流碰撞圆半径（略大于半宽）
+        const BRIDGE_LENGTH = 4;              // 桥长
+        const BRIDGE_WIDTH = 2.5;             // 桥宽
+        const POINT_A_X = -32, POINT_A_Z = -32;   // A 点（出生点）
+        const POINT_B_X = 32, POINT_B_Z = 32;     // B 点（预留 BOSS）
         const RIVER_SAMPLE_COUNT = 120;       // 河流碰撞采样点数量
         let riverColliders = [];              // 河流碰撞圆圈 { x, z, radius }
 
@@ -578,7 +578,7 @@
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
                 trg.background = new THREE.Color('#000000');
-                trg.fog = new THREE.Fog('#000000', 100, 160);
+                trg.fog = new THREE.Fog('#000000', 50, 80);
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
@@ -587,11 +587,11 @@
                 sun.shadow.mapSize.width = 2048;
                 sun.shadow.mapSize.height = 2048;
                 sun.shadow.camera.near = 0.5;
-                sun.shadow.camera.far = 250;
-                sun.shadow.camera.left = -110;
-                sun.shadow.camera.right = 110;
-                sun.shadow.camera.top = 110;
-                sun.shadow.camera.bottom = -110;
+                sun.shadow.camera.far = 120;
+                sun.shadow.camera.left = -60;
+                sun.shadow.camera.right = 60;
+                sun.shadow.camera.top = 60;
+                sun.shadow.camera.bottom = -60;
                 sun.shadow.bias = -0.0002;
                 trg.add(sun);
             }
@@ -697,9 +697,9 @@
         // ==================== 河流（单人模式） ====================
         // 控制点定义一条从左下到右上的弯曲河流
         const _riverControls = [
-            [-96, -88], [-80, -72], [-55, -55], [-28, -32],
-            [-5, -5],   [18, 18],   [42, 42],   [62, 62],
-            [80, 76],   [92, 92]
+            [-48, -44], [-40, -36], [-28, -28], [-14, -16],
+            [-3, -3],   [9, 9],     [21, 21],   [31, 31],
+            [40, 38],   [46, 46]
         ];
 
         function createRiver(targetScene) {
@@ -710,7 +710,7 @@
 
             const samples = 80;
             const halfW = RIVER_WIDTH / 2;
-            const depth = 0.8;      // 河床深度
+            const depth = 0.4;      // 河床深度（地图缩小后减半）
 
             // 辅助：创建一条带状 mesh（每段由左右两个顶点组成）
             function makeStrip(getLeftRight, mat) {
@@ -884,6 +884,13 @@
             const is1P = (player === player1);
             const bag = is1P ? _glbCaches.green : _glbCaches.yellow;
             const label = bag.key;
+
+            // file:// 协议下浏览器禁止跨源加载外部文件，直接回退程序化模型
+            if (document.location.protocol === 'file:') {
+                console.log('📄 file:// 协议，跳过 GLB 加载，使用程序化模型');
+                fallbackProgrammatic(player, group);
+                return;
+            }
 
             // 已缓存 → 直接克隆
             if (bag.cache.model) {
@@ -1711,7 +1718,7 @@
             if (scene === scene1) {
                 const waterMesh = scene1.getObjectByName('riverWater');
                 if (waterMesh && waterMesh.userData.waterMat && waterMesh.userData.waterMat.map) {
-                    waterMesh.userData.waterMat.map.offset.x += 0.3 * dt;
+                    waterMesh.userData.waterMat.map.offset.y += 0.3 * dt;
                 }
             }
 
@@ -1749,8 +1756,10 @@
         // ==================== 摄像机 ====================
         // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
         // 坦克长 8 米 = 1.70 单位；希望视野中能看到约 3-4 个坦克身长 ≈ 25 米 ≈ 5.3 单位
-        const CAMERA_BEHIND = 5.5;   // 摄像机在坦克后方距离（单位）
-        const CAMERA_ABOVE = 4.0;    // 摄像机在坦克上方高度（单位）
+        const CAMERA_BEHIND = 5.5;   // 单人模式摄像机在坦克后方距离
+        const CAMERA_ABOVE = 4.0;    // 单人模式摄像机在坦克上方高度
+        const DUAL_CAMERA_BEHIND = 10;  // 双人模式摄像机距离（分屏视野需更远）
+        const DUAL_CAMERA_ABOVE = 6;    // 双人模式摄像机高度
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -1938,7 +1947,7 @@
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
             explosions.forEach(exp=>exp.dispose());explosions=[];
-            player1=createPlayer('green',-15,0,Math.PI/2,true);player2=createPlayer('desert',15,0,-Math.PI/2,false);
+            player1=createPlayer('green',-8,0,Math.PI/2,true);player2=createPlayer('desert',8,0,-Math.PI/2,false);
             createPlayerTank(player1);createPlayerTank(player2);
             createBarsForPlayer(player1);createBarsForPlayer(player2);
             player1.reloadBarGroup.visible=player1.hpBarGroup.visible=true;
@@ -2003,13 +2012,13 @@
             renderer.setScissorTest(true);
             renderer.setViewport(0, 0, halfCssW, cssH); renderer.setScissor(0, 0, halfCssW, cssH);
             camera.aspect = halfCssW / cssH; camera.updateProjectionMatrix();
-            placeCameraFor(player1, camera); updateBarsForCamera(player1, camera);
+            placeCameraFor(player1, camera, true); updateBarsForCamera(player1, camera);
             renderer.render(scene, camera);
             // 右半屏 (P2)
             togglePlayerBars(player1, false); togglePlayerBars(player2, true);
             renderer.setViewport(halfCssW, 0, rightCssW, cssH); renderer.setScissor(halfCssW, 0, rightCssW, cssH);
             camera2.aspect = rightCssW / cssH; camera2.updateProjectionMatrix();
-            placeCameraFor(player2, camera2); updateBarsForCamera(player2, camera2);
+            placeCameraFor(player2, camera2, true); updateBarsForCamera(player2, camera2);
             renderer.render(scene, camera2);
             renderer.setScissorTest(false);
             togglePlayerBars(player1, true); togglePlayerBars(player2, true);
@@ -2019,7 +2028,7 @@
             animationId=requestAnimationFrame(versusGameLoop);
         }
 
-        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);cam.position.set(p.state.x-fx*CAMERA_BEHIND,0+CAMERA_ABOVE,p.state.z-fz*CAMERA_BEHIND);cam.lookAt(p.state.x,1.8,p.state.z);}
+        function placeCameraFor(p,cam,dual){const bx=dual?DUAL_CAMERA_BEHIND:CAMERA_BEHIND,ay=dual?DUAL_CAMERA_ABOVE:CAMERA_ABOVE;const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);cam.position.set(p.state.x-fx*bx,0+ay,p.state.z-fz*bx);cam.lookAt(p.state.x,1.8,p.state.z);}
 
         function updateShellsFragsMuzzle(dt) {
             for(let i=shells.length-1;i>=0;i--){const s=shells[i];s.vel.y-=SHELL_GRAVITY*dt;
@@ -2129,7 +2138,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.19.4  dpr:' + dpr.toFixed(2) +
+                'v0.19.5  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp +
                 '\n🚀 里程: ' + (totalDistance * METERS_PER_UNIT).toFixed(1) + ' 米';
@@ -2411,7 +2420,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.19.2 | 河床下陷+桥梁横跨+A点出生');
+        console.log('🎮 坦克运动demo v0.19.5 | 地图缩小+河床V形+桥梁横跨+A点出生');
     </script>
 </body>
 </html>
