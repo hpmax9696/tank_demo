@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.18.36</title>
+    <title>坦克运动demo v0.18.38</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -231,14 +231,14 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.36</div>
+        <div class="menu-version">v0.18.38</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.36 更新 — 障碍物按目标高度范围缩放(模型尺寸解耦)</div>
+            <div class="cl-title">🔄 v0.18.38 更新 — 双GLB模型(1P绿色+2P黄色)，修复阴影，2P坦克区分度大幅提升</div>
             <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
@@ -282,6 +282,8 @@
 
     <!-- Three.js UMD 构建，本地加载，无需网络 -->
     <script src="three.min.js"></script>
+    <!-- GLTFLoader（全局版本，从 node_modules/three/examples/js/ 提取）用于加载 .glb 模型 -->
+    <script src="GLTFLoader.js"></script>
     <!-- FBXLoader 已移除 CDN 依赖（Edge 追踪防护会拦截），如需要请下载到 fbxLibs/ 目录 -->
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
     <script src="fireSmokeParticles.js"></script>
@@ -671,20 +673,120 @@
             scene.add(edgeLine);
         }
 
-        // ==================== 坦克模型（使用模型注册表） ====================
+        // ==================== 坦克模型（双 GLB：1P绿色 + 2P黄色，程序化回退） ====================
+        // 两个独立的 GLB 缓存（分别加载绿色和黄色模型）
+        const _glbCaches = {
+            green: { key: 'green', path: 'models/glb/t34-85_textured.glb', cache: {}, pending: [] },
+            yellow: { key: 'yellow', path: 'models/glb/t34-85_textured_yellow.glb', cache: {}, pending: [] }
+        };
+
         function createPlayerTank(player) {
+            const group = new THREE.Group();
+            group.position.set(player.state.x, 0, player.state.z);
+            group.rotation.y = player.state.yaw;
+            player.group = group;
+            player.hull = group; // GLB 无独立 hull，整体 pitch 用 group 代替
+            player.leftWheels = [];
+            player.rightWheels = [];
+            scene.add(group);
+
+            // 1P 绿色，2P 黄色
+            const is1P = (player === player1);
+            const bag = is1P ? _glbCaches.green : _glbCaches.yellow;
+            const label = bag.key;
+
+            // 已缓存 → 直接克隆
+            if (bag.cache.model) {
+                spawnFromCache(player, group, bag);
+                return;
+            }
+
+            // 正在加载中 → 加入等待队列
+            bag.pending.push({ player, group });
+
+            // 首次加载（通过 pending.length === 1 防重复触发）
+            if (bag.pending.length === 1) {
+                const loader = new THREE.GLTFLoader();
+                loader.load(bag.path,
+                    (gltf) => {
+                        bag.cache.model = gltf.scene;
+                        bag.cache.bbox = new THREE.Box3().setFromObject(gltf.scene);
+                        const sz = new THREE.Vector3();
+                        bag.cache.bbox.getSize(sz);
+                        bag.cache.center = new THREE.Vector3();
+                        bag.cache.bbox.getCenter(bag.cache.center);
+
+                        // 目标：模型长度(Z) = HULL_L 1.70（与碰撞体系一致）
+                        const targetLen = 1.70;
+                        bag.cache.baseScale = targetLen / sz.z;
+                        console.log('✅ GLB(' + label + ') 加载成功 | 原始:',
+                            sz.x.toFixed(3), '×', sz.y.toFixed(3), '×', sz.z.toFixed(3),
+                            '| 缩放: ×' + bag.cache.baseScale.toFixed(4),
+                            '| TANK_HALF_W=' + TANK_HALF_W.toFixed(2));
+
+                        bag.pending.forEach(p => spawnFromCache(p.player, p.group, bag));
+                        bag.pending.length = 0;
+                    },
+                    (p) => { if (p.total && bag.pending.length > 0)
+                        console.log('📥 GLB(' + label + '):', Math.round(p.loaded / p.total * 100) + '%'); },
+                    (err) => {
+                        console.warn('⚠️ GLB(' + label + ') 加载失败，回退程序化:', err.message);
+                        bag.pending.forEach(p => fallbackProgrammatic(p.player, p.group));
+                        bag.pending.length = 0;
+                    }
+                );
+            }
+        }
+
+        function spawnFromCache(player, group, bag) {
+            const model = bag.cache.model.clone(true);
+            const s = bag.cache.baseScale;
+
+            // 缩放 + 居中 + 阴影
+            model.scale.setScalar(s);
+            model.position.set(
+                -bag.cache.center.x * s,
+                -bag.cache.bbox.min.y * s,
+                -bag.cache.center.z * s
+            );
+
+            // 遍历所有网格：开启阴影投射与接收
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            group.add(model);
+
+            if (player === player1) {
+                tankGroup = player1.group;
+                tankHull = player1.hull;
+                leftWheels = player1.leftWheels;
+                rightWheels = player1.rightWheels;
+            }
+        }
+
+        function fallbackProgrammatic(player, group) {
             const camo = player.camoColor === 'desert' ? 't34-85-desert' : 't34-85-green';
             const tankGroup = window.ModelRegistry.getModel('tanks', camo)({
                 camoColor: player.camoColor,
                 position: { x: player.state.x, y: 0, z: player.state.z },
                 yaw: player.state.yaw
             });
-            player.group = tankGroup;
-            player.hull = tankGroup.userData.hull;
-            player.leftWheels = tankGroup.userData.leftWheels;
-            player.rightWheels = tankGroup.userData.rightWheels;
-            player.group.position.set(player.state.x, 0, player.state.z);
-            scene.add(player.group);
+            while (tankGroup.children.length > 0) {
+                group.add(tankGroup.children[0]);
+            }
+            player.hull = tankGroup.userData.hull || group;
+            player.leftWheels = tankGroup.userData.leftWheels || [];
+            player.rightWheels = tankGroup.userData.rightWheels || [];
+            group.position.copy(tankGroup.position);
+            group.rotation.copy(tankGroup.rotation);
+            if (tankGroup.userData.hull) {
+                player.hull = tankGroup.userData.hull;
+            }
+            console.log('🔄 已回退到程序化 T-34/85 模型');
         }
 
         function createBarsForPlayer(player) {
@@ -1780,7 +1882,7 @@
             // 计算期望的canvas尺寸
             const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
             el.textContent =
-                'v0.18.36  dpr:' + dpr.toFixed(2) +
+                'v0.18.38  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
@@ -2017,7 +2119,7 @@
 
         // ==================== 初始化 ====================
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.18.36 | 障碍物等比例同步缩放(底面积+高度)');
+        console.log('🎮 坦克运动demo v0.18.38 | 双GLB(绿1P+黄2P) + 阴影修复');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
