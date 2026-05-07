@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.18.33** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.18.34** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **T-34/85 高精度坦克模型**（v6.1）：车体/炮塔/履带/散热格栅完整结构
@@ -378,7 +378,7 @@ const TRACK_W    = 0.120;      // 履带宽度
 | `models/tank.js` | ~85 | 简化坦克模型（备选） |
 | `models/t34-85.js` | ~640 | T-34/85 v6.1 高精度坦克模型 |
 | `models/trees.js` | ~60 | 2 种树木模型 |
-| `models/buildings.js` | ~125 | 3 种建筑模型（平房/别墅/公寓） |
+| `models/buildings.js` | ~220 | 3 种建筑模型（平房/别墅/公寓精细化） |
 | `models/windmill.js` | ~59 | 风车磨坊模型 |
 | `README.md` | — | 本文件 |
 | **总计** | **~3400 行** | **纯 JavaScript + HTML + CSS** |
@@ -443,19 +443,19 @@ xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.18.33`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.18.34`
 3. 页面右上角有调试信息（尺寸/DPR/canvas/camera aspect）
 4. 修改代码后**关闭标签页重新双击**，确保不使用缓存
 5. `file://` 协议下 `Ctrl+F5` 可能无效，建议关标签页重开
 
-### 代码规模（截至 v0.18.33）
+### 代码规模（截至 v0.18.34）
 - `index.html`：约 1972 行（HTML + CSS + JS 游戏引擎）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 v6.1 高精度坦克模型）
-- `models/buildings.js`：约 125 行（平房/别墅/公寓精细化）
+- `models/buildings.js`：约 220 行（平房/别墅/公寓精细化）
 - `models/windmill.js`：约 59 行（风车磨坊已修复）
 - 其他模型文件：约 211 行（tank / trees / modelRegistry）
-- **总计约 3400 行**
+- **总计约 3500 行**
 
 ---
 

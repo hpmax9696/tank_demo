@@ -182,22 +182,117 @@
         return g;
     }
 
-    // 公寓
+    // 公寓（精细化：底商石材层+白色瓷砖住宅层+灰色退台顶层）
     function createApartment() {
         const g = new THREE.Group();
-        const h = 1.6 + Math.random() * 0.5;
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, h, 0.75), aptMat);
-        body.position.y = h / 2;
-        g.add(body);
-        const winMat = new THREE.MeshBasicMaterial({ color: '#aaccff' });
-        for (let wy = 0.3; wy < h; wy += 0.3) {
-            for (let wx = -0.2; wx <= 0.2; wx += 0.2) {
-                const win = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.12), winMat);
-                win.position.set(wx, wy, 0.38);
-                g.add(win);
+
+        // 坦克全高约 0.76（车体 0.48 + 炮塔 0.28），目标高度 5~10 倍 = 3.8~7.6
+        const totalH = 3.8 + Math.random() * 3.8;   // 3.8 ~ 7.6
+        const w  = 0.7 + Math.random() * 0.2;       // 宽度 0.7~0.9
+        const d  = 0.7 + Math.random() * 0.2;       // 深度 0.7~0.9
+
+        // 分层比例
+        const shopH  = totalH * 0.18;   // 底层商铺/车库（深色石材）
+        const resH   = totalH * 0.65;   // 中层住宅（白色瓷砖）
+        const topH   = totalH * 0.17;   // 顶层退台（灰色设备层）
+
+        // 材质
+        const stoneM  = new THREE.MeshStandardMaterial({ color: '#5A5A5A', roughness: 0.95 }); // 底层石材
+        const tileM   = new THREE.MeshStandardMaterial({ color: '#F5F5F5', roughness: 0.55 }); // 白色瓷砖
+        const topM    = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.75 }); // 顶层灰色
+        const winM    = new THREE.MeshStandardMaterial({ color:'#AACCFF', emissive:'#224466', emissiveIntensity:0.1 });
+        const frameM  = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.6 });
+        const shutterM= new THREE.MeshStandardMaterial({ color: '#C0C0C0', roughness: 0.4, metalness: 0.3 });
+
+        // ── 底层：深色石材（商铺/车库） ──
+        const shopBody = new THREE.Mesh(new THREE.BoxGeometry(w, shopH, d), stoneM);
+        shopBody.position.y = shopH / 2;
+        g.add(shopBody);
+        // 底层墙基装饰线
+        const shopBase = new THREE.Mesh(new THREE.BoxGeometry(w + 0.04, 0.03, d + 0.04), stoneM);
+        shopBase.position.y = 0.015;
+        g.add(shopBase);
+        // 卷帘门（正面3个）
+        for (let di = -1; di <= 1; di++) {
+            const door = new THREE.Mesh(new THREE.BoxGeometry(w * 0.22, shopH * 0.65, 0.015), shutterM);
+            door.position.set(di * w * 0.28, shopH * 0.35, d / 2 + 0.003);
+            g.add(door);
+            // 门框
+            const dFrm = new THREE.Mesh(new THREE.BoxGeometry(w * 0.26, shopH * 0.70, 0.008), frameM);
+            dFrm.position.set(di * w * 0.28, shopH * 0.37, d / 2 + 0.001);
+            g.add(dFrm);
+        }
+
+        // ── 中层：白色瓷砖住宅层 ──
+        const resBody = new THREE.Mesh(new THREE.BoxGeometry(w, resH, d), tileM);
+        resBody.position.y = shopH + resH / 2;
+        g.add(resBody);
+        // 住宅层腰线（分隔底层与住宅）
+        const belt = new THREE.Mesh(new THREE.BoxGeometry(w + 0.03, 0.04, d + 0.03), frameM);
+        belt.position.y = shopH;
+        g.add(belt);
+
+        // 住宅窗户（4面，每层2列，按高度均匀分布）
+        const floors = Math.max(3, Math.floor(resH / 0.55));
+        const floorH = resH / floors;
+        for (let fi = 0; fi < floors; fi++) {
+            const wy = shopH + floorH * (fi + 0.5);
+            for (let side = -1; side <= 1; side += 2) {
+                // 正面/背面窗户（Z方向）
+                for (let wi = -1; wi <= 1; wi += 2) {
+                    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.14), winM);
+                    win.position.set(wi * w * 0.22, wy, side * (d / 2 + 0.002));
+                    g.add(win);
+                    // 窗框
+                    const frm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.006), frameM);
+                    frm.position.set(wi * w * 0.22, wy, side * (d / 2 + 0.003));
+                    g.add(frm);
+                }
+                // 侧面窗户（X方向）
+                for (let wi = -1; wi <= 1; wi += 2) {
+                    const winS = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 0.14), winM);
+                    winS.rotation.y = Math.PI / 2;
+                    winS.position.set(side * (w / 2 + 0.002), wy, wi * d * 0.22);
+                    g.add(winS);
+                    const frmS = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.18, 0.14), frameM);
+                    frmS.position.set(side * (w / 2 + 0.003), wy, wi * d * 0.22);
+                    g.add(frmS);
+                }
             }
         }
-        g.userData = { height: h, radius: 0.55, color: '#C0C0C0' };
+
+        // ── 顶层：灰色退台结构（设备层/天台） ──
+        const topW = w * 0.82, topD = d * 0.82;  // 退台收窄
+        const topBody = new THREE.Mesh(new THREE.BoxGeometry(topW, topH, topD), topM);
+        topBody.position.y = shopH + resH + topH / 2;
+        g.add(topBody);
+        // 顶层围栏（天台护栏）
+        const railH = 0.06;
+        const railThick = 0.015;
+        for (let side = -1; side <= 1; side += 2) {
+            // Z方向围栏
+            const railZ = new THREE.Mesh(new THREE.BoxGeometry(topW + railThick * 2, railThick, railThick), frameM);
+            railZ.position.set(0, shopH + resH + topH + railThick / 2, side * (topD / 2 + railThick / 2));
+            g.add(railZ);
+            // X方向围栏
+            const railX = new THREE.Mesh(new THREE.BoxGeometry(railThick, railThick, topD + railThick * 2), frameM);
+            railX.position.set(side * (topW / 2 + railThick / 2), shopH + resH + topH + railThick / 2, 0);
+            g.add(railX);
+        }
+        // 顶层立柱（4角）
+        for (let cx = -1; cx <= 1; cx += 2) {
+            for (let cz = -1; cz <= 1; cz += 2) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.03, topH + railH, 0.03), frameM);
+                post.position.set(cx * topW / 2, shopH + resH + topH / 2 + railH / 2, cz * topD / 2);
+                g.add(post);
+            }
+        }
+        // 顶层设备箱（空调/水箱）
+        const equip = new THREE.Mesh(new THREE.BoxGeometry(topW * 0.35, topH * 0.5, topD * 0.35), topM);
+        equip.position.set(topW * 0.15, shopH + resH + topH * 0.75, -topD * 0.15);
+        g.add(equip);
+
+        g.userData = { height: totalH + railH, radius: Math.max(w, d) / 2 * 1.15, color: '#F5F5F5' };
         addShadow(g);
         return g;
     }
