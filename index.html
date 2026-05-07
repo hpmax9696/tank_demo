@@ -229,15 +229,15 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.18.35</div>
+        <div class="menu-version">v0.18.36</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.18.35 更新 — 障碍物等比例同步缩放(底面积+高度)</div>
-            <div class="cl-item">所有模型固定单位底面积，createObstacles统一应用0.6~1.4倍随机缩放，底面积和高度同步变化</div>
+            <div class="cl-title">🔄 v0.18.36 更新 — 障碍物按目标高度范围缩放(模型尺寸解耦)</div>
+            <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
             <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
             <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
             <div class="cl-title">🔄 v0.18.33 更新 — README移交准备(功能状态/清单/SOP)</div>
@@ -536,6 +536,8 @@
         // 通用
         let player1 = null, player2 = null; // 双人模式玩家
         const TANK_HALF_W = 0.55;
+        // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
+        const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
@@ -851,14 +853,16 @@
                 const p = points[i];
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
-                // 统一随机缩放因子（0.6~1.4），底面积和高度同步缩放
-                const s = 0.6 + Math.random() * 0.8;
+                const ud = group.userData;
+                // 按目标高度范围（米）反算缩放因子，与模型原始尺寸解耦
+                const baseHeightM = ud.height * METERS_PER_UNIT;
+                const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
+                const s = targetHeightM / baseHeightM;
                 group.scale.setScalar(s);
                 group.position.set(p.x, 0, p.z);
                 group.rotation.y = Math.random() * Math.PI * 2;
                 group.visible = false;
                 group.name = `obs-${i}`;
-                const ud = group.userData;
                 scene.add(group);
                 obstacleMeshes.push(group);
                 obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });

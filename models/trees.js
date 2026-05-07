@@ -20,7 +20,7 @@
         const crown = new THREE.Mesh(new THREE.ConeGeometry(0.30, h * 0.6, 8), crownMat1);
         crown.position.y = h * 0.5 + h * 0.3;
         g.add(crown);
-        g.userData = { height: h, radius: 0.45, color: '#3B7A3B' };
+        g.userData = { height: h, radius: 0.45, color: '#3B7A3B', targetHeightMinM: 3, targetHeightMaxM: 15 };
         addShadow(g);
         return g;
     }
@@ -36,7 +36,7 @@
         const crown = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), crownMat2);
         crown.position.y = h * 0.45 + r * 0.7;
         g.add(crown);
-        g.userData = { height: h, radius: 0.45, color: '#4A8B3F' };
+        g.userData = { height: h, radius: 0.45, color: '#4A8B3F', targetHeightMinM: 3, targetHeightMaxM: 15 };
         addShadow(g);
         return g;
     }

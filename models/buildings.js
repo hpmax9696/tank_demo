@@ -72,7 +72,7 @@
         chmTop.position.set(w * 0.28, h + rH * 0.55 + 0.09, d * 0.15);
         g.add(chmTop);
 
-        g.userData = { height: h + rH, radius: Math.max(w, d) / 2 * 1.15, color: '#' + wallM.color.getHexString() };
+        g.userData = { height: h + rH, radius: Math.max(w, d) / 2 * 1.15, color: '#' + wallM.color.getHexString(), targetHeightMinM: 4, targetHeightMaxM: 6 };
         addShadow(g);
         return g;
     }
@@ -178,7 +178,7 @@
             g.add(step);
         }
 
-        g.userData = { height: h1 + h2 + rH, radius: Math.max(w, d) / 2 * 1.2, color: '#8B7D6B' };
+        g.userData = { height: h1 + h2 + rH, radius: Math.max(w, d) / 2 * 1.2, color: '#8B7D6B', targetHeightMinM: 10, targetHeightMaxM: 15 };
         addShadow(g);
         return g;
     }
@@ -293,7 +293,7 @@
         equip.position.set(topW * 0.15, shopH + resH + topH * 0.75, -topD * 0.15);
         g.add(equip);
 
-        g.userData = { height: totalH + railH, radius: Math.max(w, d) / 2 * 1.15, color: '#F5F5F5' };
+        g.userData = { height: totalH + railH, radius: Math.max(w, d) / 2 * 1.15, color: '#F5F5F5', targetHeightMinM: 22, targetHeightMaxM: 30 };
         addShadow(g);
         return g;
     }
