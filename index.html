@@ -2094,18 +2094,6 @@
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
             initAudio();startEngineSound();
-                player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
-                player1.prevForwardSpeed = 0; player1.pitch = 0;
-                player1.reloadTimer = 0;
-                player1.hp = 100; player1.dead = false;
-                if (player1.group) player1.group.visible = true;
-                if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
-            }
-            resetTank();
-            if(reloadBarGroup)reloadBarGroup.visible=true;
-            if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
-            placeCamera();
-            initAudio();startEngineSound();
             // 确保 canvas 尺寸匹配窗口
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
