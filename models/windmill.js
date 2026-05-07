@@ -13,7 +13,7 @@
 
     function createWindmill() {
         const g = new THREE.Group();
-        const h = 1.0 + Math.random() * 0.5;
+        const h = 1.0;  // 基准高度，createObstacles 中统一缩放
 
         // 磨坊主体
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, h, 8), windmillBodyMat);
@@ -38,7 +38,6 @@
         const bladeLen = 0.85;
         const bladeWid = 0.18;
         for (let i = 0; i < 2; i++) {
-            // 薄面朝向X方向（depth在X=0.02），使法线指向X轴
             const bladeGeo = new THREE.BoxGeometry(0.02, bladeLen * 2, bladeWid);
             const blade = new THREE.Mesh(bladeGeo, windmillBladeMat);
             blade.rotation.x = (i * Math.PI) / 2;

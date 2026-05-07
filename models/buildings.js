@@ -10,12 +10,14 @@
         g.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
     }
 
-    // 平房（精细化：山墙屋顶+窗户+门+烟囱）
+    // 平房（精细化：山墙屋顶+窗户+门+烟囱，固定单位底面积）
     function createBungalow() {
         const g = new THREE.Group();
-        const h = 0.6 + Math.random() * 0.2;
-        const w = 0.8 + Math.random() * 0.2;
-        const d = 0.65 + Math.random() * 0.15;
+        // 固定单位尺寸（缩放基准 = 1.0）
+        const w = 1.0, d = 0.85;
+        const h = 0.72;   // 主体高度
+        const rH = 0.32;  // 屋顶高度
+
         const wallColors = ['#E8D5B7','#D4C5A9','#F0DCC0','#C9B896'];
         const wallM = new THREE.MeshStandardMaterial({ color: wallColors[Math.floor(Math.random()*4)], roughness:0.85 });
         const roofM = new THREE.MeshStandardMaterial({ color: '#A0522D', roughness: 0.8 });
@@ -29,7 +31,7 @@
         g.add(body);
 
         // 山墙屋顶（三角形沿Z拉伸）
-        const rH = 0.32, oH = 0.04; // 屋顶高度、屋檐出挑
+        const oH = 0.04; // 屋檐出挑
         const shp = new THREE.Shape();
         const hw = w / 2 + oH;
         shp.moveTo(-hw, 0); shp.lineTo(0, rH); shp.lineTo(hw, 0); shp.closePath();
@@ -75,14 +77,14 @@
         return g;
     }
 
-    // 别墅（精细化：二层退台+石墙/木墙+山墙屋顶+阳台+楼梯+烟囱）
+    // 别墅（精细化：二层退台+石墙/木墙+山墙屋顶+阳台+楼梯+烟囱，固定单位底面积）
     function createVilla() {
         const g = new THREE.Group();
-        const h1 = 0.45 + Math.random() * 0.1;   // 一楼高
-        const h2 = 0.4 + Math.random() * 0.08;   // 二楼高
-        const w  = 0.7 + Math.random() * 0.15;
-        const d  = 0.6 + Math.random() * 0.12;
-        const w2 = w * 0.78, d2 = d * 0.78;      // 二楼退台
+        // 固定单位尺寸（缩放基准 = 1.0）
+        const w  = 1.0, d = 0.86;
+        const h1 = 0.50;   // 一楼高
+        const h2 = 0.45;   // 二楼高
+        const w2 = w * 0.78, d2 = d * 0.78;  // 二楼退台
 
         const stoneM = new THREE.MeshStandardMaterial({ color: '#8B7D6B', roughness: 0.95 });
         const woodM  = new THREE.MeshStandardMaterial({ color: '#A0825A', roughness: 0.85 });
@@ -150,7 +152,6 @@
                 win.position.set(wi * w * 0.28, h1 * 0.55, side * (d / 2 + 0.001));
                 g.add(win);
                 // 二楼窗户（四面）
-                const zFac = side * (d2 / 2 + 0.001);
                 const win2 = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.09), winM);
                 win2.position.set(wi * w2 * 0.28, h1 + h2 * 0.5, side * (d2 / 2 + 0.001));
                 g.add(win2);
@@ -182,24 +183,25 @@
         return g;
     }
 
-    // 公寓（精细化：底商石材层+白色瓷砖住宅层+灰色退台顶层）
+    // 公寓（精细化：底商石材层+白色瓷砖住宅层+灰色退台顶层，固定单位底面积）
     function createApartment() {
         const g = new THREE.Group();
 
-        // 坦克全高约 0.76（车体 0.48 + 炮塔 0.28），目标高度 5~10 倍 = 3.8~7.6
-        const totalH = 3.8 + Math.random() * 3.8;   // 3.8 ~ 7.6
-        const w  = 0.7 + Math.random() * 0.2;       // 宽度 0.7~0.9
-        const d  = 0.7 + Math.random() * 0.2;       // 深度 0.7~0.9
+        // 固定单位尺寸：totalH=5.0 代表 5x 坦克高度（最低要求）
+        // createObstacles 中会应用 scale=1.0~2.0，得到 5x~10x 坦克高度
+        const w  = 1.0, d = 1.0;           // 固定正方形底面积
+        const totalH = 5.0;               // 基准高度 = 5x 坦克高度
 
-        // 分层比例
+        // 分层比例（与 totalH 相乘得到各层高度）
         const shopH  = totalH * 0.18;   // 底层商铺/车库（深色石材）
         const resH   = totalH * 0.65;   // 中层住宅（白色瓷砖）
         const topH   = totalH * 0.17;   // 顶层退台（灰色设备层）
+        const railH  = 0.06;            // 顶层围栏高度
 
         // 材质
-        const stoneM  = new THREE.MeshStandardMaterial({ color: '#5A5A5A', roughness: 0.95 }); // 底层石材
-        const tileM   = new THREE.MeshStandardMaterial({ color: '#F5F5F5', roughness: 0.55 }); // 白色瓷砖
-        const topM    = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.75 }); // 顶层灰色
+        const stoneM  = new THREE.MeshStandardMaterial({ color: '#5A5A5A', roughness: 0.95 });
+        const tileM   = new THREE.MeshStandardMaterial({ color: '#F5F5F5', roughness: 0.55 });
+        const topM    = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.75 });
         const winM    = new THREE.MeshStandardMaterial({ color:'#AACCFF', emissive:'#224466', emissiveIntensity:0.1 });
         const frameM  = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.6 });
         const shutterM= new THREE.MeshStandardMaterial({ color: '#C0C0C0', roughness: 0.4, metalness: 0.3 });
@@ -267,7 +269,6 @@
         topBody.position.y = shopH + resH + topH / 2;
         g.add(topBody);
         // 顶层围栏（天台护栏）
-        const railH = 0.06;
         const railThick = 0.015;
         for (let side = -1; side <= 1; side += 2) {
             // Z方向围栏
