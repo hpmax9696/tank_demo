@@ -2867,15 +2867,7 @@
 
 				if ( encoding !== undefined ) {
 
-					if ( texture.colorSpace !== undefined ) {
-
-						texture.colorSpace = encoding === THREE.sRGBEncoding ? 'srgb' : 'linear';
-
-					} else {
-
-						texture.encoding = encoding;
-
-					}
+					texture.encoding = encoding;
 
 				}
 

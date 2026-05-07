@@ -664,7 +664,6 @@
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
             texture.repeat.set(SIZE / 5, SIZE / 5); // 覆盖 200×200 的地面
-            texture.colorSpace = THREE.SRGBColorSpace;
             texture.magFilter = THREE.LinearFilter;
             texture.minFilter = THREE.LinearMipmapLinearFilter;
             texture.generateMipmaps = true;
@@ -780,7 +779,6 @@
             const waterTex = new THREE.CanvasTexture(waterCanvas);
             waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
             waterTex.repeat.set(6, 1);
-            waterTex.colorSpace = THREE.SRGBColorSpace;
             const waterMat = new THREE.MeshStandardMaterial({
                 map: waterTex,
                 color: '#1a5c8a', roughness: 0.05, metalness: 0.4,
