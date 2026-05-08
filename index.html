@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.22.1</title>
+    <title>坦克运动demo v0.22.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.22.1</div>
+        <div class="menu-version">v0.22.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔄 v0.22.2 更新 — 全景山脉天空球 + 裙边地面隐藏世界边缘</div>
             <div class="cl-title">🔄 v0.22.1 更新 — 炮弹外形重构：圆柱身+锥形弹头</div>
             <div class="cl-item">炮弹从直圆柱→圆柱弹体(0.18m)+锥形弹头(0.08m)，Group组合，更贴近真实炮弹外形</div>
             <div class="cl-item">炮弹清理统一使用 disposeShellMesh()，兼容 Group 遍历销毁子网格几何体和材质</div>
@@ -915,7 +916,7 @@
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
-        let groundPlane;
+        let groundPlane, groundSkirtPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
         let totalDistance = 0;   // 坦克行驶总里程（单位）
@@ -1043,34 +1044,87 @@
 
         // ==================== 天空穹顶（渐变天空球） ====================
         let skyDome = null;
-        function createSkyDome(targetScene) {
-            if (skyDome) { targetScene.remove(skyDome); skyDome.geometry.dispose(); skyDome.material.dispose(); }
-            const geom = new THREE.SphereGeometry(400, 32, 15);
-            const mat = new THREE.ShaderMaterial({
+        // 天空球全景纹理（预加载）
+        let skyTexture = null;
+        let skyTextureReady = false;
+        // 创建全景 ShaderMaterial（不受雾影响，直接采样纹理）
+        function createPanoramaMaterial(tex) {
+            return new THREE.ShaderMaterial({
                 side: THREE.BackSide,
                 depthWrite: false,
+                depthTest: true,
                 uniforms: {
-                    topColor: { value: new THREE.Color('#1a3a5c') },
-                    bottomColor: { value: new THREE.Color('#8cb4d8') }
+                    uTexture: { value: tex }
                 },
                 vertexShader: `
-                    varying vec3 vWorldPos;
+                    varying vec2 vUv;
                     void main() {
-                        vec4 wp = modelMatrix * vec4(position, 1.0);
-                        vWorldPos = wp.xyz;
+                        vUv = uv;
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                     }`,
                 fragmentShader: `
-                    varying vec3 vWorldPos;
-                    uniform vec3 topColor;
-                    uniform vec3 bottomColor;
+                    varying vec2 vUv;
+                    uniform sampler2D uTexture;
                     void main() {
-                        float h = normalize(vWorldPos).y;
-                        float t = smoothstep(-0.05, 0.35, h);
-                        gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+                        gl_FragColor = texture2D(uTexture, vUv);
                     }`
             });
-            skyDome = new THREE.Mesh(geom, mat);
+        }
+        (function preloadSkyTexture() {
+            const loader = new THREE.TextureLoader();
+            console.log('[天空] 开始加载全景图 sky-panorama.png ...');
+            loader.load('sky-panorama.png',
+                (tex) => {
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.needsUpdate = true;
+                    skyTexture = tex;
+                    skyTextureReady = true;
+                    console.log('[天空] ✅ 全景图加载成功，尺寸:', tex.image.width + '×' + tex.image.height);
+                    if (skyDome) {
+                        skyDome.material.dispose();
+                        skyDome.material = createPanoramaMaterial(tex);
+                        console.log('[天空] ✅ 天空球材质已替换为全景纹理(Shader)');
+                    }
+                },
+                undefined,
+                (err) => { console.warn('[天空] ❌ 全景图加载失败，将使用渐变兜底:', err); }
+            );
+        })();
+
+        function createSkyDome(targetScene) {
+            if (skyDome) { targetScene.remove(skyDome); skyDome.geometry.dispose(); skyDome.material.dispose(); }
+            const geom = new THREE.SphereGeometry(280, 64, 32);  // 半径280 < 摄像机far=300，确保不被裁剪
+            if (skyTextureReady && skyTexture) {
+                skyDome = new THREE.Mesh(geom, createPanoramaMaterial(skyTexture));
+                console.log('[天空] 使用全景纹理创建天空球(Shader)');
+            } else {
+                const mat = new THREE.ShaderMaterial({
+                    side: THREE.BackSide,
+                    depthWrite: false,
+                    uniforms: {
+                        topColor: { value: new THREE.Color('#1a3a5c') },
+                        bottomColor: { value: new THREE.Color('#8cb4d8') }
+                    },
+                    vertexShader: `
+                        varying vec3 vWorldPos;
+                        void main() {
+                            vec4 wp = modelMatrix * vec4(position, 1.0);
+                            vWorldPos = wp.xyz;
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }`,
+                    fragmentShader: `
+                        varying vec3 vWorldPos;
+                        uniform vec3 topColor;
+                        uniform vec3 bottomColor;
+                        void main() {
+                            float h = normalize(vWorldPos).y;
+                            float t = smoothstep(-0.05, 0.35, h);
+                            gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+                        }`
+                });
+                skyDome = new THREE.Mesh(geom, mat);
+                console.log('[天空] 纹理未就绪，使用渐变兜底（等待全景图...）');
+            }
             skyDome.renderOrder = -1;
             skyDome.material.depthTest = true;
             targetScene.add(skyDome);
@@ -1142,7 +1196,7 @@
             scene1 = new THREE.Scene();
             addLightingTo(scene1);
             createSkyDome(scene1);
-            createDistantMountains(scene1);
+            // createDistantMountains(scene1);  // 已被全景天空贴图替代
             createGround(scene1);
             createObstacles(scene1);
 
@@ -1272,6 +1326,23 @@
             groundEdgeLine.rotation.x = -Math.PI / 2;
             groundEdgeLine.position.y = 0.03;
             targetScene.add(groundEdgeLine);
+
+            // 裙边地面：填充地图边缘到雾远平面之间的空隙，避免从边缘看到"世界尽头"
+            if (groundSkirtPlane) { targetScene.remove(groundSkirtPlane); groundSkirtPlane.geometry.dispose(); groundSkirtPlane.material.dispose(); }
+            const SKIRT_SIZE = 400;  // 延伸到雾 far=120 之外
+            const skirtGeo = new THREE.PlaneGeometry(SKIRT_SIZE, SKIRT_SIZE);
+            const skirtMat = new THREE.MeshStandardMaterial({
+                color: '#5a6a4a',
+                roughness: 1.0,
+                metalness: 0.0,
+                fog: true
+            });
+            groundSkirtPlane = new THREE.Mesh(skirtGeo, skirtMat);
+            groundSkirtPlane.rotation.x = -Math.PI / 2;
+            groundSkirtPlane.position.y = -0.05;  // 在纹理地面下方，避免 Z-fighting
+            groundSkirtPlane.receiveShadow = true;
+            groundSkirtPlane.name = 'groundSkirt';
+            targetScene.add(groundSkirtPlane);
         }
 
         // ==================== 程序化草丛覆盖系统（InstancedMesh 性能优化） ====================
@@ -3271,7 +3342,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.22.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.22.2  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3597,7 +3668,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.22.1 | 炮弹外形(圆柱+锥头) | 天空穹顶+远山 | 蓝灰雾色');
+        console.log('🎮 坦克运动demo v0.22.2 | 全景山脉天空球 | 裙边地面 | 蓝灰雾色');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
