@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.21.3</title>
+    <title>坦克运动demo v0.21.4</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.21.3</div>
+        <div class="menu-version">v0.21.4</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -928,12 +928,12 @@
         const MAX_SPEED = 4.0;
         const TRACK_ACCEL = 6.0, TRACK_DECEL = 10.0, TRACK_COAST = 3.5;
         const PITCH_GAIN = 0.12, PITCH_MAX = 0.18, PITCH_SMOOTH = 8.0;
-        const WORLD_HALF = 50;                  // 地图半边长 50 单位 ≈ 235 米
-        const OBSTACLE_COUNT = 120;             // 障碍物数量（地图缩小后减少）
-        const POISSON_MIN_DIST = 3.0, SAFE_ZONE_RADIUS = 5.0, SPAWN_RADIUS = 48;
-        const OBS_VISIBLE_RADIUS = 30;          // 障碍物可见范围（加大以确保障碍物在视野内）
-        const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;
-        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 150.0;
+        const WORLD_HALF = 100;
+        const OBSTACLE_COUNT = 350;
+        const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
+        const OBS_VISIBLE_RADIUS = 48;  // LOD可见半径（原65→48，配合近距离摄像机）
+        const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
+        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
         const SHELL_DAMAGE = 20;
 
@@ -1113,7 +1113,7 @@
             }
 
             // --- 摄像机 ---
-            camera = new THREE.PerspectiveCamera(55, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
+            camera = new THREE.PerspectiveCamera(40, renderer.domElement.width / renderer.domElement.height, 0.5, 200);
             placeCamera();
         }
 
@@ -1992,7 +1992,7 @@
             reloadTimer = 0;
             if (player1) player1.reloadTimer = 0;  // 同步玩家对象
             // 清除所有炮弹
-            shells.forEach(s => { scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose(); });
+            shells.forEach(s => { scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose(); if(s.tracerLight)scene.remove(s.tracerLight); if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();} });
             shells = [];
             // 清除所有碎块
             fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); });
@@ -2071,15 +2071,31 @@
             const f2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color:'#ff6600', transparent:true, opacity:0.7 }));
             f2.position.copy(barrelTipWorld); scene.add(f2); muzzleLights.push({ light: f2, life: 0.35 });
 
+            // ── 曳光弹：炮弹主体 + 点光源 + 拖尾光球 ──
             const shellMesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.04, 0.04, 0.2, 6),
-                new THREE.MeshStandardMaterial({ color:'#ccaa44', roughness:0.2, metalness:0.8, emissive:'#331100', emissiveIntensity:0.5 })
+                new THREE.CylinderGeometry(0.05, 0.05, 0.25, 8),
+                new THREE.MeshStandardMaterial({ color:'#ffcc00', roughness:0.05, metalness:0.3, emissive:'#ff9900', emissiveIntensity:2.5 })
             );
             shellMesh.rotation.x = Math.PI/2; shellMesh.position.copy(barrelTipWorld); shellMesh.castShadow = true;
             scene.add(shellMesh);
 
+            // 曳光弹发光点光源（跟随炮弹移动）
+            const tracerLight = new THREE.PointLight('#ffaa22', 6, 12, 2);
+            tracerLight.position.copy(barrelTipWorld);
+            scene.add(tracerLight);
+
+            // 拖尾光球（在炮弹后方，模拟曳光弹尾迹）
+            const glowTail = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 8, 8),
+                new THREE.MeshBasicMaterial({ color:'#ff8800', transparent:true, opacity:0.60, depthWrite:false })
+            );
+            glowTail.position.copy(barrelTipWorld);
+            glowTail.renderOrder = 999;
+            glowTail.material.depthTest = true;
+            scene.add(glowTail);
+
             const vel = new THREE.Vector3(fx * SHELL_SPEED, 0.3, fz * SHELL_SPEED);
-            shells.push({ mesh: shellMesh, vel, owner: player });
+            shells.push({ mesh: shellMesh, vel, owner: player, tracerLight, glowTail });
         }
 
         function spawnFragments(pos, color) {
@@ -2370,6 +2386,12 @@
                 if (s.vel.lengthSq() > 0.01) {
                     s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
                 }
+                // 曳光弹：光源跟随炮弹，拖尾光球略落后方
+                if (s.tracerLight) s.tracerLight.position.copy(s.mesh.position);
+                if (s.glowTail) {
+                    const velDir = s.vel.clone().normalize();
+                    s.glowTail.position.copy(s.mesh.position).addScaledVector(velDir, -0.18);
+                }
 
                 // 碰撞检测：炮弹 vs 障碍物（水平+垂直分离检测）
                 let hit = false;
@@ -2434,6 +2456,8 @@
                 if (hit || s.mesh.position.y < shellGroundY || distToTank > SHELL_MAX_DIST ||
                     Math.abs(s.mesh.position.x) > WORLD_HALF+50 || Math.abs(s.mesh.position.z) > WORLD_HALF+50) {
                     scene.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose();
+                    if (s.tracerLight) { scene.remove(s.tracerLight); }
+                    if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); }
                     shells.splice(i, 1);
                 }
             }
@@ -2581,11 +2605,12 @@
 
         // ==================== 摄像机 ====================
         // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
-        // 坦克长 8 米 = 1.70 单位；希望视野中能看到约 3-4 个坦克身长 ≈ 25 米 ≈ 5.3 单位
-        const CAMERA_BEHIND = 5.5;   // 单人模式摄像机在坦克后方距离
-        const CAMERA_ABOVE = 4.0;    // 单人模式摄像机在坦克上方高度
-        const DUAL_CAMERA_BEHIND = 10;  // 双人模式摄像机距离（分屏视野需更远）
-        const DUAL_CAMERA_ABOVE = 6;    // 双人模式摄像机高度
+        // 摄像机参数（单人模式×0.5，双人模式×0.7）
+        const CAMERA_BEHIND = 7;    // 摄像机在球后方距离（原14→7）
+        const CAMERA_ABOVE = 5;     // 摄像机在球上方高度（原10→5）
+        const CAMERA_BEHIND_VS = 10; // 双人模式后方距离（14×0.7≈10）
+        const CAMERA_ABOVE_VS = 7;   // 双人模式上方高度（10×0.7≈7）
+        const CAMERA_LOOK_Y = 2.0;   // lookAt 高度（原3.5→2.0）
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -2596,8 +2621,7 @@
                 groundY + CAMERA_ABOVE,
                 tankGroup.position.z - fz * CAMERA_BEHIND
             );
-            // 看向坦克上方使坦克下沉到画面 1/3 高度
-            camera.lookAt(tankGroup.position.x, groundY + 3.5, tankGroup.position.z);
+            camera.lookAt(tankGroup.position.x, groundY + CAMERA_LOOK_Y, tankGroup.position.z);
         }
 
         // ==================== 菜单与状态切换 ====================
@@ -2791,18 +2815,17 @@
             hintBar.textContent='1P 键盘 W/S/↑/↓/空格  |  2P 手柄 左摇杆/右摇杆/RT  |  相距远时显示指向箭头';
             renderer.setSize(window.innerWidth, window.innerHeight);
 
-            // 移除旧 player1（可能来自场景1）
-            if(player1&&player1.group&&player1.group.parent)player1.group.parent.remove(player1.group);
-            if(player1&&player1.reloadBarGroup&&player1.reloadBarGroup.parent)player1.reloadBarGroup.parent.remove(player1.reloadBarGroup);
-            if(player1&&player1.hpBarGroup&&player1.hpBarGroup.parent)player1.hpBarGroup.parent.remove(player1.hpBarGroup);
-            if(player1&&player1.damageEffects){if(player1.damageEffects.firePoints.parent)player1.damageEffects.firePoints.parent.remove(player1.damageEffects.firePoints);if(player1.damageEffects.smokePoints.parent)player1.damageEffects.smokePoints.parent.remove(player1.damageEffects.smokePoints);}
-            // 移除旧 player2
-            if(player2&&player2.group&&player2.group.parent)player2.group.parent.remove(player2.group);
-            if(player2&&player2.reloadBarGroup&&player2.reloadBarGroup.parent)player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
-            if(player2&&player2.hpBarGroup&&player2.hpBarGroup.parent)player2.hpBarGroup.parent.remove(player2.hpBarGroup);
-            if(player2&&player2.damageEffects){if(player2.damageEffects.firePoints.parent)player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints);if(player2.damageEffects.smokePoints.parent)player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints);}
-            // 清除所有炮弹/碎块/爆炸（它们已在当前场景中）
-            shells.forEach(s=>{if(s.mesh.parent)s.mesh.parent.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();});shells=[];
+            // 移除旧 player1（来自 initScene 或上次游戏的残留）
+            if(player1&&player1.group)scene.remove(player1.group);
+            if(player1&&player1.reloadBarGroup)scene.remove(player1.reloadBarGroup);
+            if(player1&&player1.hpBarGroup)scene.remove(player1.hpBarGroup);
+            if(player1&&player1.damageEffects){scene.remove(player1.damageEffects.firePoints);scene.remove(player1.damageEffects.smokePoints);}
+            // 移除旧 player2（来自上次对战的残留）
+            if(player2&&player2.group)scene.remove(player2.group);
+            if(player2&&player2.reloadBarGroup)scene.remove(player2.reloadBarGroup);
+            if(player2&&player2.hpBarGroup)scene.remove(player2.hpBarGroup);
+            if(player2&&player2.damageEffects){scene.remove(player2.damageEffects.firePoints);scene.remove(player2.damageEffects.smokePoints);}
+            shells.forEach(s=>{scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();if(s.tracerLight)scene.remove(s.tracerLight);if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
             explosions.forEach(exp=>exp.dispose());explosions=[];
@@ -2813,7 +2836,7 @@
             createBarsForPlayer(player1);createBarsForPlayer(player2);
             player1.reloadBarGroup.visible=player1.hpBarGroup.visible=true;
             player2.reloadBarGroup.visible=player2.hpBarGroup.visible=true;
-            camera2=new THREE.PerspectiveCamera(55,renderer.domElement.width/renderer.domElement.height,.5,300);
+            camera2=new THREE.PerspectiveCamera(48,renderer.domElement.width/renderer.domElement.height,.5,200);
             tankGroup=player1.group;tankHull=player1.hull;
             leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
             reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
@@ -2903,12 +2926,14 @@
             animationId=requestAnimationFrame(versusGameLoop);
         }
 
-        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);const gy=getGroundHeight(p.state.x,p.state.z);cam.position.set(p.state.x-fx*14,gy+10,p.state.z-fz*14);cam.lookAt(p.state.x,gy+3.5,p.state.z);}
+        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);const gy=getGroundHeight(p.state.x,p.state.z);cam.position.set(p.state.x-fx*CAMERA_BEHIND_VS,gy+CAMERA_ABOVE_VS,p.state.z-fz*CAMERA_BEHIND_VS);cam.lookAt(p.state.x,gy+CAMERA_LOOK_Y,p.state.z);}
 
         function updateShellsFragsMuzzle(dt) {
             for(let i=shells.length-1;i>=0;i--){const s=shells[i];s.vel.y-=SHELL_GRAVITY*dt;
                 s.mesh.position.x+=s.vel.x*dt;s.mesh.position.y+=s.vel.y*dt;s.mesh.position.z+=s.vel.z*dt;
                 if(s.vel.lengthSq()>.01)s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
+                if(s.tracerLight)s.tracerLight.position.copy(s.mesh.position);
+                if(s.glowTail){const vd=s.vel.clone().normalize();s.glowTail.position.copy(s.mesh.position).addScaledVector(vd,-0.18);}
                 let hit=false;const sR=.15;
                 for(let j=obstacleMeshes.length-1;j>=0;j--){const obs=obstacleMeshes[j];if(!obs.visible)continue;
                     const od2=obstacleData[j];const hdx=s.mesh.position.x-obs.position.x,hdz=s.mesh.position.z-obs.position.z;
@@ -2935,7 +2960,7 @@
                 const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
                 const sgy=getGroundHeight(s.mesh.position.x,s.mesh.position.z);
                 if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50)
-                {scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();shells.splice(i,1);}}
+                {scene.remove(s.mesh);s.mesh.geometry.dispose();s.mesh.material.dispose();if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
             for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
                 f.mesh.position.x+=f.vel.x*dt;f.mesh.position.y+=f.vel.y*dt;f.mesh.position.z+=f.vel.z*dt;
                 f.mesh.rotation.x+=f.rotSpeed.x*dt;f.mesh.rotation.y+=f.rotSpeed.y*dt;f.mesh.rotation.z+=f.rotSpeed.z*dt;
