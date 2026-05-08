@@ -3,7 +3,7 @@
   "name": "测试地图02a (草丛)",
   "size": 200,
   "type": "single",
-  "desc": "01a地形+程序化草丛覆盖（InstancedMesh优化，3 draw calls）",
+  "desc": "01a地形+噪声地形斑块+程序化草丛覆盖（InstancedMesh优化，3 draw calls）",
   "spawnPoints": { "p1": [0, 0, 1.57] },
   "terrain": {
     "pond": { "cx": 0, "cz": 50, "rx": 4.5, "rz": 6, "depth": 5 },
@@ -27,8 +27,8 @@
   "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 },
   "grassCover": {
     "enabled": true,
-    "spacing": 2.8,
-    "density": 0.65,
+    "spacing": 1.8,
+    "density": 0.80,
     "edgeFade": 4.0
   }
 }

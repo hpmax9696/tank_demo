@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.21.2</title>
+    <title>坦克运动demo v0.21.3</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.21.2</div>
+        <div class="menu-version">v0.21.3</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,12 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.21.2 更新 — 程序化草丛覆盖+性能对比</div>
-            <div class="cl-item">新增测试地图02a：01a地形+全图草地覆盖程序化草丛（低/中/高三种弯曲草叶）</div>
-            <div class="cl-item">采用InstancedMesh批处理：3个draw call渲染千余簇草丛，零额外draw call开销</div>
-            <div class="cl-item">自然分布算法：基于地形上下文（距水域/泥地/沙地距离）平滑过渡草丛类型</div>
-            <div class="cl-item">低草近水域/河岸 → 中草过渡带 → 高草开阔地，噪声扰动避免网格感</div>
-            <div class="cl-item">右上角FPS实时对比：01a(无草) vs 02a(有草) 性能差异一目了然</div>
+            <div class="cl-title">🔄 v0.21.3 更新 — 噪声地形斑块+草丛密度提升</div>
+            <div class="cl-item">FBM分形噪声生成自然地形斑块：草地~50% + 泥地~28% + 沙地~22%，取代全图单调草地</div>
+            <div class="cl-item">02a草丛密度大幅提升：spacing 2.8→1.8, density 0.65→0.80，草丛更浓密自然</div>
+            <div class="cl-item">地形斑块与特殊地貌（河岸、池塘边、山顶）无缝衔接，保持原有地貌特征不变</div>
+            <div class="cl-item">01a/02a双地图同步更新，噪声地形同时影响地面纹理和草丛分布</div>
 
         </div>
     </div>
@@ -508,8 +507,8 @@
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
                 grassCover: {
                     enabled: true,
-                    spacing: 2.8,
-                    density: 0.65,
+                    spacing: 1.8,
+                    density: 0.80,
                     edgeFade: 4.0
                 }
             }
@@ -524,6 +523,33 @@
             // 根据地图类型设置全局标志
             isVersusMap = (currentMapData.type === 'versus' || currentMapData.flat);
             return true;
+        }
+
+        // 简单 FBM 噪声（用于生成自然地形斑块）
+        function noise2D(x, z, seed) {
+            const n = Math.sin(x * 12.9898 + z * 78.233 + seed) * 43758.5453;
+            return n - Math.floor(n);
+        }
+        function smoothNoise(x, z, seed) {
+            const ix = Math.floor(x), iz = Math.floor(z);
+            const fx = x - ix, fz = z - iz;
+            const sx = fx * fx * (3 - 2 * fx); // smoothstep
+            const sz = fz * fz * (3 - 2 * fz);
+            const v00 = noise2D(ix, iz, seed), v10 = noise2D(ix + 1, iz, seed);
+            const v01 = noise2D(ix, iz + 1, seed), v11 = noise2D(ix + 1, iz + 1, seed);
+            const a = v00 + (v10 - v00) * sx;
+            const b = v01 + (v11 - v01) * sx;
+            return a + (b - a) * sz;
+        }
+        function fbmNoise(x, z, seed) {
+            let v = 0, amp = 0.6, freq = 1, total = 0;
+            for (let o = 0; o < 4; o++) {
+                v += smoothNoise(x * freq, z * freq, seed + o * 17) * amp;
+                total += amp;
+                amp *= 0.5;
+                freq *= 2.3;
+            }
+            return v / total;
         }
 
         // splat map：256x256，每像素编码地貌类型(0~5)
@@ -593,6 +619,17 @@
                         if (bd2 <= tt.basin.radius * tt.basin.radius) {
                             data[idx] = TERRAIN_TYPE_INDEX[tt.basin.type] || 2;
                         }
+                    }
+
+                    // ── 噪声地形斑块：将部分草地替换为泥地/沙地（草地占比≈50%）──
+                    if (data[idx] === defaultType) { // 仅转换未被特殊地形覆盖的草地像素
+                        const n = fbmNoise(wx * 0.06, wz * 0.06, 42);
+                        if (n > 0.78) {
+                            data[idx] = TERRAIN_TYPE_INDEX['sand'];    // ~22% 沙地斑块
+                        } else if (n > 0.50) {
+                            data[idx] = TERRAIN_TYPE_INDEX['mud'];    // ~28% 泥地斑块
+                        }
+                        // n <= 0.50 → 保持草地 (~50%)
                     }
                 }
             }
