@@ -1076,12 +1076,10 @@
                 trg.add(sun);
             }
 
-            // --- 场景1：单人模式（含河流、桥梁、A点） ---
+            // --- 场景1：单人模式 ---
             scene1 = new THREE.Scene();
             addLightingTo(scene1);
             createGround(scene1);
-            createRiver(scene1);
-            createBridge(scene1);
             createObstacles(scene1);
             obstacleMeshes1 = obstacleMeshes; obstacleData1 = obstacleData; // 保存场景1的障碍物
 
