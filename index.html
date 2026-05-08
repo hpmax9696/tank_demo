@@ -324,25 +324,7 @@
             <div class="cl-item">地图配置独立为.map.json文件：测试地图01a(单人-池塘河流高地盆地)、测试地图01b(双人-大平原)</div>
             <div class="cl-item">单人模式新增地图选择面板：点击后选择地图再进入游戏</div>
             <div class="cl-item">地形参数全部从currentMapData读取：_t()/_getPond()/_getRiver()/_getHill()/_getBasin()/_getBridge()/_getWaterLevel()</div>
-            <div class="cl-title">🔄 v0.19.3 更新 — 双人对战地图分离+黑屏修复</div>
-            <div class="cl-item">双人对战地图改为大平原(与v0.18.40一致)：平坦地面无地形起伏，无水面/池塘/河流/桥梁，只保留随机障碍物</div>
-            <div class="cl-item">单人模式保留完整地形系统(池塘+河流+高地盆地)；两种模式共用地形系统和除地图外的配置</div>
-            <div class="cl-item">新增 isVersusMap 全局标志 + rebuildMap() 函数：模式切换时自动清理重建场景</div>
-            <div class="cl-item">修复双人对战黑屏bug：变量作用域错误(by未定义)导致requestAnimationFrame中断，全部帧渲染停止</div>
-            <div class="cl-title">🔄 v0.19.2 更新 — 河流系统：蛇形河流+桥梁+流动水面</div>
-            <div class="cl-item">蛇形河流横贯场景(Z≈-60)：振幅8m周期30m，宽10~15m正弦变化，深5m；半透明流动水面距地平线1m，正弦波流动动画</div>
-            <div class="cl-item">8m宽桥梁(Z≈-60,X=0)：木板桥面+双侧栏杆+石质桥墩；桥梁区域地型不下陷，坦克可通过桥梁过河</div>
-            <div class="cl-item">河流空气墙阻止坦克涉水；障碍物排除河流区域(桥梁除外)</div>
-            <div class="cl-title">🔄 v0.19.1 更新 — 地形系统：鸡蛋形池塘+高地盆地</div>
-            <div class="cl-item">200x200分段地形(1m精度)；鸡蛋形池塘(中心0,50 半轴4.5x6m 深5m)；半透明水面可见池底；池塘空气墙阻止坦克驶入</div>
-            <div class="cl-item">高地+盆地(40,-30)：高斯山丘高4m半径8m + 偏置盆地下陷3m半径5m</div>
-            <div class="cl-item">坦克/摄像机/炮弹/碎块/障碍物/伤害特效全部适配地形高度；地形坡度俯仰叠加加速度俯仰；障碍物排除池塘区域</div>
-            <div class="cl-title">🔄 v0.18.40 更新 — 恢复three.js版本并修复GLTFLoader兼容性，彻底解决泛白和模型加载</div>
-            <div class="cl-item">缩放因子由目标高度(米)反算：平房4~6m 别墅10~15m 公寓22~30m 树木3~15m 风车10~20m；底面积和高度同步缩放</div>
-            <div class="cl-title">🔄 v0.18.34 更新 — 公寓精细化(底商/住宅/退台顶层)</div>
-            <div class="cl-item">底层深色石材商铺带卷帘门；中层白色瓷砖住宅四面窗户；顶层灰色退台+天台围栏+设备箱</div>
-            <div class="cl-title">🔄 v0.18.32 更新 — 别墅精细化(二层退台/阳台/烟囱)</div>
-            <div class="cl-item">二楼退台+石墙/木墙分层；山墙屋顶；阳台栏杆；四面窗；台阶</div>
+
         </div>
     </div>
 
@@ -1198,7 +1180,7 @@
             for (const pz of [bz - bhw * 0.5, bz + bhw * 0.5]) {
                 for (const px of [bCX - bHW + 2, bCX + bHW - 2]) {
                     const pier = new THREE.Mesh(new THREE.BoxGeometry(0.5, pierH, 0.5), matPier);
-                    pier.position.set(px, RIVER_WATER_LEVEL - RIVER_DEPTH + pierH / 2, pz);
+                    pier.position.set(px, RIVER_WATER_LEVEL - rDepth + pierH / 2, pz);
                     pier.castShadow = true; pier.receiveShadow = true;
                     bridgeGroup.add(pier);
                 }
