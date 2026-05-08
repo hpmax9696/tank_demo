@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.20.0</title>
+    <title>坦克运动demo v0.22.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.20.0</div>
+        <div class="menu-version">v0.22.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,12 +368,12 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.20.0 更新 — 地貌纹理系统+地图选择</div>
-            <div class="cl-item">方案B+C融合：Splat Map(Uint8编码6种地形) + Canvas程序化纹理混合，2048×2048复合地表纹理</div>
-            <div class="cl-item">6种程序化地形纹理：草地/泥地/沙地/水泥地/柏油路面/地砖地面（FBM分形噪声程序化生成）</div>
-            <div class="cl-item">地图配置独立为.map.json文件：测试地图01a(单人-池塘河流高地盆地)、测试地图01b(双人-大平原)</div>
-            <div class="cl-item">单人模式新增地图选择面板：点击后选择地图再进入游戏</div>
-            <div class="cl-item">地形参数全部从currentMapData读取：_t()/_getPond()/_getRiver()/_getHill()/_getBasin()/_getBridge()/_getWaterLevel()</div>
+            <div class="cl-title">🔄 v0.22.0 更新 — 程序化草丛覆盖+InstancedMesh性能优化</div>
+            <div class="cl-item">新增测试地图02a：01a地形+全图草地覆盖程序化草丛（低/中/高三种弯曲草叶）</div>
+            <div class="cl-item">采用InstancedMesh批处理：3个draw call渲染千余簇草丛，零额外draw call开销</div>
+            <div class="cl-item">自然分布算法：基于地形上下文（距水域/泥地/沙地距离）平滑过渡草丛类型</div>
+            <div class="cl-item">低草近水域/河岸 → 中草过渡带 → 高草开阔地，噪声扰动避免网格感</div>
+            <div class="cl-item">右上角FPS实时对比：01a(无草) vs 02a(有草) 性能差异一目了然</div>
 
         </div>
     </div>
@@ -426,6 +426,7 @@
     <script src="models/trees.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
+    <script src="BufferGeometryUtils.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
 
@@ -483,6 +484,34 @@
                 spawnPoints: { p1: [-15, 0, 1.57], p2: [15, 0, -1.57] },
                 terrainTypes: { default: 'grass' },
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
+            },
+            'test_map_02a': {
+                version: '1.0', name: '测试地图02a (草丛)', size: 200, type: 'single',
+                desc: '01a地形+程序化草丛覆盖（InstancedMesh优化）',
+                spawnPoints: { p1: [0, 0, 1.57] },
+                terrain: {
+                    pond: { cx: 0, cz: 50, rx: 4.5, rz: 6, depth: 5 },
+                    river: { zc: -60, amp: 8, period: 30, hwBase: 6.25, hwVar: 1.25, hwPeriod: 20, hwPhase: 1.5, depth: 5 },
+                    hill: { cx: 40, cz: -30, height: 4, radius: 8 },
+                    basin: { cx: 48, cz: -25, depth: 3, radius: 5 }
+                },
+                terrainTypes: {
+                    default: 'grass',
+                    riverBank: { bankWidth: 5, type: 'mud' },
+                    pondEdge: { bankWidth: 3, type: 'mud' },
+                    hillTop: { radius: 4, type: 'sand' },
+                    basin: { radius: 3, type: 'sand' },
+                    bridgeSurface: { type: 'asphalt' }
+                },
+                waters: { pond: { waterLevel: -1 }, river: { waterLevel: -1 } },
+                bridges: [{ cx: 0, halfW: 4, deckH: 0.35 }],
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
+                grassCover: {
+                    enabled: true,
+                    spacing: 2.8,
+                    density: 0.65,
+                    edgeFade: 4.0
+                }
             }
         };
         let currentMapData = null;
@@ -1030,6 +1059,9 @@
             // --- 地面 ---
             createGround();
 
+            // --- 草丛覆盖（仅maps带grassCover的地图）---
+            placeGrass();
+
             // --- 水面（池塘）—仅单人模式 ---
             if (!isVersusMap) createWaterSurface();
 
@@ -1065,8 +1097,12 @@
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
             obstacleMeshes = []; obstacleData = [];
+            // 清除草丛
+            clearGrass();
             // 重建地面
             createGround();
+            // 重建草丛（仅带grassCover的地图）
+            placeGrass();
             // 重建水景（仅单人模式）
             if (!isVersusMap) { createWaterSurface(); createRiverWater(); createBridge(); }
             // 重建障碍物
@@ -1146,6 +1182,323 @@
             groundEdgeLine.rotation.x = -Math.PI / 2;
             groundEdgeLine.position.y = 0.03;
             scene.add(groundEdgeLine);
+        }
+
+        // ==================== 程序化草丛覆盖系统（InstancedMesh 性能优化） ====================
+        let grassInstances = [];  // { low, mid, high } → THREE.InstancedMesh
+
+        // 合并多个几何体为单个 BufferGeometry
+        function mergeGeometries(geos) {
+            if (geos.length === 1) return geos[0].clone();
+            let totalVerts = 0, totalIdx = 0;
+            geos.forEach(g => { totalVerts += g.attributes.position.count; totalIdx += (g.index ? g.index.count : g.attributes.position.count); });
+            const posArr = new Float32Array(totalVerts * 3);
+            const normArr = new Float32Array(totalVerts * 3);
+            const idxArr = new Uint32Array(totalIdx);
+            let vo = 0, io = 0, bv = 0;
+            geos.forEach(g => {
+                const gp = g.attributes.position.array;
+                const gn = g.attributes.normal ? g.attributes.normal.array : new Float32Array(g.attributes.position.count * 3);
+                const gi = g.index ? g.index.array : null;
+                posArr.set(gp, vo * 3);
+                normArr.set(gn, vo * 3);
+                if (gi) {
+                    for (let i = 0; i < gi.length; i++) idxArr[io + i] = gi[i] + bv;
+                    io += gi.length;
+                } else {
+                    for (let i = 0; i < gp.length / 3; i++) idxArr[io + i] = bv + i;
+                    io += gp.length / 3;
+                }
+                bv += g.attributes.position.count;
+                vo += g.attributes.position.count;
+            });
+            const merged = new THREE.BufferGeometry();
+            merged.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+            merged.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+            merged.setIndex(new THREE.BufferAttribute(idxArr, 1));
+            return merged;
+        }
+
+        // 创建弯曲草叶几何体（与 grass.js 相同算法，返回单个几何体）
+        function createBladeGeo(startX, startZ, tipX, tipH, tipZ, baseR, tipR, curveSegs, radialSegs) {
+            const curve = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(startX, 0, startZ),
+                new THREE.Vector3(tipX, tipH, tipZ),
+                new THREE.Vector3(startX + (tipX - startX) * 0.7, tipH * 0.5, startZ + (tipZ - startZ) * 0.7)
+            );
+            const verts = [];
+            for (let i = 0; i <= curveSegs; i++) {
+                const t = i / curveSegs;
+                const pt = curve.getPoint(t);
+                const r = baseR + (tipR - baseR) * t;
+                const tan = curve.getTangent(t).normalize();
+                const up = new THREE.Vector3(0, 1, 0);
+                const ax = new THREE.Vector3().crossVectors(up, tan).normalize();
+                if (ax.length() < 0.01) ax.set(1, 0, 0);
+                const ay = new THREE.Vector3().crossVectors(tan, ax).normalize();
+                for (let j = 0; j < radialSegs; j++) {
+                    const a = (j / radialSegs) * Math.PI * 2;
+                    verts.push(pt.x + (Math.cos(a) * ax.x + Math.sin(a) * ay.x) * r,
+                              pt.y + (Math.cos(a) * ax.y + Math.sin(a) * ay.y) * r,
+                              pt.z + (Math.cos(a) * ax.z + Math.sin(a) * ay.z) * r);
+                }
+            }
+            const idxs = [];
+            for (let i = 0; i < curveSegs; i++) {
+                for (let j = 0; j < radialSegs; j++) {
+                    const a = i * radialSegs + j, b = i * radialSegs + (j+1) % radialSegs;
+                    const c = (i+1) * radialSegs + j, d = (i+1) * radialSegs + (j+1) % radialSegs;
+                    idxs.push(a,b,d, a,d,c);
+                }
+            }
+            const tipV = curveSegs * radialSegs;
+            const tp = curve.getPoint(1);
+            verts.push(tp.x, tp.y, tp.z);
+            for (let j = 0; j < radialSegs; j++) {
+                idxs.push(tipV, ((curveSegs) * radialSegs + (j+1) % radialSegs), (curveSegs) * radialSegs + j);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geo.setIndex(idxs);
+            geo.computeVertexNormals();
+            return geo;
+        }
+
+        // 创建合并后的草丛几何体（所有叶片合并为一个 Geometry）
+        function createMergedBushGeo(config) {
+            const { bladeCount, minH, maxH, clusterR, spreadA, baseR, tipR, curveSegs, radialSegs, seed } = config;
+            const geos = [];
+            function srand(s) { let x = Math.sin(s*127.1+311.7)*43758.5453; return x-Math.floor(x); }
+            for (let i = 0; i < bladeCount; i++) {
+                const s = seed + i * 0.618;
+                const angle = srand(s) * Math.PI * 2;
+                const dist = clusterR * Math.pow(srand(s+0.1), 0.55);
+                const bx = Math.cos(angle) * dist, bz = Math.sin(angle) * dist;
+                const h = minH + srand(s+0.2) * (maxH - minH);
+                const ta = srand(s+0.3) * spreadA;
+                const td = srand(s+0.4) * Math.PI * 2;
+                const tx = bx + Math.cos(td) * Math.sin(ta) * h * 0.7;
+                const tz = bz + Math.sin(td) * Math.sin(ta) * h * 0.7;
+                const br = baseR * (0.8 + srand(s+0.5) * 0.4);
+                const tr = tipR * (0.6 + srand(s+0.6) * 0.8);
+                const g = createBladeGeo(bx, bz, tx, h, tz, br, tr, curveSegs, radialSegs);
+                geos.push(g);
+            }
+            return mergeGeometries(geos);
+        }
+
+        // 判断某点应放置的草丛类型（基于上下文：距离水/泥/沙等非草地区域的距离）
+        function determineGrassType(wx, wz, md, splat, half, splatSize) {
+            const sx = Math.floor((wx + half) / (md.size / splatSize));
+            const sy = Math.floor((wz + half) / (md.size / splatSize));
+            if (sx < 0 || sx >= splatSize || sy < 0 || sy >= splatSize) return null;
+            const idx = sy * splatSize + sx;
+            const terrainIdx = splat[idx];
+            // 只覆盖草地（index 0）
+            if (terrainIdx !== 0) return null;
+
+            // 检查周围是否有非草地地形（水域、泥地、沙地等）
+            let minNonGrassDist = Infinity;
+
+            // 检查附近是否有池塘（水面空气墙）
+            if (md.terrain && md.terrain.pond) {
+                const p = md.terrain.pond;
+                const prx = p.rx + 3, prz = p.rz + 3;
+                const dx = (wx - p.cx) / prx, dz = (wz - p.cz) / prz;
+                const d = Math.sqrt(dx*dx + dz*dz);
+                if (d < 1.0) return 'low'; // 池塘边缘只放低草
+                minNonGrassDist = Math.min(minNonGrassDist, (d - 1) * Math.max(prx, prz));
+            }
+
+            // 检查附近是否有河流
+            if (md.terrain && md.terrain.river) {
+                const r = md.terrain.river;
+                const rzc = r.zc + r.amp * Math.sin(wx / r.period);
+                const rhw = r.hwBase + r.hwVar * Math.sin(wx / r.hwPeriod + r.hwPhase);
+                const rDist = Math.abs(wz - rzc) - rhw;
+                if (rDist < 2) return 'low'; // 河岸边只放低草
+                minNonGrassDist = Math.min(minNonGrassDist, rDist);
+            }
+
+            // 扫描周围 splat 像素有无非草地
+            const scanR = Math.ceil(4 / (md.size / splatSize)); // 扫描约4m范围
+            let hasNonGrass = false;
+            for (let dy = -scanR; dy <= scanR && !hasNonGrass; dy++) {
+                for (let dx = -scanR; dx <= scanR; dx++) {
+                    const nsx = sx + dx, nsy = sy + dy;
+                    if (nsx >= 0 && nsx < splatSize && nsy >= 0 && nsy < splatSize) {
+                        if (splat[nsy * splatSize + nsx] !== 0) {
+                            hasNonGrass = true;
+                            const d = Math.sqrt(dx*dx + dy*dy) * (md.size / splatSize);
+                            minNonGrassDist = Math.min(minNonGrassDist, d);
+                        }
+                    }
+                }
+            }
+
+            // 基于距离和其他因素决定草丛类型
+            // 噪声值用于添加自然变化
+            const noiseVal = Math.sin(wx * 0.73 + wz * 0.37) * 0.5 + Math.sin(wx * 0.19 - wz * 0.53) * 0.3 +
+                             Math.sin((wx + wz) * 0.41) * 0.2;
+
+            if (minNonGrassDist < 5) {
+                // 靠近非草地：低草为主
+                const t = minNonGrassDist / 5;
+                return noiseVal + t > 0.3 ? 'low' : 'mid';
+            } else if (minNonGrassDist < 12) {
+                // 过渡带：混合低中高
+                const t = (minNonGrassDist - 5) / 7;
+                if (noiseVal < -0.3 + t * 0.3) return 'low';
+                if (noiseVal > 0.4 - t * 0.2) return 'high';
+                return 'mid';
+            } else {
+                // 开阔草地：中草为主，混高低
+                if (noiseVal < -0.4) return 'low';
+                if (noiseVal > 0.5) return 'high';
+                return 'mid';
+            }
+        }
+
+        function placeGrass() {
+            const md = currentMapData;
+            if (!md || !md.grassCover || !md.grassCover.enabled || isVersusMap) return;
+
+            const gc = md.grassCover;
+            const spacing = gc.spacing || 2.8;
+            const half = md.size / 2;
+            const splatSize = 256;
+            const splat = generateSplatMap();
+
+            // --- 预生成三种合并后的草丛几何体 ---
+            const bushGeos = {
+                low: createMergedBushGeo({
+                    bladeCount: 10, minH: 0.2, maxH: 0.4,
+                    clusterR: 0.30, spreadA: 0.35,
+                    baseR: 0.012, tipR: 0.002,
+                    curveSegs: 5, radialSegs: 5, seed: 100
+                }),
+                mid: createMergedBushGeo({
+                    bladeCount: 15, minH: 0.4, maxH: 0.7,
+                    clusterR: 0.45, spreadA: 0.45,
+                    baseR: 0.016, tipR: 0.003,
+                    curveSegs: 6, radialSegs: 5, seed: 200
+                }),
+                high: createMergedBushGeo({
+                    bladeCount: 22, minH: 0.7, maxH: 1.0,
+                    clusterR: 0.60, spreadA: 0.55,
+                    baseR: 0.020, tipR: 0.004,
+                    curveSegs: 7, radialSegs: 5, seed: 300
+                })
+            };
+
+            // --- 材质 ---
+            const mats = {
+                low: new THREE.MeshStandardMaterial({
+                    color: new THREE.Color('#5a8a3c'),
+                    roughness: 0.75, metalness: 0.02,
+                    flatShading: true, side: THREE.DoubleSide
+                }),
+                mid: new THREE.MeshStandardMaterial({
+                    color: new THREE.Color('#6b9b4a'),
+                    roughness: 0.75, metalness: 0.02,
+                    flatShading: true, side: THREE.DoubleSide
+                }),
+                high: new THREE.MeshStandardMaterial({
+                    color: new THREE.Color('#4a7a2e'),
+                    roughness: 0.75, metalness: 0.02,
+                    flatShading: true, side: THREE.DoubleSide
+                })
+            };
+
+            // --- 收集实例变换 ---
+            const instances = { low: [], mid: [], high: [] };
+            const matrix = new THREE.Matrix4();
+            const pos = new THREE.Vector3();
+            const quat = new THREE.Quaternion();
+
+            // 使用伪随机决定哪些位置放置草丛
+            const density = gc.density || 0.65;
+            let totalSampled = 0, totalPlaced = 0;
+
+            for (let x = -half + spacing * 0.5; x < half; x += spacing) {
+                for (let z = -half + spacing * 0.5; z < half; z += spacing) {
+                    totalSampled++;
+                    // 密度随机：不是所有格点都放草
+                    const rnd = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+                    if ((rnd - Math.floor(rnd)) > density) continue;
+
+                    const type = determineGrassType(x, z, md, splat, half, splatSize);
+                    if (!type) continue;
+
+                    totalPlaced++;
+
+                    // 微调位置（±30cm随机偏移，避免网格感）
+                    const jitterX = (Math.sin(x * 89.7 + z * 43.1) * 43758.5453 % 1 - 0.5) * spacing * 0.4;
+                    const jitterZ = (Math.sin(x * 73.3 - z * 97.7) * 43758.5453 % 1 - 0.5) * spacing * 0.4;
+
+                    // 获取地形高度
+                    const h = getTerrainHeight(x + jitterX, z + jitterZ);
+
+                    pos.set(x + jitterX, h, z + jitterZ);
+                    // 随机 Y 旋转
+                    const rotY = Math.sin(x * 53.7 + z * 37.1) * Math.PI; // 伪随机 0~2π
+                    quat.setFromEuler(new THREE.Euler(0, rotY, 0));
+                    matrix.compose(pos, quat, new THREE.Vector3(1, 1, 1));
+
+                    instances[type].push(matrix.clone());
+                }
+            }
+
+            // --- 创建 InstancedMesh ---
+            for (const [type, arr] of Object.entries(instances)) {
+                if (arr.length === 0) continue;
+                const im = new THREE.InstancedMesh(bushGeos[type], mats[type], arr.length);
+                im.castShadow = true;
+                im.receiveShadow = true;
+                im.name = 'grass_' + type;
+                arr.forEach((m, i) => im.setMatrixAt(i, m));
+                im.instanceMatrix.needsUpdate = true;
+
+                // 随机颜色变化（每实例）
+                const color = new THREE.Color();
+                const baseColors = {
+                    low: [[0.35, 0.54, 0.24], [0.30, 0.48, 0.20], [0.40, 0.58, 0.28]],
+                    mid: [[0.42, 0.61, 0.29], [0.36, 0.54, 0.24], [0.34, 0.50, 0.22]],
+                    high: [[0.29, 0.44, 0.18], [0.24, 0.38, 0.15], [0.32, 0.48, 0.20]]
+                };
+                const bc = baseColors[type];
+                for (let i = 0; i < arr.length; i++) {
+                    const pick = bc[i % bc.length];
+                    const r = pick[0] + (Math.sin(i * 0.73) * 0.5 + 0.5) * 0.06;
+                    const g = pick[1] + (Math.sin(i * 0.97) * 0.5 + 0.5) * 0.06;
+                    const b = pick[2] + (Math.sin(i * 0.53) * 0.5 + 0.5) * 0.04;
+                    color.setRGB(r, g, b);
+                    im.setColorAt(i, color);
+                }
+                im.instanceColor.needsUpdate = true;
+
+                scene.add(im);
+                grassInstances.push(im);
+            }
+
+            // 清理不再需要的原始几何体（已拷贝到 InstancedMesh 中）
+            // InstancedMesh 内部会拷贝一份，所以可以 dispose 原始几何
+            Object.values(bushGeos).forEach(g => g.dispose());
+
+            console.log('🌿 草丛覆盖完成: 采样' + totalSampled + '格点, 放置' + totalPlaced +
+                '簇 (低' + (instances.low.length) + ' 中' + (instances.mid.length) +
+                ' 高' + (instances.high.length) + '), 共' + grassInstances.length + ' draw calls');
+        }
+
+        // 清理草丛
+        function clearGrass() {
+            grassInstances.forEach(im => {
+                if (im.parent) im.parent.remove(im);
+                im.geometry.dispose();
+                im.material.dispose();
+            });
+            grassInstances = [];
+            grassTriCount = 0;
         }
 
         // ==================== 水面 ====================
@@ -1788,6 +2141,9 @@
 
         // ==================== 游戏循环 ====================
         const clock = new THREE.Clock();
+        // FPS 计数器
+        let fpsFrames = 0, fpsTime = 0, fpsCurrent = 0;
+        let grassTriCount = 0; // 草丛三角面统计
         let visibilityTimer = 0;
 
         // ── 手柄 ──
@@ -2175,6 +2531,11 @@
                     explosions.splice(i, 1);
                 }
             }
+
+            // FPS 统计
+            fpsFrames++;
+            fpsTime += dt;
+            if (fpsTime >= 0.5) { fpsCurrent = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0; }
 
             renderer.render(scene, camera);
             } catch(e) { console.warn('gameLoop error:', e.message); }
@@ -2656,22 +3017,23 @@
         function updateDebugInfo() {
             const el = document.getElementById('debug-info');
             if (!el) return;
-            const dpr = window.devicePixelRatio || 1;
-            const iw = window.innerWidth, ih = window.innerHeight;
-            const gc = document.getElementById('game-container');
-            const cw = gc ? gc.clientWidth : 0, ch = gc ? gc.clientHeight : 0;
-            const rdw = renderer ? renderer.domElement.width : 0, rdh = renderer ? renderer.domElement.height : 0;
-            const asp = camera ? (camera.aspect || 0).toFixed(3) : '-';
-            const cam2asp = (typeof camera2 !== 'undefined' && camera2) ? camera2.aspect.toFixed(3) : '-';
-            // 计算期望的canvas尺寸
-            const expW = Math.floor(iw * dpr), expH = Math.floor(ih * dpr);
-            const distM = totalDistance * METERS_PER_UNIT;
-            const tankP = tankState ? ('pos:' + tankState.x.toFixed(0) + ',' + tankState.z.toFixed(0)) : 'no-tank';
-            const obsV = obstacleMeshes.reduce((s,o) => s + (o.visible ? 1 : 0), 0);
+
+            // 统计草丛三角面
+            if (grassInstances.length > 0 && grassTriCount === 0) {
+                grassTriCount = grassInstances.reduce((sum, im) => {
+                    const geo = im.geometry;
+                    if (geo.index) return sum + geo.index.count / 3 * im.count;
+                    return sum + (geo.attributes.position.count / 3) * im.count;
+                }, 0);
+            }
+
+            const mapName = currentMapData ? currentMapData.name : '-';
+            const grassInfo = grassInstances.length > 0
+                ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
+                : '';
             el.textContent =
-                'v0.20.0  dpr:' + dpr.toFixed(2) +
-                '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
-                '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
+                mapName + '  FPS:' + fpsCurrent +
+                '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
         function returnToMenu() {
