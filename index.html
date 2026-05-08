@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.19.3</title>
+    <title>坦克运动demo v0.20.0</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -67,6 +67,78 @@
             margin-top: 2.5rem;
             color: #555;
             font-size: 0.85rem;
+        }
+
+        /* 地图选择面板 */
+        #map-selector {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin: 6px 0;
+        }
+        #map-selector.active { display: flex; }
+        #map-selector .map-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 280px;
+        }
+        #map-selector .map-item {
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #aaa;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+        }
+        #map-selector .map-item:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.2);
+        }
+        #map-selector .map-item.selected {
+            background: rgba(245,149,74,0.2);
+            border-color: #f5954a;
+            color: #f5954a;
+        }
+        #map-selector .map-item .map-name {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        #map-selector .map-item .map-desc {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        #map-selector .map-btn-row {
+            display: flex;
+            gap: 10px;
+        }
+        #map-selector .map-btn {
+            padding: 10px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        #map-selector .map-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+        }
+        #btn-start-game {
+            background: linear-gradient(135deg, #4caf50, #2e7d32);
+            color: #fff;
+        }
+        #btn-cancel-map {
+            background: rgba(255,255,255,0.08);
+            color: #aaa;
+            border: 1px solid rgba(255,255,255,0.12);
         }
 
         /* ========== 游戏画面 ========== */
@@ -231,13 +303,27 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.19.3</div>
+        <div class="menu-version">v0.20.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
         <button class="menu-btn" id="btn-exit">退出游戏</button>
+        <!-- 地图选择面板（点击单人模式后显示） -->
+        <div id="map-selector">
+            <div class="map-list" id="map-list"></div>
+            <div class="map-btn-row">
+                <button class="map-btn" id="btn-cancel-map">返回</button>
+                <button class="map-btn" id="btn-start-game">开始游戏</button>
+            </div>
+        </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔄 v0.20.0 更新 — 地貌纹理系统+地图选择</div>
+            <div class="cl-item">方案B+C融合：Splat Map(Uint8编码6种地形) + Canvas程序化纹理混合，2048×2048复合地表纹理</div>
+            <div class="cl-item">6种程序化地形纹理：草地/泥地/沙地/水泥地/柏油路面/地砖地面（FBM分形噪声程序化生成）</div>
+            <div class="cl-item">地图配置独立为.map.json文件：测试地图01a(单人-池塘河流高地盆地)、测试地图01b(双人-大平原)</div>
+            <div class="cl-item">单人模式新增地图选择面板：点击后选择地图再进入游戏</div>
+            <div class="cl-item">地形参数全部从currentMapData读取：_t()/_getPond()/_getRiver()/_getHill()/_getBasin()/_getBridge()/_getWaterLevel()</div>
             <div class="cl-title">🔄 v0.19.3 更新 — 双人对战地图分离+黑屏修复</div>
             <div class="cl-item">双人对战地图改为大平原(与v0.18.40一致)：平坦地面无地形起伏，无水面/池塘/河流/桥梁，只保留随机障碍物</div>
             <div class="cl-item">单人模式保留完整地形系统(池塘+河流+高地盆地)；两种模式共用地形系统和除地图外的配置</div>
@@ -305,6 +391,7 @@
     <script src="models/trees.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
+    <script src="models/terrainTextures.js"></script>
 
     <script>
         // ==================== DOM 引用 ====================
@@ -322,7 +409,191 @@
         const resultP1 = document.getElementById('result-p1');
         const resultP2 = document.getElementById('result-p2');
 
-        // ==================== 音频系统（Web Audio API 程序化生成） ====================
+        // ── 地图选择器 DOM ──
+        const mapSelector = document.getElementById('map-selector');
+        const mapList = document.getElementById('map-list');
+        const btnStartGame = document.getElementById('btn-start-game');
+        const btnCancelMap = document.getElementById('btn-cancel-map');
+        const menuButtons = document.getElementById('menu-overlay').querySelectorAll('.menu-btn');
+
+        // ==================== 地图系统 ====================
+        // 地图配置（内联数据，测试地图01a/01b与maps/*.map.json内容一致）
+        const MAP_CONFIGS = {
+            'test_map_01a': {
+                version: '1.0', name: '测试地图01a', size: 200, type: 'single',
+                desc: '池塘+蛇形河流+高地盆地，完整地形',
+                spawnPoints: { p1: [0, 0, 1.57] },
+                terrain: {
+                    pond: { cx: 0, cz: 50, rx: 4.5, rz: 6, depth: 5 },
+                    river: { zc: -60, amp: 8, period: 30, hwBase: 6.25, hwVar: 1.25, hwPeriod: 20, hwPhase: 1.5, depth: 5 },
+                    hill: { cx: 40, cz: -30, height: 4, radius: 8 },
+                    basin: { cx: 48, cz: -25, depth: 3, radius: 5 }
+                },
+                terrainTypes: {
+                    default: 'grass',
+                    riverBank: { bankWidth: 5, type: 'mud' },
+                    pondEdge: { bankWidth: 3, type: 'mud' },
+                    hillTop: { radius: 4, type: 'sand' },
+                    basin: { radius: 3, type: 'sand' },
+                    bridgeSurface: { type: 'asphalt' }
+                },
+                waters: { pond: { waterLevel: -1 }, river: { waterLevel: -1 } },
+                bridges: [{ cx: 0, halfW: 4, deckH: 0.35 }],
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
+            },
+            'test_map_01b': {
+                version: '1.0', name: '测试地图01b', size: 200, type: 'versus', flat: true,
+                desc: '双人对战平坦大平原',
+                spawnPoints: { p1: [-15, 0, 1.57], p2: [15, 0, -1.57] },
+                terrainTypes: { default: 'grass' },
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
+            }
+        };
+        let currentMapData = null;
+        const TERRAIN_TYPE_NAMES = ['grass', 'mud', 'sand', 'concrete', 'asphalt', 'brick'];
+        const TERRAIN_TYPE_INDEX = { grass: 0, mud: 1, sand: 2, concrete: 3, asphalt: 4, brick: 5 };
+
+        function loadMapConfig(mapId) {
+            currentMapData = MAP_CONFIGS[mapId];
+            if (!currentMapData) return false;
+            // 根据地图类型设置全局标志
+            isVersusMap = (currentMapData.type === 'versus' || currentMapData.flat);
+            return true;
+        }
+
+        // splat map：256x256，每像素编码地貌类型(0~5)
+        function generateSplatMap() {
+            const md = currentMapData;
+            const size = 256;
+            const data = new Uint8Array(size * size);
+            const defaultType = TERRAIN_TYPE_INDEX[md.terrainTypes.default] || 0;
+            for (let i = 0; i < size * size; i++) data[i] = defaultType;
+
+            if (!md.terrainTypes || isVersusMap) return data;
+
+            const tt = md.terrainTypes, t = md.terrain;
+            const half = md.size / 2;
+            const scale = md.size / size; // world units per pixel
+
+            // 辅助：世界坐标→splat坐标
+            function w2s(w) { return Math.round((w + half) / scale); }
+
+            for (let sy = 0; sy < size; sy++) {
+                const wz = -half + sy * scale; // world Z
+                for (let sx = 0; sx < size; sx++) {
+                    const wx = -half + sx * scale; // world X
+                    const idx = sy * size + sx;
+
+                    // 河流岸边→泥地
+                    if (t && t.river && tt.riverBank) {
+                        const rzc = t.river.zc + t.river.amp * Math.sin(wx / t.river.period);
+                        const rhw = t.river.hwBase + t.river.hwVar * Math.sin(wx / t.river.hwPeriod + t.river.hwPhase);
+                        const dist = Math.abs(wz - rzc);
+                        if (dist <= rhw + tt.riverBank.bankWidth && dist > rhw) {
+                            data[idx] = TERRAIN_TYPE_INDEX[tt.riverBank.type] || 1;
+                        }
+                    }
+
+                    // 池塘边缘→泥地
+                    if (t && t.pond && tt.pondEdge) {
+                        const px = wx - t.pond.cx, pz = wz - t.pond.cz;
+                        const ed = Math.sqrt((px*px)/(t.pond.rx*t.pond.rx) + (pz*pz)/(t.pond.rz*t.pond.rz));
+                        if (ed > 1.0 && ed <= 1.0 + tt.pondEdge.bankWidth / Math.max(t.pond.rx, t.pond.rz)) {
+                            data[idx] = TERRAIN_TYPE_INDEX[tt.pondEdge.type] || 1;
+                        }
+                    }
+
+                    // 桥梁表面→柏油路
+                    if (tt.bridgeSurface && t && t.river) {
+                        const rzc2 = t.river.zc + t.river.amp * Math.sin(wx / t.river.period);
+                        const rhw2 = t.river.hwBase + t.river.hwVar * Math.sin(wx / t.river.hwPeriod + t.river.hwPhase);
+                        if (Math.abs(wx) <= 4 && Math.abs(wz - rzc2) <= rhw2 + 0.8) {
+                            data[idx] = TERRAIN_TYPE_INDEX[tt.bridgeSurface.type] || 4;
+                        }
+                    }
+
+                    // 山丘顶部→沙地
+                    if (t && t.hill && tt.hillTop) {
+                        const hx = wx - t.hill.cx, hz2 = wz - t.hill.cz;
+                        const d2 = hx*hx + hz2*hz2;
+                        if (d2 <= tt.hillTop.radius * tt.hillTop.radius) {
+                            data[idx] = TERRAIN_TYPE_INDEX[tt.hillTop.type] || 2;
+                        }
+                    }
+
+                    // 盆地→沙地
+                    if (t && t.basin && tt.basin) {
+                        const bx2 = wx - t.basin.cx, bz2 = wz - t.basin.cz;
+                        const bd2 = bx2*bx2 + bz2*bz2;
+                        if (bd2 <= tt.basin.radius * tt.basin.radius) {
+                            data[idx] = TERRAIN_TYPE_INDEX[tt.basin.type] || 2;
+                        }
+                    }
+                }
+            }
+            return data;
+        }
+
+        // 根据 splat map 生成复合地面纹理（2048x2048）
+        function generateCompositeGroundTexture() {
+            const splat = generateSplatMap();
+            const splatSize = 256;
+            const outSize = 2048;
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = outSize;
+            const ctx = canvas.getContext('2d');
+
+            // 预生成6种纹理
+            const texCanvases = TERRAIN_TYPE_NAMES.map((name, idx) => {
+                try { return TerrainTextures[name](); } catch(e) {
+                    // 回退纯色
+                    const fc = document.createElement('canvas'); fc.width=fc.height=256;
+                    const fcx=fc.getContext('2d'); fcx.fillStyle=['#4a8c3f','#6b4a2e','#c4a860','#b0b0b0','#4a4a4a','#a05a3c'][idx];
+                    fcx.fillRect(0,0,256,256); return fc;
+                }
+            });
+
+            const half = currentMapData.size / 2;
+            const sw = currentMapData.size / outSize; // world units per output pixel
+
+            // 分块绘制，每个输出像素采样对应纹理
+            const blockSize = 8;
+            for (let by = 0; by < outSize; by += blockSize) {
+                for (let bx = 0; bx < outSize; bx += blockSize) {
+                    const wx = -half + bx * sw;
+                    const wz = -half + by * sw;
+                    // 查找 splat map 中的地形类型
+                    const sx = Math.floor((wx + half) / (currentMapData.size / splatSize));
+                    const sy = Math.floor((wz + half) / (currentMapData.size / splatSize));
+                    const typeIdx = (sx >= 0 && sx < splatSize && sy >= 0 && sy < splatSize)
+                        ? splat[sy * splatSize + sx] : 0;
+                    const texCanvas = texCanvases[Math.min(typeIdx, 5)];
+
+                    // 从纹理中采样对应区域绘制到输出
+                    const texX = ((wx % (currentMapData.size / 8)) / (currentMapData.size / 8) * 256 + 256) % 256;
+                    const texY = ((wz % (currentMapData.size / 8)) / (currentMapData.size / 8) * 256 + 256) % 256;
+                    ctx.drawImage(texCanvas,
+                        texX, texY, blockSize * sw / (currentMapData.size / 8) * 256, blockSize * sw / (currentMapData.size / 8) * 256,
+                        bx, by, blockSize, blockSize
+                    );
+                }
+            }
+
+            return canvas;
+        }
+
+        // 获取世界坐标处的地貌类型名称
+        function getTerrainTypeAt(x, z) {
+            if (!currentMapData || isVersusMap) return 'grass';
+            const half = currentMapData.size / 2;
+            const s = currentMapData.size / 256;
+            const sx = Math.floor((x + half) / s);
+            const sy = Math.floor((z + half) / s);
+            if (sx < 0 || sx >= 256 || sy < 0 || sy >= 256) return currentMapData.terrainTypes.default || 'grass';
+            const splat = generateSplatMap();
+            const idx = splat[sy * 256 + sx];
+            return TERRAIN_TYPE_NAMES[Math.min(idx, 5)];
+        }
         let audioCtx = null;
         let engineNodes = null;   // { osc, gain, noiseNode, noiseGain }
         let audioStarted = false;
@@ -564,83 +835,104 @@
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
         const SHELL_DAMAGE = 20;
 
-        // ==================== 地形系统 ====================
-        // 池塘：鸡蛋椭圆，中心(0,50)，X半轴4.5m Z半轴6m，深5m
-        const POND_CX = 0, POND_CZ = 50, POND_DEPTH = 5.0;
-        const POND_RX = 4.5, POND_RZ = 6.0;
-        const WATER_LEVEL = -1.0;  // 水位 Y，距地平线 1 米
-        // 高地+盆地：中心(40,-30)
-        const TERRAIN2_CX = 40, TERRAIN2_CZ = -30;
-        const HILL_HEIGHT = 4.0, HILL_RADIUS2 = 64;   // 山丘高4m，半径8m
-        const BASIN_DEPTH = 3.0, BASIN_RADIUS2 = 25;    // 盆地深3m，半径5m
-        // 河流：横贯X轴，蛇形Z中心≈-60，宽10~15m，深5m
-        const RIVER_ZC = -60, RIVER_AMP = 8, RIVER_PERIOD = 30;
-        const RIVER_HW_BASE = 6.25, RIVER_HW_VAR = 1.25, RIVER_HW_PERIOD = 20, RIVER_HW_PHASE = 1.5;
-        const RIVER_DEPTH = 5.0, RIVER_WATER_LEVEL = -1.0;
-        // 桥梁：X=0，宽8m(X方向)，桥面厚0.35m，表面高0.175m
-        const BRIDGE_CX = 0, BRIDGE_HALF_W = 4, BRIDGE_DECK_H = 0.35, BRIDGE_SURFACE_Y = BRIDGE_DECK_H / 2;
-        // 河流辅助函数
-        function riverCenterZ(x) { return RIVER_ZC + RIVER_AMP * Math.sin(x / RIVER_PERIOD); }
-        function riverHalfWidth(x) { return RIVER_HW_BASE + RIVER_HW_VAR * Math.sin(x / RIVER_HW_PERIOD + RIVER_HW_PHASE); }
-        function isOnBridge(x) { return x >= BRIDGE_CX - BRIDGE_HALF_W && x <= BRIDGE_CX + BRIDGE_HALF_W; }
+        // ==================== 地形系统（从 currentMapData 读取配置） ====================
+        const WATER_LEVEL = -1.0;  // 默认水位 Y
+        const RIVER_WATER_LEVEL = -1.0;
+        const BRIDGE_DECK_H = 0.35, BRIDGE_SURFACE_Y = 0.175;
+        let isVersusMap = false;
+
+        // 地形参数访问器（优先从 currentMapData 读取，回退到默认值）
+        function _t(key, fallback) {
+            if (!currentMapData || !currentMapData.terrain) return fallback;
+            return currentMapData.terrain[key] || fallback;
+        }
+        function _getPond() { return _t('pond', null); }
+        function _getRiver() { return _t('river', null); }
+        function _getHill() { return _t('hill', null); }
+        function _getBasin() { return _t('basin', null); }
+        function _getBridge() {
+            if (currentMapData && currentMapData.bridges) return currentMapData.bridges[0];
+            return { cx: 0, halfW: 4, deckH: 0.35 };
+        }
+        function _getWaterLevel(type) {
+            if (currentMapData && currentMapData.waters && currentMapData.waters[type])
+                return currentMapData.waters[type].waterLevel || -1;
+            return -1;
+        }
+
+        function riverCenterZ(x) {
+            const r = _getRiver(); if (!r) return -60;
+            return r.zc + r.amp * Math.sin(x / r.period);
+        }
+        function riverHalfWidth(x) {
+            const r = _getRiver(); if (!r) return 6.25;
+            return r.hwBase + r.hwVar * Math.sin(x / r.hwPeriod + r.hwPhase);
+        }
+        function isOnBridge(x) {
+            const b = _getBridge(); return x >= b.cx - b.halfW && x <= b.cx + b.halfW;
+        }
         function isOnBridgeSurface(x, z) {
             if (!isOnBridge(x)) return false;
-            const rzc = riverCenterZ(x), rhw = riverHalfWidth(x) + 0.8; // 桥面超出河岸0.8m
+            const rzc = riverCenterZ(x), rhw = riverHalfWidth(x) + 0.8;
             return Math.abs(z - rzc) <= rhw;
         }
-        let isVersusMap = false; // 双人对战大平原标志
+
         function getGroundHeight(x, z) {
             if (isVersusMap) return 0;
-            // 桥梁表面返回桥面顶部高度（含桥面厚度），否则返回地形高度
             return isOnBridgeSurface(x, z) ? BRIDGE_SURFACE_Y : getTerrainHeight(x, z);
         }
 
         function getTerrainHeight(x, z) {
             if (isVersusMap) return 0;
             let y = 0;
-            // ── 池塘（鸡蛋椭圆） ──
-            const px = x - POND_CX, pz = z - POND_CZ;
-            const eggDist = Math.sqrt((px*px)/(POND_RX*POND_RX) + (pz*pz)/(POND_RZ*POND_RZ));
-            if (eggDist < 1.0) {
-                const t = 1.0 - eggDist;
-                const smooth = t * t * (3.0 - 2.0 * t);  // Hermite smoothstep
-                y -= POND_DEPTH * smooth;
+            // ── 池塘 ──
+            const pond = _getPond();
+            if (pond) {
+                const px = x - pond.cx, pz = z - pond.cz;
+                const eggDist = Math.sqrt((px*px)/(pond.rx*pond.rx) + (pz*pz)/(pond.rz*pond.rz));
+                if (eggDist < 1.0) {
+                    const tt = 1.0 - eggDist;
+                    y -= pond.depth * tt * tt * (3.0 - 2.0 * tt);
+                }
             }
-            // ── 河流（蛇形，全段下陷，河床连续） ──
-            {
+            // ── 河流 ──
+            const river = _getRiver();
+            if (river) {
                 const rzc = riverCenterZ(x), rhw = riverHalfWidth(x);
                 const rnd = Math.abs(z - rzc) / Math.max(rhw, 0.1);
                 if (rnd < 1.0) {
-                    const t = 1.0 - rnd;
-                    const smooth = t * t * (3.0 - 2.0 * t);
-                    y -= RIVER_DEPTH * smooth;
+                    const tt = 1.0 - rnd;
+                    y -= river.depth * tt * tt * (3.0 - 2.0 * tt);
                 }
             }
-            // ── 高地（高斯山丘） ──
-            const hx = x - TERRAIN2_CX, hz = z - TERRAIN2_CZ;
-            const hillDist2 = hx*hx + hz*hz;
-            if (hillDist2 < HILL_RADIUS2 * 4) {
-                y += HILL_HEIGHT * Math.exp(-hillDist2 / HILL_RADIUS2);
+            // ── 高地 ──
+            const hill = _getHill();
+            if (hill) {
+                const hx = x - hill.cx, hz = z - hill.cz;
+                const hd2 = hx*hx + hz*hz;
+                const r2 = hill.radius * hill.radius;
+                if (hd2 < r2 * 4) y += hill.height * Math.exp(-hd2 / r2);
             }
-            // ── 盆地（偏置凹陷） ──
-            const bx = hx - 8, bz = hz + 5;
-            const basinDist2 = bx*bx + bz*bz;
-            if (basinDist2 < BASIN_RADIUS2 * 4) {
-                y -= BASIN_DEPTH * Math.exp(-basinDist2 / BASIN_RADIUS2);
+            // ── 盆地 ──
+            const basin = _getBasin();
+            if (basin) {
+                const bx = x - basin.cx, bz = z - basin.cz;
+                const bd2 = bx*bx + bz*bz;
+                const r2 = basin.radius * basin.radius;
+                if (bd2 < r2 * 4) y -= basin.depth * Math.exp(-bd2 / r2);
             }
             return y;
         }
 
-        // 池塘水体碰撞体：椭圆外扩坦克半宽作为空气墙
         function isInPond(x, z) {
-            const px = x - POND_CX, pz = z - POND_CZ;
+            const pond = _getPond(); if (!pond) return false;
+            const px = x - pond.cx, pz = z - pond.cz;
             const margin = TANK_HALF_W + 0.3;
-            const erx = POND_RX + margin, erz = POND_RZ + margin;
-            const dist = Math.sqrt((px*px)/(erx*erx) + (pz*pz)/(erz*erz));
-            return dist < 1.0;
+            const erx = pond.rx + margin, erz = pond.rz + margin;
+            return Math.sqrt((px*px)/(erx*erx) + (pz*pz)/(erz*erz)) < 1.0;
         }
-        // 河流空气墙检测：在河道内且不属于桥梁区域
         function isInRiver(x, z) {
+            if (!_getRiver()) return false;
             const margin = TANK_HALF_W + 0.3;
             const rzc = riverCenterZ(x), rhw = riverHalfWidth(x) + margin;
             return Math.abs(z - rzc) < rhw;
@@ -745,60 +1037,53 @@
             createObstacles();
         }
 
-        // ==================== 地面（200×200 = 1km²，分段地形） ====================
+        // ==================== 地面（200×200 = 1km²，分段地形+地貌纹理混合） ====================
         function createGround() {
-            const SIZE = WORLD_HALF * 2; // 200
-            const SEGS = 200; // 每1m一个顶点
+            const SIZE = currentMapData ? currentMapData.size : WORLD_HALF * 2;
+            const SEGS = 200;
 
-            // Canvas 生成瓷砖纹理
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-
-            // 草地底色
-            ctx.fillStyle = '#62994a';
-            ctx.fillRect(0, 0, 512, 512);
-
-            // 细网格（每格 ≈2 单位）
-            ctx.strokeStyle = '#4d7838';
-            ctx.lineWidth = 1.5;
-            const cellPx = 16;
-            for (let i = 0; i <= 512; i += cellPx) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            // ── 生成复合地貌纹理（splat map + 程序化纹理混合） ──
+            let texture;
+            try {
+                const compCanvas = generateCompositeGroundTexture();
+                texture = new THREE.CanvasTexture(compCanvas);
+                texture.wrapS = THREE.ClampToEdgeWrapping;
+                texture.wrapT = THREE.ClampToEdgeWrapping;
+                texture.repeat.set(1, 1);
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.magFilter = THREE.LinearFilter;
+                texture.minFilter = THREE.LinearMipmapLinearFilter;
+                texture.generateMipmaps = true;
+            } catch (e) {
+                // 纹理生成失败时回退到纯色
+                console.warn('地貌纹理生成失败，回退纯色:', e);
+                const fbCanvas = document.createElement('canvas');
+                fbCanvas.width = fbCanvas.height = 256;
+                const fbCtx = fbCanvas.getContext('2d');
+                fbCtx.fillStyle = '#62994a';
+                fbCtx.fillRect(0, 0, 256, 256);
+                texture = new THREE.CanvasTexture(fbCanvas);
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(SIZE / 5, SIZE / 5);
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.magFilter = THREE.LinearFilter;
+                texture.minFilter = THREE.LinearMipmapLinearFilter;
+                texture.generateMipmaps = true;
             }
 
-            // 粗网格（每 5 格一条粗线）
-            ctx.strokeStyle = '#3a5e2a';
-            ctx.lineWidth = 3;
-            for (let i = 0; i <= 512; i += cellPx * 5) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
-            }
-
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(SIZE / 5, SIZE / 5);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.magFilter = THREE.LinearFilter;
-            texture.minFilter = THREE.LinearMipmapLinearFilter;
-            texture.generateMipmaps = true;
-
-            // ── 地形几何：双人模式用平坦平面，单人模式用分段地形 ──
+            // ── 地形几何 ──
             let groundGeo;
             if (isVersusMap) {
-                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE); // 无分段，平坦
+                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE);
             } else {
                 groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
                 const pos = groundGeo.attributes.position;
                 for (let i = 0; i < pos.count; i++) {
-                    const gx = pos.getX(i);   // 顶点X → 世界X
-                    const gy = pos.getY(i);   // 顶点Y → 旋转后世界 -Z
-                    const wz = -gy;           // 旋转后对应的世界Z
+                    const gx = pos.getX(i);
+                    const gy = pos.getY(i);
+                    const wz = -gy;
                     const h = getTerrainHeight(gx, wz);
-                    pos.setZ(i, h);           // 设几何Z → 旋转后世界Y
+                    pos.setZ(i, h);
                 }
                 groundGeo.computeVertexNormals();
             }
@@ -816,7 +1101,7 @@
             groundPlane.name = 'ground';
             targetScene.add(groundPlane);
 
-            // 边界线框（世界边缘标记）
+            // 边界线框
             const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SIZE, SIZE));
             groundEdgeLine = new THREE.LineSegments(
                 edgeGeo,
@@ -830,20 +1115,16 @@
         // ==================== 水面 ====================
         let waterPlane = null, groundEdgeLine = null;
         function createWaterSurface() {
-            // 椭圆水面，略小于池塘边缘（留出岸边）
-            const wrx = POND_RX - 0.8, wrz = POND_RZ - 0.8;
+            const pond = _getPond(); if (!pond) return;
+            const wrx = pond.rx - 0.8, wrz = pond.rz - 0.8;
             const wGeo = new THREE.PlaneGeometry(wrx * 2, wrz * 2);
             const wMat = new THREE.MeshStandardMaterial({
-                color: '#3388bb',
-                roughness: 0.15,
-                metalness: 0.1,
-                transparent: true,
-                opacity: 0.55,
-                depthWrite: false,
+                color: '#3388bb', roughness: 0.15, metalness: 0.1,
+                transparent: true, opacity: 0.55, depthWrite: false,
             });
             waterPlane = new THREE.Mesh(wGeo, wMat);
             waterPlane.rotation.x = -Math.PI / 2;
-            waterPlane.position.set(POND_CX, WATER_LEVEL, POND_CZ);
+            waterPlane.position.set(pond.cx, _getWaterLevel('pond'), pond.cz);
             waterPlane.name = 'water';
             waterPlane.receiveShadow = true;
             scene.add(waterPlane);
@@ -852,12 +1133,14 @@
         // ==================== 河流（蛇形水面+桥梁） ====================
         let riverWater = null, bridgeGroup = null;
         function createRiverWater() {
+            if (!_getRiver()) return;  // 地图没有河流则不创建
             const segs = 200;
-            const len = WORLD_HALF * 2;
+            const len = (currentMapData ? currentMapData.size : WORLD_HALF * 2);
+            const half = len / 2;
             const verts = [];
             const indices = [];
             for (let i = 0; i <= segs; i++) {
-                const x = -WORLD_HALF + i * len / segs;
+                const x = -half + i * len / segs;
                 const zc = riverCenterZ(x), hw = riverHalfWidth(x) - 0.5;
                 verts.push(x, RIVER_WATER_LEVEL, zc + hw);
                 verts.push(x, RIVER_WATER_LEVEL, zc - hw);
@@ -880,21 +1163,22 @@
             scene.add(riverWater);
         }
         function createBridge() {
+            if (!_getRiver()) return;
+            const b = _getBridge();
+            const r = _getRiver();
+            const bCX = b.cx, bHW = b.halfW;
             bridgeGroup = new THREE.Group();
-            const bz = riverCenterZ(BRIDGE_CX);
-            const bhw = riverHalfWidth(BRIDGE_CX);
+            const bz = riverCenterZ(bCX);
+            const bhw = riverHalfWidth(bCX);
             const spanZ = (bhw + 0.8) * 2;
             const matDeck = new THREE.MeshStandardMaterial({ color: '#8B7355', roughness: 0.7, metalness: 0.1 });
             const matRail = new THREE.MeshStandardMaterial({ color: '#6B5340', roughness: 0.6, metalness: 0.2 });
-            // 桥面（中心Y=0，顶部Y=BRIDGE_SURFACE_Y=0.175）
-            const deck = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE_HALF_W * 2, BRIDGE_DECK_H, spanZ), matDeck);
-            deck.position.set(BRIDGE_CX, 0, bz);
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(bHW * 2, BRIDGE_DECK_H, spanZ), matDeck);
+            deck.position.set(bCX, 0, bz);
             deck.receiveShadow = true; deck.castShadow = true;
             bridgeGroup.add(deck);
-            // 两侧护栏（垂直于河流，沿Z方向在桥面两侧边缘）
             for (const side of [-1, 1]) {
-                const rx = BRIDGE_CX + side * (BRIDGE_HALF_W - 0.25);
-                // 水平横栏：沿Z方向延伸
+                const rx = bCX + side * (bHW - 0.25);
                 const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, spanZ - 0.6), matRail);
                 railTop.position.set(rx, BRIDGE_SURFACE_Y + 0.525, bz);
                 railTop.receiveShadow = true; railTop.castShadow = true;
@@ -902,18 +1186,17 @@
                 const railMid = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, spanZ - 0.6), matRail);
                 railMid.position.set(rx, BRIDGE_SURFACE_Y + 0.175, bz);
                 bridgeGroup.add(railMid);
-                // 栏杆立柱：沿Z方向排列
                 for (let pz = bz - spanZ / 2 + 0.8; pz <= bz + spanZ / 2 - 0.8; pz += 2) {
                     const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.1), matRail);
                     post.position.set(rx, BRIDGE_SURFACE_Y + 0.225, pz);
                     bridgeGroup.add(post);
                 }
             }
-            // 桥墩（从河床延伸到桥面底部）
             const matPier = new THREE.MeshStandardMaterial({ color: '#9B9B9B', roughness: 0.5, metalness: 0.1 });
-            const pierH = RIVER_DEPTH + Math.abs(RIVER_WATER_LEVEL) - BRIDGE_DECK_H / 2; // 5.825m
+            const rDepth = r.depth || 5;
+            const pierH = rDepth + Math.abs(RIVER_WATER_LEVEL) - BRIDGE_DECK_H / 2;
             for (const pz of [bz - bhw * 0.5, bz + bhw * 0.5]) {
-                for (const px of [BRIDGE_CX - BRIDGE_HALF_W + 2, BRIDGE_CX + BRIDGE_HALF_W - 2]) {
+                for (const px of [bCX - bHW + 2, bCX + bHW - 2]) {
                     const pier = new THREE.Mesh(new THREE.BoxGeometry(0.5, pierH, 0.5), matPier);
                     pier.position.set(px, RIVER_WATER_LEVEL - RIVER_DEPTH + pierH / 2, pz);
                     pier.castShadow = true; pier.receiveShadow = true;
@@ -1216,34 +1499,18 @@
             obstacleMeshes = [];
             obstacleData = [];
 
-            // 如果需要排除河流区域，构建排除函数
-            let excludeFn = null;
-            if (excludeRiver && riverColliders.length > 0) {
-                // 还排除 AB 点附近
-                excludeFn = (x, z) => {
-                    // 河流
-                    for (const rc of riverColliders) {
-                        const dx = x - rc.x, dz = z - rc.z;
-                        if (dx * dx + dz * dz < (rc.radius + POISSON_MIN_DIST) * (rc.radius + POISSON_MIN_DIST))
-                            return true;
-                    }
-                    // A 点安全区
-                    if ((x - POINT_A_X) ** 2 + (z - POINT_A_Z) ** 2 < (SAFE_ZONE_RADIUS * 0.8) ** 2) return true;
-                    // B 点预留区
-                    if ((x - POINT_B_X) ** 2 + (z - POINT_B_Z) ** 2 < (SAFE_ZONE_RADIUS * 0.5) ** 2) return true;
-                    return false;
-                };
-            }
-
-            const points = poissonDiskSampling(0, 0, SPAWN_RADIUS, POISSON_MIN_DIST, SAFE_ZONE_RADIUS, OBSTACLE_COUNT, excludeFn);
+            const obsCfg = currentMapData && currentMapData.obstacles ? currentMapData.obstacles : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
+            const points = poissonDiskSampling(0, 0, obsCfg.spawnRadius || SPAWN_RADIUS, obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS, obsCfg.count || OBSTACLE_COUNT);
 
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
-                // 双人模式平坦地图不跳过池塘/河流区域
                 if (!isVersusMap) {
-                    const pxPond = p.x - POND_CX, pzPond = p.z - POND_CZ;
-                    const pondClear = POND_RX + 2.0, pondClearZ = POND_RZ + 2.0;
-                    if (Math.sqrt((pxPond*pxPond)/(pondClear*pondClear) + (pzPond*pzPond)/(pondClearZ*pondClearZ)) < 1.0) continue;
+                    const pond = _getPond();
+                    if (pond) {
+                        const pxPond = p.x - pond.cx, pzPond = p.z - pond.cz;
+                        const pondClear = pond.rx + 2.0, pondClearZ = pond.rz + 2.0;
+                        if (Math.sqrt((pxPond*pxPond)/(pondClear*pondClear) + (pzPond*pzPond)/(pondClearZ*pondClearZ)) < 1.0) continue;
+                    }
                     if (isInRiver(p.x, p.z)) continue;
                 }
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
@@ -2082,6 +2349,7 @@
         }
 
         function enterVersusMode() {
+            loadMapConfig('test_map_01b');
             gameMode='versus';isVersusMap=true;
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='block';versusResult.style.display='none';
@@ -2248,8 +2516,52 @@
         }
 
         // ==================== 菜单与状态切换 ====================
+        let selectedMapId = 'test_map_01a';
+
+        function showMapSelector() {
+            // 隐藏菜单按钮，显示地图选择面板
+            document.querySelectorAll('#menu-overlay > .menu-btn').forEach(b => b.style.display = 'none');
+            document.querySelectorAll('#menu-overlay > .menu-hint').forEach(h => h.style.display = 'none');
+            document.querySelectorAll('#menu-overlay > .changelog').forEach(c => c.style.display = 'none');
+            mapSelector.classList.add('active');
+            // 填充单人地图列表
+            mapList.innerHTML = '';
+            Object.entries(MAP_CONFIGS).forEach(([id, cfg]) => {
+                if (cfg.type === 'single') {
+                    const item = document.createElement('div');
+                    item.className = 'map-item' + (id === selectedMapId ? ' selected' : '');
+                    item.dataset.mapId = id;
+                    item.innerHTML = `<div class="map-name">${cfg.name}</div><div class="map-desc">${cfg.desc || ''}</div>`;
+                    item.addEventListener('click', () => {
+                        mapList.querySelectorAll('.map-item').forEach(m => m.classList.remove('selected'));
+                        item.classList.add('selected');
+                        selectedMapId = id;
+                    });
+                    mapList.appendChild(item);
+                }
+            });
+            // 如果没有单人地图可选，默认选中第一个
+            if (!mapList.querySelector('.selected') && mapList.firstChild) {
+                mapList.firstChild.classList.add('selected');
+                selectedMapId = mapList.firstChild.dataset.mapId;
+            }
+        }
+
+        function hideMapSelector() {
+            mapSelector.classList.remove('active');
+            document.querySelectorAll('#menu-overlay > .menu-btn').forEach(b => b.style.display = '');
+            document.querySelectorAll('#menu-overlay > .menu-hint').forEach(h => h.style.display = '');
+            document.querySelectorAll('#menu-overlay > .changelog').forEach(c => c.style.display = '');
+        }
+
         function enterGame() {
             const wasVersus=isVersusMap;
+            hideMapSelector();
+            // 加载选中地图配置
+            if (!loadMapConfig(selectedMapId)) {
+                console.warn('地图加载失败，使用默认配置');
+                loadMapConfig('test_map_01a');
+            }
             gameMode='single';isVersusMap=false;
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
@@ -2264,7 +2576,7 @@
             if (player2 && player2.damageEffects) { if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints); if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints); }
             // 清理所有爆炸效果残留
             explosions.forEach(exp => exp.dispose()); explosions = [];
-            // 如果从双人对战返回，恢复单人完整地形
+            // 从双人对战返回时重建单人场景
             if (wasVersus) rebuildMap();
             // 重置 player1 state 与全局状态同步
             if (player1) {
@@ -2321,12 +2633,13 @@
             const tankP = tankState ? ('pos:' + tankState.x.toFixed(0) + ',' + tankState.z.toFixed(0)) : 'no-tank';
             const obsV = obstacleMeshes.reduce((s,o) => s + (o.visible ? 1 : 0), 0);
             el.textContent =
-                'v0.19.3  dpr:' + dpr.toFixed(2) +
+                'v0.20.0  dpr:' + dpr.toFixed(2) +
                 '\nwin:' + iw + 'x' + ih + ' exp:' + expW + 'x' + expH +
                 '\ncanv:' + rdw + 'x' + rdh + ' camA:' + asp + ' cam2A:' + cam2asp;
         }
 
         function returnToMenu() {
+            hideMapSelector();
             gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
             splitLine.style.display='none';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
@@ -2578,10 +2891,12 @@
         }
 
         // ==================== 事件绑定 ====================
-        btnEnter.addEventListener('click',enterGame);btnVersus.addEventListener('click',enterVersusMode);
+        btnEnter.addEventListener('click',showMapSelector);btnVersus.addEventListener('click',enterVersusMode);
         btnPreview.addEventListener('click', enterPreviewMode);
         btnExit.addEventListener('click',exitGame);btnBack.addEventListener('click',returnToMenu);
         btnPreviewBack.addEventListener('click', exitPreviewMode);
+        btnStartGame.addEventListener('click', enterGame);
+        btnCancelMap.addEventListener('click', hideMapSelector);
         window.addEventListener('resize',()=>{
             // 游戏渲染器
             if(camera&&renderer){
@@ -2601,8 +2916,9 @@
         });
 
         // ==================== 初始化 ====================
+        loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.19.3 | 双人对战地图分离+黑屏修复');
+        console.log('🎮 坦克运动demo v0.20.0 | 地貌纹理系统+地图选择 | SplatMap+程序化纹理混合');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
