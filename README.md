@@ -1,15 +1,16 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.20.0** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.21.6** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
 - **地貌纹理系统**：Splat Map + 程序化纹理混合，6种地形（草地/泥地/沙地/水泥地/柏油/地砖）
+- **程序化草丛系统**：弯曲草叶 + InstancedMesh 优化 + 空间分块 + 距离剔除（FPS 大幅提升）
 - **独立地图系统**：.map.json 格式存储，单人模式可选地图
 - **3 种建筑**：平房（山墙屋顶+窗框+门+烟囱）、别墅（二层退台+阳台+四面窗）、公寓（底商+住宅层+退台天台）
 - **2 种树木**：锥形树、球形树
 - **风车磨坊**：十字叶片+连接轴，带旋转动画
-- **粒子系统**：火焰/烟雾/爆炸/碎片/炮口焰/火花
+- **粒子系统**：火焰/烟雾/爆炸/碎片/炮口焰/火花/曳光弹
 - **音频系统**：全套 Web Audio API 程序化音效
 - **双人分屏对战**：2个独立视口 + 指向箭头 + 殉爆系统 + 独立大平原地图
 
@@ -57,12 +58,14 @@ python -m http.server 8080
 ├── three.min.js           # Three.js 库（UMD 构建，~654KB，本地加载）
 ├── GLTFLoader.js          # GLTF 模型加载器（用于加载 .glb 文件）
 ├── fireSmokeParticles.js  # 粒子系统模块（火焰/烟雾/爆炸效果）
+├── grass.js               # 程序化草丛生成（弯曲草叶 InstancedMesh + 空间分块）
 ├── fbx-test.html          # FBX 模型测试页
 ├── glb-test.html          # GLB 模型测试页
 ├── README.md              # 本文件
 ├── maps/                  # 地图配置文件
-│   ├── test_map_01a.map.json  # 单人测试地图（池塘+河流+高地+盆地）
-│   └── test_map_01b.map.json  # 双人对战地图（大平原）
+│   ├── test_map_01a.map.json  # 单人测试地图（池塘+河流+高地+盆地，地貌纹理版）
+│   ├── test_map_01b.map.json  # 双人对战地图（大平原）
+│   └── test_map_02a.map.json  # 单人进阶地图（程序化草丛覆盖版）
 └── models/                # 模型文件夹
     ├── modelRegistry.js   # 模型注册表（统一管理+权重随机）
     ├── terrainTextures.js # 程序化地形纹理生成（FBM噪声，6种地形）
@@ -105,10 +108,12 @@ fireSmokeParticles.js:
 ├── 玩家工厂（createPlayer）
 ├── 场景初始化（渲染器 / 光照 / 地面 / 坦克 / 障碍物 / 摄像机）
 ├── 地面系统（200×200 Canvas 网格纹理；单人分段地形+河流+池塘+桥梁，双人大平原）
+├── 地貌纹理系统（SplatMap + 6种 FBM 程序化地形纹理混合）
+├── 程序化草丛系统（弯曲草叶 + InstancedMesh + 空间分块 + 距离剔除）
 ├── 坦克模型系统（GLB 主力 + 程序化回退，GLTFLoader 双缓存异步加载）
 ├── 障碍物系统（泊松盘采样 + 6种建筑/树木 + LOD可见性管理）
 ├── 运动物理（差速驱动 / 加速制动惯性 / 碰撞检测 / 俯仰效果）
-├── 火炮系统（炮弹 / 炮口焰 / 碎片 / 命中火花）
+├── 火炮系统（炮弹 / 曳光弹 / 炮口焰 / 碎片 / 命中火花）
 ├── 坦克爆炸系统（大型火焰烟雾 + 殉爆连锁反应）
 ├── 殉爆系统（坦克爆炸引爆近距离障碍物，3.5米半径）
 ├── 游戏循环（gameLoop / versusGameLoop）
@@ -207,6 +212,50 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.21.6 — targetScene 参数修复（2026-05-08）
+**修复**：
+- `createGround()` 和 `createObstacles()` 误删 `targetScene` 参数导致黑屏
+- 新增 `POINT_A_X=0, POINT_A_Z=0` 常量（单人模式出生点）
+- 所有 `scene.add` 在这两个函数内统一改为 `targetScene.add`
+
+### v0.21.5 — targetScene 引用修复（2026-05-08）
+**修复**：
+- `targetScene is not defined` 错误，两处 `targetScene` 引用统一改为 `scene`
+
+### v0.21.4 — 摄像机优化+曳光弹（2026-05-08）
+**升级**：
+- 拉近摄像机距离（单人 BEHIND 10→7，上方 7→5；双人 BEHIND 15→12，上方 9→7）
+- 缩小 FOV（单人 55→50；双人 65→55）
+- 障碍物 LOD 调整：`OBS_RADIUS=55`，obbB 缩小至 0.4
+- 炮弹增加曳光弹发光效果（黄色 AdditiveBlending 发光球体，跟随弹道）
+
+### v0.21.3 — FBM 噪声地形斑块+草丛密度提升（2026-05-08）
+**升级**：
+- FBM 分形噪声生成自然地形斑块：草地~50% + 泥地~28% + 沙地~22%
+- 02a 草丛密度大幅提升：spacing 2.8→1.8, density 0.65→0.80
+- 地形斑块与特殊地貌（河岸、池塘边、山顶）无缝衔接
+
+### v0.21.2 — FPS 显示+草丛显示修复（2026-05-07）
+**修复**：
+- FPS 始终为 0 的问题（时钟未正确启动）
+- 草丛模型不显示的问题
+
+### v0.21.1 — 草丛模型预览+坦克 favicon（2026-05-07）
+**升级**：
+- 模型预览菜单添加草丛选项
+- 新增坦克 favicon 图标
+
+### v0.21.0 — 弯曲草叶草丛+次级模型预览+性能评估（2026-05-07）
+**新增**：
+- 程序化弯曲草叶模型（低/中/高三类，BoxGeometry）
+- 分类次级模型预览菜单
+- InstancedMesh 优化 + FPS 对比显示
+
+### v0.20.1 — RIVER_DEPTH 未定义修复（2026-05-08）
+**修复**：
+- `RIVER_DEPTH is not defined` 导致黑屏
+- 精简 changelog 只保留当前版本
 
 ### v0.20.0 — 地貌纹理系统+地图选择（2026-05-08）
 **新增**：
@@ -424,19 +473,24 @@ fireSmokeParticles.js:
 |------|:----:|------|
 | 单人模式 | ✅ 完成 | WASD + 空格 + 鼠标视角 |
 | 双人对战 | ✅ 完成 | 1P键盘 + 2P手柄，分屏渲染，独立大平原地图 |
-| 模型预览 | ✅ 完成 | 拖拽/缩放/切换模型 |
+| 模型预览 | ✅ 完成 | 拖拽/缩放/切换模型，含草丛预览 |
 | GLB 坦克模型 | ✅ 完成 | 双纹理（1P绿+2P黄），GLTFLoader 异步加载+缓存克隆 |
 | 程序化坦克回退 | ✅ 兜底 | t34-85.js / tank.js 在 GLB 失败时自动启用 |
+| 地貌纹理系统 | ✅ 完成 | SplatMap + 6种 FBM 程序化地形纹理 |
+| 程序化草丛系统 | ✅ 完成 | 弯曲草叶 + InstancedMesh + 空间分块 + 距离剔除 |
 | 平房建筑 | ✅ 精细化 | 山墙屋顶+窗框+门+烟囱 |
 | 别墅建筑 | ✅ 精细化 | 二层退台+石墙木墙+阳台+四面窗 |
 | 公寓建筑 | ✅ 精细化 | 底商石材+白色瓷砖住宅+退台天台 |
 | 风车磨坊 | ✅ 三修复 | 十字叶片+连接轴+侧面旋转 |
+| 曳光弹特效 | ✅ 完成 | 黄色 AdditiveBlending 发光球体，跟随弹道 |
 | 粒子系统 | ✅ | 火焰/烟雾/爆炸/碎片/炮口焰/火花 |
 | 音频系统 | ✅ | Web Audio API 原生生成 |
 | 殉爆系统 | ✅ | 坦克爆炸引爆附近障碍物 |
 | 障碍物随机朝向 | ✅ | 各方向随机旋转 |
 | 游戏模式切换 | ✅ 已修复 | 进出模式坦克/特效正确清理 |
 | 预览模式切换 | ✅ 已修复 | canvas 清理防止叠加 |
+| FPS 性能显示 | ✅ 修复 | FPS 实时显示（草丛优化后显著提升） |
+| 摄像机优化 | ✅ 完成 | 拉近距离 + 缩小 FOV（v0.21.4） |
 
 ### Git 仓库信息
 - **Gitee**（主仓库）：`https://gitee.com/hpmax9696/tank_demo.git`
@@ -452,12 +506,9 @@ git push origin master              # Gitee
 git push github master              # GitHub（失败跳过）
 
 # 同步 OneDrive 备份
-xcopy /Y /I "index.html" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
-xcopy /Y /I "README.md" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
-xcopy /Y /I "three.min.js" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
-xcopy /Y /I "GLTFLoader.js" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
-xcopy /Y /I "fireSmokeParticles.js" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\"
-xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\"
+Copy-Item -Path "index.html","README.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
+Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
 ```
 
 ### ⚠️ 版本号同步检查清单（每次更新必须执行）
@@ -472,37 +523,36 @@ xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.20.0`
-3. 页面右上角有调试信息（尺寸/DPR/canvas/camera aspect）
+2. 当前版本 console.log：`🎮 坦克运动demo v0.21.6 | 草地分块+距离剔除 | 摄像机优化 | 曳光弹特效 | targetScene修复`
+3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.20.0）
-- `index.html`：约 2860 行（HTML + CSS + JS 游戏引擎，含地图系统+纹理生成）
+### 代码规模（截至 v0.21.6）
+- `index.html`：约 3200 行（HTML + CSS + JS 游戏引擎，含地图系统+纹理生成+草丛系统）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
 - `models/buildings.js`：约 220 行（平房/别墅/公寓精细化）
 - `models/windmill.js`：约 59 行（风车磨坊已修复）
+- `grass.js`：程序化草丛生成（~210 行）
 - 其他模型文件：约 211 行（tank / trees / modelRegistry）
-- `maps/`：2个测试地图配置文件
-- **总计约 4500 行**
+- `maps/`：3个地图配置文件（test_map_01a / 01b / 02a）
+- **总计约 5100 行**
 
 ---
 
-## 当前版本关键参数（v0.19.7）
+## 当前版本关键参数（v0.21.6）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
-| 世界大小 | 100×100 单位 | ≈470×470 米 |
-| 障碍物数量 | 120 | 泊松盘采样，最小间距 3.0 |
-| 出生点 A | (-32, -32) | 面向东北 |
-| 河流宽度 | 3.0 单位 | 扁平河底 y=-0.15 + 斜坡岸 + 半透水面 |
-| 桥梁 | 长4×宽2.5 | BoxGeometry，桥面 y=0.35 |
-| 障碍物可见半径 | 30 单位 | 超出则隐藏 |
-| 单人摄像机 | 后方5.5 / 上方4.0 | FOV 55° |
-| 双人摄像机 | 后方10 / 上方6 | 分屏拉远 |
-| 坦克长度 | 1.70 单位 | ≈8 米 |
-| 单位换算 | 1单位 ≈ 4.706米 | METERS_PER_UNIT = 8/1.70 |
+| 世界大小 | 200×200 单位 | 双人对战为平坦平原，单人模式为分段地形 |
+| 障碍物数量 | 350 | 泊松盘采样，最小间距 6 单位 |
+| 出生安全区 | 半径 10 单位 | 中心无障碍物 |
+| 障碍物可见半径 | 55 单位 | 超出则隐藏（性能优化） |
+| 单人摄像机 | 后方7 / 上方5 | FOV 50° |
+| 双人摄像机 | 后方12 / 上方7 | FOV 55° |
+| 草地可见半径 | 55 单位 | 空间分块优化 |
+| 曳光弹 | 发光球体 | 黄色 AdditiveBlending，跟随弹道 |
 
 ---
 
@@ -510,13 +560,12 @@ xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo
 
 | # | 严重度 | 问题 | 期望行为 | 当前行为 | 可能原因 / 修复方向 |
 |---|--------|------|----------|----------|-------------------|
-| 1 | 🔴 | **坦克驶上桥梁时不提升** | 坦克底盘 y 应抬高到桥面 y=0.35，模拟爬坡 | 坦克 y=0 固定，桥面 y=0.35 在坦克上方 | 需在 `checkCollision` 中检测桥梁区域，返回 `bridgeY` 偏移量，`tankGroup.position.y` 设为桥面高度 |
-| 2 | 🔴 | **障碍物始终不可见** | 坦克周围 30 单位内应有障碍物可见 | 障碍物不被渲染，`obs可见: 0` | ① `initScene` 中 `createObstacles` 调用时 `tankState=(0,0)`，障碍物在错误位置标记可见 ② `enterGame` 中 `updateObstacleVisibility()` 可能未生效 ③ 排查 `poissonDiskSampling` 是否真的生成了障碍物 |
+| 1 | 🔴 | **本地 HTTP 服务器启动后无法访问** | 浏览器正常加载游戏 | `ERR_EMPTY_RESPONSE`（Python HTTP 服务器在 IPv6 绑定问题） | 使用 `python -m http.server 8081 --bind 127.0.0.1` 强制 IPv4，或使用 VS Code Live Server 插件 |
+| 2 | 🔴 | **坦克驶上桥梁时不提升** | 坦克底盘 y 应抬高到桥面 y=0.35，模拟爬坡 | 坦克 y=0 固定，桥面 y=0.35 在坦克上方 | 需在 `checkCollision` 中检测桥梁区域，返回 `bridgeY` 偏移量，`tankGroup.position.y` 设为桥面高度 |
 | 3 | 🔴 | **里程数字恒定为 0** | 坦克移动时里程累加 | 始终显示 `0.0 米` | `totalDistance` 累加在 `gameLoop` 中但可能：① `gameLoop` 未执行到此行 ② `v` 始终为 0（输入检测问题）③ 检查 `try/catch` 是否捕获了错误 |
-| 4 | 🔴 | **河水效果太假（无下陷/无流动）** | 下陷河床 + 流动河水 | 扁平色块 | ① 当前 `makeStrip` 创建的扁平条纹材质无纹理偏移 ② 需要恢复 V 形河床+程序化水纹+UV 流动 ③ 参考 v0.19.3 的河流方案 |
-| 5 | 🟡 | **双人模式摄像机距离** | 分屏视野更合理 | 当前 DUAL_CAMERA_BEHIND=10 可能仍偏近 | 可调整为 12-15 |
-| 6 | 🟡 | **GLB 模型 CORS 问题** | 从 file:// 协议加载 GLB 模型 | CORS 阻止，已回退程序化模型 | 建议用 Live Server 或 http-server |
-| 7 | 🟢 | **控制台 `.encoding` 废弃警告** | 无警告 | `THREE.Texture: Property .encoding has been replaced by .colorSpace` | three.min.js 版本旧，仅警告不崩溃，可忽略 |
+| 4 | 🟡 | **河水效果太假（无下陷/无流动）** | 下陷河床 + 流动河水 | 扁平色块 | ① 当前 `makeStrip` 创建的扁平条纹材质无纹理偏移 ② 需要恢复 V 形河床+程序化水纹+UV 流动 ③ 参考 v0.19.3 的河流方案 |
+| 5 | 🟡 | **GLB 模型 CORS 问题** | 从 file:// 协议加载 GLB 模型 | CORS 阻止，已回退程序化模型 | 必须通过 HTTP 服务器（`python -m http.server`）访问，不能直接双击 index.html |
+| 6 | 🟢 | **控制台 `.encoding` 废弃警告** | 无警告 | `THREE.Texture: Property .encoding has been replaced by .colorSpace` | three.min.js 版本旧，仅警告不崩溃，可忽略 |
 
 ---
 
@@ -526,23 +575,26 @@ xcopy /Y /I /E "models\*" "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo
 
 | 文件 | 行数 | 说明 |
 |------|:----:|------|
-| `index.html` | ~2400 | 主入口（HTML+CSS+JS） |
-| `three.min.js` | — | Three.js 库 |
+| `index.html` | ~3200 | 主入口（HTML+CSS+JS 游戏引擎） |
+| `three.min.js` | — | Three.js 库（本地加载，无需 CDN） |
 | `GLTFLoader.js` | — | GLB 加载器 |
-| `fireSmokeParticles.js` | ~390 | 粒子系统 |
+| `fireSmokeParticles.js` | ~390 | 粒子系统（火焰/烟雾/爆炸/曳光弹） |
+| `grass.js` | ~210 | 程序化草丛生成（InstancedMesh+空间分块） |
 | `models/modelRegistry.js` | ~66 | 模型注册表 |
 | `models/tank.js` | ~85 | 简化坦克（备选） |
-| `models/t34-85.js` | ~640 | T-34/85 v6.1 |
+| `models/t34-85.js` | ~640 | T-34/85 v6.1 程序化模型 |
+| `models/terrainTextures.js` | ~130 | 6种 FBM 程序化地形纹理 |
 | `models/trees.js` | ~60 | 树木 |
-| `models/buildings.js` | ~220 | 建筑 |
-| `models/windmill.js` | ~59 | 风车 |
-| **总计** | **~4000 行** | |
+| `models/buildings.js` | ~220 | 建筑（平房/别墅/公寓精细化） |
+| `models/windmill.js` | ~59 | 风车（十字叶片+侧面旋转） |
+| **总计** | **~5100 行** | |
 
 ### 运行方式
-1. 复制整个文件夹到目标电脑
-2. **双击 `index.html`** 立即运行
-3. 修改代码后关闭标签页重开（`Ctrl+F5` 在 `file://` 下可能无效）
-4. Chrome / Edge / Firefox 均可
+1. 复制整个 `坦克对战demo/` 文件夹到目标电脑
+2. 在项目目录下启动本地服务器：`python -m http.server 8081 --bind 127.0.0.1`
+3. 浏览器访问 `http://127.0.0.1:8081`（**必须通过 HTTP 服务器**，不能直接双击 index.html）
+4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问
+5. Chrome / Edge / Firefox 均可
 
 ### Git 仓库
 - **Gitee**（主）：`https://gitee.com/hpmax9696/tank_demo.git`
@@ -557,7 +609,9 @@ git push origin master        # Gitee
 git push github master        # GitHub
 
 # OneDrive 同步
-Copy-Item index.html, GLTFLoader.js, fireSmokeParticles.js, README.md "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+Copy-Item -Path "index.html","README.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js","grass.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
+Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
 ```
 
 ### 版本号同步清单
@@ -569,7 +623,7 @@ Copy-Item index.html, GLTFLoader.js, fireSmokeParticles.js, README.md "C:\Users\
 6. `README.md` 开头版本号
 
 ### 调试建议
-1. 右上角调试区显示：版本号、里程(米)、坦克坐标、可见障碍物数量
+1. 右上角调试区显示：版本号、FPS、里程(米)、坦克坐标、可见障碍物数量
 2. F12 → Console 查看日志
 3. 关标签页重开清缓存
 
@@ -577,18 +631,18 @@ Copy-Item index.html, GLTFLoader.js, fireSmokeParticles.js, README.md "C:\Users\
 
 ## 版本历史
 
-### v0.19.7 — 移交版本（2026-05-07）
-**当前版本**。河床扁平化+斜坡岸+桥面抬升+障碍物可见半径30+调试信息增强。
-**未解决**：坦克上桥不抬升、障碍物不可见、里程为0、河水无下陷流动。
+### v0.21.6 — targetScene 参数修复（2026-05-08）
+**修复**：`createGround()` 和 `createObstacles()` 误删 `targetScene` 参数导致黑屏；新增 `POINT_A_X/Z` 常量。全部同步至 Gitee / GitHub / OneDrive。
 
-### v0.19.6 — sRGB颜色修复+桥梁旋转+河床加大+gameLoop保护（2026-05-07）
-颜色修复（`texture.encoding = THREE.sRGBEncoding`）；桥梁 `atan2(-perp.z, perp.x)`；河床宽3.0深1.0；gameLoop try/catch。
+### v0.21.0~v0.21.5（详见上方"完整版本历史"）
 
-### v0.19.5 — 地图缩小到1/4 + 双人摄像机 + file://回退（2026-05-07）
-WORLD_HALF 100→50；DUAL_CAMERA_BEHIND=10；file://自动回退程序化模型；里程表上线。
+### v0.19.7 — 河床+桥梁+障碍物可见半径（2026-05-07）
+河床扁平化+斜坡岸+桥面抬升+OBS_RADIUS=30+调试信息增强。
 
-### v0.18.0~v0.19.4（详见 README 早期版本历史）
-（早期版本略）
+### v0.19.6 — sRGBEncoding 修复（2026-05-07）
+颜色修复；桥梁 `atan2(-perp.z, perp.x)`；河床宽3.0深1.0；gameLoop try/catch。
+
+### v0.18.0~v0.19.5（详见上方"完整版本历史"）
 
 ---
 
