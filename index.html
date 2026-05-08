@@ -1210,7 +1210,7 @@
             groundPlane.position.y = isVersusMap ? -0.01 : 0;
             groundPlane.receiveShadow = true;
             groundPlane.name = 'ground';
-            targetScene.add(groundPlane);
+            scene.add(groundPlane);
 
             // 边界线框
             const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SIZE, SIZE));
@@ -1997,7 +1997,7 @@
                 group.rotation.y = Math.random() * Math.PI * 2;
                 group.visible = false;
                 group.name = `obs-${i}`;
-                targetScene.add(group);
+                scene.add(group);
                 obstacleMeshes.push(group);
                 obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });
             }
