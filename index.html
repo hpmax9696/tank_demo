@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.21.4</title>
+    <title>坦克运动demo v0.21.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.21.4</div>
+        <div class="menu-version">v0.21.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -932,6 +932,8 @@
         const OBSTACLE_COUNT = 350;
         const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
         const OBS_VISIBLE_RADIUS = 48;  // LOD可见半径（原65→48，配合近距离摄像机）
+        const GRASS_CELL_SIZE = 40;     // 草丛空间分块大小（米）
+        const GRASS_VISIBLE_RADIUS = 55; // 草丛可见半径（米，略大于障碍物半径）
         const SHELL_SPEED = 22.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
         const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
@@ -1486,45 +1488,68 @@
                 }
             }
 
-            // --- 创建 InstancedMesh ---
+            // --- 按空间分块创建 InstancedMesh（支持距离剔除） ---
+            const cellInstances = {}; // { 'cx_cz': {low:[], mid:[], high:[]} }
+            const cellCenters = {};   // { 'cx_cz': {cx, cz} }
+            const cellsX = Math.ceil(currentMapData.size / GRASS_CELL_SIZE);
+            const cellsZ = Math.ceil(currentMapData.size / GRASS_CELL_SIZE);
+
             for (const [type, arr] of Object.entries(instances)) {
-                if (arr.length === 0) continue;
-                const im = new THREE.InstancedMesh(bushGeos[type], mats[type], arr.length);
-                im.castShadow = true;
-                im.receiveShadow = true;
-                im.name = 'grass_' + type;
-                arr.forEach((m, i) => im.setMatrixAt(i, m));
-                im.instanceMatrix.needsUpdate = true;
-
-                // 随机颜色变化（每实例）
-                const color = new THREE.Color();
-                const baseColors = {
-                    low: [[0.35, 0.54, 0.24], [0.30, 0.48, 0.20], [0.40, 0.58, 0.28]],
-                    mid: [[0.42, 0.61, 0.29], [0.36, 0.54, 0.24], [0.34, 0.50, 0.22]],
-                    high: [[0.29, 0.44, 0.18], [0.24, 0.38, 0.15], [0.32, 0.48, 0.20]]
-                };
-                const bc = baseColors[type];
-                for (let i = 0; i < arr.length; i++) {
-                    const pick = bc[i % bc.length];
-                    const r = pick[0] + (Math.sin(i * 0.73) * 0.5 + 0.5) * 0.06;
-                    const g = pick[1] + (Math.sin(i * 0.97) * 0.5 + 0.5) * 0.06;
-                    const b = pick[2] + (Math.sin(i * 0.53) * 0.5 + 0.5) * 0.04;
-                    color.setRGB(r, g, b);
-                    im.setColorAt(i, color);
+                for (const m of arr) {
+                    const x = m.elements[12], z = m.elements[14];
+                    const cx = Math.floor((x + half) / GRASS_CELL_SIZE);
+                    const cz = Math.floor((z + half) / GRASS_CELL_SIZE);
+                    const key = cx + '_' + cz;
+                    if (!cellInstances[key]) {
+                        cellInstances[key] = { low: [], mid: [], high: [] };
+                        cellCenters[key] = { cx: (cx + 0.5) * GRASS_CELL_SIZE - half, cz: (cz + 0.5) * GRASS_CELL_SIZE - half };
+                    }
+                    cellInstances[key][type].push(m);
                 }
-                im.instanceColor.needsUpdate = true;
+            }
 
-                scene.add(im);
-                grassInstances.push(im);
+            for (const [key, cell] of Object.entries(cellInstances)) {
+                for (const [type, arr] of Object.entries(cell)) {
+                    if (arr.length === 0) continue;
+                    const im = new THREE.InstancedMesh(bushGeos[type], mats[type], arr.length);
+                    im.castShadow = true;
+                    im.receiveShadow = true;
+                    im.name = 'grass_' + type + '_' + key;
+                    im.userData.cx = cellCenters[key].cx;
+                    im.userData.cz = cellCenters[key].cz;
+                    arr.forEach((m, i) => { im.setMatrixAt(i, m); });
+                    im.instanceMatrix.needsUpdate = true;
+
+                    // 随机颜色变化（每实例）
+                    const color = new THREE.Color();
+                    const baseColors = {
+                        low: [[0.35, 0.54, 0.24], [0.30, 0.48, 0.20], [0.40, 0.58, 0.28]],
+                        mid: [[0.42, 0.61, 0.29], [0.36, 0.54, 0.24], [0.34, 0.50, 0.22]],
+                        high: [[0.29, 0.44, 0.18], [0.24, 0.38, 0.15], [0.32, 0.48, 0.20]]
+                    };
+                    const bc = baseColors[type];
+                    for (let i = 0; i < arr.length; i++) {
+                        const pick = bc[i % bc.length];
+                        const r = pick[0] + (Math.sin(i * 0.73) * 0.5 + 0.5) * 0.06;
+                        const g = pick[1] + (Math.sin(i * 0.97) * 0.5 + 0.5) * 0.06;
+                        const b = pick[2] + (Math.sin(i * 0.53) * 0.5 + 0.5) * 0.04;
+                        color.setRGB(r, g, b);
+                        im.setColorAt(i, color);
+                    }
+                    im.instanceColor.needsUpdate = true;
+
+                    scene.add(im);
+                    grassInstances.push(im);
+                }
             }
 
             // 清理不再需要的原始几何体（已拷贝到 InstancedMesh 中）
-            // InstancedMesh 内部会拷贝一份，所以可以 dispose 原始几何
             Object.values(bushGeos).forEach(g => g.dispose());
 
             console.log('🌿 草丛覆盖完成: 采样' + totalSampled + '格点, 放置' + totalPlaced +
                 '簇 (低' + (instances.low.length) + ' 中' + (instances.mid.length) +
-                ' 高' + (instances.high.length) + '), 共' + grassInstances.length + ' draw calls');
+                ' 高' + (instances.high.length) + '), 共' + grassInstances.length + ' draw calls ('
+                + Object.keys(cellInstances).length + '个分块)');
         }
 
         // 清理草丛
@@ -1917,7 +1942,28 @@
             }
         }
 
-        function createObstacles(targetScene, excludeRiver) {
+        // ==================== 草丛距离剔除 ====================
+        function updateGrassVisibility(extraPositions) {
+            if (grassInstances.length === 0) return;
+            const r2 = GRASS_VISIBLE_RADIUS * GRASS_VISIBLE_RADIUS;
+            for (const im of grassInstances) {
+                const cx = im.userData.cx, cz = im.userData.cz;
+                let visible = false;
+                // 主坦克
+                const dx0 = tankState.x - cx, dz0 = tankState.z - cz;
+                if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
+                // 额外位置（对战模式中的其他玩家）
+                if (!visible && extraPositions) {
+                    for (const ep of extraPositions) {
+                        const dx = ep.x - cx, dz = ep.z - cz;
+                        if ((dx * dx + dz * dz) < r2) { visible = true; break; }
+                    }
+                }
+                if (im.visible !== visible) im.visible = visible;
+            }
+        }
+
+        function createObstacles() {
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
@@ -1957,6 +2003,7 @@
             }
 
             updateObstacleVisibility();
+            updateGrassVisibility();
         }
 
         // ==================== 运动状态 ====================
@@ -2534,9 +2581,10 @@
                 reloadBarFill.material.color.setRGB(1, progress >= 1 ? 1 : 0, 0);
             }
 
-            // 障碍物动态可见性 + 风车叶片旋转
+            // 障碍物动态可见性 + 草丛距离剔除 + 风车叶片旋转
             if (visibilityTimer > 0.3) {
                 updateObstacleVisibility();
+                updateGrassVisibility();
                 visibilityTimer = 0;
             }
             // 风车叶片持续旋转
@@ -2610,7 +2658,7 @@
         const CAMERA_ABOVE = 5;     // 摄像机在球上方高度（原10→5）
         const CAMERA_BEHIND_VS = 10; // 双人模式后方距离（14×0.7≈10）
         const CAMERA_ABOVE_VS = 7;   // 双人模式上方高度（10×0.7≈7）
-        const CAMERA_LOOK_Y = 2.0;   // lookAt 高度（原3.5→2.0）
+        const CAMERA_LOOK_Y = 0.0;   // lookAt 高度（0=坦克在屏幕下方1/3处）
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -2837,6 +2885,8 @@
             player1.reloadBarGroup.visible=player1.hpBarGroup.visible=true;
             player2.reloadBarGroup.visible=player2.hpBarGroup.visible=true;
             camera2=new THREE.PerspectiveCamera(48,renderer.domElement.width/renderer.domElement.height,.5,200);
+            // 同步 P1 摄像机参数（与 P2 一致）
+            camera.fov=48; camera.far=200; camera.updateProjectionMatrix();
             tankGroup=player1.group;tankHull=player1.hull;
             leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
             reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
@@ -2867,7 +2917,7 @@
             if(p2fire&&player2.fireReady){fireShell(player2);player2.fireReady=false;}
             if(!p2fire)player2.fireReady=true;
             updateShellsFragsMuzzle(dt);
-            if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);visibilityTimer=0;}
+            if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);updateGrassVisibility([player2.state]);visibilityTimer=0;}
             for(const od of obstacleData){if(od.blades)od.blades.rotation.x+=1.5*dt;}
             // 水面波动
             if(waterPlane)waterPlane.position.y=WATER_LEVEL+Math.sin(Date.now()*.002)*.08;
@@ -3419,7 +3469,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.20.0 | 地貌纹理系统+地图选择 | SplatMap+程序化纹理混合');
+        console.log('🎮 坦克运动demo v0.21.5 | 草地分块+距离剔除 | 摄像机优化 | 曳光弹特效');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
