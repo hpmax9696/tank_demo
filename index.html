@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.22.0</title>
+    <title>坦克运动demo v0.21.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.22.0</div>
+        <div class="menu-version">v0.21.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,7 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔄 v0.22.0 更新 — 程序化草丛覆盖+InstancedMesh性能优化</div>
+            <div class="cl-title">🔄 v0.21.2 更新 — 程序化草丛覆盖+性能对比</div>
             <div class="cl-item">新增测试地图02a：01a地形+全图草地覆盖程序化草丛（低/中/高三种弯曲草叶）</div>
             <div class="cl-item">采用InstancedMesh批处理：3个draw call渲染千余簇草丛，零额外draw call开销</div>
             <div class="cl-item">自然分布算法：基于地形上下文（距水域/泥地/沙地距离）平滑过渡草丛类型</div>
@@ -2535,7 +2535,7 @@
             // FPS 统计
             fpsFrames++;
             fpsTime += dt;
-            if (fpsTime >= 0.5) { fpsCurrent = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0; }
+            if (fpsTime >= 0.5) { fpsCurrent = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0; updateDebugInfo(); }
 
             renderer.render(scene, camera);
             } catch(e) { console.warn('gameLoop error:', e.message); }
@@ -2952,7 +2952,6 @@
         }
 
         function enterGame() {
-            const wasVersus=isVersusMap;
             hideMapSelector();
             // 加载选中地图配置
             if (!loadMapConfig(selectedMapId)) {
@@ -2973,8 +2972,8 @@
             if (player2 && player2.damageEffects) { if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints); if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints); }
             // 清理所有爆炸效果残留
             explosions.forEach(exp => exp.dispose()); explosions = [];
-            // 从双人对战返回时重建单人场景
-            if (wasVersus) rebuildMap();
+            // 重建单人场景（确保地形/草丛与当前地图配置一致）
+            rebuildMap();
             // 重置 player1 state 与全局状态同步
             if (player1) {
                 player1.state.x = POINT_A_X; player1.state.z = POINT_A_Z; player1.state.yaw = Math.PI / 4;
