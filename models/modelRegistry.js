@@ -39,6 +39,7 @@
             tanks: '坦克',
             trees: '树木',
             buildings: '建筑',
+            grass: '草丛',
             special: '特殊物件'
         };
         for (const [cat, catLabel] of Object.entries(catNames)) {
