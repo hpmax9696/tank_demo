@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.21.6** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.22.1** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -19,15 +19,28 @@
 ## 快速开始
 
 ### 运行方式
-由于加载 `.glb` 3D 模型需要 HTTP 协议，需启动本地服务器：
 
+由于加载 `.glb` 3D 模型需要 HTTP 协议，需启动本地服务器。
+
+**统一方案（推荐）**：
+```bash
+# Windows: 双击 start-server.bat 或命令行运行
+start-server.bat
+
+# Linux/Mac: 运行脚本
+chmod +x start-server.sh && ./start-server.sh
+
+# 然后浏览器访问 http://localhost:8080
+```
+
+**备选方案（手动）**：
 ```bash
 # 在项目目录下执行
 python -m http.server 8080
 # 然后浏览器访问 http://localhost:8080
 ```
 
-> **备选**：Chrome / Edge 也可用 `--allow-file-access-from-files` 参数启动绕过限制，但不推荐。
+> **端口约定**：统一使用 **8080** 端口。
 
 ### 操作说明
 
@@ -164,7 +177,7 @@ fireSmokeParticles.js:
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
-| 初速 | 22.0 单位/秒 | 水平分量 |
+| 炮弹初速 | 33.0 单位/秒 | 水平分量 |
 | 初始上扬 | 0.3 | 垂直初速（vy），低弹道 |
 | 重力 | 1.0 | 平射弹道 |
 | 最大射程 | 300 单位 | 超出自毁 |
@@ -212,6 +225,43 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.22.1 — 炮弹外形重构：圆柱身+锥形弹头（2026-05-08）
+**改进**：
+- 炮弹从直圆柱→圆柱弹体(0.18m长) + 锥形弹头(0.08m)，Group 组合，更贴近真实炮弹外形
+- 统一使用 disposeShellMesh() 清理，兼容 Group 遍历销毁子网格
+
+### v0.22.0 — 天空穹顶+远山环带，告别黑雾（2026-05-08）
+**新增**：
+- 天空穹顶：400m半径渐变天空球（ShaderMaterial），顶部深蓝(#1a3a5c)→地平线浅蓝白(#8cb4d8)
+- 远山环带：36座低多边形山峰环(155m半径)，朦胧远山自然过渡到雾中
+- 雾色融合：Fog #000000→#5a7a9a（天空蓝灰），与天空穹顶色调统一
+- 场景背景从纯黑改为天空底色 #7a9ab4
+- 摄像机 far 200→300m，确保天空球始终可见
+- 性能开销极低：天空球 960△ + 远山 360△ = 约 1320 三角形
+
+### v0.21.10 — 雾距平衡调整（2026-05-08）
+**修复**：
+- Fog 平衡：near 80m / far 120m（原 near 120/far 200 性能开销大，回退到合理范围）
+- 障碍物可见半径 65m，草丛可见半径 70m
+
+### v0.21.9 — 黑雾消退，视野扩大（2026-05-08）
+**修复**：
+- Fog 距离大幅扩大：near 50→120m, far 80→200m
+- 障碍物可见半径 48→80m，草丛可见半径 55→85m
+- 出生点即可远眺桥梁和远处建筑，不再被黑雾笼罩
+
+### v0.21.8 — 河床覆盖泥地纹理（2026-05-08）
+**修复**：
+- 01a/02a 地图河床纹理：河水下方区域统一覆盖泥地（generateSplatMap 中 dist<=rhw 也设 mud）
+- 不再透过河水看到草地斑块
+
+### v0.21.7 — 炮弹碰撞修复+桥梁入口修复+场景架构简化（2026-05-08）
+**修复**：
+- 炮弹垂直碰撞检测移除 obsBottom 检查：高地建筑不再因 terrainY 偏移而"无敌"
+- 桥梁入口空气墙修复：河岸碰撞体不再阻挡桥头引道（isOnBridge(x) 范围豁免）
+- 场景架构简化：移除无用的 scene2 预建，统一使用 scene1 + rebuildMap 动态切换
+- 双人模式地形残留修复：进入对战模式后正确重建为平坦大平原
 
 ### v0.21.6 — targetScene 参数修复（2026-05-08）
 **修复**：
@@ -445,7 +495,7 @@ fireSmokeParticles.js:
 ### 文件交付
 | 文件 | 行数 | 说明 |
 |------|:----:|------|
-| `index.html` | ~2530 | HTML+CSS+JS 游戏引擎主体 |
+| `index.html` | ~3640 | HTML+CSS+JS 游戏引擎主体 |
 | `three.min.js` | — | Three.js 库（本地加载，无需 CDN） |
 | `GLTFLoader.js` | — | GLTF 模型加载器（加载 .glb 文件） |
 | `fireSmokeParticles.js` | ~390 | 火焰/烟雾/爆炸粒子系统 |
@@ -456,7 +506,7 @@ fireSmokeParticles.js:
 | `models/buildings.js` | ~220 | 3 种建筑模型（平房/别墅/公寓精细化） |
 | `models/windmill.js` | ~59 | 风车磨坊模型 |
 | `README.md` | — | 本文件 |
-| **总计** | **~4100 行** | **纯 JavaScript + HTML + CSS** |
+| **总计** | **~5400 行** | **纯 JavaScript + HTML + CSS** |
 
 > 全部文件离线可用，无须网络和包管理器。需本地 HTTP 服务器加载 .glb 模型。
 
@@ -523,12 +573,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.21.6 | 草地分块+距离剔除 | 摄像机优化 | 曳光弹特效 | targetScene修复`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.22.1 | 炮弹外形(圆柱+锥头) | 天空穹顶+远山 | 蓝灰雾色`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.21.6）
-- `index.html`：约 3200 行（HTML + CSS + JS 游戏引擎，含地图系统+纹理生成+草丛系统）
+### 代码规模（截至 v0.22.1）
+- `index.html`：约 3640 行（HTML + CSS + JS 游戏引擎，含地图系统+纹理生成+草丛系统+天空穹顶+远山环带）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
@@ -537,11 +587,11 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 - `grass.js`：程序化草丛生成（~210 行）
 - 其他模型文件：约 211 行（tank / trees / modelRegistry）
 - `maps/`：3个地图配置文件（test_map_01a / 01b / 02a）
-- **总计约 5100 行**
+- **总计约 5400 行**
 
 ---
 
-## 当前版本关键参数（v0.21.6）
+## 当前版本关键参数（v0.22.1）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
@@ -549,10 +599,14 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 障碍物数量 | 350 | 泊松盘采样，最小间距 6 单位 |
 | 出生安全区 | 半径 10 单位 | 中心无障碍物 |
 | 障碍物可见半径 | 55 单位 | 超出则隐藏（性能优化） |
-| 单人摄像机 | 后方7 / 上方5 | FOV 50° |
-| 双人摄像机 | 后方12 / 上方7 | FOV 55° |
+| 单人摄像机 | 后方7 / 上方5 | FOV 50°，far=300m |
+| 双人摄像机 | 后方12 / 上方7 | FOV 55°，far=300m |
 | 草地可见半径 | 55 单位 | 空间分块优化 |
-| 曳光弹 | 发光球体 | 黄色 AdditiveBlending，跟随弹道 |
+| 雾色/雾距 | #5a7a9a 蓝灰 / 80-120m | Fog 与天空色调融合 |
+| 天空穹顶 | 半径 400m | ShaderMaterial 渐变：顶部深蓝→地平线浅蓝白 |
+| 远山环带 | 36峰 / 155m半径 | 低多边形锥形山，受雾影响自然朦胧 |
+| 炮弹外形 | 圆柱体+锥形弹头 | Group 组合，0.18m弹体+0.08m锥头 |
+| 炮弹初速 | 33.0 单位/秒 | 曳光弹效果 |
 
 ---
 
@@ -575,7 +629,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 | 文件 | 行数 | 说明 |
 |------|:----:|------|
-| `index.html` | ~3200 | 主入口（HTML+CSS+JS 游戏引擎） |
+| `index.html` | ~3640 | 主入口（HTML+CSS+JS 游戏引擎） |
 | `three.min.js` | — | Three.js 库（本地加载，无需 CDN） |
 | `GLTFLoader.js` | — | GLB 加载器 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统（火焰/烟雾/爆炸/曳光弹） |
@@ -587,7 +641,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | `models/trees.js` | ~60 | 树木 |
 | `models/buildings.js` | ~220 | 建筑（平房/别墅/公寓精细化） |
 | `models/windmill.js` | ~59 | 风车（十字叶片+侧面旋转） |
-| **总计** | **~5100 行** | |
+| **总计** | **~5400 行** | |
 
 ### 运行方式
 1. 复制整个 `坦克对战demo/` 文件夹到目标电脑
@@ -630,6 +684,24 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.22.1 — 炮弹外形重构（2026-05-08）
+**改进**：炮弹从直圆柱改为圆柱弹体+锥形弹头 Group 组合；统一 disposeShellMesh() 清理。全部同步至 Gitee / GitHub / OneDrive。
+
+### v0.22.0 — 天空穹顶+远山环带（2026-05-08）
+**新增**：天空穹顶(400m渐变球)、远山环带(36峰/155m半径)、雾色融合(蓝灰#5a7a9a)、摄像机far 300m。告别黑压压的天空和场景边缘。全部同步至 Gitee / GitHub / OneDrive。
+
+### v0.21.10 — 雾距平衡调整（2026-05-08）
+**修复**：Fog 平衡 near 80m / far 120m；障碍物可见半径 65m；草丛可见半径 70m。全部同步至 Gitee / GitHub / OneDrive。
+
+### v0.21.9 — 黑雾消退，视野扩大（2026-05-08）
+**修复**：Fog 距离大幅扩大 near 50→120m / far 80→200m；障碍物可见半径 48→80m；草丛可见半径 55→85m。出生点即可远眺桥梁和远处建筑。全部同步至 Gitee / GitHub / OneDrive。
+
+### v0.21.8 — 河床覆盖泥地纹理（2026-05-08）
+**修复**：01a/02a 地图河床纹理：河水下方区域统一覆盖泥地，不再透过河水看到草地。全部同步至 Gitee / GitHub / OneDrive。
+
+### v0.21.7 — 炮弹碰撞修复+桥梁入口修复+场景架构简化（2026-05-08）
+**修复**：炮弹垂直碰撞检测移除 obsBottom 检查，高地建筑不再因 terrainY 偏移而"无敌"；桥梁入口空气墙修复，河岸碰撞体不再阻挡桥头引道；场景架构简化，移除无用的 scene2 预建；双人模式地形残留修复。全部同步至 Gitee / GitHub / OneDrive。
 
 ### v0.21.6 — targetScene 参数修复（2026-05-08）
 **修复**：`createGround()` 和 `createObstacles()` 误删 `targetScene` 参数导致黑屏；新增 `POINT_A_X/Z` 常量。全部同步至 Gitee / GitHub / OneDrive。

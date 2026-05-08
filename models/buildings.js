@@ -178,7 +178,7 @@
             g.add(step);
         }
 
-        g.userData = { height: h1 + h2 + rH, radius: Math.max(w, d) / 2 * 1.2, color: '#8B7D6B', targetHeightMinM: 10, targetHeightMaxM: 15 };
+        g.userData = { height: h1 + h2 + rH, radius: Math.max(w, d) / 2 * 1.15, color: '#8B7D6B', targetHeightMinM: 10, targetHeightMaxM: 15 };
         addShadow(g);
         return g;
     }

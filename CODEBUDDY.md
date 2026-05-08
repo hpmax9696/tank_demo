@@ -35,18 +35,19 @@ python -m http.server 8080
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 3200 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 3640 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus'
 ├── 玩家工厂: createPlayer() — 创建坦克实例
-├── 场景初始化: initScene() — 渲染器/光照/地面/坦克/障碍物
+├── 场景初始化: initScene() — 渲染器/光照/天空穹顶/远山/地面/坦克/障碍物
+├── 天空系统: createSkyDome() — 400m渐变天空球(ShaderMaterial) + createDistantMountains() — 36峰远山环带
 ├── 地面系统: createGround() — 分段地形 + 地貌纹理
 ├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
-├── 火炮系统: 炮弹/曳光弹/炮口焰/碎片
+├── 火炮系统: 炮弹(圆柱+锥体Group)/曳光弹/炮口焰/碎片/disposeShellMesh()
 ├── 游戏循环: gameLoop() / versusGameLoop()
-├── 摄像机: 第三人称追尾视角 + 双人分屏
+├── 摄像机: 第三人称追尾视角 + 双人分屏 (far=300m)
 └── 指向箭头: 透视投影 + behind 检测
 ```
 
@@ -112,11 +113,16 @@ python -m http.server 8080
 | 障碍物数量 | 350 | `OBSTACLE_COUNT` |
 | 障碍物可见半径 | 55 单位 | `OBS_RADIUS` |
 | 坦克最高速度 | 4.0 单位/秒 | `MAX_SPEED` |
-| 炮弹初速 | 22.0 单位/秒 | `BULLET_SPEED` |
+| 炮弹初速 | 33.0 单位/秒 | `SHELL_SPEED` |
 | 炮弹上扬角 | 0.3 rad | 发射代码 |
 | 装填时间 | 2.0 秒 | `RELOAD_TIME` |
-| 伤害值 | 20 HP | `DAMAGE` |
+| 伤害值 | 20 HP | `SHELL_DAMAGE` |
 | 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
+| 摄像机远截面 | 300 | `camera.far` |
+| 雾色 | #5a7a9a (蓝灰) | `addLightingTo()` |
+| 雾距 | near 80 / far 120 | `Fog` |
+| 天空穹顶 | 半径 400m | `createSkyDome()` |
+| 远山环带 | 36峰 / 155m半径 | `createDistantMountains()` |
 
 ## 常见修复模式
 
@@ -184,4 +190,5 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 1 | 里程恒为 0 | 🔴 需修复 |
 | 2 | 坦克驶上桥梁不提升 | 🔴 需修复 |
 | 3 | 河水效果不真实 | 🟡 改进项 |
-| 4 | `.encoding` 废弃警告 | 🟢 可忽略 |
+| 4 | 草丛不显示（InstancedMesh 初始化时序） | 🟡 间歇性 |
+| 5 | `.encoding` 废弃警告 | 🟢 可忽略 |

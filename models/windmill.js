@@ -47,7 +47,7 @@
         bladeGroup.name = 'blades';
         g.add(bladeGroup);
 
-        g.userData = { height: h + 0.7, radius: 0.5, color: '#D2B48C', blades: bladeGroup, targetHeightMinM: 10, targetHeightMaxM: 20 };
+        g.userData = { height: h + 0.7, radius: 0.50, color: '#D2B48C', blades: bladeGroup, targetHeightMinM: 10, targetHeightMaxM: 20 };
         addShadow(g);
         return g;
     }
