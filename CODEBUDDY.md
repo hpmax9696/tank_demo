@@ -143,9 +143,45 @@ Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦�
 Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
 ```
 
+## 接力开发交接规范
+
+### 交接前检查清单（开发完成时执行）
+
+1. **代码已提交**: `git status` 显示 "nothing to commit, working tree clean"
+2. **已推送到 Gitee**: `git push origin master` 成功（Gitee 是主仓库，家里电脑只同步 Gitee）
+3. **OneDrive 已同步**: 所有文件已复制到 OneDrive 备份目录
+4. **版本号已更新**: 确保所有 8 处版本号同步完成
+
+### 接力接续步骤（另一台电脑开始开发时）
+
+1. 从 Gitee 拉取最新代码:
+   ```bash
+   git pull origin master
+   ```
+2. 同步 OneDrive 备份到本地（如需要）:
+   ```bash
+   # 从 OneDrive 复制到工作区
+   Copy-Item -Path "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\*" -Destination "c:\Users\hpmax\CodeBuddy\tank_demo\" -Recurse -Force
+   ```
+3. 启动本地服务器开始开发
+
+### Git 仓库说明
+
+| 仓库 | 用途 | 状态 |
+|------|------|------|
+| Gitee (origin) | 主仓库，接力开发同步 | ✅ 活跃 |
+| GitHub (github) | 备用镜像 | ✅ 同步 |
+| OneDrive | 本地备份 + 测试运行 | ✅ 同步 |
+
+**注意**: 家里电脑只需同步 Gitee（主仓库），GitHub 作为备用。
+
+---
+
 ## 已知问题
 
-1. **里程恒为 0**: `totalDistance` 累加逻辑可能未正确执行
-2. **坦克驶上桥梁不提升**: 需在碰撞检测中返回桥面高度偏移
-3. **河水效果不真实**: 当前为扁平色块，需要程序化水纹
-4. **`.encoding` 废弃警告**: three.min.js 版本旧，仅警告不崩溃
+| # | 问题 | 优先级 |
+|---|------|--------|
+| 1 | 里程恒为 0 | 🔴 需修复 |
+| 2 | 坦克驶上桥梁不提升 | 🔴 需修复 |
+| 3 | 河水效果不真实 | 🟡 改进项 |
+| 4 | `.encoding` 废弃警告 | 🟢 可忽略 |
