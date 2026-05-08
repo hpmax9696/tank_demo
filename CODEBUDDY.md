@@ -40,8 +40,8 @@ python -m http.server 8080
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus'
 ├── 玩家工厂: createPlayer() — 创建坦克实例
-├── 场景初始化: initScene() — 渲染器/光照/天空穹顶/远山/地面/坦克/障碍物
-├── 天空系统: createSkyDome() — 400m渐变天空球(ShaderMaterial) + createDistantMountains() — 36峰远山环带
+├── 场景初始化: initScene() — 渲染器/光照/全景天空球/地面/坦克/障碍物
+├── 天空系统: createSkyDome() — 280m全景纹理天空球(ShaderMaterial采样sky-panorama.png) + createDistantMountains() — 已废弃(被全景纹理取代)
 ├── 地面系统: createGround() — 分段地形 + 地貌纹理
 ├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
@@ -121,8 +121,8 @@ python -m http.server 8080
 | 摄像机远截面 | 300 | `camera.far` |
 | 雾色 | #5a7a9a (蓝灰) | `addLightingTo()` |
 | 雾距 | near 80 / far 120 | `Fog` |
-| 天空穹顶 | 半径 400m | `createSkyDome()` |
-| 远山环带 | 36峰 / 155m半径 | `createDistantMountains()` |
+| 天空穹顶 | 半径 280m | `createSkyDome()` 全景纹理 ShaderMaterial |
+| 裙边地面 | 400×400 | `createGround()` 纯色平面填充边缘空隙 |
 
 ## 常见修复模式
 
