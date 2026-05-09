@@ -1072,8 +1072,8 @@
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
                 sun.position.set(30, 40, 20);
                 sun.castShadow = true;
-                sun.shadow.mapSize.width = 2048;
-                sun.shadow.mapSize.height = 2048;
+                sun.shadow.mapSize.width = 1024;
+                sun.shadow.mapSize.height = 1024;
                 sun.shadow.camera.near = 0.5;
                 sun.shadow.camera.far = 120;
                 sun.shadow.camera.left = -60;
@@ -1500,7 +1500,7 @@
                 for (const [type, arr] of Object.entries(cell)) {
                     if (arr.length === 0) continue;
                     const im = new THREE.InstancedMesh(bushGeos[type], mats[type], arr.length);
-                    im.castShadow = true;
+                    im.castShadow = false;  // 陡视角草丛阴影不可见，节省阴影通道开销
                     im.receiveShadow = true;
                     im.name = 'grass_' + type + '_' + key;
                     im.userData.cx = cellCenters[key].cx;
@@ -2740,16 +2740,15 @@
             camera.lookAt(tankGroup.position.x, groundY + CAMERA_LOOK_Y, tankGroup.position.z);
         }
 
-        // 障碍物遮挡视线检测：摄像机-坦克射线上的障碍物半透明化
         // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
         function handleObstacleOcclusion() {
-            // 重置上一帧被半透明的障碍物
+            // 重置之前被半透明的障碍物：dispose克隆材质，还原原始材质
             for (const obs of occludedObstacles) {
                 obs.traverse(child => {
-                    if (child.material && child.material.opacity < 1) {
-                        child.material.transparent = false;
-                        child.material.opacity = 1.0;
-                        child.material.needsUpdate = true;
+                    if (child.isMesh && child.userData._origMat) {
+                        child.material.dispose();           // 销毁克隆材质
+                        child.material = child.userData._origMat;  // 还原共享原始材质
+                        child.userData._origMat = null;
                     }
                 });
             }
@@ -2798,7 +2797,10 @@
             for (const obs of hitRoots) {
                 occludedObstacles.push(obs);
                 obs.traverse(child => {
-                    if (child.material) {
+                    if (child.isMesh && child.material && !child.userData._origMat) {
+                        // 首次半透明：clone 材质避免影响共享同一材质的所有同类障碍物
+                        child.userData._origMat = child.material;
+                        child.material = child.material.clone();
                         child.material.transparent = true;
                         child.material.opacity = 0.3;
                         child.material.needsUpdate = true;
