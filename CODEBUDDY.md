@@ -2,6 +2,18 @@
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
+## ⚠️ 每轮任务简报必须报告上下文用量（AI 必读）
+
+完成每轮开发任务后，必须在最终回复末尾（预览/结果之后）报告当前对话的上下文使用情况，格式：
+
+```
+📊 上下文用量: ~XX.XK/1M tokens（约 XX%）| 余量: ~YY.YK
+```
+
+当余量 < 30K tokens 时主动提示用户："上下文即将耗尽，建议开启新对话继续开发。"
+
+**目的**：让用户知晓何时需要切换新对话，避免长对话导致 token 耗尽丢失上下文。
+
 ## ⚠️ 每次提供预览前必须执行（AI 必读）
 
 提供 `preview_url` 之前，必须先确保 HTTP 服务符合以下规则，否则会出现 `chrome-error://chromewebdata/` 错误：
@@ -60,7 +72,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 3640 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 3700+ 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus'
@@ -139,7 +151,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 障碍物可见半径 | 55 单位 | `OBS_RADIUS` |
 | 坦克最高速度 | 4.0 单位/秒 | `MAX_SPEED` |
 | 炮弹初速 | 33.0 单位/秒 | `SHELL_SPEED` |
-| 炮弹上扬角 | 0.3 rad | 发射代码 |
+| 炮弹仰角 | `terrainPitch + player.pitch + recoilPitch + 0.10` rad | 发射代码（v0.25.3） |
+| 炮弹重力 | 1.0 单位/秒² | `SHELL_GRAVITY` |
 | 装填时间 | 2.0 秒 | `RELOAD_TIME` |
 | 伤害值 | 20 HP | `SHELL_DAMAGE` |
 | 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
@@ -210,10 +223,57 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ## 已知问题
 
-| # | 问题 | 优先级 |
-|---|------|--------|
-| 1 | 里程恒为 0 | 🔴 需修复 |
-| 2 | 坦克驶上桥梁不提升 | 🔴 需修复 |
-| 3 | 河水效果不真实 | 🟡 改进项 |
-| 4 | 草丛不显示（InstancedMesh 初始化时序） | 🟡 间歇性 |
-| 5 | `.encoding` 废弃警告 | 🟢 可忽略 |
+| # | 问题 | 优先级 | 详情 |
+|---|------|--------|------|
+| 1 | 里程恒为 0 | 🔴 需修复 | — |
+| 2 | 坦克驶上桥梁不提升 | 🔴 需修复 | — |
+| 3 | 河水效果不真实 | 🟡 改进项 | — |
+| 4 | 草丛不显示（InstancedMesh 初始化时序） | 🟡 间歇性 | — |
+| 5 | `.encoding` 废弃警告 | 🟢 可忽略 | — |
+
+---
+
+## 🔄 下一对话起手任务（v0.25.4 → v0.25.5）
+
+当前版本 **v0.25.4**。
+
+### 🟢 P0 计划任务: 树木 InstancedMesh 重构 + 精度提升
+
+**目标**：将 ~245 棵树木从独立 Mesh（490 draw calls）迁移到 InstancedMesh（4 draw calls），释放性能后提高几何精度并新增橡树品种。
+
+**方案概要**：
+1. `trees.js` 重构：锥形树/球形树/橡树各输出共享 Geometry+Material，不再每棵 new Group/Mesh
+2. `createObstacles()` 改为两阶段：采样时分类收集（coneList/sphereList/oakList/buildingPoints），采样后批量创建 InstancedMesh
+3. 几何精度提升：树干 6→16段、锥形树冠 8→24段、球形树冠 8×6→20×14段
+4. 新增橡树品种（椭球形树冠，注册权重≈20），总树种从2→3
+5. 地图重建 `rebuildMap()` 中一行 `.dispose()` 清理
+
+**预期收益**：draw calls 810→~322（-60%），树木精度提升5-10倍，性能余量 3ms→5-6ms
+
+### 🔴 P1: 里程恒为 0
+
+`totalDistance` 始终为 0，需要排查履带速度累加逻辑。
+
+### 🔴 P2: 坦克驶上桥梁不提升
+
+桥梁地形高度未正确返回，坦克穿过桥面。
+
+### 🟡 P3: 河水效果不真实
+
+河流渲染效果提升。
+
+### 📊 当前性能基线
+
+| 指标 | 值 |
+|------|-----|
+| FPS | 60 |
+| 渲染耗时 | ~13.45ms |
+| 帧预算余量 | ~3.2ms |
+| 阴影 | PCFShadowMap, 512px, 36×36（双人动态扩展到两玩家中点） |
+
+### ✅ v0.25.4 已修复
+
+- **双人阴影缺失**：versusGameLoop添加阴影相机更新，跟随两玩家中点，按间距动态扩展
+- **炮弹轨迹**（v0.25.3）：计入地形俯仰+5.7°基础仰角，平地射程~200u
+- **坡面焦痕**（v0.25.2）：法线采样 d=0.5, polygonOffset -4/-4, 法线偏移 0.06
+
