@@ -1090,7 +1090,7 @@
 
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
-                trg.background = null;  // 由 Preetham 天空球填充背景，不设纯色
+                trg.background = new THREE.Color('#334455');  // 深蓝灰底色，Preetham天空球覆盖其上
                 trg.fog = new THREE.Fog('#8899aa', 80, 120);  // 中性蓝灰雾色，适配大气散射天空
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
