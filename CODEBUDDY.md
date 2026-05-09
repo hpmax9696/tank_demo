@@ -6,14 +6,20 @@ This file provides guidance to CodeBuddy when working with code in this reposito
 
 **启动本地服务器**（必须，GLB 模型需要 HTTP 协议）:
 ```bash
-python -m http.server 8081 --bind 127.0.0.1
-# 或
-python -m http.server 8080
+# 方式1: 双击 start-server.bat（推荐，自动清理端口+打开浏览器）
+# 方式2: 命令行手动启动
+python -m http.server 8080 --bind 127.0.0.1
 ```
 
-**访问地址**: `http://127.0.0.1:8081`
+**访问地址**: `http://127.0.0.1:8080`（必须用 127.0.0.1，不要用 localhost）
 
 **强制刷新**: `Ctrl+F5`（清除浏览器缓存）
+
+**⚠️ 如果页面无法加载**: 关闭所有 Python 进程后重新运行 `start-server.bat`，脚本会自动清理端口。
+```bash
+# 手动清理命令（备用）:
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+```
 
 **代码同步位置**: Gitee (origin) + GitHub (github) + OneDrive (`C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\`)
 
