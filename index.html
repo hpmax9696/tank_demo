@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.7</title>
+    <title>坦克运动demo v0.24.8</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.7</div>
+        <div class="menu-version">v0.24.8</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🐛 v0.24.8 修复 — 半透明材质共享Bug+阴影1024+草丛关投射阴影</div>
             <div class="cl-title">⚡ v0.24.7 优化 — 移除外围障碍物+遮挡检测降频+距离预过滤</div>
             <div class="cl-title">🌊 v0.24.6 修复 — 河流扩展300m+障碍物遮挡半透明</div>
             <div class="cl-title">🗑 v0.24.5 重构 — 移除天空系统+清理残余+FOV45°+LOD调大</div>
             <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方9.75m/上方9m（1.5x），视线内看不到边缘</div>
-            <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：Shader雾环+移除空气墙边框+Fog far=250</div>
         </div>
     </div>
 
@@ -3290,7 +3290,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.7  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.8  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3616,7 +3616,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.7 | 外围精简 | 遮挡降频+预过滤 | 河流300m | 陡视角+FOV 45° | OBS_RADIUS=90 | Fog 70-110m');
+        console.log('🎮 坦克运动demo v0.24.8 | 阴影1024 | 材质clone | 外围精简 | 遮挡降频+预过滤 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
