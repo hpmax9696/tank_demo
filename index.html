@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.23.2</title>
+    <title>坦克运动demo v0.24.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.23.2</div>
+        <div class="menu-version">v0.24.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边（02a保持200×200）</div>
             <div class="cl-title">🔧 v0.23.2 「裙边」— ShapeGeometry正方形环带，向下倾斜20m融入雾中</div>
             <div class="cl-title">🔧 v0.23.1 修复 — 环形裙边，不再遮住河流/池塘/盆地</div>
             <div class="cl-title">🔄 v0.23.0 更新 — 「换天」Preetham大气散射天空替代全景纹理球</div>
@@ -921,7 +922,7 @@
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
-        let groundPlane, groundSkirtPlane;
+        let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
         let totalDistance = 0;   // 坦克行驶总里程（单位）
@@ -1029,6 +1030,16 @@
                 const bd2 = bx*bx + bz*bz;
                 const r2 = basin.radius * basin.radius;
                 if (bd2 < r2 * 4) y -= basin.depth * Math.exp(-bd2 / r2);
+            }
+            // ── 扩展地图外圈下沉（01a单人扩展，01b双人不执行，02a不扩展） ──
+            const is02a = (selectedMapId === 'test_map_02a');
+            if (!isVersusMap && !is02a) {
+                const dist = Math.max(Math.abs(x), Math.abs(z));
+                const mapHalf = (currentMapData ? currentMapData.size : WORLD_HALF * 2) / 2;  // 100
+                if (dist > mapHalf) {
+                    const t = Math.min(1, (dist - mapHalf) / 50);  // 100→150 映射 0→1
+                    y = y * (1 - t) - t * 25;  // 渐变为往下沉25m
+                }
             }
             return y;
         }
@@ -1172,10 +1183,13 @@
             createObstacles();
         }
 
-        // ==================== 地面（200×200 = 1km²，分段地形+地貌纹理混合） ====================
+        // ==================== 地面（01a/01b:300×300扩展, 02a:200×200, 地形+纹理混合） ====================
         function createGround(targetScene = scene) {
-            const SIZE = currentMapData ? currentMapData.size : WORLD_HALF * 2;
-            const SEGS = 200;
+            const is02a = (selectedMapId === 'test_map_02a');
+            const BASE_SIZE = currentMapData ? currentMapData.size : WORLD_HALF * 2;
+            // 02a保持200×200，其他地图扩展到300×300（空气墙外50m自然缓冲区）
+            const SIZE = is02a ? BASE_SIZE : 300;
+            const SEGS = is02a ? 200 : (isVersusMap ? 32 : 256);
 
             // ── 生成复合地貌纹理（splat map + 程序化纹理混合） ──
             let texture;
@@ -1190,7 +1204,6 @@
                 texture.minFilter = THREE.LinearMipmapLinearFilter;
                 texture.generateMipmaps = true;
             } catch (e) {
-                // 纹理生成失败时回退到纯色
                 console.warn('地貌纹理生成失败，回退纯色:', e);
                 const fbCanvas = document.createElement('canvas');
                 fbCanvas.width = fbCanvas.height = 256;
@@ -1209,7 +1222,7 @@
             // ── 地形几何 ──
             let groundGeo;
             if (isVersusMap) {
-                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE);
+                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
             } else {
                 groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
                 const pos = groundGeo.attributes.position;
@@ -1236,8 +1249,9 @@
             groundPlane.name = 'ground';
             targetScene.add(groundPlane);
 
-            // 边界线框
-            const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SIZE, SIZE));
+            // 边界线框（标示空气墙位置）
+            const edgeSize = BASE_SIZE;  // 始终200×200（空气墙位置）
+            const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(edgeSize, edgeSize));
             groundEdgeLine = new THREE.LineSegments(
                 edgeGeo,
                 new THREE.LineBasicMaterial({ color: '#c8e0b0', transparent: true, opacity: 0.4 })
@@ -1245,53 +1259,6 @@
             groundEdgeLine.rotation.x = -Math.PI / 2;
             groundEdgeLine.position.y = 0.03;
             targetScene.add(groundEdgeLine);
-
-            // 裙边地面：正方形环带（ShapeGeometry挖孔），向外向下倾斜融入雾中
-            if (groundSkirtPlane) { targetScene.remove(groundSkirtPlane); groundSkirtPlane.geometry.dispose(); groundSkirtPlane.material.dispose(); }
-            const SKIRT_OUTER = 200;  // 外边界 = 400/2
-            const SKIRT_INNER = SIZE / 2 + 2;  // 内边界略大于地图边缘
-            const SKIRT_DROP = 20;  // 外边缘下沉高度(米)
-
-            // 外框正方形
-            const shape = new THREE.Shape();
-            shape.moveTo(-SKIRT_OUTER, -SKIRT_OUTER);
-            shape.lineTo( SKIRT_OUTER, -SKIRT_OUTER);
-            shape.lineTo( SKIRT_OUTER,  SKIRT_OUTER);
-            shape.lineTo(-SKIRT_OUTER,  SKIRT_OUTER);
-            // 内框正方形（挖空 = 地图区域）
-            const hole = new THREE.Path();
-            hole.moveTo(-SKIRT_INNER, -SKIRT_INNER);
-            hole.lineTo( SKIRT_INNER, -SKIRT_INNER);
-            hole.lineTo( SKIRT_INNER,  SKIRT_INNER);
-            hole.lineTo(-SKIRT_INNER,  SKIRT_INNER);
-            shape.holes.push(hole);
-
-            const skirtGeo = new THREE.ShapeGeometry(shape, 32);
-            skirtGeo.rotateX(-Math.PI / 2);  // XY平面 → XZ水平面
-
-            // 向下倾斜：内边缘贴地(y≈0)，外边缘下沉SKIRT_DROP米
-            const pos = skirtGeo.attributes.position;
-            const maxDist = SKIRT_OUTER;
-            const minDist = SKIRT_INNER;
-            for (let i = 0; i < pos.count; i++) {
-                const dist = Math.sqrt(pos.getX(i) ** 2 + pos.getZ(i) ** 2);
-                const t = Math.max(0, Math.min(1, (dist - minDist) / (maxDist - minDist)));
-                pos.setY(i, -t * SKIRT_DROP);
-            }
-            skirtGeo.computeVertexNormals();
-
-            const skirtMat = new THREE.MeshStandardMaterial({
-                color: '#3a4a30',
-                roughness: 1.0,
-                metalness: 0.0,
-                fog: true,
-                side: THREE.DoubleSide
-            });
-            groundSkirtPlane = new THREE.Mesh(skirtGeo, skirtMat);
-            groundSkirtPlane.receiveShadow = false;
-            groundSkirtPlane.castShadow = false;
-            groundSkirtPlane.name = 'groundSkirt';
-            targetScene.add(groundSkirtPlane);
         }
 
         // ==================== 程序化草丛覆盖系统（InstancedMesh 性能优化） ====================
@@ -2053,7 +2020,12 @@
             obstacleMeshes = [];
             obstacleData = [];
 
-            const obsCfg = currentMapData && currentMapData.obstacles ? currentMapData.obstacles : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
+            const is02a = (selectedMapId === 'test_map_02a');
+            const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
+            if (!is02a) {
+                obsCfg.spawnRadius = 148;  // 扩展到空气墙外50m
+                obsCfg.count = 600;        // 外圈稀疏障碍物
+            }
             const points = poissonDiskSampling(0, 0, obsCfg.spawnRadius || SPAWN_RADIUS, obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS, obsCfg.count || OBSTACLE_COUNT);
 
             for (let i = 0; i < points.length; i++) {
@@ -3291,7 +3263,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.23.2  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.0  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3617,7 +3589,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.23.2 | Preetham大气散射天空 | 正方形裙边向下倾斜20m | 雾中消失');
+        console.log('🎮 坦克运动demo v0.24.0 | 地形扩展300×300 | 外圈自然下沉 | 01a/01b扩展 02a保持');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
