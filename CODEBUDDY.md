@@ -183,9 +183,9 @@ git push github master    # GitHub
 
 # OneDrive 同步（含 CODEBUDDY.md 和 sky-panorama.png）
 Copy-Item -Path "index.html","README.md","CODEBUDDY.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
-Copy-Item -Path "sky-panorama.png" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force -ErrorAction SilentlyContinue
 Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
 Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
+Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\combat\" -Recurse -Force
 ```
 
 ## 接力开发交接规范
@@ -262,9 +262,195 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 🔄 下一对话起手任务（v0.25.5 → v0.26.0）
+## ⚔️ PvE 战斗系统方案（v0.26.0 架构搭建）
 
-当前版本 **v0.25.5**。
+> **记录日期**: 2026-05-09 | **版本**: v0.26.0 | **状态**: 架构已搭建，待外形审核后进入战斗测试
+
+### 一、需求总览
+
+1. **地图绑定积分记录**：每张战斗地图维护单次最高分，含产生时间（首次刷纪录时间）和结算时间（最近一次刷新纪录时间）。
+2. **清空积分功能**：Demo 内提供「清空积分记录」按钮；也可手动删除 localStorage 条目。
+3. **累计总分**：多次游玩积分累加，独立文件存储，后期用于兑换升级道具。同样提供清空按钮和手动删除方式。
+4. **渐进式实现**：先搭架构 → 创一种杂兵 → 模型预览通过 → 放入 03a 地图 → 战斗测试。
+
+### 二、模块架构
+
+```
+combat/
+├── scoreSystem.js     ← 积分系统（地图高分 + 累计总分 + localStorage 持久化）
+└── enemyAI.js         ← AI 状态机（PATROL→CHASE→ENGAGE→FLEE→DEAD）
+
+models/
+└── enemies.js         ← 敌方单位 3D 模型（程序化生成，注册到 ModelRegistry）
+
+maps/
+└── test_map_03a.map.json  ← PvE 战斗地图（含 enemies 配置段）
+
+index.html             ← 战斗主引擎（加载上述模块，gameMode 新增 'combat'）
+```
+
+**加载顺序**（已在 index.html 中添加）：
+```html
+<script src="models/enemies.js"></script>
+<!-- PvE 战斗系统模块 -->
+<script src="combat/scoreSystem.js"></script>
+<script src="combat/enemyAI.js"></script>
+```
+
+### 三、积分系统设计（`combat/scoreSystem.js`）
+
+| 存储 Key | 数据结构 | 说明 |
+|----------|----------|------|
+| `tank_demo_map_scores` | `{ "mapId": { highScore, createdAt, settledAt } }` | 每张地图的最高分记录 |
+| `tank_demo_total_score` | `number`（字符串存储） | 跨地图累计总分 |
+
+**全局接口** `window.ScoreSystem`：
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `getMapHighScore(mapId)` | 地图 ID | `{ highScore, createdAt, settledAt }` 或 `null` | 查询地图最高分 |
+| `settleScore(mapId, score)` | 地图 ID + 本局得分 | `{ isNewHigh, highScore, totalScore }` | 结算：更新纪录 + 累加总分 |
+| `getTotalScore()` | — | `number` | 获取累计总分 |
+| `clearAllScores()` | — | — | 清空全部积分（地图分+累计分） |
+| `clearMapScore(mapId)` | 地图 ID | — | 清空指定地图记录 |
+| `clearTotalScore()` | — | — | 仅清空累计总分 |
+
+**持久化方式**：`localStorage`（浏览器本地存储，关闭 demo 后保留，可手动在 F12 → Application → Local Storage 中删除）。
+
+### 四、敌人类型规划
+
+| 类型 | ID | 角色 | 武器 | 行为 | 状态 |
+|------|-----|------|------|------|------|
+| **装甲突击车** | `assault-vehicle` | 杂兵（近战） | V形铲斗冲撞 + 炮塔喷火器 | 巡逻→发现猛冲→近距喷火→绕圈再冲 | ✅ 模型已创建 |
+| 导弹发射车 | `missile-launcher` | 杂兵（远程） | 导弹发射器 | 巡逻→远程锁定→发射导弹→转移 | 📋 待设计 |
+| 重型坦克 | `heavy-tank` | 精英 | 大口径火炮 + 机枪 | 巡逻→正面对决→掩护射击 | 📋 待设计 |
+| Boss 炮舰 | `gunship` | Boss | 多联装火炮 + 导弹 | 固定路径巡游→多阶段攻击 | 📋 待设计 |
+
+### 五、AI 状态机（`combat/enemyAI.js`）
+
+```
+                    ┌─────────────────────────┐
+                    │        PATROL           │  巡逻：沿路径点移动
+                    │   (初始状态/丢失目标)    │
+                    └─────┬──────────┬────────┘
+                 发现玩家  │          │  丢失目标 >5s
+                          ▼          ▼
+                    ┌─────────┐  ┌─────────┐
+                    │  CHASE  │  │  FLEE   │  HP<25% 触发逃跑
+                    │ (追击)  │  │ (逃跑)  │
+                    └───┬─────┘  └─────────┘
+              进入射程 │  脱离射程
+                       ▼
+                    ┌─────────┐
+                    │ ENGAGE  │  瞄准→开火→装填循环
+                    │ (交战)  │
+                    └────┬────┘
+                    HP=0  │
+                         ▼
+                    ┌─────────┐
+                    │  DEAD   │  移除模型 + 掉落 + 加分
+                    └─────────┘
+```
+
+**视野检测**（`canSeeTarget` 函数）：
+- 锥形视野（角度 + 距离上限）
+- 前方方向点积检测
+- Raycaster 障碍物遮挡（接口已预留，TODO）
+
+**装甲突击车 AI 参数**（来自 `test_map_03a.map.json`）：
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `hp` | 60 | 生命值 |
+| `speed` | 5.0 | 移动速度（单位/秒） |
+| `viewDist` | 50 | 视野距离 |
+| `engageDist` | 15 | 交战距离 |
+| `ramDamage` | 15 | 冲撞伤害 |
+| `flameDamage` | 8 | 喷火伤害/跳 |
+| `flameTicks` | 3 | 喷火跳数 |
+| `flameRange` | 12 | 喷火射程 |
+| `ramCooldown` | 3 | 冲撞冷却（秒） |
+| `score` | 100 | 击杀得分 |
+| `dropRate` | 0.25 | 掉落概率 |
+| `dropHeal` | 30 | 掉落回血量 |
+
+### 六、战斗地图配置（`test_map_03a.map.json`）
+
+```json
+{
+  "type": "single",
+  "mode": "combat",
+  "players": {
+    "lives": 3,
+    "hp": 100,
+    "cannonDamage": 40,
+    "cannonReload": 2.5,
+    "mgDamage": 5,
+    "mgRange": 50,
+    "mgFireRate": 3
+  },
+  "enemies": [
+    { "id": "av-01", "type": "assault-vehicle", "position": [-25,0,22], ... },
+    { "id": "av-02", "type": "assault-vehicle", "position": [30,0,28], ... }
+  ]
+}
+```
+
+**地图布局**：噪声地形 + 池塘 + 河流 + 桥梁 + 山丘 + 盆地 + 350 障碍物。
+
+### 七、实现阶段
+
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| **Phase 1** | 架构搭建（`enemies.js` + `scoreSystem.js` + `enemyAI.js` 骨架） | ✅ 完成 |
+| **Phase 2** | 装甲突击车外形审批（菜单 → 模型预览 → 敌方单位 → 装甲突击车） | ✅ 通过 (v0.26.0) |
+| **Phase 3** | 03a 地图部署1辆突击车 + AI PATROL/CHASE/ENGAGE + 被动反击 + 积分结算 | ✅ 完成 (v0.26.0) |
+| **Phase 4** | 敌人HP伤害显示 + 击杀加分 + 掉落物品 + 玩家重生 | 📋 待开始 |
+| **Phase 5** | 清空积分UI按钮 + 局内HUD（HP/弹药/分数） | 📋 待开始 |
+| **Phase 6** | 精英单位 + Boss 炮舰 + 多阶段战斗 | 📋 远期 |
+
+### 八、关键接口（index.html 集成时使用）
+
+```javascript
+// 创建敌人实例
+const enemyModel = EnemyModels.createAssaultVehicle();
+enemyModel.position.set(x, y, z);
+enemyModel.cfg = mapEnemyConfig;  // 来自地图 JSON
+enemyModel.ai = { state: 'patrol', patrolIndex: 0, ... };
+scene.add(enemyModel);
+
+// 游戏循环中更新 AI
+EnemyAI.updateEnemyAI(enemy, dt, players, scene);
+
+// 战斗结算
+const result = ScoreSystem.settleScore('test_map_03a', finalScore);
+if (result.isNewHigh) { /* 显示新纪录提示 */ }
+
+// 获取积分
+const highScore = ScoreSystem.getMapHighScore('test_map_03a');
+const totalScore = ScoreSystem.getTotalScore();
+
+// 清空积分（绑定 UI 按钮）
+ScoreSystem.clearAllScores();
+```
+
+### 九、模型预览入口
+
+菜单 → **模型预览** → **敌方单位** → **装甲突击车**
+
+装甲突击车外观：低矮六轮装甲车，浅棕迷彩（#BFA470），车头 V 形铲斗冲撞角，炮塔顶部喷火器管，深色车轮+金属轮毂。
+
+---
+
+## 🔄 下一对话起手任务（v0.26.0 → v0.26.1）
+
+当前版本 **v0.26.0**。
+
+### ⚔️ PvE 战斗测试与调试（优先）
+
+**已完成**：装甲突击车外形审批 + 03a地图1辆突击车部署（被动巡逻→遭受攻击后还击追击→喷火器交战）。
+**待测试**：实战跑步测试巡逻/追击/喷火行为，调整AI参数平衡性。
+**下一步**：Phase 4 — 敌人HP条/死亡掉落/玩家重生完善 + Phase 5 HUD改造。
 
 ### 🟢 P0 计划任务: 树木 InstancedMesh 重构 + 精度提升
 
@@ -287,6 +473,11 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 渲染耗时 | ~13.45ms |
 | 帧预算余量 | ~3.2ms |
 | 阴影 | PCFShadowMap, 1024px, 72×72（双人动态扩展到两玩家中点） |
+
+### ✅ v0.26.0 已新增
+
+- **PvE战斗系统**：装甲突击车模型(`models/enemies.js`)+AI状态机(`combat/enemyAI.js` PATROL→CHASE→ENGAGE被动反击)+积分系统(`combat/scoreSystem.js` localStorage)+03a战斗地图+index.html combat模式(敌人生成/HP血条/碰撞/火焰伤害/玩家重生/积分结算)
+- **炮塔重构**：突击车炮塔独立 turretPivot Group，支持AI独立旋转瞄准
 
 ### ✅ v0.25.5 已改进
 

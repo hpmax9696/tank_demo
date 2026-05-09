@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.25.5** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.0** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,14 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.26.0 — PvE战斗系统架构搭建（2026-05-10）
+**新增**：
+- 装甲突击车模型（`models/enemies.js`）：低矮六轮浅棕迷彩装甲车，V形铲斗冲撞角+炮塔喷火器
+- AI状态机（`combat/enemyAI.js`）：PATROL→CHASE→ENGAGE 被动反击模式
+- 积分系统（`combat/scoreSystem.js`）：地图高分记录+累计总分，localStorage 持久化
+- PvE战斗地图（`maps/test_map_03a.map.json`）：噪声地形+池塘+河流+桥梁+350障碍物+1辆突击车
+- index.html 新增 `combat` 模式：敌人生成/HP血条/碰撞检测/火焰伤害/玩家重生/积分结算/清空积分
 
 ### v0.25.4 — 双人模式阴影修复（2026-05-09）
 **修复**：versusGameLoop添加阴影相机更新，跟随两玩家坐标中点，按玩家间距动态扩展ortho范围（he=max(18, dist*0.6+5)），确保双方均有阴影。
@@ -644,12 +652,15 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.25.4 | 双人阴影跟随两玩家中点 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.0 | PvE战斗系统+装甲突击车AI | 积分持久化 | 陡视角+FOV 45°`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.25.5）
-- `index.html`：约 3680 行（HTML + CSS + JS 游戏引擎，含陡视角+雾效+草丛系统+遮挡透明化+阴影72m/1024²）
+### 代码规模（截至 v0.26.0）
+- `index.html`：约 4080 行（HTML + CSS + JS 游戏引擎，含陡视角+雾效+草丛系统+遮挡透明化+战斗系统+阴影72m/1024²）
+- `combat/enemyAI.js`：约 280 行（AI状态机 PATROL/CHASE/ENGAGE）
+- `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
+- `models/enemies.js`：约 210 行（装甲突击车程序化模型）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
@@ -658,12 +669,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 - `models/windmill.js`：约 59 行（风车磨坊已修复）
 - `grass.js`：程序化草丛生成（~210 行）
 - 其他模型文件：约 211 行（tank / trees / modelRegistry）
-- `maps/`：3个地图配置文件（test_map_01a / 01b / 02a）
-- **总计约 5400 行**
+- `maps/`：4个地图配置文件（test_map_01a / 01b / 02a / 03a）
+- **总计约 6000 行**
 
 ---
 
-## 当前版本关键参数（v0.22.2）
+## 当前版本关键参数（v0.26.0）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
@@ -674,11 +685,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 单人摄像机 | 后方7 / 上方5 | FOV 50°，far=300m |
 | 双人摄像机 | 后方12 / 上方7 | FOV 55°，far=300m |
 | 草地可见半径 | 55 单位 | 空间分块优化 |
-| 雾色/雾距 | #5a7a9a 蓝灰 / 80-120m | Fog 与天空色调融合 |
-| 天空穹顶 | 半径 280m | 全景纹理 ShaderMaterial（sky-panorama.png），不受雾影响 |
-| 裙边地面 | 400×400 | 纯色 #5a6a4a，在地图纹理地面下方，填充到雾远平面外 |
+| 雾色/雾距 | #8899aa 蓝灰 / 70-110m | Fog |
 | 炮弹外形 | 圆柱体+锥形弹头 | Group 组合，0.18m弹体+0.08m锥头 |
 | 炮弹初速 | 33.0 单位/秒 | 曳光弹效果 |
+| 装甲突击车HP | 60 | 敌人生命值 |
+| 喷火伤害 | 8/跳×3跳 | 突击车火焰伤害 |
+| 玩家命数 | 3 (combat) | PvE战斗模式复活次数 |
 
 ---
 
@@ -756,6 +768,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.26.0 — PvE战斗系统架构搭建（2026-05-10）
+**新增**：装甲突击车模型+AI状态机(PATROL→CHASE→ENGAGE被动反击)+积分系统(localStorage持久化)+PvE战斗地图(03a)+index.html combat模式。
 
 ### v0.25.5 — 球形树重构+阴影提升（2026-05-09）
 **改进**：球形树重构为50+椭球体蓬松伞形树冠；阴影范围36m→72m，分辨率512→1024，双人模式同步扩展。
@@ -855,7 +870,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 🚧 下一步计划（v0.25.5）
+## 🚧 下一步计划（v0.26.0）
+
+### PvE战斗测试与调试
+- 装甲突击车巡逻/追击/喷火实战测试
+- 玩家与敌人碰撞伤害调整
+- 掉落物品系统（回血道具）
+- 清空积分UI按钮
 
 ### 树木 InstancedMesh 重构 + 几何精度提升
 - ~245棵树木从490个独立draw call迁移到4个InstancedMesh（树干+锥形冠+球形冠+橡树冠）

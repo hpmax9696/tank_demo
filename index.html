@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.25.5</title>
+    <title>坦克运动demo v0.26.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.25.5</div>
+        <div class="menu-version">v0.26.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">⚔️ v0.26.0 新增 — PvE战斗系统架构(突击车巡逻/追击/喷火+积分持久化+03a地图)</div>
             <div class="cl-title">🌳 v0.25.5 改进 — 球形树重构(蓬松伞形树冠)+阴影范围翻倍(72m/1024²)</div>
             <div class="cl-title">🔦 v0.25.4 修复 — 双人模式阴影跟随两玩家中点(动态扩展覆盖范围)</div>
             <div class="cl-title">🔧 v0.25.3 修复 — 炮弹轨迹计入地形俯仰+基础仰角5.7°(射程覆盖全图)</div>
             <div class="cl-title">🔧 v0.25.2 修复 — 炮弹轨迹(平地下坠/坡面不自然)+焦痕(坡面不可见/半圆)</div>
-            <div class="cl-title">🔧 v0.25.1 修复 — 炮弹发射角计入坦克俯仰+焦痕贴合地形坡度</div>
         </div>
     </div>
 
@@ -429,6 +429,10 @@
     <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
+    <script src="models/enemies.js"></script>
+    <!-- PvE 战斗系统模块 -->
+    <script src="combat/scoreSystem.js"></script>
+    <script src="combat/enemyAI.js"></script>
 
     <script>
         // ==================== DOM 引用 ====================
@@ -512,6 +516,41 @@
                     density: 0.80,
                     edgeFade: 4.0
                 }
+            },
+            'test_map_03a': {
+                version: '1.0', name: '测试地图03a（战斗）', size: 200, type: 'single', mode: 'combat',
+                desc: 'PvE战斗地图：出生点→杂兵→精英→Boss炮舰 | 噪声地形+河流+桥梁',
+                spawnPoints: { p1: [0, 0, 1.57] },
+                players: {
+                    lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5,
+                    mgDamage: 5, mgRange: 50, mgFireRate: 3
+                },
+                enemies: [
+                    {
+                        id: 'av-01', type: 'assault-vehicle', position: [-25, 0, 22],
+                        patrolPath: [[-25,22], [-40,28], [-30,35], [-20,30]],
+                        reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
+                        ramDamage: 15, flameDamage: 8, flameTicks: 3, flameRange: 12,
+                        ramCooldown: 3, score: 100, dropRate: 0.25, dropHeal: 30
+                    }
+                ],
+                terrain: {
+                    pond: { cx: 0, cz: 50, rx: 4.5, rz: 6, depth: 5 },
+                    river: { zc: -60, amp: 8, period: 30, hwBase: 6.25, hwVar: 1.25, hwPeriod: 20, hwPhase: 1.5, depth: 5 },
+                    hill: { cx: 40, cz: -30, height: 4, radius: 8 },
+                    basin: { cx: 48, cz: -25, depth: 3, radius: 5 }
+                },
+                terrainTypes: {
+                    default: 'grass',
+                    riverBank: { bankWidth: 5, type: 'mud' },
+                    pondEdge: { bankWidth: 3, type: 'mud' },
+                    hillTop: { radius: 4, type: 'sand' },
+                    basin: { radius: 3, type: 'sand' },
+                    bridgeSurface: { type: 'asphalt' }
+                },
+                waters: { pond: { waterLevel: -1 }, river: { waterLevel: -1 } },
+                bridges: [{ cx: 0, halfW: 4, deckH: 0.35 }],
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
             }
         };
         let currentMapData = null;
@@ -1012,6 +1051,8 @@
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
         let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
         let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
+        let enemies = [];  // PvE 战斗模式敌人数组
+        let combatData = null;  // 战斗模式运行时数据 { score, lives, phase }
         let totalDistance = 0;   // 坦克行驶总里程（单位）
 
         // 游戏参数
@@ -2768,7 +2809,7 @@
 
             // ── 开炮（键盘空格 / 手柄RT扳机） ──
             const fireNow = isFirePressed();
-            if (fireNow && gameMode === 'single' && gamepadFireReady) {
+            if (fireNow && (gameMode === 'single' || gameMode === 'combat') && gamepadFireReady) {
                 fireShell();
                 gamepadFireReady = false;
                 keys['Space'] = false;
@@ -2885,6 +2926,54 @@
                                 const hitPos = s.mesh.position.clone();
                                 spawnHitSparks(hitPos);
                             }
+                        }
+                    }
+                }
+
+                // 战斗模式：炮弹 vs 敌人
+                if (!hit && gameMode === 'combat' && s.owner === player1) {
+                    for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                        const enemy = enemies[ei];
+                        if (!enemy || enemy.ai.state === 'dead') continue;
+                        const ep = enemy.position;
+                        const edx = s.mesh.position.x - ep.x;
+                        const edz = s.mesh.position.z - ep.z;
+                        const eDist = Math.sqrt(edx*edx + edz*edz);
+                        // 简易碰撞：半径 1.0（装甲车半宽~1m）+ 炮弹 0.18
+                        if (eDist < 1.2 && s.mesh.position.y < 1.5) {
+                            const dmg = (combatData && combatData.playerCannonDamage) || 40;
+                            const killed = window.EnemyAI.onEnemyDamaged(enemy, dmg, player1);
+                            const hitPos = s.mesh.position.clone();
+                            spawnHitSparks(hitPos);
+                            hit = true;
+                            if (killed) {
+                                // 敌人死亡
+                                enemy.ai.state = 'dead';
+                                const ep2 = enemy.position.clone(); ep2.y += 0.5;
+                                spawnFragments(ep2, '#8B7D4A');
+                                playExplosionSound();
+                                // 加分
+                                if (combatData) combatData.score += (enemy.cfg.score || 100);
+                                // 延迟移除模型
+                                const deadEnemy = enemy;
+                                setTimeout(() => {
+                                    if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                    deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                    const idx = enemies.indexOf(deadEnemy);
+                                    if (idx >= 0) enemies.splice(idx, 1);
+                                }, 1500);
+                                // 检查是否清场
+                                if (enemies.every(e => e.ai.state === 'dead')) {
+                                    setTimeout(() => {
+                                        if (combatData) {
+                                            const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                            hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
+                                                (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                        }
+                                    }, 2000);
+                                }
+                            }
+                            break; // 一发炮弹最多命中一个敌人
                         }
                     }
                 }
@@ -3048,6 +3137,73 @@
                 if (!explosions[i].active) {
                     explosions[i].dispose();
                     explosions.splice(i, 1);
+                }
+            }
+
+            // ── 战斗模式：敌人 AI + HP条 + 受击反馈 ──
+            if (gameMode === 'combat' && enemies.length > 0) {
+                for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                    const enemy = enemies[ei];
+                    if (!enemy || enemy.ai.state === 'dead') continue;
+                    // AI 状态机更新
+                    window.EnemyAI.updateEnemyAI(enemy, dt, [player1], scene);
+                    // 贴地
+                    enemy.position.y = getGroundHeight(enemy.position.x, enemy.position.z);
+                    // HP 条更新
+                    if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
+                        const hpPct = Math.max(0, enemy.hp / (enemy.userData.maxHp || 60));
+                        enemy.userData.hpBarFill.scale.x = hpPct;
+                        enemy.userData.hpBarFill.position.x = -(1 - hpPct) * 0.75;
+                        enemy.userData.hpBarFill.material.color.setRGB(1 - hpPct, hpPct, 0);
+                        enemy.userData.hpBarGroup.lookAt(camera.position);
+                    }
+                    // 受击闪烁
+                    if (enemy.ai.hitFlash > 0) {
+                        enemy.ai.hitFlash -= dt;
+                        enemy.traverse(c => {
+                            if (c.isMesh && c.material.emissive) {
+                                c.material.emissive = new THREE.Color(1, 1, 1);
+                                c.material.emissiveIntensity = Math.min(1, enemy.ai.hitFlash * 5);
+                            }
+                        });
+                        if (enemy.ai.hitFlash <= 0) {
+                            enemy.traverse(c => {
+                                if (c.isMesh && c.material.emissive) {
+                                    c.material.emissive.set(0x000000);
+                                    c.material.emissiveIntensity = 0;
+                                }
+                            });
+                        }
+                    }
+                    // 喷火伤害玩家
+                    if (enemy.ai.flameRequest && player1 && !player1.dead) {
+                        const ed = enemy.position.distanceTo(player1.group.position);
+                        if (ed < (enemy.cfg.flameRange || 12)) {
+                            player1.hp -= (enemy.cfg.flameDamage || 8);
+                            if (player1.hp < 0) player1.hp = 0;
+                            if (player1.damageEffects && !player1.damageEffects.active && player1.hp < 50) {
+                                player1.damageEffects.show();
+                            }
+                            if (player1.hp <= 0) {
+                                player1.dead = true;
+                                const pep = player1.group.position.clone(); pep.y += 0.5;
+                                spawnFragments(pep, '#4a5c2e');
+                                playExplosionSound();
+                                player1.group.visible = false;
+                                if (combatData) combatData.lives--;
+                                if (combatData && combatData.lives > 0) {
+                                    hintBar.textContent = '💀 你被击毁了! 剩余命数:' + combatData.lives + ' | 3秒后重生...';
+                                    setTimeout(() => respawnPlayer(), 3000);
+                                } else {
+                                    hintBar.textContent = '💀 游戏结束! 最终得分:' + (combatData ? combatData.score : 0) + ' | 按ESC返回菜单';
+                                    const finalScore = combatData ? combatData.score : 0;
+                                    if (window.ScoreSystem) {
+                                        window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -3522,6 +3678,185 @@
             clock.getDelta();animationId=requestAnimationFrame(versusGameLoop);
         }
 
+        // ==================== PvE 战斗模式 ====================
+        function enterCombatMode() {
+            gameMode = 'combat'; isVersusMap = false;
+            menuOverlay.classList.add('hidden'); gameContainer.classList.add('active');
+            splitLine.style.display = 'none'; arrowP1.style.display = 'none'; arrowP2.style.display = 'none';
+            hintBar.textContent = '键盘 W/S/↑/↓  |  空格/RT 开炮 | ⚔️ PvE战斗模式';
+            scene = scene1;
+            // 移除双人模式残留
+            if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
+            if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
+            if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
+            if (player2 && player2.damageEffects) {
+                if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints);
+                if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints);
+            }
+            // 清理旧特效
+            shells.forEach(s => { scene.remove(s.mesh); disposeShellMesh(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } }); shells = [];
+            fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }); fragments = [];
+            muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); }); muzzleLights = [];
+            explosions.forEach(exp => exp.dispose()); explosions = [];
+            scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); }); scorchMarks = [];
+            groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); }); groundDebris = [];
+            // 清理旧敌人
+            cleanupEnemies();
+            // 重建地图
+            rebuildMap();
+            // 玩家配置
+            const pcfg = currentMapData.players || {};
+            player1 = createPlayer('green', POINT_A_X, POINT_A_Z, Math.PI / 2, true);
+            player1.hp = pcfg.hp || 100;
+            player1.dead = false;
+            player1.userData = player1.userData || {};
+            player1.userData.maxHp = player1.hp;
+            createPlayerTank(player1);
+            createBarsForPlayer(player1);
+            player1.reloadBarGroup.visible = true;
+            player1.hpBarGroup.visible = true;
+            tankGroup = player1.group; tankHull = player1.hull;
+            leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
+            reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
+            // 重置全局状态
+            tankState.x = POINT_A_X; tankState.z = POINT_A_Z; tankState.yaw = Math.PI / 2;
+            totalDistance = 0;
+            // 战斗数据
+            combatData = {
+                score: 0,
+                lives: pcfg.lives || 3,
+                phase: 'combat',
+                playerCannonDamage: pcfg.cannonDamage || 40,
+            };
+            // 创建敌人
+            createEnemies();
+            // 初始化
+            visibilityTimer = 0;
+            updateObstacleVisibility();
+            handleObstacleOcclusion();
+            placeCamera();
+            initAudio(); startEngineSound();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.type = THREE.PCFShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.setScissorTest(false);
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            renderer.setViewport(0, 0, cssW, cssH);
+            camera.aspect = cssW / cssH;
+            camera.updateProjectionMatrix();
+            renderer.render(scene, camera);
+            updateDebugInfo();
+            if (animationId) { cancelAnimationFrame(animationId); }
+            clock.getDelta(); animationId = requestAnimationFrame(gameLoop);
+            console.log('⚔️ PvE战斗模式已启动 | 地图:' + (currentMapData && currentMapData.name || '?') + ' | 敌人:' + enemies.length + '只');
+        }
+
+        function createEnemies() {
+            if (!currentMapData || !currentMapData.enemies) return;
+            for (const ecfg of currentMapData.enemies) {
+                let model;
+                if (ecfg.type === 'assault-vehicle') {
+                    if (!window.EnemyModels || !window.EnemyModels.createAssaultVehicle) {
+                        console.warn('createEnemies: EnemyModels.createAssaultVehicle 不可用');
+                        continue;
+                    }
+                    model = window.EnemyModels.createAssaultVehicle();
+                } else {
+                    console.warn('createEnemies: 未知敌人类型 ' + ecfg.type);
+                    continue;
+                }
+                const pos = ecfg.position;
+                const gy = getGroundHeight(pos[0], pos[2]);
+                model.position.set(pos[0], gy, pos[2]);
+                // 初始朝向前方（-Z = 世界北方）
+                model.rotation.set(0, 0, 0);
+                model.cfg = ecfg;
+                model.hp = ecfg.hp || 60;
+                model.userData = model.userData || {};
+                model.userData.maxHp = model.hp;
+                model.userData.enemyType = ecfg.type;
+                model.userData.enemyId = ecfg.id;
+                // AI 运行时数据
+                model.ai = {
+                    state: 'patrol',
+                    target: null,
+                    patrolIndex: 0,
+                    lastSeenPlayerPos: null,
+                    alertTimer: 0,
+                    flameTimer: 0,
+                    flameRequest: false,
+                    flameTicksLeft: 0,
+                    isFlaming: false,
+                    flameTickTimer: 0,
+                    strafeTimer: 0,
+                    strafeDir: 1,
+                    hitFlash: 0,
+                };
+                // 初始化炮塔朝前
+                if (model.userData.turretPivot) {
+                    model.userData.turretPivot.rotation.y = 0;
+                }
+                // 添加HP条
+                createEnemyHpBar(model);
+                scene.add(model);
+                enemies.push(model);
+                console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + pos[1].toFixed(1) + ',' + pos[2].toFixed(1) + ']');
+            }
+        }
+
+        function createEnemyHpBar(enemy) {
+            const barW = 1.5, barH = 0.08, barD = 0.02;
+            const bgGeo = new THREE.BoxGeometry(barW, barH, barD);
+            const bgMat = new THREE.MeshBasicMaterial({ color: 0x333333, depthTest: false });
+            const bg = new THREE.Mesh(bgGeo, bgMat);
+            const fillGeo = new THREE.BoxGeometry(barW, barH, barD);
+            const fillMat = new THREE.MeshBasicMaterial({ color: 0xff3333, depthTest: false });
+            const fill = new THREE.Mesh(fillGeo, fillMat);
+            fill.position.z = 0.015;
+            const group = new THREE.Group();
+            group.add(bg); group.add(fill);
+            group.position.y = 1.8; // 悬浮在敌人上方
+            group.renderOrder = 999;
+            group.materialDepthTest = false;
+            enemy.add(group);
+            enemy.userData.hpBarGroup = group;
+            enemy.userData.hpBarFill = fill;
+        }
+
+        function cleanupEnemies() {
+            for (const enemy of enemies) {
+                if (enemy.parent) enemy.parent.remove(enemy);
+                enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            enemies = [];
+        }
+
+        function respawnPlayer() {
+            if (!player1 || !combatData || combatData.lives <= 0) return;
+            // 恢复到出生点
+            const sp = currentMapData && currentMapData.spawnPoints && currentMapData.spawnPoints.p1;
+            const sx = sp ? sp[0] : POINT_A_X;
+            const sz = sp ? sp[1] : POINT_A_Z;
+            const sy = sp ? sp[2] : Math.PI / 2;
+            player1.state.x = sx; player1.state.z = sz; player1.state.yaw = sy;
+            player1.hp = player1.userData.maxHp || 100;
+            player1.dead = false;
+            player1.group.visible = true;
+            player1.group.position.set(sx, getGroundHeight(sx, sz), sz);
+            player1.group.rotation.set(0, Math.PI / 2 - sy, 0);
+            if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+            tankState.x = sx; tankState.z = sz; tankState.yaw = sy;
+            // 清除敌人锁定
+            for (const enemy of enemies) {
+                if (enemy.ai) {
+                    enemy.ai.target = null;
+                    enemy.ai.lastSeenPlayerPos = null;
+                }
+            }
+            hintBar.textContent = '⚔️ 战斗继续 | 剩余命数:' + combatData.lives + ' | 得分:' + combatData.score;
+        }
+
         function versusGameLoop() {
             // 先复位为全屏（清除上一帧的 scissor/viewport 残留）
             const dpr = renderer.getPixelRatio();
@@ -3741,6 +4076,11 @@
                 console.warn('地图加载失败，使用默认配置');
                 loadMapConfig('test_map_01a');
             }
+            // 战斗地图路由
+            if (currentMapData && currentMapData.mode === 'combat') {
+                enterCombatMode();
+                return;
+            }
             gameMode='single';isVersusMap=false;
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
@@ -3830,9 +4170,14 @@
             }
             const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
 
+            let combatLine = '';
+            if (gameMode === 'combat' && combatData) {
+                combatLine = '\n⚔️ 得分:' + combatData.score + ' | 命数:' + combatData.lives + ' | 敌:' + enemies.filter(e => e.ai && e.ai.state !== 'dead').length + '只';
+            }
+
             el.textContent =
-                'v0.25.5  ' + mapName + '  FPS:' + fpsCurrent +
-                '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
+                'v0.26.0  ' + mapName + '  FPS:' + fpsCurrent +
+                (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
 
@@ -3845,6 +4190,8 @@
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             if(player2&&player2.hpBarGroup)player2.hpBarGroup.visible=false;
             if(player2&&player2.reloadBarGroup)player2.reloadBarGroup.visible=false;
+            cleanupEnemies();
+            combatData = null;
             stopEngineSound();if(animationId){cancelAnimationFrame(animationId);animationId=null;}
         }
 
@@ -3955,6 +4302,7 @@
                 trees: { id: 'trees', label: '树木', models: [] },
                 buildings: { id: 'buildings', label: '建筑', models: [] },
                 grass: { id: 'grass', label: '草丛', models: [] },
+                enemies: { id: 'enemies', label: '敌方单位', models: [] },
                 special: { id: 'special', label: '特殊物件', models: [] },
                 glb: { id: 'glb', label: 'GLB模型', models: [] }
             };
@@ -4158,7 +4506,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.25.5 | 球形树重构+阴影72m/1024² | 三树种InstancedMesh | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.0 | PvE战斗系统+装甲突击车AI | 积分持久化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

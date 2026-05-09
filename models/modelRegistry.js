@@ -40,7 +40,8 @@
             trees: '树木',
             buildings: '建筑',
             grass: '草丛',
-            special: '特殊物件'
+            special: '特殊物件',
+            enemies: '敌方单位'
         };
         for (const [cat, catLabel] of Object.entries(catNames)) {
             for (const [name, fn] of Object.entries(registry[cat] || {})) {
