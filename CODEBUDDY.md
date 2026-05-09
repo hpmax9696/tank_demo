@@ -41,12 +41,18 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 每次更新必须同步以下 8 处版本号，否则调试信息与实际版本不一致：
 1. `index.html` `<title>` 标签
 2. `index.html` `.menu-version` 菜单显示
-3. `index.html` `.changelog` 追加记录
+3. `index.html` `.changelog` 追加记录（⚠️ 追加后裁剪到最近5条，见下方规则）
 4. `index.html` 调试信息版本号
 5. `index.html` `console.log` 版本号
 6. `README.md` 开头版本号
 7. `README.md` 版本历史追加
 8. `README.md` 代码规模注释
+
+### ⚠️ 菜单 changelog 裁剪规则（强制执行）
+
+菜单页面的 `.changelog` 区域**仅保留最近 5 条**版本记录（`cl-title`），多余的旧条目必须删除。否则会撑破菜单界面、逼近标题区。
+
+每次追加新版本后，如果条目数 > 5，裁剪最旧的一条。保持格式为 `<div class="cl-title">图标 vX.Y.Z 类型 — 简短描述</div>`，一行一条。
 
 **Git 提交格式**: `git commit -m "vX.Y.Z: 描述"`
 

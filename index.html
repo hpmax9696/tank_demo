@@ -368,7 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机压低天空，视线内看不到地图边缘</div>
+            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方9.75m/上方9m（1.5x），视线内看不到边缘</div>
             <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：Shader雾环+移除空气墙边框+Fog far=250</div>
             <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
             <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300</div>
@@ -2740,12 +2740,12 @@
         // ==================== 摄像机 ====================
         // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
         // 摄像机参数（单人模式×0.5，双人模式×0.7）
-        const CAMERA_BEHIND = 6.5;    // 后方距离（更近→视角更陡→天空占比更小）
-        const CAMERA_ABOVE = 6.0;    // 上方高度（抬升→俯角更大→看不到天际线）
-        const CAMERA_BEHIND_VS = 8;  // 双人模式后方距离
-        const CAMERA_ABOVE_VS = 7.0; // 双人模式上方高度
-        const CAMERA_LOOK_Y = 1.0;    // lookAt 高度-单人模式
-        const CAMERA_LOOK_Y_VS = 1.5;  // lookAt 高度-双人模式
+        const CAMERA_BEHIND = 9.75;   // 后方距离（6.5×1.5，拉远视野）
+        const CAMERA_ABOVE = 9.0;     // 上方高度（6.0×1.5，等比放大保持坦克在1/3处）
+        const CAMERA_BEHIND_VS = 9.6; // 双人模式后方距离（8×1.2）
+        const CAMERA_ABOVE_VS = 8.4;  // 双人模式上方高度（7.0×1.2）
+        const CAMERA_LOOK_Y = 1.0;     // lookAt 高度-单人模式（坦克在画面下1/3处）
+        const CAMERA_LOOK_Y_VS = 1.5;   // lookAt 高度-双人模式
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -3565,7 +3565,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.4 | 陡视角 后方6.5m+上方6m | Fog 70-110m 视线内看不到边缘');
+        console.log('🎮 坦克运动demo v0.24.4 | 陡视角 后方9.75m+上方9m | Fog 70-110m 视线内看不到边缘');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
