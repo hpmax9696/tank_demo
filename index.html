@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.25.4</title>
+    <title>坦克运动demo v0.25.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.25.4</div>
+        <div class="menu-version">v0.25.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌳 v0.25.5 改进 — 球形树重构(蓬松伞形树冠)+阴影范围翻倍(72m/1024²)</div>
             <div class="cl-title">🔦 v0.25.4 修复 — 双人模式阴影跟随两玩家中点(动态扩展覆盖范围)</div>
             <div class="cl-title">🔧 v0.25.3 修复 — 炮弹轨迹计入地形俯仰+基础仰角5.7°(射程覆盖全图)</div>
             <div class="cl-title">🔧 v0.25.2 修复 — 炮弹轨迹(平地下坠/坡面不自然)+焦痕(坡面不可见/半圆)</div>
             <div class="cl-title">🔧 v0.25.1 修复 — 炮弹发射角计入坦克俯仰+焦痕贴合地形坡度</div>
-            <div class="cl-title">💥 v0.25.0 新功能 — 炮弹命中地面：音效+碎片飞溅+焦痕(3秒渐消)</div>
         </div>
     </div>
 
@@ -423,10 +423,10 @@
     <script src="models/modelRegistry.js"></script>
     <script src="models/tank.js"></script>
     <script src="models/t34-85.js"></script>
-    <script src="models/trees.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
     <script src="BufferGeometryUtils.js"></script>
+    <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
 
@@ -1002,6 +1002,8 @@
         let obstacleMeshes = [], obstacleData = [];
         let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
         let occludedObstacles = [];  // 当前被半透明的障碍物列表
+        let hiddenTreeInstances = [];  // 树木遮挡隐藏列表：[{imTrunk,imCrown,index,matrixTrunk,matrixCrown}]
+        let transparentTreeGroups = [];  // 树木遮挡半透明替身 Group 列表
         let transparentMatPool = new Map();  // 透明材质池：原始材质→半透明clone（避免每帧clone/dispose）
         let sunLight = null;  // 主方向光引用（用于H键切换阴影）
         let shadowEnabled = true;  // 阴影开关状态
@@ -1158,14 +1160,14 @@
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
                 sun.position.set(30, 40, 20);
                 sun.castShadow = true;
-                sun.shadow.mapSize.width = 512;   // v0.24.10: 1024→512，贴近视口
-                sun.shadow.mapSize.height = 512;
+                sun.shadow.mapSize.width = 1024;  // v0.25.5: 512→1024，配合72m范围保持密度
+                sun.shadow.mapSize.height = 1024;
                 sun.shadow.camera.near = 0.5;
                 sun.shadow.camera.far = 120;
-                sun.shadow.camera.left = -18;     // v0.24.10: ±60→±18(36m范围)，密度提升5.5倍
-                sun.shadow.camera.right = 18;
-                sun.shadow.camera.top = 18;
-                sun.shadow.camera.bottom = -18;
+                sun.shadow.camera.left = -36;     // v0.25.5: ±18→±36(72m范围)，覆盖更远距离
+                sun.shadow.camera.right = 36;
+                sun.shadow.camera.top = 36;
+                sun.shadow.camera.bottom = -36;
                 sun.shadow.bias = -0.0002;
                 trg.add(sun);
                 sunLight = sun;  // 保存全局引用供H键切换阴影
@@ -1216,12 +1218,26 @@
             if (riverWater) { scene.remove(riverWater); riverWater.geometry.dispose(); riverWater.material.dispose(); riverWater = null; }
             // 移除桥梁
             if (bridgeGroup) { bridgeGroup.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); scene.remove(bridgeGroup); bridgeGroup = null; }
-            // 清除障碍物
+            // 清除树木 InstancedMesh
+            if (window._treeIMs) {
+                for (const im of window._treeIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose();
+                    im.material.dispose();
+                }
+                window._treeIMs = [];
+            }
+            // 清除建筑 Group
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
             obstacleMeshes = []; obstacleData = [];
+            transparentTreeGroups.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            transparentTreeGroups = [];
             // 清除草丛
             clearGrass();
             // 重建地面
@@ -2013,22 +2029,23 @@
         // ==================== 障碍物遮挡物的动态可见更新 ====================
         function updateObstacleVisibility(extraPositions) {
             const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
-            for (let i = 0; i < obstacleMeshes.length; i++) {
+            let bldIdx = 0;  // obstacleMeshes 中建筑索引（obstacleData 前面是树木）
+            for (let i = 0; i < obstacleData.length; i++) {
                 const o = obstacleData[i];
+                if (o.type !== 'building') continue;
                 let visible = false;
-                // 主坦克位置
                 const dx0 = tankState.x - o.x, dz0 = tankState.z - o.z;
                 if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
-                // 额外位置（对战模式中的其他玩家）
                 if (!visible && extraPositions) {
                     for (const ep of extraPositions) {
                         const dx = ep.x - o.x, dz = ep.z - o.z;
                         if ((dx * dx + dz * dz) < r2) { visible = true; break; }
                     }
                 }
-                if (obstacleMeshes[i].visible !== visible) {
-                    obstacleMeshes[i].visible = visible;
+                if (obstacleMeshes[bldIdx].visible !== visible) {
+                    obstacleMeshes[bldIdx].visible = visible;
                 }
+                bldIdx++;
             }
         }
 
@@ -2053,25 +2070,87 @@
             }
         }
 
+        // ==================== 辅助：销毁单个树木实例（挪到地下模拟移除） ====================
+        function disposeTreeInstance(od) {
+            if (!od.type || od.type === 'building' || od.imIndex == null) return;
+            const imTrunk = od.imTrunk, imCrown = od.imCrown, idx = od.imIndex;
+            const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
+            hideMat.setPosition(0, -999, 0);
+            if (imTrunk) imTrunk.setMatrixAt(idx, hideMat);
+            if (imCrown) imCrown.setMatrixAt(idx, hideMat);
+            if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
+            if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
+        }
+
+        // 创建半透明树木替身 Group（用于遮挡视线时显示，opacity=0.3 与建筑统一）
+        function createTransparentTreeGhost(od) {
+            const tm = window.TreeModels && window.TreeModels[od.type];
+            if (!tm) return null;
+            const s = od.height / tm.baseHeight;
+            const obsY = isVersusMap ? 0 : getTerrainHeight(od.x, od.z);
+            const targetScene = scene;
+            const group = new THREE.Group();
+
+            // 树干 — 半透明
+            const trunkGeo = tm.trunkGeo;
+            const trunkMat = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9, transparent: true, opacity: 0.3, depthWrite: false });
+            const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
+            trunkMesh.position.set(od.x, obsY + tm.trunkOffsetY * s, od.z);
+            trunkMesh.scale.setScalar(s);
+            trunkMesh.castShadow = false;
+            trunkMesh.receiveShadow = false;
+            group.add(trunkMesh);
+
+            // 树冠 — 半透明，颜色与原始树冠一致
+            const crownGeo = tm.crownGeo;
+            const crownColor = od.color || tm.color || '#3B7A3B';
+            const crownMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
+            const crownMesh = new THREE.Mesh(crownGeo, crownMat);
+            crownMesh.position.set(od.x, obsY + tm.crownOffsetY * s, od.z);
+            crownMesh.scale.setScalar(s);
+            crownMesh.castShadow = false;
+            crownMesh.receiveShadow = false;
+            group.add(crownMesh);
+
+            targetScene.add(group);
+            return group;
+        }
+
         function createObstacles(targetScene = scene) {
+            // --- 清理旧的 InstancedMesh 树木 ---
+            if (window._treeIMs) {
+                for (const im of window._treeIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose();
+                    im.material.dispose();
+                }
+                window._treeIMs = [];
+            }
+            // --- 清理旧的建筑 Group ---
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
             obstacleMeshes = [];
             obstacleData = [];
-            occludedObstacles = [];  // 清除遮挡透明记录
-            // 清理透明材质池（dispose所有克隆材质后清空）
+            occludedObstacles = [];
+            hiddenTreeInstances = [];
+            transparentTreeGroups.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            transparentTreeGroups = [];
             for (const transpMat of transparentMatPool.values()) {
                 transpMat.dispose();
             }
             transparentMatPool.clear();
 
+            // --- 阶段1：泊松采样 + 分类收集 ---
             const is02a = (selectedMapId === 'test_map_02a');
             const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
-            // 陡视角下外围障碍物不可见，使用地图默认配置（98m/350个）即可
             const points = poissonDiskSampling(0, 0, obsCfg.spawnRadius || SPAWN_RADIUS, obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS, obsCfg.count || OBSTACLE_COUNT);
 
+            const conePts = [], spherePts = [], oakPts = [], buildPts = [];
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
                 if (!isVersusMap) {
@@ -2083,6 +2162,138 @@
                     }
                     if (isInRiver(p.x, p.z)) continue;
                 }
+                // 权重分配：锥形树30%、球形树25%、橡树20%、建筑25%
+                const r = Math.random();
+                if (r < 0.30) { conePts.push(p); }
+                else if (r < 0.55) { spherePts.push(p); }
+                else if (r < 0.75) { oakPts.push(p); }
+                else { buildPts.push(p); }
+            }
+
+            // --- 阶段2：批量创建 InstancedMesh（树木）+ 独立 Group（建筑） ---
+            window._treeIMs = [];
+            const dummy = new THREE.Object3D();
+
+            // 锥形树
+            if (conePts.length > 0) {
+                const tm = window.TreeModels.conical;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, conePts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, conePts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < conePts.length; i++) {
+                    const p = conePts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'conical',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 球形树
+            if (spherePts.length > 0) {
+                const tm = window.TreeModels.spherical;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, spherePts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, spherePts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < spherePts.length; i++) {
+                    const p = spherePts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'spherical',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 橡树（扁椭球树冠，深绿色，较粗壮）
+            if (oakPts.length > 0) {
+                const tm = window.TreeModels.oak;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, oakPts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, oakPts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < oakPts.length; i++) {
+                    const p = oakPts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'oak',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 建筑（保持原有 Group 方式）
+            for (let i = 0; i < buildPts.length; i++) {
+                const p = buildPts[i];
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
                 const ud = group.userData;
@@ -2097,7 +2308,7 @@
                 group.name = `obs-${i}`;
                 targetScene.add(group);
                 obstacleMeshes.push(group);
-                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });
+                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null, type: 'building', groupRef: group });
             }
 
             updateObstacleVisibility();
@@ -2335,30 +2546,31 @@
             const chainRadius = EXPLOSION_RADIUS;
             const chainRadiusSq = chainRadius * chainRadius;
 
-            // 从后往前遍历，避免删除时索引问题
-            for (let i = obstacleMeshes.length - 1; i >= 0; i--) {
-                const obs = obstacleMeshes[i];
-                const obsData = obstacleData[i];
-                if (!obs.visible) continue;
+            // 从后往前遍历 obstacleData（含树木+建筑），避免删除时索引问题
+            for (let i = obstacleData.length - 1; i >= 0; i--) {
+                const od = obstacleData[i];
+                // 建筑需检查可见性；树木 InstancedMesh 始终可见
+                if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
 
-                const dx = explosionPos.x - obsData.x;
-                const dz = explosionPos.z - obsData.z;
+                const dx = explosionPos.x - od.x;
+                const dz = explosionPos.z - od.z;
                 const distSq = dx * dx + dz * dz;
 
-                // 在殉爆半径内，障碍物被引爆
                 if (distSq < chainRadiusSq) {
-                    // 获取障碍物中心点
-                    const obsCenter = obs.position.clone();
-                    obsCenter.y += (obsData.height || 1.5) / 2;
+                    const obsCenter = new THREE.Vector3(od.x, 0, od.z);
+                    obsCenter.y += (od.height || 1.5) / 2;
+                    spawnFragments(obsCenter, od.color);
+                    playExplosionSound();
 
-                    // 障碍物被殉爆：只产生碎块效果，不需要爆炸火焰
-                    // 移除障碍物
-                    obs.parent.remove(obs);
-                    obs.traverse(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
-                    obstacleMeshes.splice(i, 1);
+                    if (od.type === 'building' && od.groupRef) {
+                        const obs = od.groupRef;
+                        obs.parent.remove(obs);
+                        obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                        const meshIdx = obstacleMeshes.indexOf(obs);
+                        if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                    } else if (od.type && od.type !== 'building') {
+                        disposeTreeInstance(od);
+                    }
                     obstacleData.splice(i, 1);
                 }
             }
@@ -2590,35 +2802,32 @@
                 const shellR = 0.18;
                 const moveVec = new THREE.Vector3().subVectors(s.mesh.position, prevPos);
                 const moveLen = moveVec.length();
-                for (let j = obstacleMeshes.length - 1; j >= 0; j--) {
-                    const obs = obstacleMeshes[j];
-                    if (!obs.visible) continue;
-                    const obsData = obstacleData[j];
-                    const obsRadius = obsData.radius || 0.55;
+                for (let j = obstacleData.length - 1; j >= 0; j--) {
+                    const od = obstacleData[j];
+                    if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
+                    const obsRadius = od.radius || 0.55;
                     const combinedR = shellR + obsRadius;
-                    const obsCenter = new THREE.Vector3(obs.position.x, obs.position.y, obs.position.z);
-                    const obsTop = obsData.height || 1.5;
+                    const obsX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                    const obsZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                    const obsY = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z));
+                    const obsTop = od.height || 1.5;
 
                     // 垂直方向：炮弹必须经过障碍物高度范围
                     const prevY = prevPos.y, currY = s.mesh.position.y;
-                    // 不检测下方（炮弹从地面发射，障碍物也在地面），仅做上方快速剔除优化
-                    const obsTopLimit = obs.position.y + obsTop + 0.3;
+                    const obsTopLimit = obsY + obsTop + 0.3;
                     if (currY > obsTopLimit && prevY > obsTopLimit) continue;
 
                     // 水平扫掠检测：炮弹移动路径 vs 障碍物圆柱
                     let horizHit = false;
                     if (moveLen < 0.0001) {
-                        // 静止：直接检测当前位置
-                        const dx = s.mesh.position.x - obs.position.x;
-                        const dz = s.mesh.position.z - obs.position.z;
+                        const dx = s.mesh.position.x - obsX;
+                        const dz = s.mesh.position.z - obsZ;
                         horizHit = (dx * dx + dz * dz) < combinedR * combinedR;
                     } else {
-                        // 扫掠检测：从prevPos到currentPos的线段 vs 障碍物圆盘
-                        const ox = obs.position.x, oz = obs.position.z;
+                        const ox = obsX, oz = obsZ;
                         const px = prevPos.x, pz = prevPos.z;
                         const vx = s.mesh.position.x - px, vz = s.mesh.position.z - pz;
 
-                        // 求解：|P + t*V - O| = R, 0 <= t <= 1
                         const dx0 = px - ox, dz0 = pz - oz;
                         const a = vx * vx + vz * vz;
                         const b = 2 * (dx0 * vx + dz0 * vz);
@@ -2636,14 +2845,19 @@
                     }
 
                     if (horizHit) {
-                        const obsWorldPos = obs.position.clone(); obsWorldPos.y += obsTop/2;
-                        spawnFragments(obsWorldPos, obsData.color);
+                        const obsWorldPos = new THREE.Vector3(obsX, obsY + obsTop/2, obsZ);
+                        spawnFragments(obsWorldPos, od.color);
                         playExplosionSound();
-                        if (obs.parent) {
+                        if (od.type === 'building' && od.groupRef) {
+                            const obs = od.groupRef;
                             obs.parent.remove(obs);
                             obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                            const meshIdx = obstacleMeshes.indexOf(obs);
+                            if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                        } else if (od.type && od.type !== 'building') {
+                            disposeTreeInstance(od);
                         }
-                        obstacleMeshes.splice(j,1); obstacleData.splice(j,1);
+                        obstacleData.splice(j, 1);
                         hit = true; break;
                     }
                 }
@@ -2934,7 +3148,23 @@
         // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
         // ⚡ v0.24.9 优化：用透明材质池替代每帧 clone/dispose，消除 GPU 材质编译开销
         function handleObstacleOcclusion() {
-            // 重置之前被半透明的障碍物：还原原始材质（不dispose，透明clone保留在池中复用）
+            // --- 清理半透明树木替身 Group ---
+            for (const ttg of transparentTreeGroups) {
+                if (ttg.parent) ttg.parent.remove(ttg);
+                ttg.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            transparentTreeGroups = [];
+
+            // --- 还原之前被隐藏的树木实例 ---
+            for (const hti of hiddenTreeInstances) {
+                hti.imTrunk.setMatrixAt(hti.index, hti.matrixTrunk);
+                hti.imCrown.setMatrixAt(hti.index, hti.matrixCrown);
+                hti.imTrunk.instanceMatrix.needsUpdate = true;
+                hti.imCrown.instanceMatrix.needsUpdate = true;
+            }
+            hiddenTreeInstances = [];
+
+            // --- 还原之前被半透明的建筑 ---
             for (const obs of occludedObstacles) {
                 obs.traverse(child => {
                     if (child.isMesh && child.userData._origMat) {
@@ -2956,40 +3186,70 @@
             const lx = dx / lineLen, lz = dz / lineLen; // 线段方向单位向量
 
             const nearObstacles = [];
+            // 收集附近建筑
             for (let i = 0; i < obstacleMeshes.length; i++) {
                 const obs = obstacleMeshes[i];
                 if (!obs.visible) continue;
                 const ox = obs.position.x - cam2x;
                 const oz = obs.position.z - cam2z;
-                const proj = ox * lx + oz * lz; // 投影到线段方向
-                if (proj < -2 || proj > lineLen + 2) continue; // 在线段前后2m外
-                const perp = Math.abs(ox * lz - oz * lx); // 到线段的垂直距离
-                if (perp > 8) continue; // 距线段超过8m，不遮挡
+                const proj = ox * lx + oz * lz;
+                if (proj < -2 || proj > lineLen + 2) continue;
+                const perp = Math.abs(ox * lz - oz * lx);
+                if (perp > 8) continue;
                 nearObstacles.push(obs);
+            }
+
+            // 收集附近树木 InstancedMesh（去重）
+            const treeIMSet = new Set();
+            if (window._treeIMs && window._treeIMs.length > 0) {
+                for (const od of obstacleData) {
+                    if (od.type === 'building') continue;
+                    const ox = od.x - cam2x;
+                    const oz = od.z - cam2z;
+                    const proj = ox * lx + oz * lz;
+                    if (proj < -2 || proj > lineLen + 2) continue;
+                    const perp = Math.abs(ox * lz - oz * lx);
+                    if (perp > 3) continue; // 树冠半径约0.35m，3m容差足够
+                    // 将该树木的树干和树冠 InstancedMesh 加入检测
+                    if (od.imTrunk) treeIMSet.add(od.imTrunk);
+                    if (od.imCrown) treeIMSet.add(od.imCrown);
+                }
+                for (const im of treeIMSet) {
+                    nearObstacles.push(im);
+                }
             }
 
             if (nearObstacles.length === 0) return;
 
-            // 仅对附近障碍物做精确射线检测
+            // 射线检测（建筑Group + 树木InstancedMesh）
             const dir3 = new THREE.Vector3().subVectors(tankPos, camPos).normalize();
             occluderRaycaster.set(camPos, dir3);
             occluderRaycaster.far = lineLen + 2;
             const intersects = occluderRaycaster.intersectObjects(nearObstacles, true);
 
             const hitRoots = new Set();
+            const hitTreeIds = new Set(); // 命中的树木 obstacleData 索引
             for (const hit of intersects) {
-                let obj = hit.object;
-                while (obj && !obstacleMeshes.includes(obj)) {
-                    obj = obj.parent;
+                const hitObj = hit.object;
+                if (hitObj.isInstancedMesh) {
+                    // 树木 InstancedMesh 命中 → 记录 instanceId + IM 引用
+                    const iid = hit.instanceId;
+                    hitTreeIds.add(JSON.stringify([iid, hitObj.uuid]));
+                } else {
+                    // 建筑 Group 命中 → 找根 Group
+                    let obj = hitObj;
+                    while (obj && !obstacleMeshes.includes(obj)) {
+                        obj = obj.parent;
+                    }
+                    if (obj) hitRoots.add(obj);
                 }
-                if (obj) hitRoots.add(obj);
             }
 
+            // 处理建筑遮挡：半透明
             for (const obs of hitRoots) {
                 occludedObstacles.push(obs);
                 obs.traverse(child => {
                     if (child.isMesh && child.material && !child.userData._origMat) {
-                        // ⚡ 从透明材质池获取或创建半透明clone（复用，避免每帧clone/dispose）
                         child.userData._origMat = child.material;
                         const origMat = child.material;
                         let transpMat = transparentMatPool.get(origMat);
@@ -3003,6 +3263,33 @@
                         child.material = transpMat;
                     }
                 });
+            }
+
+            // 处理树木遮挡：隐藏实例 + 创建半透明替身 Group
+            if (hitTreeIds.size > 0) {
+                for (const od of obstacleData) {
+                    if (od.type === 'building') continue;
+                    if (!od.imTrunk || !od.imCrown || od.imIndex == null) continue;
+                    const key = JSON.stringify([od.imIndex, od.imTrunk.uuid]);
+                    const key2 = JSON.stringify([od.imIndex, od.imCrown.uuid]);
+                    if (hitTreeIds.has(key) || hitTreeIds.has(key2)) {
+                        // 保存原始矩阵后隐藏实例
+                        const mT = new THREE.Matrix4();
+                        const mC = new THREE.Matrix4();
+                        od.imTrunk.getMatrixAt(od.imIndex, mT);
+                        od.imCrown.getMatrixAt(od.imIndex, mC);
+                        hiddenTreeInstances.push({
+                            imTrunk: od.imTrunk, imCrown: od.imCrown,
+                            index: od.imIndex,
+                            matrixTrunk: mT.clone(),
+                            matrixCrown: mC.clone()
+                        });
+                        disposeTreeInstance(od);
+                        // 创建半透明替身 Group（与建筑统一为 opacity:0.3 半透明）
+                        const ghost = createTransparentTreeGhost(od);
+                        if (ghost) transparentTreeGroups.push(ghost);
+                    }
+                }
             }
         }
 
@@ -3311,7 +3598,7 @@
                     (player1.state.x - player2.state.x) ** 2 +
                     (player1.state.z - player2.state.z) ** 2
                 );
-                const he = Math.max(18, pDist * 0.6 + 5); // 基础36m，按玩家间距动态扩展
+                const he = Math.max(36, pDist * 0.6 + 5); // v0.25.5: 基础72m（与单人模式一致），按玩家间距动态扩展
                 sunLight.position.set(mx + 30, 40, mz + 20);
                 sunLight.target.position.set(mx, 0, mz);
                 sunLight.shadow.camera.left = -he;
@@ -3359,22 +3646,27 @@
                 if(s.tracerLight)s.tracerLight.position.copy(s.mesh.position);
                 if(s.glowTail){const vd=s.vel.clone().normalize();s.glowTail.position.copy(s.mesh.position).addScaledVector(vd,-0.18);}
                 let hit=false;const sR=.18, mv=new THREE.Vector3().subVectors(s.mesh.position,prevPos), mvL=mv.length();
-                for(let j=obstacleMeshes.length-1;j>=0;j--){const obs=obstacleMeshes[j];if(!obs.visible)continue;
-                    const od2=obstacleData[j];const oR=od2.radius||.55, cR=sR+oR, oT=od2.height||1.5;
-                    // 垂直方向快速剔除（仅上方优化，不剔除下方）
-                    const prevY=prevPos.y,currY=s.mesh.position.y,oTL=obs.position.y+oT+.3;
+                for(let j=obstacleData.length-1;j>=0;j--){const od=obstacleData[j];
+                    if(od.type==='building'&&od.groupRef&&!od.groupRef.visible)continue;
+                    const oR=od.radius||.55, cR=sR+oR, oT=od.height||1.5;
+                    const oX=(od.type==='building'&&od.groupRef)?od.groupRef.position.x:od.x;
+                    const oZ=(od.type==='building'&&od.groupRef)?od.groupRef.position.z:od.z;
+                    const oY=(od.type==='building'&&od.groupRef)?od.groupRef.position.y:(isVersusMap?0:getTerrainHeight(od.x,od.z));
+                    const prevY=prevPos.y,currY=s.mesh.position.y,oTL=oY+oT+.3;
                     if(currY>oTL&&prevY>oTL)continue;
-                    // 水平扫掠检测
                     let hh=false;
-                    if(mvL<.0001){const dx=s.mesh.position.x-obs.position.x,dz=s.mesh.position.z-obs.position.z;hh=dx*dx+dz*dz<cR*cR;}
-                    else{const ox=obs.position.x,oz=obs.position.z;const px=prevPos.x,pz=prevPos.z;
+                    if(mvL<.0001){const dx=s.mesh.position.x-oX,dz=s.mesh.position.z-oZ;hh=dx*dx+dz*dz<cR*cR;}
+                    else{const ox=oX,oz=oZ;const px=prevPos.x,pz=prevPos.z;
                         const vx=s.mesh.position.x-px,vz=s.mesh.position.z-pz;
                         const dx0=px-ox,dz0=pz-oz;const a=vx*vx+vz*vz,b=2*(dx0*vx+dz0*vz),c=dx0*dx0+dz0*dz0-cR*cR;
                         const disc=b*b-4*a*c;if(disc>=0){const sq=Math.sqrt(disc),t1=(-b-sq)/(2*a),t2=(-b+sq)/(2*a);
                             if((t1>=0&&t1<=1)||(t2>=0&&t2<=1)||(t1<0&&t2>1))hh=true;}}
-                    if(hh){const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
-                        if(obs.parent){obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});}
-                        obstacleMeshes.splice(j,1);obstacleData.splice(j,1);hit=true;break;}}
+                    if(hh){const op=new THREE.Vector3(oX,oY+oT/2,oZ);spawnFragments(op,od.color);playExplosionSound();
+                        if(od.type==='building'&&od.groupRef){const obs=od.groupRef;
+                            obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+                            const mIdx=obstacleMeshes.indexOf(obs);if(mIdx>=0)obstacleMeshes.splice(mIdx,1);}
+                        else if(od.type&&od.type!=='building'){disposeTreeInstance(od);}
+                        obstacleData.splice(j,1);hit=true;break;}}
                 if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
                     if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
                         if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
@@ -3539,7 +3831,7 @@
             const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
 
             el.textContent =
-                'v0.25.4  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.25.5  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
                 perfLine + renderStats + shadowHint;
         }
@@ -3866,7 +4158,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.25.4 | 双人阴影跟随两玩家中点 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.25.5 | 球形树重构+阴影72m/1024² | 三树种InstancedMesh | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

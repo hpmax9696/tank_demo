@@ -181,20 +181,49 @@ git commit -m "vX.Y.Z: 描述"
 git push origin master    # Gitee
 git push github master    # GitHub
 
-# OneDrive 同步
-Copy-Item -Path "index.html","README.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+# OneDrive 同步（含 CODEBUDDY.md 和 sky-panorama.png）
+Copy-Item -Path "index.html","README.md","CODEBUDDY.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+Copy-Item -Path "sky-panorama.png" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force -ErrorAction SilentlyContinue
 Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
 Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
 ```
 
 ## 接力开发交接规范
 
+### 交接触发词
+
+当用户说出 **"移交"**、**"交接"** 或类似词语时，AI 必须自动执行以下完整流程，不得跳过任何步骤。
+
 ### 交接前检查清单（开发完成时执行）
 
 1. **代码已提交**: `git status` 显示 "nothing to commit, working tree clean"
 2. **已推送到 Gitee**: `git push origin master` 成功（Gitee 是主仓库，家里电脑只同步 Gitee）
-3. **OneDrive 已同步**: 所有文件已复制到 OneDrive 备份目录
-4. **版本号已更新**: 确保所有 8 处版本号同步完成
+3. **已推送到 GitHub**: `git push github master`（备用镜像同步）
+4. **OneDrive 已同步**: 所有文件已复制到 OneDrive 备份目录
+5. **版本号已更新**: 确保所有 8 处版本号同步完成（见下方版本号同步清单）
+6. **README.md 已更新** ⚠️ 必须包含：
+   - 开头版本号
+   - 版本历史追加新条目
+   - 关键参数表（如有变更）
+   - 代码规模注释（如有变更）
+7. **CODEBUDDY.md 已更新** ⚠️ 必须包含：
+   - 关键参数表（如有变更）
+   - 架构描述（如有变更）
+   - 已知问题列表（如有新增或修复）
+   - 版本号引用（如有变更）
+
+### 交接执行流程（AI 必须严格按序执行）
+
+```
+1. 版本号同步（8处）
+2. 更新 README.md（版本号、历史、参数、规模）
+3. 更新 CODEBUDDY.md（参数、架构、已知问题）
+4. git add -A
+5. git commit -m "vX.Y.Z: 描述"
+6. git push origin master
+7. git push github master
+8. OneDrive 文件复制
+```
 
 ### 接力接续步骤（另一台电脑开始开发时）
 
@@ -233,9 +262,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 🔄 下一对话起手任务（v0.25.4 → v0.25.5）
+## 🔄 下一对话起手任务（v0.25.5 → v0.26.0）
 
-当前版本 **v0.25.4**。
+当前版本 **v0.25.5**。
 
 ### 🟢 P0 计划任务: 树木 InstancedMesh 重构 + 精度提升
 
@@ -250,18 +279,6 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 **预期收益**：draw calls 810→~322（-60%），树木精度提升5-10倍，性能余量 3ms→5-6ms
 
-### 🔴 P1: 里程恒为 0
-
-`totalDistance` 始终为 0，需要排查履带速度累加逻辑。
-
-### 🔴 P2: 坦克驶上桥梁不提升
-
-桥梁地形高度未正确返回，坦克穿过桥面。
-
-### 🟡 P3: 河水效果不真实
-
-河流渲染效果提升。
-
 ### 📊 当前性能基线
 
 | 指标 | 值 |
@@ -269,7 +286,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | FPS | 60 |
 | 渲染耗时 | ~13.45ms |
 | 帧预算余量 | ~3.2ms |
-| 阴影 | PCFShadowMap, 512px, 36×36（双人动态扩展到两玩家中点） |
+| 阴影 | PCFShadowMap, 1024px, 72×72（双人动态扩展到两玩家中点） |
+
+### ✅ v0.25.5 已改进
+
+- **球形树重构**：25→50+椭球体，蓬松伞形树冠，模型预览菜单恢复3树种
+- **阴影提升**：单人阴影范围 36m→72m（±18→±36），分辨率 512→1024；双人基础范围同步扩展
 
 ### ✅ v0.25.4 已修复
 
