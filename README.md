@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.22.2** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.23.0** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,16 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.23.0 — 「换天」Preetham大气散射天空（2026-05-09）
+**改进**：
+- 废弃全景纹理天空球，替换为 Three.js Sky 组件（Preetham 物理大气散射模型）
+- 瑞利散射 + 米氏散射模拟真实天空色彩、太阳光盘、天顶到地平线自然渐变
+- 新增 Sky.js（~170行），适配全局 THREE 命名空间，与 GLTFLoader.js 加载方式一致
+- 移除 sky-panorama.png 纹理加载（~1.6MB），消除网络请求，零纹理依赖
+- 移除 createDistantMountains() 旧远山锥体代码（已废弃）
+- 场景背景色从纯色→null，由天空球自然填充
+- 雾色调整为 #8899aa 中性蓝灰，匹配新天空色调
 
 ### v0.22.2 — 全景山脉天空球 + 裙边地面（2026-05-08）
 **改进**：
@@ -580,12 +590,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.22.2 | 全景山脉天空球 | 裙边地面 | 蓝灰雾色`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.23.0 | Preetham大气散射天空 | 瑞利散射+米氏散射 | 太阳光盘`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.22.2）
-- `index.html`：约 3680 行（HTML + CSS + JS 游戏引擎，含全景天空球+裙边地面+地图系统+纹理生成+草丛系统）
+### 代码规模（截至 v0.23.0）
+- `index.html`：约 3620 行（HTML + CSS + JS 游戏引擎，含Preetham天空+裙边地面+地图系统+纹理生成+草丛系统）
+- `Sky.js`：约 170 行（Preetham 大气散射天空，适配全局 THREE，零纹理依赖）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
@@ -691,6 +702,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.23.0 — 「换天」Preetham大气散射天空（2026-05-09）
+**改进**：废弃全景纹理球，替换为 Preetham 大气散射天空 (Sky.js)；移除 sky-panorama.png 加载；雾色匹配新天空。
 
 ### v0.22.2 — 全景山脉天空球 + 裙边地面（2026-05-08）
 **改进**：远山锥体→全景纹理天空球；新增裙边地面隐藏世界边缘。

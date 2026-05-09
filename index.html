@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.22.2</title>
+    <title>坦克运动demo v0.23.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.22.2</div>
+        <div class="menu-version">v0.23.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔄 v0.23.0 更新 — 「换天」Preetham大气散射天空替代全景纹理球</div>
             <div class="cl-title">🔄 v0.22.2 更新 — 全景山脉天空球 + 裙边地面隐藏世界边缘</div>
             <div class="cl-title">🔄 v0.22.1 更新 — 炮弹外形重构：圆柱身+锥形弹头</div>
             <div class="cl-item">炮弹从直圆柱→圆柱弹体(0.18m)+锥形弹头(0.08m)，Group组合，更贴近真实炮弹外形</div>
@@ -415,6 +416,8 @@
     <script src="three.min.js"></script>
     <!-- GLTFLoader（全局版本，从 node_modules/three/examples/js/ 提取）用于加载 .glb 模型 -->
     <script src="GLTFLoader.js"></script>
+    <!-- Preetham 大气散射天空（基于 Three.js Sky 组件，适配全局 THREE） -->
+    <script src="Sky.js"></script>
     <!-- FBXLoader 已移除 CDN 依赖（Edge 追踪防护会拦截），如需要请下载到 fbxLibs/ 目录 -->
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
     <script src="fireSmokeParticles.js"></script>
@@ -1042,120 +1045,35 @@
             return Math.abs(z - rzc) < rhw;
         }
 
-        // ==================== 天空穹顶（渐变天空球） ====================
+        // ==================== 天空（Preetham 大气散射模型） ====================
         let skyDome = null;
-        // 天空球全景纹理（预加载）
-        let skyTexture = null;
-        let skyTextureReady = false;
-        // 创建全景 ShaderMaterial（不受雾影响，直接采样纹理）
-        function createPanoramaMaterial(tex) {
-            return new THREE.ShaderMaterial({
-                side: THREE.BackSide,
-                depthWrite: false,
-                depthTest: true,
-                uniforms: {
-                    uTexture: { value: tex }
-                },
-                vertexShader: `
-                    varying vec2 vUv;
-                    void main() {
-                        vUv = uv;
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                    }`,
-                fragmentShader: `
-                    varying vec2 vUv;
-                    uniform sampler2D uTexture;
-                    void main() {
-                        gl_FragColor = texture2D(uTexture, vUv);
-                    }`
-            });
-        }
-        (function preloadSkyTexture() {
-            const loader = new THREE.TextureLoader();
-            console.log('[天空] 开始加载全景图 sky-panorama.png ...');
-            loader.load('sky-panorama.png',
-                (tex) => {
-                    tex.colorSpace = THREE.SRGBColorSpace;
-                    tex.needsUpdate = true;
-                    skyTexture = tex;
-                    skyTextureReady = true;
-                    console.log('[天空] ✅ 全景图加载成功，尺寸:', tex.image.width + '×' + tex.image.height);
-                    if (skyDome) {
-                        skyDome.material.dispose();
-                        skyDome.material = createPanoramaMaterial(tex);
-                        console.log('[天空] ✅ 天空球材质已替换为全景纹理(Shader)');
-                    }
-                },
-                undefined,
-                (err) => { console.warn('[天空] ❌ 全景图加载失败，将使用渐变兜底:', err); }
-            );
-        })();
 
-        function createSkyDome(targetScene) {
-            if (skyDome) { targetScene.remove(skyDome); skyDome.geometry.dispose(); skyDome.material.dispose(); }
-            const geom = new THREE.SphereGeometry(280, 64, 32);  // 半径280 < 摄像机far=300，确保不被裁剪
-            if (skyTextureReady && skyTexture) {
-                skyDome = new THREE.Mesh(geom, createPanoramaMaterial(skyTexture));
-                console.log('[天空] 使用全景纹理创建天空球(Shader)');
-            } else {
-                const mat = new THREE.ShaderMaterial({
-                    side: THREE.BackSide,
-                    depthWrite: false,
-                    uniforms: {
-                        topColor: { value: new THREE.Color('#1a3a5c') },
-                        bottomColor: { value: new THREE.Color('#8cb4d8') }
-                    },
-                    vertexShader: `
-                        varying vec3 vWorldPos;
-                        void main() {
-                            vec4 wp = modelMatrix * vec4(position, 1.0);
-                            vWorldPos = wp.xyz;
-                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                        }`,
-                    fragmentShader: `
-                        varying vec3 vWorldPos;
-                        uniform vec3 topColor;
-                        uniform vec3 bottomColor;
-                        void main() {
-                            float h = normalize(vWorldPos).y;
-                            float t = smoothstep(-0.05, 0.35, h);
-                            gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
-                        }`
-                });
-                skyDome = new THREE.Mesh(geom, mat);
-                console.log('[天空] 纹理未就绪，使用渐变兜底（等待全景图...）');
+        function createPreethamSky(targetScene) {
+            // 清理旧天空
+            if (skyDome) {
+                targetScene.remove(skyDome);
+                skyDome.geometry.dispose();
+                skyDome.material.dispose();
             }
+
+            skyDome = new THREE.Sky();
+            skyDome.scale.setScalar(450000); // 远大于摄像机 far，确保天空始终在最远处
+
+            // 太阳方向 — 匹配方向光位置 (30, 40, 20)，提供自然光照角度
+            const sunDir = new THREE.Vector3(30, 40, 20).normalize();
+            skyDome.material.uniforms['sunPosition'].value.copy(sunDir);
+
+            // 大气参数
+            skyDome.material.uniforms['turbidity'].value = 3;    // 浊度: 3=晴朗微雾
+            skyDome.material.uniforms['rayleigh'].value = 1.2;    // 瑞利散射: 蓝天强度
+            skyDome.material.uniforms['mieCoefficient'].value = 0.005;
+            skyDome.material.uniforms['mieDirectionalG'].value = 0.8;
+
             skyDome.renderOrder = -1;
-            skyDome.material.depthTest = true;
-            targetScene.add(skyDome);
-        }
+            skyDome.material.depthWrite = false;
 
-        // ==================== 远山环带（低多边形远山） ====================
-        let mountainGroup = null;
-        function createDistantMountains(targetScene) {
-            if (mountainGroup) {
-                mountainGroup.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                targetScene.remove(mountainGroup);
-            }
-            mountainGroup = new THREE.Group();
-            const COUNT = 36;
-            const RING_RADIUS = 155;
-            const mat = new THREE.MeshLambertMaterial({ color: '#4a5a6c', fog: true });
-            for (let i = 0; i < COUNT; i++) {
-                const angle = (i / COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
-                const h = 20 + Math.random() * 35;  // 20-55m
-                const r = 8 + Math.random() * 14;   // 8-22m base radius
-                const geom = new THREE.ConeGeometry(r, h, 5, 2);
-                const peak = new THREE.Mesh(geom, mat);
-                peak.position.x = Math.cos(angle) * (RING_RADIUS + (Math.random() - 0.5) * 10);
-                peak.position.z = Math.sin(angle) * (RING_RADIUS + (Math.random() - 0.5) * 10);
-                peak.position.y = -2 + h * 0.45;  // base slightly below ground
-                peak.rotation.y = Math.random() * Math.PI * 2;
-                peak.castShadow = false;
-                peak.receiveShadow = false;
-                mountainGroup.add(peak);
-            }
-            targetScene.add(mountainGroup);
+            targetScene.add(skyDome);
+            console.log('[天空] ✅ Preetham 大气散射天空已创建 (turbidity=3)');
         }
 
         function initScene() {
@@ -1172,8 +1090,8 @@
 
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
-                trg.background = new THREE.Color('#7a9ab4');  // 天空底色（与天空穹顶地平线色匹配）
-                trg.fog = new THREE.Fog('#5a7a9a', 80, 120);  // 雾色与天空融合
+                trg.background = null;  // 由 Preetham 天空球填充背景，不设纯色
+                trg.fog = new THREE.Fog('#8899aa', 80, 120);  // 中性蓝灰雾色，适配大气散射天空
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
@@ -1195,8 +1113,7 @@
             // 双人模式通过 rebuildMap() 动态重建为平地地图
             scene1 = new THREE.Scene();
             addLightingTo(scene1);
-            createSkyDome(scene1);
-            // createDistantMountains(scene1);  // 已被全景天空贴图替代
+            createPreethamSky(scene1);
             createGround(scene1);
             createObstacles(scene1);
 
@@ -3342,7 +3259,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.22.2  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.23.0  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3668,7 +3585,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.22.2 | 全景山脉天空球 | 裙边地面 | 蓝灰雾色');
+        console.log('🎮 坦克运动demo v0.23.0 | Preetham大气散射天空 | 瑞利散射+米氏散射 | 太阳光盘');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
