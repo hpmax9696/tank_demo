@@ -65,8 +65,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus'
 ├── 玩家工厂: createPlayer() — 创建坦克实例
-├── 场景初始化: initScene() — 渲染器/光照/Preetham大气散射天空/地面/坦克/障碍物
-├── 天空系统: createPreethamSky() — Preetham大气散射模型(Sky.js) + 瑞利散射/米氏散射 + 太阳光盘
+├── 场景初始化: initScene() — 渲染器/光照/雾/地面/坦克/障碍物
+├── 天空系统: 已移除（v0.24.5，陡视角不可见，节省性能）
 ├── 地面系统: createGround() — 分段地形 + 地貌纹理
 ├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
@@ -144,10 +144,10 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 伤害值 | 20 HP | `SHELL_DAMAGE` |
 | 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
 | 摄像机远截面 | 300 | `camera.far` |
-| 雾色 | #5a7a9a (蓝灰) | `addLightingTo()` |
-| 雾距 | near 80 / far 120 | `Fog` |
-| 天空 | Preetham 大气散射 | `createPreethamSky()` Sky.js (BoxGeometry 1×1, scale 450000) |
-| 裙边地面 | 400×400 | `createGround()` 纯色平面填充边缘空隙 |
+| 雾色 | #8899aa (蓝灰) | `addLightingTo()` |
+| 雾距 | near 70 / far 110 | `Fog` |
+| 天空 | 已移除（v0.24.5，陡视角不可见） | — |
+| 地面 | 300×300 | `createGround()` 地形 + 纹理混合 |
 
 ## 常见修复模式
 

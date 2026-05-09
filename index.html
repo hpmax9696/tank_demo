@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.4</title>
+    <title>坦克运动demo v0.24.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.4</div>
+        <div class="menu-version">v0.24.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🗑 v0.24.5 重构 — 移除天空系统+清理残余+FOV45°+LOD调大</div>
             <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方9.75m/上方9m（1.5x），视线内看不到边缘</div>
             <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：Shader雾环+移除空气墙边框+Fog far=250</div>
             <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
@@ -415,7 +416,7 @@
     <!-- GLTFLoader（全局版本，从 node_modules/three/examples/js/ 提取）用于加载 .glb 模型 -->
     <script src="GLTFLoader.js"></script>
     <!-- Preetham 大气散射天空（基于 Three.js Sky 组件，适配全局 THREE） -->
-    <script src="Sky.js"></script>
+    <!-- Sky.js 已移除（v0.24.5：陡视角看不到天空，省性能） -->
     <!-- FBXLoader 已移除 CDN 依赖（Edge 追踪防护会拦截），如需要请下载到 fbxLibs/ 目录 -->
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
     <script src="fireSmokeParticles.js"></script>
@@ -933,9 +934,9 @@
         const WORLD_HALF = 100;
         const OBSTACLE_COUNT = 350;
         const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
-        const OBS_VISIBLE_RADIUS = 65;  // LOD可见半径（配合80-120m雾距）
+        const OBS_VISIBLE_RADIUS = 90;  // LOD可见半径（配合70-110m雾距，新视野看更远）
         const GRASS_CELL_SIZE = 40;     // 草丛空间分块大小（米）
-        const GRASS_VISIBLE_RADIUS = 70; // 草丛可见半径（略大于障碍物半径）
+        const GRASS_VISIBLE_RADIUS = 95; // 草丛可见半径（略大于障碍物半径）
         const POINT_A_X = 0, POINT_A_Z = 0;  // 单人模式出生点（地图原点）
         const SHELL_SPEED = 33.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
         const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
@@ -1045,36 +1046,9 @@
             return Math.abs(z - rzc) < rhw;
         }
 
-        // ==================== 天空（Preetham 大气散射模型） ====================
-        let skyDome = null;
+        // 天空系统已移除（v0.24.5：陡视角看不到天空，节省性能开销）
 
-        function createPreethamSky(targetScene) {
-            // 清理旧天空
-            if (skyDome) {
-                targetScene.remove(skyDome);
-                skyDome.geometry.dispose();
-                skyDome.material.dispose();
-            }
 
-            skyDome = new THREE.Sky();
-            skyDome.scale.setScalar(450000); // 远大于摄像机 far，确保天空始终在最远处
-
-            // 太阳方向 — 匹配方向光位置 (30, 40, 20)，提供自然光照角度
-            const sunDir = new THREE.Vector3(30, 40, 20).normalize();
-            skyDome.material.uniforms['sunPosition'].value.copy(sunDir);
-
-            // 大气参数
-            skyDome.material.uniforms['turbidity'].value = 3;    // 浊度: 3=晴朗微雾
-            skyDome.material.uniforms['rayleigh'].value = 1.2;    // 瑞利散射: 蓝天强度
-            skyDome.material.uniforms['mieCoefficient'].value = 0.005;
-            skyDome.material.uniforms['mieDirectionalG'].value = 0.8;
-
-            skyDome.renderOrder = -1;
-            skyDome.material.depthWrite = false;
-
-            targetScene.add(skyDome);
-            console.log('[天空] ✅ Preetham 大气散射天空已创建 (turbidity=3)');
-        }
 
         function initScene() {
             // --- 渲染器 ---
@@ -1090,7 +1064,7 @@
 
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
-                trg.background = new THREE.Color('#334455');  // 深蓝灰底色，Preetham天空球覆盖其上
+                trg.background = new THREE.Color('#8899aa');  // 匹配雾色，无天空球时远景连贯
                 trg.fog = new THREE.Fog('#8899aa', 70, 110);  // 配合陡视角，远处自然消失在雾中
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
@@ -1113,7 +1087,6 @@
             // 双人模式通过 rebuildMap() 动态重建为平地地图
             scene1 = new THREE.Scene();
             addLightingTo(scene1);
-            createPreethamSky(scene1);
             createGround(scene1);
             createObstacles(scene1);
 
@@ -1137,7 +1110,7 @@
             }
 
             // --- 摄像机 ---
-            camera = new THREE.PerspectiveCamera(40, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
+            camera = new THREE.PerspectiveCamera(45, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
             placeCamera();
         }
 
@@ -1145,8 +1118,7 @@
         function rebuildMap() {
             // 移除地面
             if (groundPlane) { scene.remove(groundPlane); groundPlane.geometry.dispose(); groundPlane.material.dispose(); }
-            if (groundEdgeLine) { scene.remove(groundEdgeLine); groundEdgeLine.geometry.dispose(); groundEdgeLine.material.dispose(); groundEdgeLine = null; }
-            if (fogRing) { scene.remove(fogRing); fogRing.geometry.dispose(); fogRing.material.dispose(); fogRing = null; }
+            // groundEdgeLine / fogRing 已移除（v0.24.5）
             // 移除水面
             if (waterPlane) { scene.remove(waterPlane); waterPlane.geometry.dispose(); waterPlane.material.dispose(); waterPlane = null; }
             // 移除河流
@@ -1578,7 +1550,7 @@
         }
 
         // ==================== 水面 ====================
-        let waterPlane = null, groundEdgeLine = null, fogRing = null;
+        let waterPlane = null;  // groundEdgeLine/fogRing 已移除（v0.24.5）
         function createWaterSurface() {
             const pond = _getPond(); if (!pond) return;
             const wrx = pond.rx - 0.8, wrz = pond.rz - 0.8;
@@ -2740,12 +2712,12 @@
         // ==================== 摄像机 ====================
         // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
         // 摄像机参数（单人模式×0.5，双人模式×0.7）
-        const CAMERA_BEHIND = 9.75;   // 后方距离（6.5×1.5，拉远视野）
-        const CAMERA_ABOVE = 9.0;     // 上方高度（6.0×1.5，等比放大保持坦克在1/3处）
-        const CAMERA_BEHIND_VS = 9.6; // 双人模式后方距离（8×1.2）
-        const CAMERA_ABOVE_VS = 8.4;  // 双人模式上方高度（7.0×1.2）
-        const CAMERA_LOOK_Y = 1.0;     // lookAt 高度-单人模式（坦克在画面下1/3处）
-        const CAMERA_LOOK_Y_VS = 1.5;   // lookAt 高度-双人模式
+        const CAMERA_BEHIND = 14.625;  // 后方距离（距坦克够远）
+        const CAMERA_ABOVE = 10.0;    // 上方高度（俯角~31°，平衡视野开阔与不看到天空）
+        const CAMERA_BEHIND_VS = 14.4; // 双人模式后方距离
+        const CAMERA_ABOVE_VS = 9.5;  // 双人模式上方高度
+        const CAMERA_LOOK_Y = 2.5;     // lookAt 高度-单人模式（抬高视线，坦克下移到下1/3处）
+        const CAMERA_LOOK_Y_VS = 2.8;   // lookAt 高度-双人模式
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -3239,7 +3211,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.4  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.5  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3565,7 +3537,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.4 | 陡视角 后方9.75m+上方9m | Fog 70-110m 视线内看不到边缘');
+        console.log('🎮 坦克运动demo v0.24.5 | 无天空 | 陡视角+FOV 45° | OBS_RADIUS=90 | Fog 70-110m');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
