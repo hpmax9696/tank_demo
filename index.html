@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.0</title>
+    <title>坦克运动demo v0.24.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.0</div>
+        <div class="menu-version">v0.24.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300（01a/01b远景自然平展）</div>
             <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边（02a保持200×200）</div>
             <div class="cl-title">🔧 v0.23.2 「裙边」— ShapeGeometry正方形环带，向下倾斜20m融入雾中</div>
             <div class="cl-title">🔧 v0.23.1 修复 — 环形裙边，不再遮住河流/池塘/盆地</div>
@@ -559,7 +560,7 @@
         }
 
         // splat map：256x256，每像素编码地貌类型(0~5)
-        function generateSplatMap() {
+        function generateSplatMap(worldHalf) {
             const md = currentMapData;
             const size = 256;
             const data = new Uint8Array(size * size);
@@ -569,8 +570,8 @@
             if (!md.terrainTypes || isVersusMap) return data;
 
             const tt = md.terrainTypes, t = md.terrain;
-            const half = md.size / 2;
-            const scale = md.size / size; // world units per pixel
+            const half = worldHalf || md.size / 2;  // 支持扩展地图
+            const scale = (half * 2) / size; // world units per pixel
 
             // 辅助：世界坐标→splat坐标
             function w2s(w) { return Math.round((w + half) / scale); }
@@ -642,9 +643,9 @@
             return data;
         }
 
-        // 根据 splat map 生成复合地面纹理（2048x2048）
-        function generateCompositeGroundTexture() {
-            const splat = generateSplatMap();
+        // 根据 splat map 生成复合地面纹理（2048x2048，覆盖全地面尺寸）
+        function generateCompositeGroundTexture(groundHalf) {
+            const splat = generateSplatMap(groundHalf);
             const splatSize = 256;
             const outSize = 2048;
             const canvas = document.createElement('canvas');
@@ -661,8 +662,9 @@
                 }
             });
 
-            const half = currentMapData.size / 2;
-            const sw = currentMapData.size / outSize; // world units per output pixel
+            const half = groundHalf || currentMapData.size / 2;
+            const worldSize = half * 2;
+            const sw = worldSize / outSize; // world units per output pixel
 
             // 分块绘制，每个输出像素采样对应纹理
             const blockSize = 8;
@@ -671,17 +673,18 @@
                     const wx = -half + bx * sw;
                     const wz = -half + by * sw;
                     // 查找 splat map 中的地形类型
-                    const sx = Math.floor((wx + half) / (currentMapData.size / splatSize));
-                    const sy = Math.floor((wz + half) / (currentMapData.size / splatSize));
+                    const sx = Math.floor((wx + half) / (worldSize / splatSize));
+                    const sy = Math.floor((wz + half) / (worldSize / splatSize));
                     const typeIdx = (sx >= 0 && sx < splatSize && sy >= 0 && sy < splatSize)
                         ? splat[sy * splatSize + sx] : 0;
                     const texCanvas = texCanvases[Math.min(typeIdx, 5)];
 
                     // 从纹理中采样对应区域绘制到输出
-                    const texX = ((wx % (currentMapData.size / 8)) / (currentMapData.size / 8) * 256 + 256) % 256;
-                    const texY = ((wz % (currentMapData.size / 8)) / (currentMapData.size / 8) * 256 + 256) % 256;
+                    const texTile = worldSize / 8;  // 纹理平铺单元大小（200→25, 300→37.5）
+                    const texX = ((wx % texTile) / texTile * 256 + 256) % 256;
+                    const texY = ((wz % texTile) / texTile * 256 + 256) % 256;
                     ctx.drawImage(texCanvas,
-                        texX, texY, blockSize * sw / (currentMapData.size / 8) * 256, blockSize * sw / (currentMapData.size / 8) * 256,
+                        texX, texY, blockSize * sw / texTile * 256, blockSize * sw / texTile * 256,
                         bx, by, blockSize, blockSize
                     );
                 }
@@ -1031,16 +1034,6 @@
                 const r2 = basin.radius * basin.radius;
                 if (bd2 < r2 * 4) y -= basin.depth * Math.exp(-bd2 / r2);
             }
-            // ── 扩展地图外圈下沉（01a单人扩展，01b双人不执行，02a不扩展） ──
-            const is02a = (selectedMapId === 'test_map_02a');
-            if (!isVersusMap && !is02a) {
-                const dist = Math.max(Math.abs(x), Math.abs(z));
-                const mapHalf = (currentMapData ? currentMapData.size : WORLD_HALF * 2) / 2;  // 100
-                if (dist > mapHalf) {
-                    const t = Math.min(1, (dist - mapHalf) / 50);  // 100→150 映射 0→1
-                    y = y * (1 - t) - t * 25;  // 渐变为往下沉25m
-                }
-            }
             return y;
         }
 
@@ -1194,7 +1187,8 @@
             // ── 生成复合地貌纹理（splat map + 程序化纹理混合） ──
             let texture;
             try {
-                const compCanvas = generateCompositeGroundTexture();
+                const groundHalf = SIZE / 2;
+                const compCanvas = generateCompositeGroundTexture(groundHalf);
                 texture = new THREE.CanvasTexture(compCanvas);
                 texture.wrapS = THREE.ClampToEdgeWrapping;
                 texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -3263,7 +3257,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.1  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3589,7 +3583,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.0 | 地形扩展300×300 | 外圈自然下沉 | 01a/01b扩展 02a保持');
+        console.log('🎮 坦克运动demo v0.24.1 | 纹理覆盖300×300 | 外圈自然平展 | 01a/01b远景可见');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
