@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.10</title>
+    <title>坦克运动demo v0.25.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.10</div>
+        <div class="menu-version">v0.25.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔦 v0.24.10 优化 — 阴影降级PCFShadow+512分辨率+相机36m跟随(渲染18ms→待验证)</div>
+            <div class="cl-title">💥 v0.25.0 新功能 — 炮弹命中地面：音效+碎片飞溅+焦痕(3秒渐消)</div>
+            <div class="cl-title">🔦 v0.24.10 优化 — 阴影降级PCFShadow+512分辨率+相机36m跟随(渲染-14ms)</div>
             <div class="cl-title">🔬 v0.24.9 诊断 — 四阶段性能探针+遮挡透明材质池优化(消除clone/dispose)</div>
             <div class="cl-title">🐛 v0.24.8 修复 — 半透明材质共享Bug+阴影1024+草丛关投射阴影</div>
             <div class="cl-title">⚡ v0.24.7 优化 — 移除外围障碍物+遮挡检测降频+距离预过滤</div>
-            <div class="cl-title">🌊 v0.24.6 修复 — 河流扩展300m+障碍物遮挡半透明</div>
         </div>
     </div>
 
@@ -853,6 +853,66 @@
             }
         }
 
+        // ── 地面命中音效（炮弹击中地面时的闷响） ──
+        function playGroundHitSound() {
+            ensureAudio();
+            const now = audioCtx.currentTime;
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.25);
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.04));
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const gain = audioCtx.createGain(); gain.gain.value = 0.25;
+            const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
+            lp.frequency.setValueAtTime(400, now);
+            lp.frequency.exponentialRampToValueAtTime(60, now + 0.2);
+            src.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
+            src.start(now);
+        }
+
+        // ── 地面命中碎片飞溅（土块） ──
+        function spawnGroundDebris(pos) {
+            const gy = getGroundHeight(pos.x, pos.z) + 0.05;
+            for (let i = 0; i < 15; i++) {
+                const geo = new THREE.SphereGeometry(0.02 + Math.random() * 0.05, 3, 3);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.1, 0.25, 0.2 + Math.random() * 0.3),
+                    transparent: true, opacity: 1
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.copy(pos); mesh.position.y = gy + 0.05;
+                scene.add(mesh);
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 4,
+                    1 + Math.random() * 3,
+                    (Math.random() - 0.5) * 4
+                );
+                groundDebris.push({
+                    mesh, vel,
+                    life: 0.6 + Math.random() * 0.5,
+                    maxLife: 0.6 + Math.random() * 0.5
+                });
+            }
+        }
+
+        // ── 地面焦痕（炮弹着弹点，3秒渐消） ──
+        function spawnScorchMark(pos) {
+            const gy = getGroundHeight(pos.x, pos.z) + 0.015;
+            const geo = new THREE.CircleGeometry(0.45 + Math.random() * 0.25, 16);
+            const mat = new THREE.MeshBasicMaterial({
+                color: '#1a1a1a',
+                transparent: true,
+                opacity: 0.65,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const mark = new THREE.Mesh(geo, mat);
+            mark.rotation.x = -Math.PI / 2;
+            mark.position.set(pos.x, gy, pos.z);
+            scene.add(mark);
+            scorchMarks.push({ mesh: mark, life: 2.5 + Math.random() * 0.5, maxLife: 3.0 });
+        }
+
         function playDebrisSound() {
             ensureAudio();
             const now = audioCtx.currentTime;
@@ -934,6 +994,8 @@
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
+        let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
+        let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
         let totalDistance = 0;   // 坦克行驶总里程（单位）
 
         // 游戏参数
@@ -2072,6 +2134,12 @@
             // 清除所有爆炸效果
             explosions.forEach(e => { e.dispose(); });
             explosions = [];
+            // 清除焦痕
+            scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); });
+            scorchMarks = [];
+            // 清除地面碎片
+            groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); });
+            groundDebris = [];
             // 重置装填条（PlaneGeometry: scale.y=1, 底部对齐）
             if (reloadBarFill) {
                 reloadBarFill.scale.y = 1;
@@ -2589,6 +2657,13 @@
                 const shellGroundY = getGroundHeight(s.mesh.position.x, s.mesh.position.z);
                 if (hit || s.mesh.position.y < shellGroundY || distToTank > SHELL_MAX_DIST ||
                     Math.abs(s.mesh.position.x) > WORLD_HALF+50 || Math.abs(s.mesh.position.z) > WORLD_HALF+50) {
+                    // 🆕 地面命中效果（非障碍物/坦克碰撞，且炮弹低于地形）
+                    if (!hit && s.mesh.position.y < shellGroundY) {
+                        const impactPos = s.mesh.position.clone();
+                        playGroundHitSound();
+                        spawnGroundDebris(impactPos);
+                        spawnScorchMark(impactPos);
+                    }
                     scene.remove(s.mesh); disposeShellMesh(s.mesh);
                     if (s.tracerLight) { scene.remove(s.tracerLight); }
                     if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); }
@@ -2733,6 +2808,40 @@
                 if (!explosions[i].active) {
                     explosions[i].dispose();
                     explosions.splice(i, 1);
+                }
+            }
+
+            // ── 焦痕渐消更新（地面命中产生的黑色痕迹，3秒淡出） ──
+            for (let i = scorchMarks.length - 1; i >= 0; i--) {
+                const sc = scorchMarks[i];
+                sc.life -= dt;
+                if (sc.life <= 0) {
+                    scene.remove(sc.mesh);
+                    sc.mesh.geometry.dispose();
+                    sc.mesh.material.dispose();
+                    scorchMarks.splice(i, 1);
+                } else {
+                    sc.mesh.material.opacity = 0.65 * (sc.life / sc.maxLife);
+                }
+            }
+
+            // ── 地面碎片更新（土块飞溅，~1秒消失） ──
+            for (let i = groundDebris.length - 1; i >= 0; i--) {
+                const gd = groundDebris[i];
+                gd.life -= dt;
+                if (gd.life <= 0) {
+                    scene.remove(gd.mesh);
+                    gd.mesh.geometry.dispose();
+                    gd.mesh.material.dispose();
+                    groundDebris.splice(i, 1);
+                } else {
+                    gd.vel.y -= 9.8 * dt;
+                    gd.mesh.position.x += gd.vel.x * dt;
+                    gd.mesh.position.y += gd.vel.y * dt;
+                    gd.mesh.position.z += gd.vel.z * dt;
+                    const gdGY = getGroundHeight(gd.mesh.position.x, gd.mesh.position.z) + 0.05;
+                    if (gd.mesh.position.y < gdGY) gd.mesh.position.y = gdGY;
+                    gd.mesh.material.opacity = gd.life / gd.maxLife;
                 }
             }
 
@@ -3079,6 +3188,8 @@
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
             explosions.forEach(exp=>exp.dispose());explosions=[];
+            scorchMarks.forEach(sc=>{scene.remove(sc.mesh);sc.mesh.geometry.dispose();sc.mesh.material.dispose();});scorchMarks=[];
+            groundDebris.forEach(gd=>{scene.remove(gd.mesh);gd.mesh.geometry.dispose();gd.mesh.material.dispose();});groundDebris=[];
             // 重建大平原地图
             rebuildMap();
             player1=createPlayer('green',-15,0,Math.PI/2,true);player2=createPlayer('desert',15,0,-Math.PI/2,false);
@@ -3146,6 +3257,21 @@
                     explosions[i].dispose();
                     explosions.splice(i, 1);
                 }
+            }
+
+            // ── 焦痕渐消 ──
+            for (let i = scorchMarks.length - 1; i >= 0; i--) {
+                const sc = scorchMarks[i]; sc.life -= dt;
+                if (sc.life <= 0) { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); scorchMarks.splice(i, 1); }
+                else { sc.mesh.material.opacity = 0.65 * (sc.life / sc.maxLife); }
+            }
+            // ── 地面碎片更新 ──
+            for (let i = groundDebris.length - 1; i >= 0; i--) {
+                const gd = groundDebris[i]; gd.life -= dt;
+                if (gd.life <= 0) { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); groundDebris.splice(i, 1); }
+                else { gd.vel.y -= 9.8 * dt; gd.mesh.position.x += gd.vel.x * dt; gd.mesh.position.y += gd.vel.y * dt; gd.mesh.position.z += gd.vel.z * dt;
+                    const gdGY = getGroundHeight(gd.mesh.position.x, gd.mesh.position.z) + 0.05; if (gd.mesh.position.y < gdGY) gd.mesh.position.y = gdGY;
+                    gd.mesh.material.opacity = gd.life / gd.maxLife; }
             }
             // 分屏尺寸
             const halfCssW = Math.floor(cssW / 2), rightCssW = cssW - halfCssW;
@@ -3218,8 +3344,9 @@
                             else{spawnHitSparks(s.mesh.position.clone());}}}}
                 const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
                 const sgy=getGroundHeight(s.mesh.position.x,s.mesh.position.z);
-                if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50)
-                {scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
+                if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50){
+                    if(!hit&&s.mesh.position.y<sgy){const ip=s.mesh.position.clone();playGroundHitSound();spawnGroundDebris(ip);spawnScorchMark(ip);}
+                    scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
             for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
                 f.mesh.position.x+=f.vel.x*dt;f.mesh.position.y+=f.vel.y*dt;f.mesh.position.z+=f.vel.z*dt;
                 f.mesh.rotation.x+=f.rotSpeed.x*dt;f.mesh.rotation.y+=f.rotSpeed.y*dt;f.mesh.rotation.z+=f.rotSpeed.z*dt;
@@ -3369,7 +3496,7 @@
             const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
 
             el.textContent =
-                'v0.24.10  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.25.0  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
                 perfLine + renderStats + shadowHint;
         }
@@ -3696,7 +3823,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.10 | PCFShadow+512+36m跟随 | 四阶段探针 | 遮挡池优化 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.25.0 | 地面命中焦痕+碎片 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
