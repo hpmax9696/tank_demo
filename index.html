@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.9</title>
+    <title>坦克运动demo v0.24.10</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.9</div>
+        <div class="menu-version">v0.24.10</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔦 v0.24.10 优化 — 阴影降级PCFShadow+512分辨率+相机36m跟随(渲染18ms→待验证)</div>
             <div class="cl-title">🔬 v0.24.9 诊断 — 四阶段性能探针+遮挡透明材质池优化(消除clone/dispose)</div>
             <div class="cl-title">🐛 v0.24.8 修复 — 半透明材质共享Bug+阴影1024+草丛关投射阴影</div>
             <div class="cl-title">⚡ v0.24.7 优化 — 移除外围障碍物+遮挡检测降频+距离预过滤</div>
             <div class="cl-title">🌊 v0.24.6 修复 — 河流扩展300m+障碍物遮挡半透明</div>
-            <div class="cl-title">🗑 v0.24.5 重构 — 移除天空系统+清理残余+FOV45°+LOD调大</div>
         </div>
     </div>
 
@@ -877,6 +877,13 @@
         const keys = {};
         window.addEventListener('keydown', (e) => {
             keys[e.code] = true;
+            // H键：切换阴影开/关（对照实验，测量阴影对渲染耗时的影响）
+            if (e.code === 'KeyH' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                shadowEnabled = !shadowEnabled;
+                if (sunLight) sunLight.castShadow = shadowEnabled;
+                renderer.shadowMap.enabled = shadowEnabled;
+                console.log('🔦 阴影已' + (shadowEnabled ? '开启' : '关闭') + '（H键切换）| 对比渲染耗时变化');
+            }
             if (e.code === 'Escape') {
                 if (previewContainer.classList.contains('active')) {
                     exitPreviewMode();
@@ -922,6 +929,8 @@
         let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
         let occludedObstacles = [];  // 当前被半透明的障碍物列表
         let transparentMatPool = new Map();  // 透明材质池：原始材质→半透明clone（避免每帧clone/dispose）
+        let sunLight = null;  // 主方向光引用（用于H键切换阴影）
+        let shadowEnabled = true;  // 阴影开关状态
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
@@ -1059,7 +1068,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.domElement.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:block;';
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.shadowMap.type = THREE.PCFShadowMap;  // v0.24.10: 降级软阴影→硬阴影，省~10ms
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
             gameContainer.appendChild(renderer.domElement);
@@ -1073,16 +1082,19 @@
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
                 sun.position.set(30, 40, 20);
                 sun.castShadow = true;
-                sun.shadow.mapSize.width = 1024;
-                sun.shadow.mapSize.height = 1024;
+                sun.shadow.mapSize.width = 512;   // v0.24.10: 1024→512，贴近视口
+                sun.shadow.mapSize.height = 512;
                 sun.shadow.camera.near = 0.5;
                 sun.shadow.camera.far = 120;
-                sun.shadow.camera.left = -60;
-                sun.shadow.camera.right = 60;
-                sun.shadow.camera.top = 60;
-                sun.shadow.camera.bottom = -60;
+                sun.shadow.camera.left = -18;     // v0.24.10: ±60→±18(36m范围)，密度提升5.5倍
+                sun.shadow.camera.right = 18;
+                sun.shadow.camera.top = 18;
+                sun.shadow.camera.bottom = -18;
                 sun.shadow.bias = -0.0002;
                 trg.add(sun);
+                sunLight = sun;  // 保存全局引用供H键切换阴影
+                sunLight.target.position.set(0, 0, 0);  // 初始注视原点
+                trg.add(sunLight.target);
             }
 
             // --- 主场景（统一使用 scene1，不再预建 scene2） ---
@@ -2746,6 +2758,14 @@
                 updateDebugInfo();
             }
 
+            // ⚡ v0.24.10: 阴影相机跟随坦克（36m范围，512分辨率→像素密度提升5.5倍）
+            if (sunLight && sunLight.castShadow && shadowEnabled) {
+                const tx = tankGroup.position.x, tz = tankGroup.position.z;
+                sunLight.position.set(tx + 30, 40, tz + 20);
+                sunLight.target.position.set(tx, 0, tz);
+                sunLight.shadow.camera.updateProjectionMatrix();
+            }
+
             renderer.render(scene, camera);
             const _t4 = performance.now();  // perf: 渲染阶段结束
             perfAcc.render += _t4 - _t3;
@@ -3300,7 +3320,7 @@
             initAudio();startEngineSound();
             // 确保 canvas 尺寸匹配窗口
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.shadowMap.type = THREE.PCFShadowMap;  // v0.24.10
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
             renderer.setScissorTest(false);
@@ -3340,10 +3360,18 @@
                   'ms | 帧总:' + pd.total + 'ms'
                 : '\n⏱ 探针采集中...';
 
+            // renderer.info 统计：DrawCall数 + 三角面数
+            let renderStats = '';
+            if (renderer && renderer.info && renderer.info.render) {
+                const ri = renderer.info.render;
+                renderStats = '\n🎨 DC:' + ri.calls + ' | Δ:' + (ri.triangles/1000).toFixed(1) + 'k';
+            }
+            const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
+
             el.textContent =
-                'v0.24.9  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.10  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
-                perfLine;
+                perfLine + renderStats + shadowHint;
         }
 
         function returnToMenu() {
@@ -3668,7 +3696,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.9 | 四阶段探针 | 遮挡池优化 | 阴影1024 | 外围精简 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.24.10 | PCFShadow+512+36m跟随 | 四阶段探针 | 遮挡池优化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
