@@ -1,4 +1,0 @@
-- generic [ref=e27]:
-  - generic: v0.23.0 测试地图01a FPS:48 草丛实例:0簇
-  - button "← 返回菜单 (ESC)" [ref=e29] [cursor=pointer]
-  - generic: 键盘 W/S/↑/↓ | 手柄 左摇杆/右摇杆 | 空格/RT 开炮

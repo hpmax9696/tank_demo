@@ -11,3 +11,9 @@ Thumbs.db
 
 # Other
 *.log
+
+# Playwright / Debug
+.playwright-cli/
+game-*.png
+_*.js
+_*.mjs
