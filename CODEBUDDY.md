@@ -2,6 +2,19 @@
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
+## ⚠️ 每次提供预览前必须执行（AI 必读）
+
+提供 `preview_url` 之前，必须先确保 HTTP 服务符合以下规则，否则会出现 `chrome-error://chromewebdata/` 错误：
+
+1. **清理残留进程**: 先杀掉所有 Python 进程
+   ```powershell
+   Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+   ```
+2. **启动单一服务**: `python -m http.server 8080 --bind 127.0.0.1`
+3. **验证唯一进程**: `netstat -ano | findstr ":8080.*LISTENING"` 应只显示一行 `127.0.0.1:8080`
+4. **使用 127.0.0.1**: preview_url 用 `http://127.0.0.1:8080`，禁止用 localhost
+5. **先启动再预览**: 确认服务就绪后才调用 `preview_url`
+
 ## 开发环境
 
 **启动本地服务器**（必须，GLB 模型需要 HTTP 协议）:
