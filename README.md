@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.24.3** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.24.4** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,9 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.24.4 — 陡视角方案：摄像机压低天空（2026-05-09）
+**改进**：摄像机后方6.5m/上方6m（双人8m/7m），俯角大幅增加；Fog 70-110m，移除环形雾盖；视线内看不到地图边缘/折角。
 
 ### v0.24.3 — 环形雾盖渐隐+边框线移除+Fog拉远（2026-05-09）
 **改进**：取消地形边缘下陷（外圈自然平整）；创建ShaderMaterial环形雾盖（100-150m径向smoothstep渐隐）；移除空气墙边框线；Fog far 80→250，地面始终可见（障碍物保持OBS_VISIBLE_RADIUS=65隐藏）。
@@ -608,12 +611,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.24.3 | 环形雾盖渐隐 | 不下陷+Shader雾环 | Fog far=250地面常可见`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.24.4 | 陡视角 后方6.5m+上方6m | Fog 70-110m 视线内看不到边缘`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.24.3）
-- `index.html`：约 3600 行（HTML + CSS + JS 游戏引擎，含环形雾盖+Shader天际线渐隐+Preetham天空+草丛系统）
+### 代码规模（截至 v0.24.4）
+- `index.html`：约 3570 行（HTML + CSS + JS 游戏引擎，含陡视角摄像机+Preetham天空+草丛系统）
 - `Sky.js`：约 170 行（Preetham 大气散射天空，适配全局 THREE，零纹理依赖）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
@@ -720,6 +723,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.24.4 — 陡视角方案：摄像机压低天空（2026-05-09）
+**改进**：摄像机后方6.5m/上方6m+Fog 70-110m，视线内无边缘。
 
 ### v0.24.3 — 环形雾盖渐隐+边框线移除+Fog拉远（2026-05-09）
 **改进**：取消边缘下陷；Shader环形雾盖；移除空气墙边框线；Fog far=250地面常可见。

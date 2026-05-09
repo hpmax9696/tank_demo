@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.3</title>
+    <title>坦克运动demo v0.24.4</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.3</div>
+        <div class="menu-version">v0.24.4</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方6.5m/上方6m，配合Fog 70-110m，视线内看不到边缘</div>
             <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：不下陷+Shader雾环柔化天际线；移除空气墙边框；Fog far=250</div>
             <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
             <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300（01a/01b远景自然平展）</div>
@@ -1099,7 +1100,7 @@
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
                 trg.background = new THREE.Color('#334455');  // 深蓝灰底色，Preetham天空球覆盖其上
-                trg.fog = new THREE.Fog('#8899aa', 100, 250);  // 远景深度感，地面始终可见（环雾盖柔化边缘）
+                trg.fog = new THREE.Fog('#8899aa', 70, 110);  // 配合陡视角，远处自然消失在雾中
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
@@ -1242,47 +1243,8 @@
             groundPlane.name = 'ground';
             targetScene.add(groundPlane);
 
-            // ── 环形雾盖：地形边缘自然渐隐（替代硬边界天际线）──
-            // 仅对扩展地图（300×300）创建，02a（200×200）不需要
-            if (SIZE > BASE_SIZE) {
-                if (fogRing) { targetScene.remove(fogRing); fogRing.geometry.dispose(); fogRing.material.dispose(); }
-                const fogRingGeo = new THREE.PlaneGeometry(SIZE, SIZE);
-                const fogRingMat = new THREE.ShaderMaterial({
-                    uniforms: {
-                        uColor: { value: new THREE.Color('#8899aa') },
-                        uInnerR: { value: BASE_SIZE / 2 },   // 100m 空气墙半径
-                        uOuterR: { value: SIZE / 2 },          // 150m 地形边缘
-                    },
-                    vertexShader: `
-                        varying vec2 vWorldPos;
-                        void main() {
-                            vec4 worldPos = modelMatrix * vec4(position, 1.0);
-                            vWorldPos = worldPos.xz;
-                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                        }
-                    `,
-                    fragmentShader: `
-                        varying vec2 vWorldPos;
-                        uniform vec3 uColor;
-                        uniform float uInnerR;
-                        uniform float uOuterR;
-                        void main() {
-                            float dist = length(vWorldPos);
-                            float alpha = smoothstep(uInnerR, uOuterR, dist);
-                            gl_FragColor = vec4(uColor, alpha);
-                        }
-                    `,
-                    transparent: true,
-                    depthWrite: false,
-                });
-                fogRing = new THREE.Mesh(fogRingGeo, fogRingMat);
-                fogRing.rotation.x = -Math.PI / 2;
-                fogRing.position.y = 0.02;
-                fogRing.name = 'fogRing';
-                targetScene.add(fogRing);
-            }
-
-            // 边框线已移除（v0.24.3）
+            // 环形雾盖已移除（v0.24.4：摄像机陡视角+Camera near/far限制，天然看不到边缘）
+        }
         }
 
         // ==================== 程序化草丛覆盖系统（InstancedMesh 性能优化） ====================
@@ -2788,12 +2750,12 @@
         // ==================== 摄像机 ====================
         // 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
         // 摄像机参数（单人模式×0.5，双人模式×0.7）
-        const CAMERA_BEHIND = 10;    // 摄像机在球后方距离（原7→10，更远视野）
-        const CAMERA_ABOVE = 4.0;    // 摄像机在球上方高度（原3→4，压低天空比例）
-        const CAMERA_BEHIND_VS = 12; // 双人模式后方距离（原10→12）
-        const CAMERA_ABOVE_VS = 5.0;  // 双人模式上方高度（原4→5）
-        const CAMERA_LOOK_Y = 1.0;      // lookAt 高度-单人模式（原1.5→1.0，降低视角）
-        const CAMERA_LOOK_Y_VS = 1.5;    // lookAt 高度-双人模式（原2.0→1.5）
+        const CAMERA_BEHIND = 6.5;    // 后方距离（更近→视角更陡→天空占比更小）
+        const CAMERA_ABOVE = 6.0;    // 上方高度（抬升→俯角更大→看不到天际线）
+        const CAMERA_BEHIND_VS = 8;  // 双人模式后方距离
+        const CAMERA_ABOVE_VS = 7.0; // 双人模式上方高度
+        const CAMERA_LOOK_Y = 1.0;    // lookAt 高度-单人模式
+        const CAMERA_LOOK_Y_VS = 1.5;  // lookAt 高度-双人模式
 
         function placeCamera() {
             const fx = Math.cos(tankState.yaw);
@@ -3287,7 +3249,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.3  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.4  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3613,7 +3575,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.3 | 环形雾盖渐隐 | 不下陷+Shader雾环 | Fog far=250地面常可见');
+        console.log('🎮 坦克运动demo v0.24.4 | 陡视角 后方6.5m+上方6m | Fog 70-110m 视线内看不到边缘');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
