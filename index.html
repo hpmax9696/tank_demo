@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.23.1</title>
+    <title>坦克运动demo v0.23.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.23.1</div>
+        <div class="menu-version">v0.23.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔧 v0.23.2 「裙边」— ShapeGeometry正方形环带，向下倾斜20m融入雾中</div>
             <div class="cl-title">🔧 v0.23.1 修复 — 环形裙边，不再遮住河流/池塘/盆地</div>
             <div class="cl-title">🔄 v0.23.0 更新 — 「换天」Preetham大气散射天空替代全景纹理球</div>
             <div class="cl-title">🔄 v0.22.2 更新 — 全景山脉天空球 + 裙边地面隐藏世界边缘</div>
@@ -1245,21 +1246,48 @@
             groundEdgeLine.position.y = 0.03;
             targetScene.add(groundEdgeLine);
 
-            // 环形裙边地面：只填充地图边缘到雾远平面之间的空隙，中间挖空不遮住地形凹陷
+            // 裙边地面：正方形环带（ShapeGeometry挖孔），向外向下倾斜融入雾中
             if (groundSkirtPlane) { targetScene.remove(groundSkirtPlane); groundSkirtPlane.geometry.dispose(); groundSkirtPlane.material.dispose(); }
-            const SKIRT_OUTER = 200;  // 外半径 = 400/2，延伸到雾 far=120 之外
-            const SKIRT_INNER = SIZE / 2 + 2;  // 内半径略大于地图边界，避开可玩区域
-            const skirtGeo = new THREE.RingGeometry(SKIRT_INNER, SKIRT_OUTER, 128);
+            const SKIRT_OUTER = 200;  // 外边界 = 400/2
+            const SKIRT_INNER = SIZE / 2 + 2;  // 内边界略大于地图边缘
+            const SKIRT_DROP = 20;  // 外边缘下沉高度(米)
+
+            // 外框正方形
+            const shape = new THREE.Shape();
+            shape.moveTo(-SKIRT_OUTER, -SKIRT_OUTER);
+            shape.lineTo( SKIRT_OUTER, -SKIRT_OUTER);
+            shape.lineTo( SKIRT_OUTER,  SKIRT_OUTER);
+            shape.lineTo(-SKIRT_OUTER,  SKIRT_OUTER);
+            // 内框正方形（挖空 = 地图区域）
+            const hole = new THREE.Path();
+            hole.moveTo(-SKIRT_INNER, -SKIRT_INNER);
+            hole.lineTo( SKIRT_INNER, -SKIRT_INNER);
+            hole.lineTo( SKIRT_INNER,  SKIRT_INNER);
+            hole.lineTo(-SKIRT_INNER,  SKIRT_INNER);
+            shape.holes.push(hole);
+
+            const skirtGeo = new THREE.ShapeGeometry(shape, 32);
+            skirtGeo.rotateX(-Math.PI / 2);  // XY平面 → XZ水平面
+
+            // 向下倾斜：内边缘贴地(y≈0)，外边缘下沉SKIRT_DROP米
+            const pos = skirtGeo.attributes.position;
+            const maxDist = SKIRT_OUTER;
+            const minDist = SKIRT_INNER;
+            for (let i = 0; i < pos.count; i++) {
+                const dist = Math.sqrt(pos.getX(i) ** 2 + pos.getZ(i) ** 2);
+                const t = Math.max(0, Math.min(1, (dist - minDist) / (maxDist - minDist)));
+                pos.setY(i, -t * SKIRT_DROP);
+            }
+            skirtGeo.computeVertexNormals();
+
             const skirtMat = new THREE.MeshStandardMaterial({
-                color: '#4a5a3a',
+                color: '#3a4a30',
                 roughness: 1.0,
                 metalness: 0.0,
                 fog: true,
                 side: THREE.DoubleSide
             });
             groundSkirtPlane = new THREE.Mesh(skirtGeo, skirtMat);
-            groundSkirtPlane.rotation.x = -Math.PI / 2;
-            groundSkirtPlane.position.y = -0.1;  // 略低于地面，避免 Z-fighting
             groundSkirtPlane.receiveShadow = false;
             groundSkirtPlane.castShadow = false;
             groundSkirtPlane.name = 'groundSkirt';
@@ -3263,7 +3291,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.23.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.23.2  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3589,7 +3617,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.23.1 | Preetham大气散射天空 | RingGeometry环形裙边 | 地形凹陷恢复');
+        console.log('🎮 坦克运动demo v0.23.2 | Preetham大气散射天空 | 正方形裙边向下倾斜20m | 雾中消失');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

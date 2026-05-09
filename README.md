@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.23.1** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.23.2** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,9 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.23.2 — 「裙边」正方形环带向下倾斜（2026-05-09）
+**修复**：RingGeometry圆形→ShapeGeometry正方形挖孔环带，完全贴合地图边界；外边缘向下倾斜20m融入雾中，消除四角漏空。
 
 ### v0.23.1 — 环形裙边修复（2026-05-09）
 **修复**：groundSkirtPlane 从 400×400 实心平面→RingGeometry 环形（内半径102/外半径200），不再遮住河流/池塘/盆地凹陷地形。
@@ -593,12 +596,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.23.1 | Preetham大气散射天空 | RingGeometry环形裙边 | 地形凹陷恢复`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.23.2 | Preetham大气散射天空 | 正方形裙边向下倾斜20m | 雾中消失`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.23.1）
-- `index.html`：约 3625 行（HTML + CSS + JS 游戏引擎，含Preetham天空+RingGeometry环形裙边+地图系统+纹理生成+草丛系统）
+### 代码规模（截至 v0.23.2）
+- `index.html`：约 3640 行（HTML + CSS + JS 游戏引擎，含Preetham天空+ShapeGeometry正方形裙边+地图系统+纹理生成+草丛系统）
 - `Sky.js`：约 170 行（Preetham 大气散射天空，适配全局 THREE，零纹理依赖）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
@@ -705,6 +708,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.23.2 — 「裙边」正方形环带向下倾斜（2026-05-09）
+**修复**：ShapeGeometry正方形挖孔环带，外边缘向下倾斜20m融入雾中。
 
 ### v0.23.1 — 环形裙边修复（2026-05-09）
 **修复**：groundSkirtPlane→RingGeometry 环形，不再遮住地形凹陷。
