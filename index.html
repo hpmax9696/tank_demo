@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.25.0</title>
+    <title>坦克运动demo v0.25.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.25.0</div>
+        <div class="menu-version">v0.25.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔧 v0.25.1 修复 — 炮弹发射角计入坦克俯仰+焦痕贴合地形坡度</div>
             <div class="cl-title">💥 v0.25.0 新功能 — 炮弹命中地面：音效+碎片飞溅+焦痕(3秒渐消)</div>
             <div class="cl-title">🔦 v0.24.10 优化 — 阴影降级PCFShadow+512分辨率+相机36m跟随(渲染-14ms)</div>
             <div class="cl-title">🔬 v0.24.9 诊断 — 四阶段性能探针+遮挡透明材质池优化(消除clone/dispose)</div>
             <div class="cl-title">🐛 v0.24.8 修复 — 半透明材质共享Bug+阴影1024+草丛关投射阴影</div>
-            <div class="cl-title">⚡ v0.24.7 优化 — 移除外围障碍物+遮挡检测降频+距离预过滤</div>
         </div>
     </div>
 
@@ -895,20 +895,34 @@
             }
         }
 
-        // ── 地面焦痕（炮弹着弹点，3秒渐消） ──
+        // ── 地面焦痕（炮弹着弹点，3秒渐消，贴合地形坡度） ──
         function spawnScorchMark(pos) {
-            const gy = getGroundHeight(pos.x, pos.z) + 0.015;
+            const gy = getGroundHeight(pos.x, pos.z);
+            // 🔧 v0.25.1: 计算地形法线，让焦痕贴合坡面而非始终水平
+            const d = 0.15;
+            const hx = getGroundHeight(pos.x + d, pos.z);
+            const hz = getGroundHeight(pos.x, pos.z + d);
+            const terrainNormal = new THREE.Vector3(-(hx - gy) / d, 1.0, -(hz - gy) / d).normalize();
             const geo = new THREE.CircleGeometry(0.45 + Math.random() * 0.25, 16);
             const mat = new THREE.MeshBasicMaterial({
                 color: '#1a1a1a',
                 transparent: true,
                 opacity: 0.65,
                 side: THREE.DoubleSide,
-                depthWrite: false
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+                polygonOffsetUnit: -1
             });
             const mark = new THREE.Mesh(geo, mat);
-            mark.rotation.x = -Math.PI / 2;
-            mark.position.set(pos.x, gy, pos.z);
+            // 将圆面的默认法线(0,0,1)旋转到地形法线方向
+            const quat = new THREE.Quaternion().setFromUnitVectors(
+                new THREE.Vector3(0, 0, 1),
+                terrainNormal
+            );
+            mark.setRotationFromQuaternion(quat);
+            // 沿法线方向偏移，避免z-fighting
+            mark.position.copy(pos).addScaledVector(terrainNormal, 0.02);
             scene.add(mark);
             scorchMarks.push({ mesh: mark, life: 2.5 + Math.random() * 0.5, maxLife: 3.0 });
         }
@@ -2240,7 +2254,14 @@
             glowTail.material.depthTest = true;
             scene.add(glowTail);
 
-            const vel = new THREE.Vector3(fx * SHELL_SPEED, 0.3, fz * SHELL_SPEED);
+            // 🔧 v0.25.1: 炮弹发射角计入坦克俯仰（坡地不下砸也不飞天）
+            const barrelAngle = (player.pitch || 0) + (player.recoilPitch || 0);
+            const shellAngle = barrelAngle + 0.3 / SHELL_SPEED;  // 炮管上扬~0.5°
+            const vel = new THREE.Vector3(
+                fx * Math.cos(shellAngle) * SHELL_SPEED,
+                Math.sin(shellAngle) * SHELL_SPEED,
+                fz * Math.cos(shellAngle) * SHELL_SPEED
+            );
             shells.push({ mesh: shellGroup, vel, owner: player, glowTail });
         }
 
@@ -3496,7 +3517,7 @@
             const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
 
             el.textContent =
-                'v0.25.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.25.1  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
                 perfLine + renderStats + shadowHint;
         }
@@ -3823,7 +3844,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.25.0 | 地面命中焦痕+碎片 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.25.1 | 俯仰发射角+焦痕贴坡 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
