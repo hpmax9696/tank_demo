@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.8</title>
+    <title>坦克运动demo v0.24.9</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.8</div>
+        <div class="menu-version">v0.24.9</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔬 v0.24.9 诊断 — 四阶段性能探针+遮挡透明材质池优化(消除clone/dispose)</div>
             <div class="cl-title">🐛 v0.24.8 修复 — 半透明材质共享Bug+阴影1024+草丛关投射阴影</div>
             <div class="cl-title">⚡ v0.24.7 优化 — 移除外围障碍物+遮挡检测降频+距离预过滤</div>
             <div class="cl-title">🌊 v0.24.6 修复 — 河流扩展300m+障碍物遮挡半透明</div>
             <div class="cl-title">🗑 v0.24.5 重构 — 移除天空系统+清理残余+FOV45°+LOD调大</div>
-            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方9.75m/上方9m（1.5x），视线内看不到边缘</div>
         </div>
     </div>
 
@@ -921,6 +921,7 @@
         let obstacleMeshes = [], obstacleData = [];
         let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
         let occludedObstacles = [];  // 当前被半透明的障碍物列表
+        let transparentMatPool = new Map();  // 透明材质池：原始材质→半透明clone（避免每帧clone/dispose）
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
@@ -1972,6 +1973,11 @@
             obstacleMeshes = [];
             obstacleData = [];
             occludedObstacles = [];  // 清除遮挡透明记录
+            // 清理透明材质池（dispose所有克隆材质后清空）
+            for (const transpMat of transparentMatPool.values()) {
+                transpMat.dispose();
+            }
+            transparentMatPool.clear();
 
             const is02a = (selectedMapId === 'test_map_02a');
             const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
@@ -2260,6 +2266,11 @@
         let visibilityTimer = 0;
         let occlusionTimer = 0;  // 障碍物遮挡检测降频计时器
 
+        // ==================== 性能探针 ====================
+        // 四阶段累加：physics(物理), combat(战斗), updates(杂项更新), render(渲染)
+        let perfAcc = { physics:0, combat:0, updates:0, render:0, frames:0 };
+        let perfDisplay = { physics:0, combat:0, updates:0, render:0, total:0 };  // 最近报告的快照
+
         // ── 手柄 ──
         let gamepadFireReady = true; // 扳机松开后才允许再次开炮
 
@@ -2313,6 +2324,7 @@
 
         function gameLoop() {
             try {
+            const _t0 = performance.now();
             // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
             renderer.setScissorTest(false);
             const cssW = window.innerWidth, cssH = window.innerHeight;
@@ -2433,6 +2445,8 @@
             rightWheelAngle += currentRightSpeed * dt / WHEEL_R;
             leftWheels.forEach(w => { w.rotation.x = leftWheelAngle; });
             rightWheels.forEach(w => { w.rotation.x = rightWheelAngle; });
+            const _t1 = performance.now();  // perf: 物理阶段结束
+            perfAcc.physics += _t1 - _t0;
 
             // ── 开炮（键盘空格 / 手柄RT扳机） ──
             const fireNow = isFirePressed();
@@ -2619,6 +2633,8 @@
                     muzzleLights.splice(i, 1);
                 }
             }
+            const _t2 = performance.now();  // perf: 炮弹/碎片/炮口焰阶段结束
+            perfAcc.combat += _t2 - _t1;
 
             // ── 装填计时器 + 进度条 ──
             if (player1 && player1.reloadTimer > 0) {
@@ -2708,12 +2724,32 @@
                 }
             }
 
-            // FPS 统计
+            // FPS 统计 + 性能探针报告（每0.5s一次）
+            const _t3 = performance.now();  // perf: 杂项更新阶段结束
+            perfAcc.updates += _t3 - _t2;
             fpsFrames++;
             fpsTime += dt;
-            if (fpsTime >= 0.5) { fpsCurrent = Math.round(fpsFrames / fpsTime); fpsFrames = 0; fpsTime = 0; updateDebugInfo(); }
+            if (fpsTime >= 0.5) {
+                fpsCurrent = Math.round(fpsFrames / fpsTime);
+                // 计算各阶段平均耗时（ms），并存入快照供 updateDebugInfo 使用
+                if (perfAcc.frames > 0) {
+                    perfDisplay.physics = (perfAcc.physics / perfAcc.frames).toFixed(2);
+                    perfDisplay.combat = (perfAcc.combat / perfAcc.frames).toFixed(2);
+                    perfDisplay.updates = (perfAcc.updates / perfAcc.frames).toFixed(2);
+                    perfDisplay.render = (perfAcc.render / perfAcc.frames).toFixed(2);
+                    perfDisplay.total = (perfAcc.physics + perfAcc.combat + perfAcc.updates + perfAcc.render) / perfAcc.frames;
+                    perfDisplay.total = perfDisplay.total.toFixed(2);
+                }
+                // 重置累加器
+                perfAcc = { physics:0, combat:0, updates:0, render:0, frames:0 };
+                fpsFrames = 0; fpsTime = 0;
+                updateDebugInfo();
+            }
 
             renderer.render(scene, camera);
+            const _t4 = performance.now();  // perf: 渲染阶段结束
+            perfAcc.render += _t4 - _t3;
+            perfAcc.frames++;
             } catch(e) { console.warn('gameLoop error:', e.message); }
             animationId = requestAnimationFrame(gameLoop);
         }
@@ -2741,12 +2777,12 @@
         }
 
         // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
+        // ⚡ v0.24.9 优化：用透明材质池替代每帧 clone/dispose，消除 GPU 材质编译开销
         function handleObstacleOcclusion() {
-            // 重置之前被半透明的障碍物：dispose克隆材质，还原原始材质
+            // 重置之前被半透明的障碍物：还原原始材质（不dispose，透明clone保留在池中复用）
             for (const obs of occludedObstacles) {
                 obs.traverse(child => {
                     if (child.isMesh && child.userData._origMat) {
-                        child.material.dispose();           // 销毁克隆材质
                         child.material = child.userData._origMat;  // 还原共享原始材质
                         child.userData._origMat = null;
                     }
@@ -2798,12 +2834,18 @@
                 occludedObstacles.push(obs);
                 obs.traverse(child => {
                     if (child.isMesh && child.material && !child.userData._origMat) {
-                        // 首次半透明：clone 材质避免影响共享同一材质的所有同类障碍物
+                        // ⚡ 从透明材质池获取或创建半透明clone（复用，避免每帧clone/dispose）
                         child.userData._origMat = child.material;
-                        child.material = child.material.clone();
-                        child.material.transparent = true;
-                        child.material.opacity = 0.3;
-                        child.material.needsUpdate = true;
+                        const origMat = child.material;
+                        let transpMat = transparentMatPool.get(origMat);
+                        if (!transpMat) {
+                            transpMat = origMat.clone();
+                            transpMat.transparent = true;
+                            transpMat.opacity = 0.3;
+                            transpMat.needsUpdate = true;
+                            transparentMatPool.set(origMat, transpMat);
+                        }
+                        child.material = transpMat;
                     }
                 });
             }
@@ -3289,9 +3331,19 @@
             const grassInfo = grassInstances.length > 0
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
+
+            // 性能探针：显示四阶段耗时（ms），帮助定位瓶颈
+            const pd = perfDisplay || {};
+            const perfLine = (pd.physics > 0)
+                ? '\n⏱ 物理:' + pd.physics + 'ms | 战斗:' + pd.combat +
+                  'ms | 杂项:' + pd.updates + 'ms | 渲染:' + pd.render +
+                  'ms | 帧总:' + pd.total + 'ms'
+                : '\n⏱ 探针采集中...';
+
             el.textContent =
-                'v0.24.8  ' + mapName + '  FPS:' + fpsCurrent +
-                '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
+                'v0.24.9  ' + mapName + '  FPS:' + fpsCurrent +
+                '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
+                perfLine;
         }
 
         function returnToMenu() {
@@ -3616,7 +3668,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.8 | 阴影1024 | 材质clone | 外围精简 | 遮挡降频+预过滤 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.24.9 | 四阶段探针 | 遮挡池优化 | 阴影1024 | 外围精简 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
