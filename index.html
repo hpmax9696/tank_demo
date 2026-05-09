@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.1</title>
+    <title>坦克运动demo v0.24.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.1</div>
+        <div class="menu-version">v0.24.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,6 +368,7 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
             <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300（01a/01b远景自然平展）</div>
             <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边（02a保持200×200）</div>
             <div class="cl-title">🔧 v0.23.2 「裙边」— ShapeGeometry正方形环带，向下倾斜20m融入雾中</div>
@@ -1215,20 +1216,27 @@
 
             // ── 地形几何 ──
             let groundGeo;
-            if (isVersusMap) {
-                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
-            } else {
-                groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
-                const pos = groundGeo.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    const gx = pos.getX(i);
-                    const gy = pos.getY(i);
-                    const wz = -gy;
-                    const h = getTerrainHeight(gx, wz);
+            groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
+            const pos = groundGeo.attributes.position;
+            const innerR = BASE_SIZE / 2;   // 空气墙半径 100m
+            const outerR = SIZE / 2;         // 地形边缘半径 150m
+            const edgeSink = -8;             // 边缘沉入地下8米，融入雾中
+            for (let i = 0; i < pos.count; i++) {
+                const gx = pos.getX(i);
+                const gy = pos.getY(i);
+                const wz = -gy;
+                const dist = Math.sqrt(gx * gx + wz * wz);
+                const h = isVersusMap ? 0 : getTerrainHeight(gx, wz);
+                if (dist > innerR) {
+                    // 空气墙(100m)外 → 地形边缘(150m)：高度渐降至沉入雾中
+                    const t = Math.min((dist - innerR) / (outerR - innerR), 1.0);
+                    const fade = 1.0 - t * t;   // ease-out 二次方
+                    pos.setZ(i, h * fade + (1.0 - fade) * edgeSink);
+                } else {
                     pos.setZ(i, h);
                 }
-                groundGeo.computeVertexNormals();
             }
+            groundGeo.computeVertexNormals();
 
             const groundMat = new THREE.MeshStandardMaterial({
                 map: texture,
@@ -3257,7 +3265,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.2  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3583,7 +3591,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.1 | 纹理覆盖300×300 | 外圈自然平展 | 01a/01b远景可见');
+        console.log('🎮 坦克运动demo v0.24.2 | 天际线渐隐 | 地形边缘顶点渐降至雾中 | 01a/01b远景柔化');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
