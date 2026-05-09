@@ -368,20 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方6.5m/上方6m，配合Fog 70-110m，视线内看不到边缘</div>
-            <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：不下陷+Shader雾环柔化天际线；移除空气墙边框；Fog far=250</div>
+            <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机压低天空，视线内看不到地图边缘</div>
+            <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：Shader雾环+移除空气墙边框+Fog far=250</div>
             <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
-            <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300（01a/01b远景自然平展）</div>
-            <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边（02a保持200×200）</div>
-            <div class="cl-title">🔧 v0.23.2 「裙边」— ShapeGeometry正方形环带，向下倾斜20m融入雾中</div>
-            <div class="cl-title">🔧 v0.23.1 修复 — 环形裙边，不再遮住河流/池塘/盆地</div>
-            <div class="cl-title">🔄 v0.23.0 更新 — 「换天」Preetham大气散射天空替代全景纹理球</div>
-            <div class="cl-title">🔄 v0.22.2 更新 — 全景山脉天空球 + 裙边地面隐藏世界边缘</div>
-            <div class="cl-title">🔄 v0.22.1 更新 — 炮弹外形重构：圆柱身+锥形弹头</div>
-            <div class="cl-item">炮弹从直圆柱→圆柱弹体(0.18m)+锥形弹头(0.08m)，Group组合，更贴近真实炮弹外形</div>
-            <div class="cl-item">炮弹清理统一使用 disposeShellMesh()，兼容 Group 遍历销毁子网格几何体和材质</div>
-            <div class="cl-item">上版 (v0.22.0)：天空穹顶+远山环带，蓝灰雾色融合，告别黑雾</div>
-
+            <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300</div>
+            <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边</div>
         </div>
     </div>
 
@@ -1244,7 +1235,6 @@
             targetScene.add(groundPlane);
 
             // 环形雾盖已移除（v0.24.4：摄像机陡视角+Camera near/far限制，天然看不到边缘）
-        }
         }
 
         // ==================== 程序化草丛覆盖系统（InstancedMesh 性能优化） ====================
