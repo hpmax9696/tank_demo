@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.24.5</title>
+    <title>坦克运动demo v0.24.6</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.24.5</div>
+        <div class="menu-version">v0.24.6</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,12 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌊 v0.24.6 修复 — 河流扩展300m+障碍物遮挡半透明</div>
             <div class="cl-title">🗑 v0.24.5 重构 — 移除天空系统+清理残余+FOV45°+LOD调大</div>
             <div class="cl-title">📷 v0.24.4 改进 — 陡视角方案：摄像机后方9.75m/上方9m（1.5x），视线内看不到边缘</div>
             <div class="cl-title">🌫 v0.24.3 改进 — 环形雾盖渐隐：Shader雾环+移除空气墙边框+Fog far=250</div>
             <div class="cl-title">🌫 v0.24.2 改进 — 天际线渐变：地形边缘顶点渐降至-8m融入雾中</div>
-            <div class="cl-title">🔧 v0.24.1 修复 — 去掉外圈下沉，纹理系统覆盖300×300</div>
-            <div class="cl-title">🚀 v0.24.0 更新 — 地形扩展300×300，删除裙边</div>
         </div>
     </div>
 
@@ -920,6 +919,8 @@
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
+        let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
+        let occludedObstacles = [];  // 当前被半透明的障碍物列表
         let groundPlane;
         let shells = [], fragments = [], muzzleLights = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
@@ -1112,6 +1113,7 @@
             // --- 摄像机 ---
             camera = new THREE.PerspectiveCamera(45, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
             placeCamera();
+            handleObstacleOcclusion();
         }
 
         // ==================== 地图重建（切换单人/双人场景） ====================
@@ -1572,7 +1574,9 @@
         function createRiverWater() {
             if (!_getRiver()) return;  // 地图没有河流则不创建
             const segs = 200;
-            const len = (currentMapData ? currentMapData.size : WORLD_HALF * 2);
+            const is02a = (selectedMapId === 'test_map_02a');
+            // 河流长度与地面一致：02a=200m, 其他=300m（防止在空气墙处被硬截断）
+            const len = is02a ? (currentMapData ? currentMapData.size : WORLD_HALF * 2) : 300;
             const half = len / 2;
             const verts = [];
             const indices = [];
@@ -2661,6 +2665,7 @@
 
             // 摄像机
             placeCamera();
+            handleObstacleOcclusion();
 
             // 水面波动动画（池塘）
             if (waterPlane) {
@@ -2729,6 +2734,51 @@
                 tankGroup.position.z - fz * CAMERA_BEHIND
             );
             camera.lookAt(tankGroup.position.x, groundY + CAMERA_LOOK_Y, tankGroup.position.z);
+        }
+
+        // 障碍物遮挡视线检测：摄像机-坦克射线上的障碍物半透明化
+        function handleObstacleOcclusion() {
+            // 重置上一帧被半透明的障碍物
+            for (const obs of occludedObstacles) {
+                obs.traverse(child => {
+                    if (child.material && child.material.opacity < 1) {
+                        child.material.transparent = false;
+                        child.material.opacity = 1.0;
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
+            occludedObstacles = [];
+
+            // 摄像机到坦克的射线检测
+            const camPos = camera.position;
+            const tankPos = new THREE.Vector3().copy(tankGroup.position);
+            const dir = new THREE.Vector3().subVectors(tankPos, camPos).normalize();
+            const dist = camPos.distanceTo(tankPos);
+            occluderRaycaster.set(camPos, dir);
+            occluderRaycaster.far = dist;
+
+            const intersects = occluderRaycaster.intersectObjects(obstacleMeshes, true);
+
+            const hitRoots = new Set();
+            for (const hit of intersects) {
+                let obj = hit.object;
+                while (obj && !obstacleMeshes.includes(obj)) {
+                    obj = obj.parent;
+                }
+                if (obj) hitRoots.add(obj);
+            }
+
+            for (const obs of hitRoots) {
+                occludedObstacles.push(obs);
+                obs.traverse(child => {
+                    if (child.material) {
+                        child.material.transparent = true;
+                        child.material.opacity = 0.3;
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
         }
 
         // ==================== 菜单与状态切换 ====================
@@ -3176,6 +3226,7 @@
             if(reloadBarGroup)reloadBarGroup.visible=true;
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             placeCamera();
+            handleObstacleOcclusion();
             initAudio();startEngineSound();
             // 确保 canvas 尺寸匹配窗口
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -3211,7 +3262,7 @@
                 ? ' | 草丛:' + grassInstances.length + 'DC/' + (grassTriCount/1000).toFixed(0) + 'kΔ'
                 : '';
             el.textContent =
-                'v0.24.5  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.24.6  ' + mapName + '  FPS:' + fpsCurrent +
                 '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo;
         }
 
@@ -3537,7 +3588,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.24.5 | 无天空 | 陡视角+FOV 45° | OBS_RADIUS=90 | Fog 70-110m');
+        console.log('🎮 坦克运动demo v0.24.6 | 河流300m | 障碍物遮挡半透明 | 陡视角+FOV 45° | OBS_RADIUS=90 | Fog 70-110m');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
