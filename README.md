@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.0** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.3** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.26.3 — 火焰伤害跳距模型修复（2026-05-10）
+**修复**：
+- 火焰视觉射程12→18u，传播速度14→28u/s，与伤害模型统一
+- 火焰伤害改为跳距模型（火焰前沿=已消耗跳数×4.2u，触达才扣血），替代不稳定的elapsed/propDelay判断
+- 修复第5跳火伤因 isFlaming 提前关闭而丢失
+- 近防机枪发射音效独立化
 
 ### v0.26.0 — PvE战斗系统架构搭建（2026-05-10）
 **新增**：
@@ -652,12 +659,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.0 | PvE战斗系统+装甲突击车AI | 积分持久化 | 陡视角+FOV 45°`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.3 | PvE战斗系统+装甲突击车AI | 积分持久化 | 火焰伤害修复 | 陡视角+FOV 45°`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.0）
-- `index.html`：约 4080 行（HTML + CSS + JS 游戏引擎，含陡视角+雾效+草丛系统+遮挡透明化+战斗系统+阴影72m/1024²）
+### 代码规模（截至 v0.26.3）
+- `index.html`：约 4140 行（HTML + CSS + JS 游戏引擎，含陡视角+雾效+草丛系统+遮挡透明化+战斗系统+近防机枪+火焰伤害跳距模型+阴影72m/1024²）
 - `combat/enemyAI.js`：约 280 行（AI状态机 PATROL/CHASE/ENGAGE）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
 - `models/enemies.js`：约 210 行（装甲突击车程序化模型）
@@ -674,7 +681,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 当前版本关键参数（v0.26.0）
+## 当前版本关键参数（v0.26.3）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
@@ -768,6 +775,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 ---
 
 ## 版本历史
+
+### v0.26.3 — 火焰伤害跳距模型修复（2026-05-10）
+**修复**：火焰视觉射程/速度与伤害模型统一，跳距模型替代elapsed/propDelay，修复第5跳丢失，近防机枪发射音效独立化。
 
 ### v0.26.0 — PvE战斗系统架构搭建（2026-05-10）
 **新增**：装甲突击车模型+AI状态机(PATROL→CHASE→ENGAGE被动反击)+积分系统(localStorage持久化)+PvE战斗地图(03a)+index.html combat模式。
