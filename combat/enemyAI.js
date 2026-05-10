@@ -1,6 +1,6 @@
 /**
  * 敌人 AI 系统 — PvE 战斗模式
- * v0.26.0 完整实现
+ * v0.26.5 巡逻防卡+仇恨共享+边转边进+丧尸AI接口预留
  *
  * 状态机：PATROL → CHASE → ENGAGE → PATROL/FLEE
  * 被动模式(reactive): PATROL 不主动探测玩家，受击后才切换 CHASE
@@ -53,6 +53,8 @@
     // ─── 移动敌人（车辆式：先转向再前进，不侧滑） ───
     // 模型前端朝向 -X（V型铲斗在 x=-1.08），rotation.y=0 时车头指向世界 -X
     function moveEnemyToward(enemy, targetX, targetZ, speed, dt) {
+        // v0.26.4fix: 防止 NaN/零 dt 导致敌人卡住（首帧 clock 未就绪等异常）
+        if (!dt || dt <= 0 || isNaN(dt)) return false;
         const dx = targetX - enemy.position.x;
         const dz = targetZ - enemy.position.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
@@ -72,10 +74,13 @@
         const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
         enemy.rotation.y += rotStep;
 
-        // 4. 只有朝向与目标方向偏差 < 90° 时才前进（否则只转向）
+        // 4. 边转边前进（v0.26.4fix: 门槛从>0放宽到>-0.8，允许偏差<143°时同
+        //    时移动+转向，避免大角度掉头时原地旋转超过0.8秒不前进）
         const facingDot = forwardX * (dx / dist) + forwardZ * (dz / dist);
-        if (facingDot > 0) {
-            const step = Math.min(speed * dt, dist);
+        if (facingDot > -0.8) {
+            // 步长按朝向对齐度缩放：正对时全速，90°偏角时半速，极限143°时微速
+            const alignment = Math.max(0.15, (facingDot + 0.8) / 1.8);
+            const step = Math.min(speed * dt * alignment, dist);
             // 沿车身前方移动（转向后的新朝向）
             const newFwdX = -Math.cos(enemy.rotation.y);
             const newFwdZ =  Math.sin(enemy.rotation.y);
@@ -114,9 +119,24 @@
     function updatePatrol(enemy, ai, cfg, dt) {
         if (!cfg.patrolPath || cfg.patrolPath.length === 0) return;
         const wp = cfg.patrolPath[ai.patrolIndex];
+        const beforeX = enemy.position.x, beforeZ = enemy.position.z;
         const arrived = moveEnemyToward(enemy, wp[0], wp[1], cfg.speed || 3.0, dt);
         if (arrived) {
             ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
+            ai.wpStuckTimer = 0;
+        } else {
+            // v0.26.5fix: 障碍物卡住检测 — 位移极小说明被障碍物挡住
+            const moved = Math.abs(enemy.position.x - beforeX) + Math.abs(enemy.position.z - beforeZ);
+            if (moved < 0.02) {
+                ai.wpStuckTimer = (ai.wpStuckTimer || 0) + dt;
+                if (ai.wpStuckTimer > 3.0) {
+                    // 超过3秒无法接近路径点，跳过此点
+                    ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
+                    ai.wpStuckTimer = 0;
+                }
+            } else {
+                ai.wpStuckTimer = 0;
+            }
         }
     }
 
@@ -294,10 +314,12 @@
     function onEnemyDamaged(enemy, damage, attacker) {
         if (!enemy || !enemy.ai) return;
         const ai = enemy.ai;
+        const eid = (enemy.userData && enemy.userData.enemyId) || '??';
 
         enemy.hp = Math.max(0, enemy.hp - damage);
 
         // 受击触发迎击（被动还击模式）
+        const prevState = ai.state;
         if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE) {
             ai.state = AI_STATE.CHASE;
             ai.target = attacker;
@@ -305,6 +327,7 @@
                 ai.lastSeenPlayerPos = attacker.group.position.clone();
             }
             ai.alertTimer = 0;
+            console.log('⚡ ' + eid + ' 受击! ' + prevState + ' → CHASE (HP:' + enemy.hp + ')');
         }
 
         // 受击反馈 → 交由 index.html 处理（闪光/粒子）
@@ -313,12 +336,38 @@
         return enemy.hp <= 0;
     }
 
+    // v0.26.4: 仇恨共享 — 当一名敌人受击时，通知附近友军切换 CHASE
+    function shareAggro(hitEnemy, attacker, allEnemies, aggroRadius) {
+        if (!attacker || !allEnemies || allEnemies.length < 2) return;
+        const radius = aggroRadius || 40;
+        const hitId = (hitEnemy.userData && hitEnemy.userData.enemyId) || '??';
+        for (const ally of allEnemies) {
+            if (!ally || ally === hitEnemy || !ally.ai) continue;
+            if (ally.ai.state === 'dead') continue;
+            if (ally.ai.state === AI_STATE.PATROL || ally.ai.state === AI_STATE.FLEE) {
+                const dist = hitEnemy.position.distanceTo(ally.position);
+                if (dist < radius) {
+                    const aid = (ally.userData && ally.userData.enemyId) || '??';
+                    const prevState = ally.ai.state;
+                    ally.ai.state = AI_STATE.CHASE;
+                    ally.ai.target = attacker;
+                    if (attacker.group) {
+                        ally.ai.lastSeenPlayerPos = attacker.group.position.clone();
+                    }
+                    ally.ai.alertTimer = 0;
+                    console.log('📢 仇恨共享: ' + hitId + ' 受击 → ' + aid + ' ' + prevState + ' → CHASE (间距' + dist.toFixed(1) + 'm)');
+                }
+            }
+        }
+    }
+
     // ─── 暴露到全局 ───
     window.EnemyAI = {
         AI_STATE,
         canSeeTarget,
         updateEnemyAI,
         onEnemyDamaged,
+        shareAggro,
         findNearestPlayer,
     };
 

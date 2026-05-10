@@ -41,7 +41,8 @@
             buildings: '建筑',
             grass: '草丛',
             special: '特殊物件',
-            enemies: '敌方单位'
+            enemies: '敌方单位',
+            pickups: '战利品'
         };
         for (const [cat, catLabel] of Object.entries(catNames)) {
             for (const [name, fn] of Object.entries(registry[cat] || {})) {

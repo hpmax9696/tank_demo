@@ -178,12 +178,320 @@
         return g;
     }
 
+    // ─── ② 丧尸（近战杂兵·步行单位）───
+    // 参考图：低多边形风格，破旧青绿色夹克，背部/前胸肋骨外露，
+    // 灰色长裤带血迹，灰白皮肤，头部低垂，双臂前伸蹒跚行走
+    function makeZombie() {
+        const group = new THREE.Group();
+
+        // 材质
+        const skinMat   = new THREE.MeshStandardMaterial({ color: 0xbcb8a8, roughness: 0.9 });
+        const jacketMat = new THREE.MeshStandardMaterial({ color: 0x4a7a6a, roughness: 0.85 }); // 青绿色夹克
+        const pantsMat  = new THREE.MeshStandardMaterial({ color: 0x60686e, roughness: 0.95 }); // 灰裤
+        const boneMat   = new THREE.MeshStandardMaterial({ color: 0xd0c4b0, roughness: 0.8 });
+        const bloodMat  = new THREE.MeshStandardMaterial({ color: 0x7a1a1a, roughness: 0.9 });
+        const darkMat   = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+        const eyeMat    = new THREE.MeshStandardMaterial({ color: 0x8a2a2a, roughness: 0.3, emissive: 0x4a0000, emissiveIntensity: 0.3 });
+        const toothMat  = new THREE.MeshStandardMaterial({ color: 0xddd8cc, roughness: 0.6 });
+
+        // ── 腿（灰裤+赤脚）──
+        // 左腿
+        const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 6), pantsMat);
+        legL.position.set(-0.07, 0.14, 0);
+        legL.castShadow = true;
+        group.add(legL);
+        // 左膝血迹
+        const bloodKneeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.01), bloodMat);
+        bloodKneeL.position.set(-0.05, 0.12, 0.06);
+        group.add(bloodKneeL);
+        // 左脚
+        const footL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.10), skinMat);
+        footL.position.set(-0.07, 0.015, 0.04);
+        footL.castShadow = true;
+        group.add(footL);
+
+        // 右腿
+        const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 6), pantsMat);
+        legR.position.set(0.07, 0.14, 0);
+        legR.castShadow = true;
+        group.add(legR);
+        // 右小腿血迹
+        const bloodShinR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.01), bloodMat);
+        bloodShinR.position.set(0.09, 0.06, 0.05);
+        group.add(bloodShinR);
+        // 右脚
+        const footR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.10), skinMat);
+        footR.position.set(0.07, 0.015, 0.04);
+        footR.castShadow = true;
+        group.add(footR);
+
+        // ── 臀部/骨盆（过渡躯干与腿）──
+        const hip = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.10, 6), pantsMat);
+        hip.position.set(0, 0.28, 0);
+        hip.castShadow = true;
+        group.add(hip);
+
+        // ── 腹部（裸露皮肤，低多边形）──
+        const belly = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.09), skinMat);
+        belly.position.set(0, 0.42, 0.02);
+        belly.castShadow = true;
+        group.add(belly);
+
+        // ── 夹克衫 ──
+        // 设计：敞开式夹克，前胸大面积裂开露出肋骨，背后也有破洞
+        //
+        // 夹克后片（完整背部，中间有破洞）
+        const jacketBack = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.05), jacketMat);
+        jacketBack.position.set(0, 0.60, -0.08);
+        jacketBack.castShadow = true;
+        group.add(jacketBack);
+        // 背部破洞内衬（露出肋骨区域）
+        const backHole = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.14, 0.01), skinMat);
+        backHole.position.set(0, 0.60, -0.055);
+        group.add(backHole);
+
+        // 夹克左前片（敞开，露出左侧肋骨）
+        const jacketLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.05), jacketMat);
+        jacketLeft.position.set(-0.14, 0.60, 0.02);
+        jacketLeft.rotation.z = 0.06;
+        jacketLeft.castShadow = true;
+        group.add(jacketLeft);
+
+        // 夹克右前片（敞开）
+        const jacketRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.05), jacketMat);
+        jacketRight.position.set(0.14, 0.60, 0.02);
+        jacketRight.rotation.z = -0.06;
+        jacketRight.castShadow = true;
+        group.add(jacketRight);
+
+        // 夹克前片破边（下摆撕裂状，左）
+        const tearL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.04), jacketMat);
+        tearL.position.set(-0.08, 0.44, 0.08);
+        tearL.rotation.x = -0.4;
+        group.add(tearL);
+
+        // 夹克前片破边（右）
+        const tearR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 0.04), jacketMat);
+        tearR.position.set(0.06, 0.46, 0.08);
+        tearR.rotation.x = 0.3;
+        group.add(tearR);
+
+        // 夹克左袖（残破）
+        const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.14, 6), jacketMat);
+        sleeveL.position.set(-0.18, 0.68, 0.06);
+        sleeveL.rotation.z = 0.3;
+        sleeveL.rotation.x = -0.2;
+        sleeveL.castShadow = true;
+        group.add(sleeveL);
+
+        // 夹克右袖
+        const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.14, 6), jacketMat);
+        sleeveR.position.set(0.18, 0.68, 0.06);
+        sleeveR.rotation.z = -0.3;
+        sleeveR.rotation.x = -0.2;
+        sleeveR.castShadow = true;
+        group.add(sleeveR);
+
+        // 夹克上血迹（前胸）
+        const bloodJacket1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.01), bloodMat);
+        bloodJacket1.position.set(-0.10, 0.66, 0.07);
+        group.add(bloodJacket1);
+        const bloodJacket2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.01), bloodMat);
+        bloodJacket2.position.set(0.12, 0.64, 0.07);
+        group.add(bloodJacket2);
+
+        // ── 肋骨（从夹克破洞中露出）──
+        // 正面左侧肋骨
+        const ribGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.10, 5);
+        for (let i = 0; i < 3; i++) {
+            const rib = new THREE.Mesh(ribGeo, boneMat);
+            rib.position.set(-0.09, 0.64 - i * 0.06, 0.07);
+            rib.rotation.z = 0.2;
+            group.add(rib);
+        }
+        // 正面右侧肋骨
+        for (let i = 0; i < 3; i++) {
+            const rib = new THREE.Mesh(ribGeo, boneMat);
+            rib.position.set(0.09, 0.64 - i * 0.06, 0.07);
+            rib.rotation.z = -0.2;
+            group.add(rib);
+        }
+
+        // ── 脊椎/锁骨（从背部破洞露出）──
+        // 脊柱凸起（背部中间一排）
+        const spineGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.06, 4);
+        for (let i = 0; i < 4; i++) {
+            const spine = new THREE.Mesh(spineGeo, boneMat);
+            spine.position.set(0, 0.70 - i * 0.05, -0.055);
+            spine.rotation.x = 0.1;
+            group.add(spine);
+        }
+
+        // ── 肩部（锁骨凸起）──
+        const shoulderL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.03), boneMat);
+        shoulderL.position.set(-0.14, 0.78, 0);
+        shoulderL.rotation.z = -0.25;
+        group.add(shoulderL);
+        const shoulderR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.03), boneMat);
+        shoulderR.position.set(0.14, 0.78, 0);
+        shoulderR.rotation.z = 0.25;
+        group.add(shoulderR);
+
+        // ── 脖子（短粗）──
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.04, 6), skinMat);
+        neck.position.set(0, 0.84, 0);
+        neck.castShadow = true;
+        group.add(neck);
+
+        // ── 头部（低垂，前倾）──
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.10, 10, 9), skinMat);
+        head.position.set(0, 0.91, -0.01);
+        head.scale.set(0.95, 1.05, 0.95);
+        head.rotation.x = 0.25; // 低垂
+        head.castShadow = true;
+        group.add(head);
+
+        // 下颌（突出，嘴张开）
+        const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.05), skinMat);
+        jaw.position.set(0, 0.87, -0.08);
+        jaw.rotation.x = 0.15;
+        jaw.castShadow = true;
+        group.add(jaw);
+
+        // 上牙
+        const teethUpper = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.02), toothMat);
+        teethUpper.position.set(0, 0.88, -0.09);
+        group.add(teethUpper);
+        // 下牙
+        const teethLower = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.008, 0.02), toothMat);
+        teethLower.position.set(0, 0.86, -0.09);
+        group.add(teethLower);
+
+        // 太阳穴凹陷（用深色圆片）
+        const templeGeo = new THREE.RingGeometry(0.015, 0.025, 6);
+        const templeL = new THREE.Mesh(templeGeo, darkMat);
+        templeL.position.set(-0.09, 0.93, -0.03);
+        templeL.rotation.y = Math.PI / 2;
+        group.add(templeL);
+        const templeR = new THREE.Mesh(templeGeo, darkMat);
+        templeR.position.set(0.09, 0.93, -0.03);
+        templeR.rotation.y = Math.PI / 2;
+        group.add(templeR);
+
+        // 眼眶（深陷）
+        const socketGeo = new THREE.RingGeometry(0.01, 0.03, 6);
+        const socketL = new THREE.Mesh(socketGeo, darkMat);
+        socketL.position.set(-0.04, 0.93, -0.08);
+        socketL.rotation.y = Math.PI;
+        group.add(socketL);
+        const socketR = new THREE.Mesh(socketGeo, darkMat);
+        socketR.position.set(0.04, 0.93, -0.08);
+        socketR.rotation.y = Math.PI;
+        group.add(socketR);
+
+        // 眼球（发红微光）
+        const eyeGeo = new THREE.SphereGeometry(0.018, 6, 5);
+        const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+        eyeL.position.set(-0.04, 0.925, -0.06);
+        group.add(eyeL);
+        const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+        eyeR.position.set(0.04, 0.925, -0.06);
+        group.add(eyeR);
+
+        // 头部血迹（从嘴巴延伸）
+        const mouthBlood = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.01), bloodMat);
+        mouthBlood.position.set(0.03, 0.865, -0.08);
+        mouthBlood.rotation.z = 0.2;
+        group.add(mouthBlood);
+        const mouthBlood2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.01), bloodMat);
+        mouthBlood2.position.set(-0.025, 0.87, -0.08);
+        mouthBlood2.rotation.z = -0.15;
+        group.add(mouthBlood2);
+
+        // ── 手臂（前伸，蹒跚姿态）──
+        const armGeo = new THREE.CylinderGeometry(0.022, 0.028, 0.32, 6);
+        // 左上臂（袖子遮盖部分）
+        const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 0.10, 6), jacketMat);
+        upperArmL.position.set(-0.20, 0.72, 0.08);
+        upperArmL.rotation.z = 0.35;
+        upperArmL.rotation.x = -0.3;
+        upperArmL.castShadow = true;
+        group.add(upperArmL);
+        // 左前臂（裸露）
+        const forearmL = new THREE.Mesh(armGeo, skinMat);
+        forearmL.position.set(-0.30, 0.56, 0.20);
+        forearmL.rotation.z = 0.25;
+        forearmL.rotation.x = -0.8;
+        forearmL.castShadow = true;
+        group.add(forearmL);
+        // 左手
+        const handL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), skinMat);
+        handL.position.set(-0.38, 0.44, 0.32);
+        handL.rotation.x = -0.2;
+        group.add(handL);
+        // 左手指（3爪）
+        for (let fi = 0; fi < 3; fi++) {
+            const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), skinMat);
+            finger.position.set(-0.38 + (fi - 1) * 0.018, 0.43, 0.37);
+            group.add(finger);
+        }
+
+        // 右上臂（袖子遮盖）
+        const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 0.10, 6), jacketMat);
+        upperArmR.position.set(0.20, 0.72, 0.08);
+        upperArmR.rotation.z = -0.35;
+        upperArmR.rotation.x = -0.3;
+        upperArmR.castShadow = true;
+        group.add(upperArmR);
+        // 右前臂
+        const forearmR = new THREE.Mesh(armGeo, skinMat);
+        forearmR.position.set(0.30, 0.56, 0.20);
+        forearmR.rotation.z = -0.25;
+        forearmR.rotation.x = -0.8;
+        forearmR.castShadow = true;
+        group.add(forearmR);
+        // 右手
+        const handR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), skinMat);
+        handR.position.set(0.38, 0.44, 0.32);
+        handR.rotation.x = -0.2;
+        group.add(handR);
+        // 右手指（3爪）
+        for (let fi = 0; fi < 3; fi++) {
+            const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), skinMat);
+            finger.position.set(0.38 + (fi - 1) * 0.018, 0.43, 0.37);
+            group.add(finger);
+        }
+
+        // 手臂血迹（从袖子延伸）
+        const armBloodL = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.03, 0.015), bloodMat);
+        armBloodL.position.set(-0.26, 0.62, 0.22);
+        group.add(armBloodL);
+        const armBloodR = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.025, 0.015), bloodMat);
+        armBloodR.position.set(0.26, 0.63, 0.22);
+        group.add(armBloodR);
+
+        // 元数据
+        group.userData = {
+            enemyType: 'zombie',
+            hp: 40,
+            speed: 2.5,
+            damage: 10,
+            score: 50
+        };
+
+        return group;
+    }
+
     // ─── 暴露到全局 ───
     window.EnemyModels = {
         createAssaultVehicle,
+        createZombie: makeZombie,
     };
 
     // ─── 注册到 ModelRegistry（模型预览） ───
     window.ModelRegistry.register('enemies', '装甲突击车', makeAssaultVehicle);
+    window.ModelRegistry.register('enemies', '丧尸', makeZombie);
+
+    console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 丧尸');
 
 })();

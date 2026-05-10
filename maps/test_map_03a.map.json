@@ -21,8 +21,8 @@
     {
       "id": "av-01",
       "type": "assault-vehicle",
-      "position": [-25, 0, 22],
-      "patrolPath": [[-25,22], [-40,28], [-30,35], [-20,30]],
+      "position": [-35, 0, -20],
+      "patrolPath": [[-35,-20], [-45,-15], [-40,-5], [-30,-10]],
       "reactive": true,
       "hp": 60,
       "speed": 5.0,
@@ -32,16 +32,16 @@
       "flameDamage": 8,
       "flameTicks": 5,
       "flameRange": 12,
-      "ramCooldown": 3,
-      "score": 100,
-      "dropRate": 0.25,
-      "dropHeal": 30
+        "ramCooldown": 3,
+        "score": 100,
+        "dropRate": 1.0,
+        "dropHeal": 30
     },
     {
       "id": "av-02",
       "type": "assault-vehicle",
-      "position": [30, 0, -18],
-      "patrolPath": [[30,-18], [20,-30], [35,-35], [40,-20]],
+      "position": [-20, 0, -35],
+      "patrolPath": [[-20,-35], [-10,-40], [-5,-30], [-15,-25]],
       "reactive": true,
       "hp": 60,
       "speed": 5.0,
@@ -53,7 +53,7 @@
       "flameRange": 12,
       "ramCooldown": 3,
       "score": 100,
-      "dropRate": 0.25,
+      "dropRate": 1.0,
       "dropHeal": 30
     }
   ],

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.26.3</title>
+    <title>坦克运动demo v0.26.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.26.3</div>
+        <div class="menu-version">v0.26.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧰 v0.26.5 新增 — 战利品掉落系统(医疗箱100%掉落+旋转拾取)+丧尸模型+巡逻防卡+敌间碰撞</div>
+            <div class="cl-title">🔧 v0.26.4 修复 — av-01巡逻启动+地形俯仰+MG音效+仇恨共享(4个PvE bug全修复)</div>
             <div class="cl-title">🔥 v0.26.3 修复 — 火焰伤害跳距模型(视觉/伤害统一)+近防机枪+方向校验收紧</div>
             <div class="cl-title">⚔️ v0.26.0 新增 — PvE战斗系统架构(突击车巡逻/追击/喷火+积分持久化+03a地图)</div>
             <div class="cl-title">🌳 v0.25.5 改进 — 球形树重构(蓬松伞形树冠)+阴影范围翻倍(72m/1024²)</div>
-            <div class="cl-title">🔦 v0.25.4 修复 — 双人模式阴影跟随两玩家中点(动态扩展覆盖范围)</div>
-            <div class="cl-title">🔧 v0.25.3 修复 — 炮弹轨迹计入地形俯仰+基础仰角5.7°(射程覆盖全图)</div>
         </div>
     </div>
 
@@ -430,6 +430,7 @@
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
     <script src="models/enemies.js"></script>
+    <script src="models/pickups.js"></script>
     <!-- PvE 战斗系统模块 -->
     <script src="combat/scoreSystem.js"></script>
     <script src="combat/enemyAI.js"></script>
@@ -527,11 +528,18 @@
                 },
                 enemies: [
                     {
-                        id: 'av-01', type: 'assault-vehicle', position: [-25, 0, 22],
-                        patrolPath: [[-25,22], [-40,28], [-30,35], [-20,30]],
+                        id: 'av-01', type: 'assault-vehicle', position: [-35, 0, -20],
+                        patrolPath: [[-35,-20], [-45,-15], [-40,-5], [-30,-10]],
                         reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
-                        ramDamage: 15, flameDamage: 8, flameTicks: 3, flameRange: 12,
-                        ramCooldown: 3, score: 100, dropRate: 0.25, dropHeal: 30
+                        ramDamage: 15, flameDamage: 8, flameTicks: 5, flameRange: 12,
+                        ramCooldown: 3, score: 100, dropRate: 1.0, dropHeal: 30
+                    },
+                    {
+                        id: 'av-02', type: 'assault-vehicle', position: [-20, 0, -35],
+                        patrolPath: [[-20,-35], [-10,-40], [-5,-30], [-15,-25]],
+                        reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
+                        ramDamage: 15, flameDamage: 8, flameTicks: 5, flameRange: 12,
+                        ramCooldown: 3, score: 100, dropRate: 1.0, dropHeal: 30
                     }
                 ],
                 terrain: {
@@ -871,8 +879,9 @@
         }
 
         function playMGShotSound() {
-            // v0.26.3: 机枪发射音效（短促清脆，区别于命中音效）
+            // v0.26.4fix: 机枪发射音效，确保 AudioContext 已运行才播放
             ensureAudio();
+            if (audioCtx.state !== 'running') { audioCtx.resume(); return; }
             const now = audioCtx.currentTime;
             // 白噪声短脉冲模拟枪声
             const bufSize = Math.floor(audioCtx.sampleRate * 0.06);
@@ -887,6 +896,27 @@
             bp.Q.value = 2;
             src.connect(bp); bp.connect(gain); gain.connect(audioCtx.destination);
             src.start(now);
+        }
+
+        function playPickupSound() {
+            // v0.26.5: 拾取道具音效（清脆叮铃，区别于枪炮）
+            ensureAudio();
+            if (audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            // 上升音阶叮铃声
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc1.type = 'sine'; osc2.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now);
+            osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+            osc2.frequency.setValueAtTime(660, now + 0.06);
+            osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+            osc1.start(now); osc1.stop(now + 0.3);
+            osc2.start(now); osc2.stop(now + 0.3);
         }
 
         function spawnHitSparks(pos) {
@@ -1072,6 +1102,8 @@
         let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
         let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
         let enemies = [];  // PvE 战斗模式敌人数组
+        let pickups = [];  // 战利品掉落物数组
+        const PICKUP_RADIUS = 3.0;  // 拾取判定距离（宽松，坦克半宽~1.7m）
         let combatData = null;  // 战斗模式运行时数据 { score, lives, phase }
         let combatShakeTimer = 0;  // 受击屏幕震动计时器
         let mgBullets = [];  // PvE 近防机枪子弹数组
@@ -2982,6 +3014,7 @@
                         if (eDist < 1.2 && s.mesh.position.y < 1.5) {
                             const dmg = (combatData && combatData.playerCannonDamage) || 40;
                             const killed = window.EnemyAI.onEnemyDamaged(enemy, dmg, player1);
+                            window.EnemyAI.shareAggro(enemy, player1, enemies, 40);  // v0.26.4: 仇恨共享
                             const hitPos = s.mesh.position.clone();
                             spawnHitSparks(hitPos);
                             hit = true;
@@ -3001,6 +3034,8 @@
                                 playExplosionSound();
                                 // 加分
                                 if (combatData) combatData.score += (enemy.cfg.score || 100);
+                                // v0.26.5: 战利品掉落
+                                spawnPickup(enemy);
                                 // 短延迟后销毁几何体/材质释放内存
                                 const deadEnemy = enemy;
                                 setTimeout(() => {
@@ -3223,8 +3258,17 @@
                     if (!enemy || enemy.ai.state === 'dead') continue;
                     // AI 状态机更新
                     window.EnemyAI.updateEnemyAI(enemy, dt, [player1], scene);
-                    // 贴地
+                    // 贴地 + 地形俯仰 (v0.26.4fix: 敌人车身随地形俯仰)
                     enemy.position.y = getGroundHeight(enemy.position.x, enemy.position.z);
+                    if (!enemy.userData._noTerrainPitch) {
+                        const sampleDist = 1.0;
+                        const eFwdX = -Math.cos(enemy.rotation.y);
+                        const eFwdZ = Math.sin(enemy.rotation.y);
+                        const fh = getGroundHeight(enemy.position.x + eFwdX * sampleDist, enemy.position.z + eFwdZ * sampleDist);
+                        const bh = getGroundHeight(enemy.position.x - eFwdX * sampleDist, enemy.position.z - eFwdZ * sampleDist);
+                        const eTerrainPitch = Math.atan2(fh - bh, sampleDist * 2);
+                        enemy.rotation.x = -eTerrainPitch;
+                    }
                     // HP 条更新
                     if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
                         const hpPct = Math.max(0, enemy.hp / (enemy.userData.maxHp || 60));
@@ -3251,8 +3295,6 @@
                     }
                     // 火焰视觉特效
                     updateEnemyFlameVFX(enemy, player1, dt);
-                    // ── 玩家近防机枪自动瞄准 ──
-                    updateMGAutoTarget(player1, dt);
                     // 喷火伤害玩家 (v0.26.3: 跳距模型 — 火焰每跳前进4.2u，前沿触达才开始扣血)
                     if (enemy.ai.flameRequest && player1 && !player1.dead) {
                         // 方向安全校验：炮管必须指向玩家方向（60°锥内），避免背后火球
@@ -3321,7 +3363,34 @@
                         enemy.position.z += cr.pushZ;
                     }
                 }
+                // v0.26.4fix3: 敌人间碰撞（防止移动中互相穿透融合）
+                for (let i = 0; i < enemies.length; i++) {
+                    const ea = enemies[i];
+                    if (!ea || ea.ai.state === 'dead') continue;
+                    for (let j = i + 1; j < enemies.length; j++) {
+                        const eb = enemies[j];
+                        if (!eb || eb.ai.state === 'dead') continue;
+                        const dx = ea.position.x - eb.position.x;
+                        const dz = ea.position.z - eb.position.z;
+                        const dist = Math.sqrt(dx * dx + dz * dz);
+                        const minDist = ENEMY_HALF_W * 2; // 两车半宽之和=1.7
+                        if (dist < minDist && dist > 0.001) {
+                            const push = (minDist - dist) / 2;
+                            const nx = dx / dist;
+                            const nz = dz / dist;
+                            ea.position.x += nx * push;
+                            ea.position.z += nz * push;
+                            eb.position.x -= nx * push;
+                            eb.position.z -= nz * push;
+                        }
+                    }
+                }
+                // v0.26.4fix: 玩家近防机枪 — 移到敌人循环外部，每帧只调用一次（修复双循环声音翻倍）
+                updateMGAutoTarget(player1, dt);
             }
+
+            // v0.26.5: 战利品拾取检测 — 独立于敌人存活状态运行（悬停发光+触碰回血）
+            updatePickups(dt);
 
             // ── 焦痕渐消更新（地面命中产生的黑色痕迹，3秒淡出） ──
             for (let i = scorchMarks.length - 1; i >= 0; i--) {
@@ -3831,8 +3900,9 @@
             explosions.forEach(exp => exp.dispose()); explosions = [];
             scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); }); scorchMarks = [];
             groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); }); groundDebris = [];
-            // 清理旧敌人
+            // 清理旧敌人+掉落物
             cleanupEnemies();
+            cleanupPickups();
             // 重建地图
             rebuildMap();
             // 玩家配置
@@ -3872,6 +3942,14 @@
             handleObstacleOcclusion();
             placeCamera();
             initAudio(); startEngineSound();
+            // v0.26.4fix: 强制恢复 AudioContext（MG机枪自动开火需要）
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    console.log('🔊 AudioContext 已恢复运行');
+                }).catch(e => {
+                    console.warn('⚠️ AudioContext 恢复失败:', e);
+                });
+            }
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.type = THREE.PCFShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3890,6 +3968,7 @@
 
         function createEnemies() {
             if (!currentMapData || !currentMapData.enemies) return;
+            console.log('🗺️ 地图敌人配置数:', currentMapData.enemies.length, '| IDs:', currentMapData.enemies.map(e => e.id).join(','));
             for (const ecfg of currentMapData.enemies) {
                 let model;
                 if (ecfg.type === 'assault-vehicle') {
@@ -3905,9 +3984,22 @@
                 const pos = ecfg.position;
                 const gy = getGroundHeight(pos[0], pos[2]);
                 model.position.set(pos[0], gy, pos[2]);
-                // 初始朝向前方（-Z = 世界北方）
-                model.rotation.set(0, 0, 0);
                 model.cfg = ecfg;
+                // v0.26.4fix: 初始朝向第一个巡逻点（而非默认0），避免出生后立即"到达"首点
+                if (ecfg.patrolPath && ecfg.patrolPath.length > 0) {
+                    const wp0 = ecfg.patrolPath[0];
+                    const wpDx = wp0[0] - pos[0];
+                    const wpDz = wp0[1] - pos[2];
+                    const wpDist = Math.sqrt(wpDx * wpDx + wpDz * wpDz);
+                    if (wpDist > 0.5) {
+                        // 使前端 -X 指向首个巡逻点
+                        model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
+                    } else {
+                        model.rotation.set(0, 0, 0);
+                    }
+                } else {
+                    model.rotation.set(0, 0, 0);
+                }
                 model.hp = ecfg.hp || 60;
                 model.userData = model.userData || {};
                 model.userData.maxHp = model.hp;
@@ -3928,6 +4020,7 @@
                     flameStartTime: 0,
                     strafeTimer: 0,
                     strafeDir: 1,
+                    wpStuckTimer: 0,  // v0.26.5: 巡逻卡住计时器
                     hitFlash: 0,
                 };
                 // 初始化炮塔朝前
@@ -3993,6 +4086,60 @@
             overlay.visible = false;
             tankGroup.add(overlay);
             tankGroup.userData.hitFlashOverlay = overlay;
+        }
+
+        // v0.26.5: 战利品掉落系统
+        function spawnPickup(enemy) {
+            const cfg = enemy.cfg || {};
+            const dropRate = cfg.dropRate !== undefined ? cfg.dropRate : 0.25;
+            if (Math.random() > dropRate) return;
+            if (!window.ModelRegistry || !window.ModelRegistry.getModel) return;
+            const fn = window.ModelRegistry.getModel('pickups', '医疗工具箱');
+            if (!fn) return;
+            const pickup = fn();
+            pickup.position.copy(enemy.position);
+            pickup.position.y = getGroundHeight(enemy.position.x, enemy.position.z) + 0.25;
+            pickup.userData = pickup.userData || {};
+            pickup.userData.healAmount = cfg.dropHeal || 30;
+            pickup.userData._spawnTime = performance.now();
+            scene.add(pickup);
+            pickups.push(pickup);
+            console.log('💊 医疗箱已掉落 @ [' + pickup.position.x.toFixed(1) + ',' + pickup.position.y.toFixed(1) + ',' + pickup.position.z.toFixed(1) + ']');
+        }
+
+        function updatePickups(dt) {
+            if (!player1 || player1.dead) return;
+            if (pickups.length === 0) return;
+            const pPos = player1.group.position;
+            for (let i = pickups.length - 1; i >= 0; i--) {
+                const pu = pickups[i];
+                if (!pu || !pu.parent) { pickups.splice(i, 1); continue; }
+                // 悬停旋转+微浮（转速约180°/s，明显可见）
+                const age = (performance.now() - (pu.userData._spawnTime || 0)) / 1000;
+                pu.rotation.y += dt * 3.0;
+                pu.position.y += Math.sin(age * 3.0) * dt * 0.25;
+                // 距离检测拾取（满血时不拾取，直接穿越）
+                const dist = pPos.distanceTo(pu.position);
+                if (dist < PICKUP_RADIUS) {
+                    if (player1.hp >= player1.maxHp) continue; // 满血穿越
+                    const heal = pu.userData.healAmount || 30;
+                    player1.hp = Math.min(player1.maxHp, player1.hp + heal);
+                    spawnHitSparks(pu.position.clone());
+                    playPickupSound();
+                    hintBar.textContent = '💊 拾取医疗箱 +' + heal + ' HP! (HP:' + player1.hp + '/' + player1.maxHp + ')';
+                    scene.remove(pu);
+                    pu.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                    pickups.splice(i, 1);
+                }
+            }
+        }
+
+        function cleanupPickups() {
+            for (const pu of pickups) {
+                if (pu.parent) pu.parent.remove(pu);
+                pu.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            pickups = [];
         }
 
         function createEnemyFlameVFX(enemy) {
@@ -4088,14 +4235,17 @@
             const mgOrigin = new THREE.Vector3(0, 0.65, 0);
             player.group.localToWorld(mgOrigin);
 
-            // 射线检测障碍物
+            // 射线检测（排除玩家坦克自身，避免子弹被自己挡住）
             const epos = nearestEnemy.position.clone();
             const dir = new THREE.Vector3().subVectors(epos, mgOrigin).normalize();
             const raycaster = new THREE.Raycaster(mgOrigin, dir, 0, MG_RANGE);
-            const hits = raycaster.intersectObjects(scene.children, true);
+            // v0.26.4fix3: 排除玩家坦克 group 的所有子节点，防止自瞄射线命中自身
+            const excludeList = [];
+            if (player && player.group) player.group.traverse(c => { if (c.isMesh || c.isGroup) excludeList.push(c); });
+            const hits = raycaster.intersectObjects(scene.children, true).filter(h => !excludeList.includes(h.object));
 
             let hitDist = Math.min(MG_RANGE, nearestDist);
-            let hitSomething = false;
+            let hitEnemyFound = false;
             for (const hit of hits) {
                 let obj = hit.object;
                 while (obj) {
@@ -4103,14 +4253,12 @@
                     for (const en of enemies) {
                         if (obj === en || obj === en.userData?.turretPivot || obj === en.userData?.hpBarGroup) {
                             foundEnemy = true;
-                            // v0.26.1fix: 通过 onEnemyDamaged 统一处理伤害+受击反击+击杀判定
                             if (en.hp !== undefined && en.ai && en.ai.state !== 'dead') {
                                 const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1);
-                                // v0.26.3fix: 发射音效已移至发射处；此处 spawnHitSparks 包含命中音效
+                                window.EnemyAI.shareAggro(en, player1, enemies, 40);
                                 const hitWorldPos = hit.point.clone();
                                 spawnHitSparks(hitWorldPos);
                                 if (killed) {
-                                    // 触发完整死亡序列（同炮弹击杀）
                                     en.ai.state = 'dead';
                                     en.visible = false;
                                     if (en.userData.flameEffect) {
@@ -4122,7 +4270,8 @@
                                     spawnExplosion(ep);
                                     playExplosionSound();
                                     if (combatData) combatData.score += (en.cfg.score || 100);
-                                    // 延迟清理模型
+                                    // v0.26.5: 战利品掉落
+                                    spawnPickup(en);
                                     const deadEnemy = en;
                                     setTimeout(() => {
                                         if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
@@ -4131,7 +4280,6 @@
                                         const idx = enemies.indexOf(deadEnemy);
                                         if (idx >= 0) enemies.splice(idx, 1);
                                     }, 300);
-                                    // 检查清场
                                     if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
                                         setTimeout(() => {
                                             if (combatData) {
@@ -4143,17 +4291,16 @@
                                     }
                                 }
                             }
+                            hitEnemyFound = true;
                             break;
                         }
                     }
-                    if (foundEnemy) { hitDist = hit.distance; hitSomething = true; break; }
+                    if (hitEnemyFound) { hitDist = hit.distance; break; }
                     obj = obj.parent;
                 }
-                if (!hitSomething) {
-                    // 命中障碍物 → 子弹被挡住，用较短距离
-                    hitDist = Math.min(hitDist, hit.distance);
-                }
-                break;
+                if (hitEnemyFound) break;
+                // 命中非敌人障碍物 → 子弹被阻挡
+                hitDist = Math.min(hitDist, hit.distance);
             }
 
             const bullet = createMGBullet(mgOrigin, epos, hitDist);
@@ -4541,7 +4688,7 @@
             }
 
             el.textContent =
-                'v0.26.3  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.26.5  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -4556,6 +4703,7 @@
             if(player2&&player2.hpBarGroup)player2.hpBarGroup.visible=false;
             if(player2&&player2.reloadBarGroup)player2.reloadBarGroup.visible=false;
             cleanupEnemies();
+            cleanupPickups();
             combatData = null;
             stopEngineSound();if(animationId){cancelAnimationFrame(animationId);animationId=null;}
         }
@@ -4668,6 +4816,7 @@
                 buildings: { id: 'buildings', label: '建筑', models: [] },
                 grass: { id: 'grass', label: '草丛', models: [] },
                 enemies: { id: 'enemies', label: '敌方单位', models: [] },
+                pickups: { id: 'pickups', label: '战利品', models: [] },
                 special: { id: 'special', label: '特殊物件', models: [] },
                 glb: { id: 'glb', label: 'GLB模型', models: [] }
             };
@@ -4871,7 +5020,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.26.3 | PvE战斗系统+装甲突击车AI | 积分持久化 | 火焰伤害修复 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.5 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
