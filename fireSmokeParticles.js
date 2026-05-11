@@ -383,7 +383,152 @@
         }
     }
 
+    // ==================== 火焰喷射器粒子效果（装甲突击车武器）v0.26.1: 喇叭形+渐进传播 ====================
+    const FLAMETHROWER_PARTICLE_COUNT = 80;
+
+    class FlameThrowerEffect {
+        constructor() {
+            this.active = false;
+            this.nozzleWorld = new THREE.Vector3();
+            this.fireDir = new THREE.Vector3();
+            this.maxRange = 18;  // v0.26.3: 12→18，火焰视觉延伸至18u覆盖交火距离
+
+            const fCount = FLAMETHROWER_PARTICLE_COUNT;
+            this.positions = new Float32Array(fCount * 3);
+            this.progress = new Float32Array(fCount);  // 每个粒子的传播进度 0~1
+            this.geo = new THREE.BufferGeometry();
+            this.geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+
+            // 火焰颜色：白黄核心→橙黄中段→橙红外层
+            const colors = new Float32Array(fCount * 3);
+            for (let i = 0; i < fCount; i++) {
+                const t = i / fCount;
+                if (t < 0.15) {
+                    colors[i*3]=1; colors[i*3+1]=1; colors[i*3+2]=0.7;
+                } else if (t < 0.4) {
+                    colors[i*3]=1; colors[i*3+1]=0.65+Math.random()*0.35; colors[i*3+2]=0;
+                } else if (t < 0.7) {
+                    colors[i*3]=1; colors[i*3+1]=0.25+Math.random()*0.25; colors[i*3+2]=0;
+                } else {
+                    colors[i*3]=0.85+Math.random()*0.15; colors[i*3+1]=0; colors[i*3+2]=0;
+                }
+            }
+            this.geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            this.mat = new THREE.PointsMaterial({
+                size: 0.22,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+            this.points = new THREE.Points(this.geo, this.mat);
+            this.points.visible = false;
+            this.points.renderOrder = 997;
+            this.points.frustumCulled = false;
+
+            for (let i = 0; i < fCount; i++) {
+                this.positions[i*3] = 0; this.positions[i*3+1] = 0; this.positions[i*3+2] = 0;
+                this.progress[i] = 0;
+            }
+            this.geo.attributes.position.needsUpdate = true;
+        }
+
+        // v0.26.1: 喇叭形渐进传播 — fireDir 为世界空间方向向量（非目标点）
+        update(dt, nozzleWorld, fireDir, isFlaming, maxRange) {
+            this.maxRange = maxRange || this.maxRange;
+            const wasActive = this.active;
+            this.active = isFlaming;
+            this.points.visible = isFlaming;
+
+            if (!isFlaming) {
+                if (wasActive) {
+                    // v0.26.2fix: 立即将所有粒子缩回喷嘴，防止方向切换后残留旧方向火球
+                    for (let i = 0; i < FLAMETHROWER_PARTICLE_COUNT; i++) {
+                        this.progress[i] = 0;
+                        this.positions[i*3]=this.nozzleWorld.x;
+                        this.positions[i*3+1]=this.nozzleWorld.y;
+                        this.positions[i*3+2]=this.nozzleWorld.z;
+                    }
+                    this.geo.attributes.position.needsUpdate = true;
+                }
+                return;
+            }
+
+            // v0.26.3fix: 首次激活时立即 snap 粒子到喷嘴，消除从原点飞来的视觉bug
+            if (!wasActive) {
+                for (let i = 0; i < FLAMETHROWER_PARTICLE_COUNT; i++) {
+                    this.progress[i] = Math.random() * 0.12;
+                    const rd = this.progress[i] * this.maxRange;
+                    this.positions[i*3]   = nozzleWorld.x + fireDir.x * rd;
+                    this.positions[i*3+1] = nozzleWorld.y + fireDir.y * rd;
+                    this.positions[i*3+2] = nozzleWorld.z + fireDir.z * rd;
+                }
+            }
+
+            this.nozzleWorld.copy(nozzleWorld);
+            this.fireDir.copy(fireDir).normalize();
+
+            const flameSpeed = 28;  // v0.26.3: 14→28，与伤害模型统一（0.15s/跳×28=4.2u/跳）
+            const baseSpreadAngle = 0.14;  // 基础锥角 ~8°
+
+            // 垂直于火焰方向的基向量
+            const up = new THREE.Vector3(0, 1, 0);
+            const perp1 = new THREE.Vector3().crossVectors(this.fireDir, up).normalize();
+            if (perp1.length() < 0.1) perp1.set(1, 0, 0);
+            const perp2 = new THREE.Vector3().crossVectors(this.fireDir, perp1).normalize();
+
+            for (let i = 0; i < FLAMETHROWER_PARTICLE_COUNT; i++) {
+                const idx = i * 3;
+                // 推进进度（从喷嘴向前传播）
+                this.progress[i] = Math.min(1.0, this.progress[i] + (flameSpeed / this.maxRange) * dt);
+                const t = this.progress[i];
+                const dist = t * this.maxRange;
+
+                // 喇叭形：远端锥角更大
+                const spreadAngle = baseSpreadAngle * (0.3 + t * 0.7);
+                const spreadR = dist * Math.tan(spreadAngle);
+
+                // 螺旋分布 + 时间旋转
+                const angle = (i / FLAMETHROWER_PARTICLE_COUNT) * Math.PI * 7 + Date.now() * 0.003;
+                const jitter = 0.15;
+
+                const targetX = this.nozzleWorld.x + this.fireDir.x * dist
+                    + (perp1.x * Math.cos(angle) + perp2.x * Math.sin(angle)) * spreadR * (0.7 + Math.random() * 0.3);
+                const targetY = this.nozzleWorld.y + this.fireDir.y * dist
+                    + (perp1.y * Math.cos(angle) + perp2.y * Math.sin(angle)) * spreadR * (0.7 + Math.random() * 0.3);
+                const targetZ = this.nozzleWorld.z + this.fireDir.z * dist
+                    + (perp1.z * Math.cos(angle) + perp2.z * Math.sin(angle)) * spreadR * (0.7 + Math.random() * 0.3);
+
+                // 渐进靠拢（低 lerpSpeed 产生可见传播）
+                const lerpSpeed = 3.0 + Math.random() * 4.0;
+                this.positions[idx]   += (targetX - this.positions[idx]) * lerpSpeed * dt;
+                this.positions[idx+1] += (targetY - this.positions[idx+1]) * lerpSpeed * dt;
+                this.positions[idx+2] += (targetZ - this.positions[idx+2]) * lerpSpeed * dt;
+
+                // 粒子生命周期：到达末端或随机重置
+                if (this.progress[i] >= 1.0 || Math.random() < 0.015) {
+                    this.progress[i] = Math.random() * 0.12;
+                    const rd = this.progress[i] * this.maxRange;
+                    this.positions[idx]   = this.nozzleWorld.x + this.fireDir.x * rd;
+                    this.positions[idx+1] = this.nozzleWorld.y + this.fireDir.y * rd;
+                    this.positions[idx+2] = this.nozzleWorld.z + this.fireDir.z * rd;
+                }
+            }
+            this.geo.attributes.position.needsUpdate = true;
+            this.mat.opacity = 0.55 + 0.45 * Math.random();
+        }
+
+        dispose() {
+            this.geo.dispose();
+            this.mat.dispose();
+        }
+    }
+
     // 暴露到全局
     window.DamageEffects = DamageEffects;
     window.ExplosionEffects = ExplosionEffects;
+    window.FlameThrowerEffect = FlameThrowerEffect;
 })();

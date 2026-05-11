@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "测试地图03a（战斗）",
+  "size": 200,
+  "type": "single",
+  "mode": "combat",
+  "desc": "PvE战斗地图：出生点→杂兵→精英→Boss炮舰 | 噪声地形+河流+桥梁",
+  "spawnPoints": { "p1": [0, 0, 1.57] },
+
+  "players": {
+    "lives": 3,
+    "hp": 100,
+    "cannonDamage": 40,
+    "cannonReload": 2.5,
+    "mgDamage": 5,
+    "mgRange": 50,
+    "mgFireRate": 3
+  },
+
+  "enemies": [
+    {
+      "id": "av-01",
+      "type": "assault-vehicle",
+      "position": [-35, 0, -20],
+      "patrolPath": [[-35,-20], [-45,-15], [-40,-5], [-30,-10]],
+      "reactive": true,
+      "hp": 60,
+      "speed": 5.0,
+      "viewDist": 50,
+      "engageDist": 15,
+      "ramDamage": 15,
+      "flameDamage": 8,
+      "flameTicks": 5,
+      "flameRange": 12,
+        "ramCooldown": 3,
+        "score": 100,
+        "dropRate": 1.0,
+        "dropHeal": 30
+    },
+    {
+      "id": "av-02",
+      "type": "assault-vehicle",
+      "position": [-20, 0, -35],
+      "patrolPath": [[-20,-35], [-10,-40], [-5,-30], [-15,-25]],
+      "reactive": true,
+      "hp": 60,
+      "speed": 5.0,
+      "viewDist": 50,
+      "engageDist": 15,
+      "ramDamage": 15,
+      "flameDamage": 8,
+      "flameTicks": 5,
+      "flameRange": 12,
+      "ramCooldown": 3,
+      "score": 100,
+      "dropRate": 1.0,
+      "dropHeal": 30
+    }
+  ],
+
+  "terrain": {
+    "pond": { "cx": 0, "cz": 50, "rx": 4.5, "rz": 6, "depth": 5 },
+    "river": { "zc": -60, "amp": 8, "period": 30, "hwBase": 6.25, "hwVar": 1.25, "hwPeriod": 20, "hwPhase": 1.5, "depth": 5 },
+    "hill": { "cx": 40, "cz": -30, "height": 4, "radius": 8 },
+    "basin": { "cx": 48, "cz": -25, "depth": 3, "radius": 5 }
+  },
+  "terrainTypes": {
+    "default": "grass",
+    "riverBank": { "bankWidth": 5, "type": "mud" },
+    "pondEdge": { "bankWidth": 3, "type": "mud" },
+    "hillTop": { "radius": 4, "type": "sand" },
+    "basin": { "radius": 3, "type": "sand" },
+    "bridgeSurface": { "type": "asphalt" }
+  },
+  "waters": {
+    "pond": { "waterLevel": -1 },
+    "river": { "waterLevel": -1 }
+  },
+  "bridges": [{ "cx": 0, "halfW": 4, "deckH": 0.35 }],
+  "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 }
+}

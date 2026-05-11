@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.25.4</title>
+    <title>坦克运动demo v0.26.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.25.4</div>
+        <div class="menu-version">v0.26.5</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🔦 v0.25.4 修复 — 双人模式阴影跟随两玩家中点(动态扩展覆盖范围)</div>
-            <div class="cl-title">🔧 v0.25.3 修复 — 炮弹轨迹计入地形俯仰+基础仰角5.7°(射程覆盖全图)</div>
-            <div class="cl-title">🔧 v0.25.2 修复 — 炮弹轨迹(平地下坠/坡面不自然)+焦痕(坡面不可见/半圆)</div>
-            <div class="cl-title">🔧 v0.25.1 修复 — 炮弹发射角计入坦克俯仰+焦痕贴合地形坡度</div>
-            <div class="cl-title">💥 v0.25.0 新功能 — 炮弹命中地面：音效+碎片飞溅+焦痕(3秒渐消)</div>
+            <div class="cl-title">🧰 v0.26.5 新增 — 战利品掉落系统(医疗箱100%掉落+旋转拾取)+丧尸模型+巡逻防卡+敌间碰撞</div>
+            <div class="cl-title">🔧 v0.26.4 修复 — av-01巡逻启动+地形俯仰+MG音效+仇恨共享(4个PvE bug全修复)</div>
+            <div class="cl-title">🔥 v0.26.3 修复 — 火焰伤害跳距模型(视觉/伤害统一)+近防机枪+方向校验收紧</div>
+            <div class="cl-title">⚔️ v0.26.0 新增 — PvE战斗系统架构(突击车巡逻/追击/喷火+积分持久化+03a地图)</div>
+            <div class="cl-title">🌳 v0.25.5 改进 — 球形树重构(蓬松伞形树冠)+阴影范围翻倍(72m/1024²)</div>
         </div>
     </div>
 
@@ -423,12 +423,17 @@
     <script src="models/modelRegistry.js"></script>
     <script src="models/tank.js"></script>
     <script src="models/t34-85.js"></script>
-    <script src="models/trees.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
     <script src="BufferGeometryUtils.js"></script>
+    <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
+    <script src="models/enemies.js"></script>
+    <script src="models/pickups.js"></script>
+    <!-- PvE 战斗系统模块 -->
+    <script src="combat/scoreSystem.js"></script>
+    <script src="combat/enemyAI.js"></script>
 
     <script>
         // ==================== DOM 引用 ====================
@@ -512,6 +517,48 @@
                     density: 0.80,
                     edgeFade: 4.0
                 }
+            },
+            'test_map_03a': {
+                version: '1.0', name: '测试地图03a（战斗）', size: 200, type: 'single', mode: 'combat',
+                desc: 'PvE战斗地图：出生点→杂兵→精英→Boss炮舰 | 噪声地形+河流+桥梁',
+                spawnPoints: { p1: [0, 0, 1.57] },
+                players: {
+                    lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5,
+                    mgDamage: 5, mgRange: 50, mgFireRate: 3
+                },
+                enemies: [
+                    {
+                        id: 'av-01', type: 'assault-vehicle', position: [-35, 0, -20],
+                        patrolPath: [[-35,-20], [-45,-15], [-40,-5], [-30,-10]],
+                        reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
+                        ramDamage: 15, flameDamage: 8, flameTicks: 5, flameRange: 12,
+                        ramCooldown: 3, score: 100, dropRate: 1.0, dropHeal: 30
+                    },
+                    {
+                        id: 'av-02', type: 'assault-vehicle', position: [-20, 0, -35],
+                        patrolPath: [[-20,-35], [-10,-40], [-5,-30], [-15,-25]],
+                        reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
+                        ramDamage: 15, flameDamage: 8, flameTicks: 5, flameRange: 12,
+                        ramCooldown: 3, score: 100, dropRate: 1.0, dropHeal: 30
+                    }
+                ],
+                terrain: {
+                    pond: { cx: 0, cz: 50, rx: 4.5, rz: 6, depth: 5 },
+                    river: { zc: -60, amp: 8, period: 30, hwBase: 6.25, hwVar: 1.25, hwPeriod: 20, hwPhase: 1.5, depth: 5 },
+                    hill: { cx: 40, cz: -30, height: 4, radius: 8 },
+                    basin: { cx: 48, cz: -25, depth: 3, radius: 5 }
+                },
+                terrainTypes: {
+                    default: 'grass',
+                    riverBank: { bankWidth: 5, type: 'mud' },
+                    pondEdge: { bankWidth: 3, type: 'mud' },
+                    hillTop: { radius: 4, type: 'sand' },
+                    basin: { radius: 3, type: 'sand' },
+                    bridgeSurface: { type: 'asphalt' }
+                },
+                waters: { pond: { waterLevel: -1 }, river: { waterLevel: -1 } },
+                bridges: [{ cx: 0, halfW: 4, deckH: 0.35 }],
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
             }
         };
         let currentMapData = null;
@@ -831,6 +878,47 @@
             osc.start(now); osc.stop(now + 0.25);
         }
 
+        function playMGShotSound() {
+            // v0.26.4fix: 机枪发射音效，确保 AudioContext 已运行才播放
+            ensureAudio();
+            if (audioCtx.state !== 'running') { audioCtx.resume(); return; }
+            const now = audioCtx.currentTime;
+            // 白噪声短脉冲模拟枪声
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.06);
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.008));
+            const src = audioCtx.createBufferSource(); src.buffer = buf;
+            const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+            const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass';
+            bp.frequency.setValueAtTime(2000, now);
+            bp.Q.value = 2;
+            src.connect(bp); bp.connect(gain); gain.connect(audioCtx.destination);
+            src.start(now);
+        }
+
+        function playPickupSound() {
+            // v0.26.5: 拾取道具音效（清脆叮铃，区别于枪炮）
+            ensureAudio();
+            if (audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime;
+            // 上升音阶叮铃声
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc1.type = 'sine'; osc2.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now);
+            osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+            osc2.frequency.setValueAtTime(660, now + 0.06);
+            osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+            osc1.start(now); osc1.stop(now + 0.3);
+            osc2.start(now); osc2.stop(now + 0.3);
+        }
+
         function spawnHitSparks(pos) {
             playHitSound();
             for (let i = 0; i < 10; i++) {
@@ -997,11 +1085,14 @@
         // 通用
         let player1 = null, player2 = null; // 双人模式玩家
         const TANK_HALF_W = 0.55;
+        const ENEMY_HALF_W = 0.85; // 装甲突击车含履带/铲斗实际半宽
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
         let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
         let occludedObstacles = [];  // 当前被半透明的障碍物列表
+        let hiddenTreeInstances = [];  // 树木遮挡隐藏列表：[{imTrunk,imCrown,index,matrixTrunk,matrixCrown}]
+        let transparentTreeGroups = [];  // 树木遮挡半透明替身 Group 列表
         let transparentMatPool = new Map();  // 透明材质池：原始材质→半透明clone（避免每帧clone/dispose）
         let sunLight = null;  // 主方向光引用（用于H键切换阴影）
         let shadowEnabled = true;  // 阴影开关状态
@@ -1010,6 +1101,15 @@
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
         let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
         let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
+        let enemies = [];  // PvE 战斗模式敌人数组
+        let pickups = [];  // 战利品掉落物数组
+        const PICKUP_RADIUS = 3.0;  // 拾取判定距离（宽松，坦克半宽~1.7m）
+        let combatData = null;  // 战斗模式运行时数据 { score, lives, phase }
+        let combatShakeTimer = 0;  // 受击屏幕震动计时器
+        let mgBullets = [];  // PvE 近防机枪子弹数组
+        let mgTimer = 0;  // 机枪射速计时器
+        let mgHeat = 0;  // 机枪热量累积
+        let mgOverheated = false;  // 机枪过热状态
         let totalDistance = 0;   // 坦克行驶总里程（单位）
 
         // 游戏参数
@@ -1029,6 +1129,17 @@
         const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
         const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
         const SHELL_DAMAGE = 20;
+
+        // ==================== PvE 近防机枪参数 (v0.26.1) ====================
+        const MG_DETECT_RANGE = 35;      // 自动检测范围
+        const MG_RANGE = 25;             // 有效射程
+        const MG_DAMAGE = 2;             // 单发伤害
+        const MG_FIRE_RATE = 5;          // 射速 发/秒
+        const MG_FIRE_INTERVAL = 1 / MG_FIRE_RATE;
+        const MG_OVERHEAT_TIME = 4.0;    // 连续射击过热时间
+        const MG_COOLDOWN_TIME = 2.0;    // 过热冷却时间
+        const MG_BULLET_SPEED = 250;     // 子弹飞行速度 单位/秒
+        const MG_BULLET_LIFE = 0.12;     // 子弹存活时间
 
         // ==================== 地形系统（从 currentMapData 读取配置） ====================
         const WATER_LEVEL = -1.0;  // 默认水位 Y
@@ -1158,14 +1269,14 @@
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
                 sun.position.set(30, 40, 20);
                 sun.castShadow = true;
-                sun.shadow.mapSize.width = 512;   // v0.24.10: 1024→512，贴近视口
-                sun.shadow.mapSize.height = 512;
+                sun.shadow.mapSize.width = 1024;  // v0.25.5: 512→1024，配合72m范围保持密度
+                sun.shadow.mapSize.height = 1024;
                 sun.shadow.camera.near = 0.5;
                 sun.shadow.camera.far = 120;
-                sun.shadow.camera.left = -18;     // v0.24.10: ±60→±18(36m范围)，密度提升5.5倍
-                sun.shadow.camera.right = 18;
-                sun.shadow.camera.top = 18;
-                sun.shadow.camera.bottom = -18;
+                sun.shadow.camera.left = -36;     // v0.25.5: ±18→±36(72m范围)，覆盖更远距离
+                sun.shadow.camera.right = 36;
+                sun.shadow.camera.top = 36;
+                sun.shadow.camera.bottom = -36;
                 sun.shadow.bias = -0.0002;
                 trg.add(sun);
                 sunLight = sun;  // 保存全局引用供H键切换阴影
@@ -1216,12 +1327,26 @@
             if (riverWater) { scene.remove(riverWater); riverWater.geometry.dispose(); riverWater.material.dispose(); riverWater = null; }
             // 移除桥梁
             if (bridgeGroup) { bridgeGroup.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); scene.remove(bridgeGroup); bridgeGroup = null; }
-            // 清除障碍物
+            // 清除树木 InstancedMesh
+            if (window._treeIMs) {
+                for (const im of window._treeIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose();
+                    im.material.dispose();
+                }
+                window._treeIMs = [];
+            }
+            // 清除建筑 Group
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
             obstacleMeshes = []; obstacleData = [];
+            transparentTreeGroups.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            transparentTreeGroups = [];
             // 清除草丛
             clearGrass();
             // 重建地面
@@ -1916,6 +2041,8 @@
             leftWheels = p.leftWheels; rightWheels = p.rightWheels;
             player1 = p;
             createBarsForPlayer(p);
+            // 玩家受击叠加层
+            createPlayerHitFlashOverlay(tankGroup);
         }
 
         // ==================== 泊松盘采样 ====================
@@ -2013,22 +2140,23 @@
         // ==================== 障碍物遮挡物的动态可见更新 ====================
         function updateObstacleVisibility(extraPositions) {
             const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
-            for (let i = 0; i < obstacleMeshes.length; i++) {
+            let bldIdx = 0;  // obstacleMeshes 中建筑索引（obstacleData 前面是树木）
+            for (let i = 0; i < obstacleData.length; i++) {
                 const o = obstacleData[i];
+                if (o.type !== 'building') continue;
                 let visible = false;
-                // 主坦克位置
                 const dx0 = tankState.x - o.x, dz0 = tankState.z - o.z;
                 if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
-                // 额外位置（对战模式中的其他玩家）
                 if (!visible && extraPositions) {
                     for (const ep of extraPositions) {
                         const dx = ep.x - o.x, dz = ep.z - o.z;
                         if ((dx * dx + dz * dz) < r2) { visible = true; break; }
                     }
                 }
-                if (obstacleMeshes[i].visible !== visible) {
-                    obstacleMeshes[i].visible = visible;
+                if (obstacleMeshes[bldIdx].visible !== visible) {
+                    obstacleMeshes[bldIdx].visible = visible;
                 }
+                bldIdx++;
             }
         }
 
@@ -2053,25 +2181,87 @@
             }
         }
 
+        // ==================== 辅助：销毁单个树木实例（挪到地下模拟移除） ====================
+        function disposeTreeInstance(od) {
+            if (!od.type || od.type === 'building' || od.imIndex == null) return;
+            const imTrunk = od.imTrunk, imCrown = od.imCrown, idx = od.imIndex;
+            const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
+            hideMat.setPosition(0, -999, 0);
+            if (imTrunk) imTrunk.setMatrixAt(idx, hideMat);
+            if (imCrown) imCrown.setMatrixAt(idx, hideMat);
+            if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
+            if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
+        }
+
+        // 创建半透明树木替身 Group（用于遮挡视线时显示，opacity=0.3 与建筑统一）
+        function createTransparentTreeGhost(od) {
+            const tm = window.TreeModels && window.TreeModels[od.type];
+            if (!tm) return null;
+            const s = od.height / tm.baseHeight;
+            const obsY = isVersusMap ? 0 : getTerrainHeight(od.x, od.z);
+            const targetScene = scene;
+            const group = new THREE.Group();
+
+            // 树干 — 半透明
+            const trunkGeo = tm.trunkGeo;
+            const trunkMat = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9, transparent: true, opacity: 0.3, depthWrite: false });
+            const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
+            trunkMesh.position.set(od.x, obsY + tm.trunkOffsetY * s, od.z);
+            trunkMesh.scale.setScalar(s);
+            trunkMesh.castShadow = false;
+            trunkMesh.receiveShadow = false;
+            group.add(trunkMesh);
+
+            // 树冠 — 半透明，颜色与原始树冠一致
+            const crownGeo = tm.crownGeo;
+            const crownColor = od.color || tm.color || '#3B7A3B';
+            const crownMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
+            const crownMesh = new THREE.Mesh(crownGeo, crownMat);
+            crownMesh.position.set(od.x, obsY + tm.crownOffsetY * s, od.z);
+            crownMesh.scale.setScalar(s);
+            crownMesh.castShadow = false;
+            crownMesh.receiveShadow = false;
+            group.add(crownMesh);
+
+            targetScene.add(group);
+            return group;
+        }
+
         function createObstacles(targetScene = scene) {
+            // --- 清理旧的 InstancedMesh 树木 ---
+            if (window._treeIMs) {
+                for (const im of window._treeIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose();
+                    im.material.dispose();
+                }
+                window._treeIMs = [];
+            }
+            // --- 清理旧的建筑 Group ---
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
             obstacleMeshes = [];
             obstacleData = [];
-            occludedObstacles = [];  // 清除遮挡透明记录
-            // 清理透明材质池（dispose所有克隆材质后清空）
+            occludedObstacles = [];
+            hiddenTreeInstances = [];
+            transparentTreeGroups.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            transparentTreeGroups = [];
             for (const transpMat of transparentMatPool.values()) {
                 transpMat.dispose();
             }
             transparentMatPool.clear();
 
+            // --- 阶段1：泊松采样 + 分类收集 ---
             const is02a = (selectedMapId === 'test_map_02a');
             const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
-            // 陡视角下外围障碍物不可见，使用地图默认配置（98m/350个）即可
             const points = poissonDiskSampling(0, 0, obsCfg.spawnRadius || SPAWN_RADIUS, obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS, obsCfg.count || OBSTACLE_COUNT);
 
+            const conePts = [], spherePts = [], oakPts = [], buildPts = [];
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
                 if (!isVersusMap) {
@@ -2083,6 +2273,138 @@
                     }
                     if (isInRiver(p.x, p.z)) continue;
                 }
+                // 权重分配：锥形树30%、球形树25%、橡树20%、建筑25%
+                const r = Math.random();
+                if (r < 0.30) { conePts.push(p); }
+                else if (r < 0.55) { spherePts.push(p); }
+                else if (r < 0.75) { oakPts.push(p); }
+                else { buildPts.push(p); }
+            }
+
+            // --- 阶段2：批量创建 InstancedMesh（树木）+ 独立 Group（建筑） ---
+            window._treeIMs = [];
+            const dummy = new THREE.Object3D();
+
+            // 锥形树
+            if (conePts.length > 0) {
+                const tm = window.TreeModels.conical;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, conePts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, conePts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < conePts.length; i++) {
+                    const p = conePts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'conical',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 球形树
+            if (spherePts.length > 0) {
+                const tm = window.TreeModels.spherical;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, spherePts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, spherePts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < spherePts.length; i++) {
+                    const p = spherePts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'spherical',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 橡树（扁椭球树冠，深绿色，较粗壮）
+            if (oakPts.length > 0) {
+                const tm = window.TreeModels.oak;
+                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, oakPts.length);
+                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
+                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, oakPts.length);
+                crownIM.castShadow = true; crownIM.receiveShadow = true;
+
+                for (let i = 0; i < oakPts.length; i++) {
+                    const p = oakPts[i];
+                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
+                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+                    const s = targetHeightM / baseHeightM;
+                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
+                    const rotY = Math.random() * Math.PI * 2;
+
+                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+                    dummy.rotation.set(0, rotY, 0);
+                    dummy.scale.setScalar(s);
+                    dummy.updateMatrix();
+                    trunkIM.setMatrixAt(i, dummy.matrix);
+
+                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+                    dummy.updateMatrix();
+                    crownIM.setMatrixAt(i, dummy.matrix);
+
+                    obstacleData.push({
+                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
+                        color: tm.color, type: 'oak',
+                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
+                    });
+                }
+                trunkIM.instanceMatrix.needsUpdate = true;
+                crownIM.instanceMatrix.needsUpdate = true;
+                targetScene.add(trunkIM);
+                targetScene.add(crownIM);
+                window._treeIMs.push(trunkIM, crownIM);
+            }
+
+            // 建筑（保持原有 Group 方式）
+            for (let i = 0; i < buildPts.length; i++) {
+                const p = buildPts[i];
                 const makeFn = window.ModelRegistry.randomObstacleMaker();
                 const group = makeFn();
                 const ud = group.userData;
@@ -2097,7 +2419,7 @@
                 group.name = `obs-${i}`;
                 targetScene.add(group);
                 obstacleMeshes.push(group);
-                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null });
+                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null, type: 'building', groupRef: group });
             }
 
             updateObstacleVisibility();
@@ -2168,13 +2490,14 @@
         }
 
         // ==================== 碰撞检测 ====================
-        function checkCollision(x, z) {
+        function checkCollision(x, z, halfW) {
+            const hw = halfW !== undefined ? halfW : TANK_HALF_W;
             // 障碍物碰撞
             for (const obs of obstacleData) {
                 const dx = x - obs.x;
                 const dz = z - obs.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
-                const minDist = TANK_HALF_W + obs.radius;
+                const minDist = hw + obs.radius;
                 if (dist < minDist) {
                     const nx = dx / (dist || 0.001);
                     const nz = dz / (dist || 0.001);
@@ -2188,7 +2511,7 @@
                 const rdx = x - rc.x;
                 const rdz = z - rc.z;
                 const rDist = Math.sqrt(rdx * rdx + rdz * rdz);
-                const rMinDist = TANK_HALF_W + rc.radius;
+                const rMinDist = hw + rc.radius;
                 if (rDist < rMinDist) {
                     const rnx = rdx / (rDist || 0.001);
                     const rnz = rdz / (rDist || 0.001);
@@ -2335,30 +2658,31 @@
             const chainRadius = EXPLOSION_RADIUS;
             const chainRadiusSq = chainRadius * chainRadius;
 
-            // 从后往前遍历，避免删除时索引问题
-            for (let i = obstacleMeshes.length - 1; i >= 0; i--) {
-                const obs = obstacleMeshes[i];
-                const obsData = obstacleData[i];
-                if (!obs.visible) continue;
+            // 从后往前遍历 obstacleData（含树木+建筑），避免删除时索引问题
+            for (let i = obstacleData.length - 1; i >= 0; i--) {
+                const od = obstacleData[i];
+                // 建筑需检查可见性；树木 InstancedMesh 始终可见
+                if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
 
-                const dx = explosionPos.x - obsData.x;
-                const dz = explosionPos.z - obsData.z;
+                const dx = explosionPos.x - od.x;
+                const dz = explosionPos.z - od.z;
                 const distSq = dx * dx + dz * dz;
 
-                // 在殉爆半径内，障碍物被引爆
                 if (distSq < chainRadiusSq) {
-                    // 获取障碍物中心点
-                    const obsCenter = obs.position.clone();
-                    obsCenter.y += (obsData.height || 1.5) / 2;
+                    const obsCenter = new THREE.Vector3(od.x, 0, od.z);
+                    obsCenter.y += (od.height || 1.5) / 2;
+                    spawnFragments(obsCenter, od.color);
+                    playExplosionSound();
 
-                    // 障碍物被殉爆：只产生碎块效果，不需要爆炸火焰
-                    // 移除障碍物
-                    obs.parent.remove(obs);
-                    obs.traverse(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
-                    obstacleMeshes.splice(i, 1);
+                    if (od.type === 'building' && od.groupRef) {
+                        const obs = od.groupRef;
+                        obs.parent.remove(obs);
+                        obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                        const meshIdx = obstacleMeshes.indexOf(obs);
+                        if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                    } else if (od.type && od.type !== 'building') {
+                        disposeTreeInstance(od);
+                    }
                     obstacleData.splice(i, 1);
                 }
             }
@@ -2556,7 +2880,7 @@
 
             // ── 开炮（键盘空格 / 手柄RT扳机） ──
             const fireNow = isFirePressed();
-            if (fireNow && gameMode === 'single' && gamepadFireReady) {
+            if (fireNow && (gameMode === 'single' || gameMode === 'combat') && gamepadFireReady) {
                 fireShell();
                 gamepadFireReady = false;
                 keys['Space'] = false;
@@ -2590,35 +2914,32 @@
                 const shellR = 0.18;
                 const moveVec = new THREE.Vector3().subVectors(s.mesh.position, prevPos);
                 const moveLen = moveVec.length();
-                for (let j = obstacleMeshes.length - 1; j >= 0; j--) {
-                    const obs = obstacleMeshes[j];
-                    if (!obs.visible) continue;
-                    const obsData = obstacleData[j];
-                    const obsRadius = obsData.radius || 0.55;
+                for (let j = obstacleData.length - 1; j >= 0; j--) {
+                    const od = obstacleData[j];
+                    if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
+                    const obsRadius = od.radius || 0.55;
                     const combinedR = shellR + obsRadius;
-                    const obsCenter = new THREE.Vector3(obs.position.x, obs.position.y, obs.position.z);
-                    const obsTop = obsData.height || 1.5;
+                    const obsX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                    const obsZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                    const obsY = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z));
+                    const obsTop = od.height || 1.5;
 
                     // 垂直方向：炮弹必须经过障碍物高度范围
                     const prevY = prevPos.y, currY = s.mesh.position.y;
-                    // 不检测下方（炮弹从地面发射，障碍物也在地面），仅做上方快速剔除优化
-                    const obsTopLimit = obs.position.y + obsTop + 0.3;
+                    const obsTopLimit = obsY + obsTop + 0.3;
                     if (currY > obsTopLimit && prevY > obsTopLimit) continue;
 
                     // 水平扫掠检测：炮弹移动路径 vs 障碍物圆柱
                     let horizHit = false;
                     if (moveLen < 0.0001) {
-                        // 静止：直接检测当前位置
-                        const dx = s.mesh.position.x - obs.position.x;
-                        const dz = s.mesh.position.z - obs.position.z;
+                        const dx = s.mesh.position.x - obsX;
+                        const dz = s.mesh.position.z - obsZ;
                         horizHit = (dx * dx + dz * dz) < combinedR * combinedR;
                     } else {
-                        // 扫掠检测：从prevPos到currentPos的线段 vs 障碍物圆盘
-                        const ox = obs.position.x, oz = obs.position.z;
+                        const ox = obsX, oz = obsZ;
                         const px = prevPos.x, pz = prevPos.z;
                         const vx = s.mesh.position.x - px, vz = s.mesh.position.z - pz;
 
-                        // 求解：|P + t*V - O| = R, 0 <= t <= 1
                         const dx0 = px - ox, dz0 = pz - oz;
                         const a = vx * vx + vz * vz;
                         const b = 2 * (dx0 * vx + dz0 * vz);
@@ -2636,14 +2957,19 @@
                     }
 
                     if (horizHit) {
-                        const obsWorldPos = obs.position.clone(); obsWorldPos.y += obsTop/2;
-                        spawnFragments(obsWorldPos, obsData.color);
+                        const obsWorldPos = new THREE.Vector3(obsX, obsY + obsTop/2, obsZ);
+                        spawnFragments(obsWorldPos, od.color);
                         playExplosionSound();
-                        if (obs.parent) {
+                        if (od.type === 'building' && od.groupRef) {
+                            const obs = od.groupRef;
                             obs.parent.remove(obs);
                             obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                            const meshIdx = obstacleMeshes.indexOf(obs);
+                            if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                        } else if (od.type && od.type !== 'building') {
+                            disposeTreeInstance(od);
                         }
-                        obstacleMeshes.splice(j,1); obstacleData.splice(j,1);
+                        obstacleData.splice(j, 1);
                         hit = true; break;
                     }
                 }
@@ -2671,6 +2997,69 @@
                                 const hitPos = s.mesh.position.clone();
                                 spawnHitSparks(hitPos);
                             }
+                        }
+                    }
+                }
+
+                // 战斗模式：炮弹 vs 敌人
+                if (!hit && gameMode === 'combat' && s.owner === player1) {
+                    for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                        const enemy = enemies[ei];
+                        if (!enemy || enemy.ai.state === 'dead') continue;
+                        const ep = enemy.position;
+                        const edx = s.mesh.position.x - ep.x;
+                        const edz = s.mesh.position.z - ep.z;
+                        const eDist = Math.sqrt(edx*edx + edz*edz);
+                        // 简易碰撞：半径 1.0（装甲车半宽~1m）+ 炮弹 0.18
+                        if (eDist < 1.2 && s.mesh.position.y < 1.5) {
+                            const dmg = (combatData && combatData.playerCannonDamage) || 40;
+                            const killed = window.EnemyAI.onEnemyDamaged(enemy, dmg, player1);
+                            window.EnemyAI.shareAggro(enemy, player1, enemies, 40);  // v0.26.4: 仇恨共享
+                            const hitPos = s.mesh.position.clone();
+                            spawnHitSparks(hitPos);
+                            hit = true;
+                            if (killed) {
+                                // 敌人死亡：立即播放爆炸 + 隐藏模型 + 清理
+                                enemy.ai.state = 'dead';
+                                // 立即隐藏模型和 HP 条
+                                enemy.visible = false;
+                                if (enemy.userData.flameEffect) {
+                                    enemy.userData.flameEffect.active = false;
+                                    enemy.userData.flameEffect.points.visible = false;
+                                }
+                                const ep2 = enemy.position.clone(); ep2.y += 0.8;
+                                // 碎片 + 爆炸音效 + 大型爆炸火焰烟雾
+                                spawnFragments(ep2, '#8B7D4A');
+                                spawnExplosion(ep2);
+                                playExplosionSound();
+                                // 加分
+                                if (combatData) combatData.score += (enemy.cfg.score || 100);
+                                // v0.26.5: 战利品掉落
+                                spawnPickup(enemy);
+                                // 短延迟后销毁几何体/材质释放内存
+                                const deadEnemy = enemy;
+                                setTimeout(() => {
+                                    if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                    deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                    // 清理火焰粒子效果
+                                    if (deadEnemy.userData.flameEffect) {
+                                        deadEnemy.userData.flameEffect.dispose();
+                                    }
+                                    const idx = enemies.indexOf(deadEnemy);
+                                    if (idx >= 0) enemies.splice(idx, 1);
+                                }, 300);
+                                // 检查是否清场
+                                if (enemies.every(e => e.ai.state === 'dead')) {
+                                    setTimeout(() => {
+                                        if (combatData) {
+                                            const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                            hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
+                                                (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                        }
+                                    }, 1500);
+                                }
+                            }
+                            break; // 一发炮弹最多命中一个敌人
                         }
                     }
                 }
@@ -2756,7 +3145,10 @@
             }
             // 同步全局引用（向后兼容）
             reloadTimer = player1 ? player1.reloadTimer : 0;
-            if (reloadBarGroup && reloadBarFill) {
+            // 战斗模式：使用 updateBarsForCamera 同时更新装填条和血量条（与双人模式一致）
+            if (gameMode === 'combat' && player1) {
+                updateBarsForCamera(player1, camera);
+            } else if (reloadBarGroup && reloadBarFill) {
                 const rightX = Math.cos(tankState.yaw + Math.PI / 2);
                 const rightZ = Math.sin(tankState.yaw + Math.PI / 2);
                 reloadBarGroup.position.set(
@@ -2828,6 +3220,28 @@
                 }
             }
 
+            // ── 玩家受击闪光（半透明红色叠加层） ──
+            if (player1 && player1.ai && player1.ai.hitFlash > 0) {
+                player1.ai.hitFlash = Math.max(0, player1.ai.hitFlash - dt);
+                const overlay = tankGroup.userData.hitFlashOverlay;
+                if (overlay) {
+                    overlay.visible = true;
+                    overlay.material.opacity = Math.min(0.5, player1.ai.hitFlash * 4);
+                }
+            } else if (player1 && player1.ai) {
+                const overlay = tankGroup.userData.hitFlashOverlay;
+                if (overlay && overlay.material.opacity > 0) {
+                    overlay.material.opacity = 0;
+                    overlay.visible = false;
+                }
+                if (player1.ai) player1.ai.hitFlash = 0;
+            }
+            // ── 屏幕震动衰减 ──
+            if (combatShakeTimer > 0) combatShakeTimer = Math.max(0, combatShakeTimer - dt);
+
+            // ── MG 子弹更新 ──
+            updateMGBullets(dt);
+
             // ── 爆炸效果更新（坦克死亡时触发的大型火焰烟雾） ──
             for (let i = explosions.length - 1; i >= 0; i--) {
                 explosions[i].update(dt);
@@ -2836,6 +3250,147 @@
                     explosions.splice(i, 1);
                 }
             }
+
+            // ── 战斗模式：敌人 AI + HP条 + 受击反馈 ──
+            if (gameMode === 'combat' && enemies.length > 0) {
+                for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                    const enemy = enemies[ei];
+                    if (!enemy || enemy.ai.state === 'dead') continue;
+                    // AI 状态机更新
+                    window.EnemyAI.updateEnemyAI(enemy, dt, [player1], scene);
+                    // 贴地 + 地形俯仰 (v0.26.4fix: 敌人车身随地形俯仰)
+                    enemy.position.y = getGroundHeight(enemy.position.x, enemy.position.z);
+                    if (!enemy.userData._noTerrainPitch) {
+                        const sampleDist = 1.0;
+                        const eFwdX = -Math.cos(enemy.rotation.y);
+                        const eFwdZ = Math.sin(enemy.rotation.y);
+                        const fh = getGroundHeight(enemy.position.x + eFwdX * sampleDist, enemy.position.z + eFwdZ * sampleDist);
+                        const bh = getGroundHeight(enemy.position.x - eFwdX * sampleDist, enemy.position.z - eFwdZ * sampleDist);
+                        const eTerrainPitch = Math.atan2(fh - bh, sampleDist * 2);
+                        enemy.rotation.x = -eTerrainPitch;
+                    }
+                    // HP 条更新
+                    if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
+                        const hpPct = Math.max(0, enemy.hp / (enemy.userData.maxHp || 60));
+                        enemy.userData.hpBarFill.scale.x = hpPct;
+                        enemy.userData.hpBarFill.position.x = -(1 - hpPct) * 0.75;
+                        enemy.userData.hpBarFill.material.color.setRGB(1 - hpPct, hpPct, 0);
+                        enemy.userData.hpBarGroup.lookAt(camera.position);
+                    }
+                    // 受击闪烁（白色半透明叠加层，不与材质 emissive 交互）
+                    if (enemy.ai.hitFlash > 0) {
+                        enemy.ai.hitFlash = Math.max(0, enemy.ai.hitFlash - dt);
+                        const overlay = enemy.userData.hitFlashOverlay;
+                        if (overlay) {
+                            overlay.visible = true;
+                            overlay.material.opacity = Math.min(0.55, enemy.ai.hitFlash * 3.5);
+                        }
+                    } else {
+                        const overlay = enemy.userData.hitFlashOverlay;
+                        if (overlay && overlay.material.opacity > 0) {
+                            overlay.material.opacity = 0;
+                            overlay.visible = false;
+                        }
+                        enemy.ai.hitFlash = 0;
+                    }
+                    // 火焰视觉特效
+                    updateEnemyFlameVFX(enemy, player1, dt);
+                    // 喷火伤害玩家 (v0.26.3: 跳距模型 — 火焰每跳前进4.2u，前沿触达才开始扣血)
+                    if (enemy.ai.flameRequest && player1 && !player1.dead) {
+                        // 方向安全校验：炮管必须指向玩家方向（60°锥内），避免背后火球
+                        const tp = enemy.userData.turretPivot;
+                        let turretFacingPlayer = true;
+                        if (tp) {
+                            const nozzleWorld = tp.localToWorld(new THREE.Vector3(-1.05, 1.27, 0));
+                            const turretDir = new THREE.Vector3(-1, 0, 0)
+                                .applyQuaternion(tp.getWorldQuaternion(new THREE.Quaternion())).normalize();
+                            const enToPlayer = new THREE.Vector3().subVectors(player1.group.position, nozzleWorld).normalize();
+                            turretFacingPlayer = turretDir.dot(enToPlayer) > 0.5;
+                        }
+                        if (turretFacingPlayer) {
+                            const ed = enemy.position.distanceTo(player1.group.position);
+                            const flameRange = enemy.cfg.flameRange || 12;
+                            if (ed < flameRange) {
+                                // 跳距模型：每跳0.15s×28u/s=4.2u，火焰前沿位置 = 已消耗跳数 × 4.2
+                                const totalTicks = enemy.cfg.flameTicks || 5;
+                                const ticksConsumed = totalTicks - (enemy.ai.flameTicksLeft || 0);
+                                const flameDistance = ticksConsumed * 0.15 * 28;
+                                if (flameDistance >= ed) {
+                                    player1.hp -= (enemy.cfg.flameDamage || 8);
+                                    if (player1.hp < 0) player1.hp = 0;
+                                    playHitSound();
+                                    player1.ai = player1.ai || {};
+                                    player1.ai.hitFlash = 0.15;
+                                    combatShakeTimer = 0.12;
+                                    if (player1.damageEffects && !player1.damageEffects.active && player1.hp < 50) {
+                                        player1.damageEffects.show();
+                                    }
+                                    if (player1.hp <= 0) {
+                                        player1.dead = true;
+                                        const pep = player1.group.position.clone(); pep.y += 0.5;
+                                        spawnFragments(pep, '#4a5c2e');
+                                        playExplosionSound();
+                                        player1.group.visible = false;
+                                        if (combatData) combatData.lives--;
+                                        if (combatData && combatData.lives > 0) {
+                                            hintBar.textContent = '💀 你被击毁了! 剩余命数:' + combatData.lives + ' | 3秒后重生...';
+                                            setTimeout(() => respawnPlayer(), 3000);
+                                        } else {
+                                            hintBar.textContent = '💀 游戏结束! 最终得分:' + (combatData ? combatData.score : 0) + ' | 按ESC返回菜单';
+                                            const finalScore = combatData ? combatData.score : 0;
+                                            if (window.ScoreSystem) {
+                                                window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // 最后一跳后关闭火焰状态（AI 已不再主动关闭 isFlaming）
+                        if (enemy.ai.flameTicksLeft <= 0) {
+                            enemy.ai.isFlaming = false;
+                            enemy.ai.flameRequest = false;
+                        }
+                    }
+                }
+
+                // 敌人障碍物碰撞检测（防止穿透建筑/树木/河流，使用装甲车半宽）
+                for (const enemy of enemies) {
+                    if (!enemy || enemy.ai.state === 'dead') continue;
+                    const cr = checkCollision(enemy.position.x, enemy.position.z, ENEMY_HALF_W);
+                    if (cr.hit) {
+                        enemy.position.x += cr.pushX;
+                        enemy.position.z += cr.pushZ;
+                    }
+                }
+                // v0.26.4fix3: 敌人间碰撞（防止移动中互相穿透融合）
+                for (let i = 0; i < enemies.length; i++) {
+                    const ea = enemies[i];
+                    if (!ea || ea.ai.state === 'dead') continue;
+                    for (let j = i + 1; j < enemies.length; j++) {
+                        const eb = enemies[j];
+                        if (!eb || eb.ai.state === 'dead') continue;
+                        const dx = ea.position.x - eb.position.x;
+                        const dz = ea.position.z - eb.position.z;
+                        const dist = Math.sqrt(dx * dx + dz * dz);
+                        const minDist = ENEMY_HALF_W * 2; // 两车半宽之和=1.7
+                        if (dist < minDist && dist > 0.001) {
+                            const push = (minDist - dist) / 2;
+                            const nx = dx / dist;
+                            const nz = dz / dist;
+                            ea.position.x += nx * push;
+                            ea.position.z += nz * push;
+                            eb.position.x -= nx * push;
+                            eb.position.z -= nz * push;
+                        }
+                    }
+                }
+                // v0.26.4fix: 玩家近防机枪 — 移到敌人循环外部，每帧只调用一次（修复双循环声音翻倍）
+                updateMGAutoTarget(player1, dt);
+            }
+
+            // v0.26.5: 战利品拾取检测 — 独立于敌人存活状态运行（悬停发光+触碰回血）
+            updatePickups(dt);
 
             // ── 焦痕渐消更新（地面命中产生的黑色痕迹，3秒淡出） ──
             for (let i = scorchMarks.length - 1; i >= 0; i--) {
@@ -2923,10 +3478,17 @@
             const fx = Math.cos(tankState.yaw);
             const fz = Math.sin(tankState.yaw);
             const groundY = getGroundHeight(tankGroup.position.x, tankGroup.position.z);
+            let shakeX = 0, shakeY = 0, shakeZ = 0;
+            if (combatShakeTimer > 0) {
+                const shakeMag = combatShakeTimer * 0.5;  // 最大震动幅度 0.5×0.12=0.06
+                shakeX = (Math.random() - 0.5) * shakeMag * 2;
+                shakeY = (Math.random() - 0.5) * shakeMag * 2;
+                shakeZ = (Math.random() - 0.5) * shakeMag * 2;
+            }
             camera.position.set(
-                tankGroup.position.x - fx * CAMERA_BEHIND,
-                groundY + CAMERA_ABOVE,
-                tankGroup.position.z - fz * CAMERA_BEHIND
+                tankGroup.position.x - fx * CAMERA_BEHIND + shakeX,
+                groundY + CAMERA_ABOVE + shakeY,
+                tankGroup.position.z - fz * CAMERA_BEHIND + shakeZ
             );
             camera.lookAt(tankGroup.position.x, groundY + CAMERA_LOOK_Y, tankGroup.position.z);
         }
@@ -2934,7 +3496,23 @@
         // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
         // ⚡ v0.24.9 优化：用透明材质池替代每帧 clone/dispose，消除 GPU 材质编译开销
         function handleObstacleOcclusion() {
-            // 重置之前被半透明的障碍物：还原原始材质（不dispose，透明clone保留在池中复用）
+            // --- 清理半透明树木替身 Group ---
+            for (const ttg of transparentTreeGroups) {
+                if (ttg.parent) ttg.parent.remove(ttg);
+                ttg.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            transparentTreeGroups = [];
+
+            // --- 还原之前被隐藏的树木实例 ---
+            for (const hti of hiddenTreeInstances) {
+                hti.imTrunk.setMatrixAt(hti.index, hti.matrixTrunk);
+                hti.imCrown.setMatrixAt(hti.index, hti.matrixCrown);
+                hti.imTrunk.instanceMatrix.needsUpdate = true;
+                hti.imCrown.instanceMatrix.needsUpdate = true;
+            }
+            hiddenTreeInstances = [];
+
+            // --- 还原之前被半透明的建筑 ---
             for (const obs of occludedObstacles) {
                 obs.traverse(child => {
                     if (child.isMesh && child.userData._origMat) {
@@ -2956,40 +3534,70 @@
             const lx = dx / lineLen, lz = dz / lineLen; // 线段方向单位向量
 
             const nearObstacles = [];
+            // 收集附近建筑
             for (let i = 0; i < obstacleMeshes.length; i++) {
                 const obs = obstacleMeshes[i];
                 if (!obs.visible) continue;
                 const ox = obs.position.x - cam2x;
                 const oz = obs.position.z - cam2z;
-                const proj = ox * lx + oz * lz; // 投影到线段方向
-                if (proj < -2 || proj > lineLen + 2) continue; // 在线段前后2m外
-                const perp = Math.abs(ox * lz - oz * lx); // 到线段的垂直距离
-                if (perp > 8) continue; // 距线段超过8m，不遮挡
+                const proj = ox * lx + oz * lz;
+                if (proj < -2 || proj > lineLen + 2) continue;
+                const perp = Math.abs(ox * lz - oz * lx);
+                if (perp > 8) continue;
                 nearObstacles.push(obs);
+            }
+
+            // 收集附近树木 InstancedMesh（去重）
+            const treeIMSet = new Set();
+            if (window._treeIMs && window._treeIMs.length > 0) {
+                for (const od of obstacleData) {
+                    if (od.type === 'building') continue;
+                    const ox = od.x - cam2x;
+                    const oz = od.z - cam2z;
+                    const proj = ox * lx + oz * lz;
+                    if (proj < -2 || proj > lineLen + 2) continue;
+                    const perp = Math.abs(ox * lz - oz * lx);
+                    if (perp > 3) continue; // 树冠半径约0.35m，3m容差足够
+                    // 将该树木的树干和树冠 InstancedMesh 加入检测
+                    if (od.imTrunk) treeIMSet.add(od.imTrunk);
+                    if (od.imCrown) treeIMSet.add(od.imCrown);
+                }
+                for (const im of treeIMSet) {
+                    nearObstacles.push(im);
+                }
             }
 
             if (nearObstacles.length === 0) return;
 
-            // 仅对附近障碍物做精确射线检测
+            // 射线检测（建筑Group + 树木InstancedMesh）
             const dir3 = new THREE.Vector3().subVectors(tankPos, camPos).normalize();
             occluderRaycaster.set(camPos, dir3);
             occluderRaycaster.far = lineLen + 2;
             const intersects = occluderRaycaster.intersectObjects(nearObstacles, true);
 
             const hitRoots = new Set();
+            const hitTreeIds = new Set(); // 命中的树木 obstacleData 索引
             for (const hit of intersects) {
-                let obj = hit.object;
-                while (obj && !obstacleMeshes.includes(obj)) {
-                    obj = obj.parent;
+                const hitObj = hit.object;
+                if (hitObj.isInstancedMesh) {
+                    // 树木 InstancedMesh 命中 → 记录 instanceId + IM 引用
+                    const iid = hit.instanceId;
+                    hitTreeIds.add(JSON.stringify([iid, hitObj.uuid]));
+                } else {
+                    // 建筑 Group 命中 → 找根 Group
+                    let obj = hitObj;
+                    while (obj && !obstacleMeshes.includes(obj)) {
+                        obj = obj.parent;
+                    }
+                    if (obj) hitRoots.add(obj);
                 }
-                if (obj) hitRoots.add(obj);
             }
 
+            // 处理建筑遮挡：半透明
             for (const obs of hitRoots) {
                 occludedObstacles.push(obs);
                 obs.traverse(child => {
                     if (child.isMesh && child.material && !child.userData._origMat) {
-                        // ⚡ 从透明材质池获取或创建半透明clone（复用，避免每帧clone/dispose）
                         child.userData._origMat = child.material;
                         const origMat = child.material;
                         let transpMat = transparentMatPool.get(origMat);
@@ -3003,6 +3611,33 @@
                         child.material = transpMat;
                     }
                 });
+            }
+
+            // 处理树木遮挡：隐藏实例 + 创建半透明替身 Group
+            if (hitTreeIds.size > 0) {
+                for (const od of obstacleData) {
+                    if (od.type === 'building') continue;
+                    if (!od.imTrunk || !od.imCrown || od.imIndex == null) continue;
+                    const key = JSON.stringify([od.imIndex, od.imTrunk.uuid]);
+                    const key2 = JSON.stringify([od.imIndex, od.imCrown.uuid]);
+                    if (hitTreeIds.has(key) || hitTreeIds.has(key2)) {
+                        // 保存原始矩阵后隐藏实例
+                        const mT = new THREE.Matrix4();
+                        const mC = new THREE.Matrix4();
+                        od.imTrunk.getMatrixAt(od.imIndex, mT);
+                        od.imCrown.getMatrixAt(od.imIndex, mC);
+                        hiddenTreeInstances.push({
+                            imTrunk: od.imTrunk, imCrown: od.imCrown,
+                            index: od.imIndex,
+                            matrixTrunk: mT.clone(),
+                            matrixCrown: mC.clone()
+                        });
+                        disposeTreeInstance(od);
+                        // 创建半透明替身 Group（与建筑统一为 opacity:0.3 半透明）
+                        const ghost = createTransparentTreeGhost(od);
+                        if (ghost) transparentTreeGroups.push(ghost);
+                    }
+                }
             }
         }
 
@@ -3235,6 +3870,505 @@
             clock.getDelta();animationId=requestAnimationFrame(versusGameLoop);
         }
 
+        // ==================== PvE 战斗模式 ====================
+        function enterCombatMode() {
+            gameMode = 'combat'; isVersusMap = false;
+            menuOverlay.classList.add('hidden'); gameContainer.classList.add('active');
+            splitLine.style.display = 'none'; arrowP1.style.display = 'none'; arrowP2.style.display = 'none';
+            hintBar.textContent = '键盘 W/S/↑/↓  |  空格/RT 开炮 | ⚔️ PvE战斗模式';
+            scene = scene1;
+            // 移除 initScene 创建的旧 player1 坦克（避免出生点双车残留）
+            if (player1 && player1.group && player1.group.parent) player1.group.parent.remove(player1.group);
+            if (player1 && player1.reloadBarGroup && player1.reloadBarGroup.parent) player1.reloadBarGroup.parent.remove(player1.reloadBarGroup);
+            if (player1 && player1.hpBarGroup && player1.hpBarGroup.parent) player1.hpBarGroup.parent.remove(player1.hpBarGroup);
+            if (player1 && player1.damageEffects) {
+                if (player1.damageEffects.firePoints && player1.damageEffects.firePoints.parent) player1.damageEffects.firePoints.parent.remove(player1.damageEffects.firePoints);
+                if (player1.damageEffects.smokePoints && player1.damageEffects.smokePoints.parent) player1.damageEffects.smokePoints.parent.remove(player1.damageEffects.smokePoints);
+            }
+            // 移除双人模式残留
+            if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
+            if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
+            if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
+            if (player2 && player2.damageEffects) {
+                if (player2.damageEffects.firePoints && player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints);
+                if (player2.damageEffects.smokePoints && player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints);
+            }
+            // 清理旧特效
+            shells.forEach(s => { scene.remove(s.mesh); disposeShellMesh(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } }); shells = [];
+            fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }); fragments = [];
+            muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); }); muzzleLights = [];
+            explosions.forEach(exp => exp.dispose()); explosions = [];
+            scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); }); scorchMarks = [];
+            groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); }); groundDebris = [];
+            // 清理旧敌人+掉落物
+            cleanupEnemies();
+            cleanupPickups();
+            // 重建地图
+            rebuildMap();
+            // 玩家配置
+            const pcfg = currentMapData.players || {};
+            player1 = createPlayer('green', POINT_A_X, POINT_A_Z, Math.PI / 2, true);
+            player1.hp = pcfg.hp || 100;
+            player1.maxHp = player1.hp;
+            player1.dead = false;
+            player1.userData = player1.userData || {};
+            player1.userData.maxHp = player1.hp;
+            createPlayerTank(player1);
+            createBarsForPlayer(player1);
+            player1.reloadBarGroup.visible = true;
+            player1.hpBarGroup.visible = true;
+            tankGroup = player1.group; tankHull = player1.hull;
+            leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
+            reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
+            // 重置全局状态
+            tankState.x = POINT_A_X; tankState.z = POINT_A_Z; tankState.yaw = Math.PI / 2;
+            totalDistance = 0;
+            combatShakeTimer = 0;
+            // 重置机枪状态
+            mgBullets.forEach(b => { scene.remove(b.mesh); b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } }); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
+            mgBullets = []; mgTimer = 0; mgHeat = 0; mgOverheated = false;
+            // 战斗数据
+            combatData = {
+                score: 0,
+                lives: pcfg.lives || 3,
+                phase: 'combat',
+                playerCannonDamage: pcfg.cannonDamage || 40,
+            };
+            // 创建敌人
+            createEnemies();
+            // 初始化
+            visibilityTimer = 0;
+            updateObstacleVisibility();
+            handleObstacleOcclusion();
+            placeCamera();
+            initAudio(); startEngineSound();
+            // v0.26.4fix: 强制恢复 AudioContext（MG机枪自动开火需要）
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    console.log('🔊 AudioContext 已恢复运行');
+                }).catch(e => {
+                    console.warn('⚠️ AudioContext 恢复失败:', e);
+                });
+            }
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.type = THREE.PCFShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.setScissorTest(false);
+            const cssW = window.innerWidth, cssH = window.innerHeight;
+            renderer.setViewport(0, 0, cssW, cssH);
+            camera.aspect = cssW / cssH;
+            camera.updateProjectionMatrix();
+            renderer.render(scene, camera);
+            updateDebugInfo();
+            if (animationId) { cancelAnimationFrame(animationId); }
+            clock.getDelta(); animationId = requestAnimationFrame(gameLoop);
+            console.log('⚔️ PvE战斗模式已启动 | 地图:' + (currentMapData && currentMapData.name || '?') + ' | 敌人:' + enemies.length + '只');
+        }
+
+        function createEnemies() {
+            if (!currentMapData || !currentMapData.enemies) return;
+            console.log('🗺️ 地图敌人配置数:', currentMapData.enemies.length, '| IDs:', currentMapData.enemies.map(e => e.id).join(','));
+            for (const ecfg of currentMapData.enemies) {
+                let model;
+                if (ecfg.type === 'assault-vehicle') {
+                    if (!window.EnemyModels || !window.EnemyModels.createAssaultVehicle) {
+                        console.warn('createEnemies: EnemyModels.createAssaultVehicle 不可用');
+                        continue;
+                    }
+                    model = window.EnemyModels.createAssaultVehicle();
+                } else {
+                    console.warn('createEnemies: 未知敌人类型 ' + ecfg.type);
+                    continue;
+                }
+                const pos = ecfg.position;
+                const gy = getGroundHeight(pos[0], pos[2]);
+                model.position.set(pos[0], gy, pos[2]);
+                model.cfg = ecfg;
+                // v0.26.4fix: 初始朝向第一个巡逻点（而非默认0），避免出生后立即"到达"首点
+                if (ecfg.patrolPath && ecfg.patrolPath.length > 0) {
+                    const wp0 = ecfg.patrolPath[0];
+                    const wpDx = wp0[0] - pos[0];
+                    const wpDz = wp0[1] - pos[2];
+                    const wpDist = Math.sqrt(wpDx * wpDx + wpDz * wpDz);
+                    if (wpDist > 0.5) {
+                        // 使前端 -X 指向首个巡逻点
+                        model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
+                    } else {
+                        model.rotation.set(0, 0, 0);
+                    }
+                } else {
+                    model.rotation.set(0, 0, 0);
+                }
+                model.hp = ecfg.hp || 60;
+                model.userData = model.userData || {};
+                model.userData.maxHp = model.hp;
+                model.userData.enemyType = ecfg.type;
+                model.userData.enemyId = ecfg.id;
+                // AI 运行时数据
+                model.ai = {
+                    state: 'patrol',
+                    target: null,
+                    patrolIndex: 0,
+                    lastSeenPlayerPos: null,
+                    alertTimer: 0,
+                    flameTimer: 0,
+                    flameRequest: false,
+                    flameTicksLeft: 0,
+                    isFlaming: false,
+                    flameTickTimer: 0,
+                    flameStartTime: 0,
+                    strafeTimer: 0,
+                    strafeDir: 1,
+                    wpStuckTimer: 0,  // v0.26.5: 巡逻卡住计时器
+                    hitFlash: 0,
+                };
+                // 初始化炮塔朝前
+                if (model.userData.turretPivot) {
+                    model.userData.turretPivot.rotation.y = 0;
+                }
+                // 添加受击闪光白膜（半透明叠加层）
+                createEnemyHitFlashOverlay(model);
+                // 添加HP条
+                createEnemyHpBar(model);
+                // 火焰喷射视觉（初始隐藏）
+                createEnemyFlameVFX(model);
+                scene.add(model);
+                enemies.push(model);
+                console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + pos[1].toFixed(1) + ',' + pos[2].toFixed(1) + ']');
+            }
+        }
+
+        function createEnemyHpBar(enemy) {
+            const barW = 1.5, barH = 0.08, barD = 0.02;
+            const bgGeo = new THREE.BoxGeometry(barW, barH, barD);
+            const bgMat = new THREE.MeshBasicMaterial({ color: 0x333333, depthTest: false });
+            const bg = new THREE.Mesh(bgGeo, bgMat);
+            const fillGeo = new THREE.BoxGeometry(barW, barH, barD);
+            const fillMat = new THREE.MeshBasicMaterial({ color: 0xff3333, depthTest: false });
+            const fill = new THREE.Mesh(fillGeo, fillMat);
+            fill.position.z = 0.015;
+            const group = new THREE.Group();
+            group.add(bg); group.add(fill);
+            group.position.y = 1.8; // 悬浮在敌人上方
+            group.renderOrder = 999;
+            group.materialDepthTest = false;
+            enemy.add(group);
+            enemy.userData.hpBarGroup = group;
+            enemy.userData.hpBarFill = fill;
+        }
+
+        function createEnemyHitFlashOverlay(enemy) {
+            // v0.26.1fix: 球形受击光晕替代立方体盒子，更自然
+            const ovGeo = new THREE.SphereGeometry(1.05, 16, 10);
+            const ovMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff, transparent: true, opacity: 0,
+                depthTest: true, depthWrite: false
+            });
+            const overlay = new THREE.Mesh(ovGeo, ovMat);
+            overlay.position.y = 0.68;
+            overlay.renderOrder = 996;
+            overlay.visible = false;
+            enemy.add(overlay);
+            enemy.userData.hitFlashOverlay = overlay;
+        }
+
+        function createPlayerHitFlashOverlay(tankGroup) {
+            if (!tankGroup || tankGroup.userData.hitFlashOverlay) return;
+            const ovGeo = new THREE.SphereGeometry(0.95, 16, 10);
+            const ovMat = new THREE.MeshBasicMaterial({
+                color: 0xff2222, transparent: true, opacity: 0,
+                depthTest: true, depthWrite: false
+            });
+            const overlay = new THREE.Mesh(ovGeo, ovMat);
+            overlay.position.y = 0.6;
+            overlay.renderOrder = 996;
+            overlay.visible = false;
+            tankGroup.add(overlay);
+            tankGroup.userData.hitFlashOverlay = overlay;
+        }
+
+        // v0.26.5: 战利品掉落系统
+        function spawnPickup(enemy) {
+            const cfg = enemy.cfg || {};
+            const dropRate = cfg.dropRate !== undefined ? cfg.dropRate : 0.25;
+            if (Math.random() > dropRate) return;
+            if (!window.ModelRegistry || !window.ModelRegistry.getModel) return;
+            const fn = window.ModelRegistry.getModel('pickups', '医疗工具箱');
+            if (!fn) return;
+            const pickup = fn();
+            pickup.position.copy(enemy.position);
+            pickup.position.y = getGroundHeight(enemy.position.x, enemy.position.z) + 0.25;
+            pickup.userData = pickup.userData || {};
+            pickup.userData.healAmount = cfg.dropHeal || 30;
+            pickup.userData._spawnTime = performance.now();
+            scene.add(pickup);
+            pickups.push(pickup);
+            console.log('💊 医疗箱已掉落 @ [' + pickup.position.x.toFixed(1) + ',' + pickup.position.y.toFixed(1) + ',' + pickup.position.z.toFixed(1) + ']');
+        }
+
+        function updatePickups(dt) {
+            if (!player1 || player1.dead) return;
+            if (pickups.length === 0) return;
+            const pPos = player1.group.position;
+            for (let i = pickups.length - 1; i >= 0; i--) {
+                const pu = pickups[i];
+                if (!pu || !pu.parent) { pickups.splice(i, 1); continue; }
+                // 悬停旋转+微浮（转速约180°/s，明显可见）
+                const age = (performance.now() - (pu.userData._spawnTime || 0)) / 1000;
+                pu.rotation.y += dt * 3.0;
+                pu.position.y += Math.sin(age * 3.0) * dt * 0.25;
+                // 距离检测拾取（满血时不拾取，直接穿越）
+                const dist = pPos.distanceTo(pu.position);
+                if (dist < PICKUP_RADIUS) {
+                    if (player1.hp >= player1.maxHp) continue; // 满血穿越
+                    const heal = pu.userData.healAmount || 30;
+                    player1.hp = Math.min(player1.maxHp, player1.hp + heal);
+                    spawnHitSparks(pu.position.clone());
+                    playPickupSound();
+                    hintBar.textContent = '💊 拾取医疗箱 +' + heal + ' HP! (HP:' + player1.hp + '/' + player1.maxHp + ')';
+                    scene.remove(pu);
+                    pu.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                    pickups.splice(i, 1);
+                }
+            }
+        }
+
+        function cleanupPickups() {
+            for (const pu of pickups) {
+                if (pu.parent) pu.parent.remove(pu);
+                pu.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            pickups = [];
+        }
+
+        function createEnemyFlameVFX(enemy) {
+            // 火焰喷射器粒子效果（基于 DamageEffects 的粒子系统方案）
+            const flameEffect = new window.FlameThrowerEffect();
+            scene.add(flameEffect.points);
+            enemy.userData.flameEffect = flameEffect;
+        }
+
+        function updateEnemyFlameVFX(enemy, player, dt) {
+            const fe = enemy.userData.flameEffect;
+            if (!fe) return;
+            const isFlaming = enemy.ai && enemy.ai.isFlaming;
+            const pp = player && !player.dead ? player.group.position : null;
+
+            if (pp && isFlaming) {
+                const tp = enemy.userData.turretPivot;
+                const nozzleLocal = new THREE.Vector3(-1.05, 1.27, 0);
+                if (tp) {
+                    const nozzleWorld = tp.localToWorld(nozzleLocal.clone());
+                    // 火焰沿炮塔指向射出（世界空间）
+                    const turretDir = new THREE.Vector3(-1, 0, 0)
+                        .applyQuaternion(tp.getWorldQuaternion(new THREE.Quaternion())).normalize();
+                    // v0.26.2fix: 方向安全校验收紧至60°锥内 (>0.5)，与伤害代码一致
+                    const enToPlayer = new THREE.Vector3().subVectors(pp, nozzleWorld).normalize();
+                    const dotCheck = turretDir.dot(enToPlayer);
+                    if (dotCheck > 0.5) {
+                        fe.update(dt, nozzleWorld, turretDir, true, enemy.cfg.flameRange || 12);
+                    } else {
+                        fe.update(dt, new THREE.Vector3(), new THREE.Vector3(), false, 12);
+                    }
+                } else {
+                    const nw = enemy.position.clone();
+                    const td = new THREE.Vector3().subVectors(pp, nw).normalize();
+                    fe.update(dt, nw, td, true, enemy.cfg.flameRange || 12);
+                }
+            } else {
+                fe.update(dt, new THREE.Vector3(), new THREE.Vector3(), false, 12);
+            }
+        }
+
+        // ==================== PvE 近防机枪系统 (v0.26.1) ====================
+
+        function createMGBullet(origin, targetPos, travelDist) {
+            const dir = new THREE.Vector3().subVectors(targetPos, origin).normalize();
+            // v0.26.1fix: 增大子弹尺寸 (0.015→0.06半径, 0.12→0.30长度) 可见性提升 16x
+            const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.30, 6);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffff44, transparent: true, opacity: 1 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(origin);
+            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            mesh.setRotationFromQuaternion(q);
+            // 拖尾光球（更大更亮）
+            const trailGeo = new THREE.SphereGeometry(0.08, 6, 3);
+            const trailMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
+            const trail = new THREE.Mesh(trailGeo, trailMat);
+            trail.position.set(0, -0.16, 0);
+            mesh.add(trail);
+            scene.add(mesh);
+            return { mesh, vel: dir.clone().multiplyScalar(MG_BULLET_SPEED), origin: origin.clone(),
+                life: MG_BULLET_LIFE, maxLife: MG_BULLET_LIFE, travelDist: travelDist, travelled: 0 };
+        }
+
+        function updateMGAutoTarget(player, dt) {
+            if (!player || player.dead) { mgHeat = Math.max(0, mgHeat - dt * 2); if (mgHeat <= 0) mgOverheated = false; return; }
+            if (gameMode === 'versus') return;  // 双人对战禁用机枪
+
+            // 找最近敌人
+            let nearestEnemy = null, nearestDist = Infinity;
+            const pPos = player.group.position;
+            for (const enemy of enemies) {
+                if (!enemy || !enemy.ai || enemy.ai.state === 'dead') continue;
+                const d = pPos.distanceTo(enemy.position);
+                if (d < MG_DETECT_RANGE && d < nearestDist) { nearestDist = d; nearestEnemy = enemy; }
+            }
+            if (!nearestEnemy || nearestDist > MG_RANGE) {
+                mgHeat = Math.max(0, mgHeat - dt * 2);
+                if (mgHeat <= 0) mgOverheated = false;
+                return;
+            }
+            if (mgOverheated) { mgHeat = Math.max(0, mgHeat - dt); if (mgHeat <= 0) mgOverheated = false; return; }
+
+            mgTimer -= dt;
+            if (mgTimer > 0) return;
+            mgTimer = MG_FIRE_INTERVAL;
+            mgHeat += MG_FIRE_INTERVAL;
+            if (mgHeat >= MG_OVERHEAT_TIME) { mgOverheated = true; mgHeat = MG_OVERHEAT_TIME; return; }
+
+            // v0.26.3fix: 机枪发射音效（从命中回调移到发射代码，隔墙开枪也有声）
+            playMGShotSound();
+
+            // 发射点：炮塔顶部 (0, 0.65, 0) 相对玩家 group
+            const mgOrigin = new THREE.Vector3(0, 0.65, 0);
+            player.group.localToWorld(mgOrigin);
+
+            // 射线检测（排除玩家坦克自身，避免子弹被自己挡住）
+            const epos = nearestEnemy.position.clone();
+            const dir = new THREE.Vector3().subVectors(epos, mgOrigin).normalize();
+            const raycaster = new THREE.Raycaster(mgOrigin, dir, 0, MG_RANGE);
+            // v0.26.4fix3: 排除玩家坦克 group 的所有子节点，防止自瞄射线命中自身
+            const excludeList = [];
+            if (player && player.group) player.group.traverse(c => { if (c.isMesh || c.isGroup) excludeList.push(c); });
+            const hits = raycaster.intersectObjects(scene.children, true).filter(h => !excludeList.includes(h.object));
+
+            let hitDist = Math.min(MG_RANGE, nearestDist);
+            let hitEnemyFound = false;
+            for (const hit of hits) {
+                let obj = hit.object;
+                while (obj) {
+                    let foundEnemy = false;
+                    for (const en of enemies) {
+                        if (obj === en || obj === en.userData?.turretPivot || obj === en.userData?.hpBarGroup) {
+                            foundEnemy = true;
+                            if (en.hp !== undefined && en.ai && en.ai.state !== 'dead') {
+                                const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1);
+                                window.EnemyAI.shareAggro(en, player1, enemies, 40);
+                                const hitWorldPos = hit.point.clone();
+                                spawnHitSparks(hitWorldPos);
+                                if (killed) {
+                                    en.ai.state = 'dead';
+                                    en.visible = false;
+                                    if (en.userData.flameEffect) {
+                                        en.userData.flameEffect.active = false;
+                                        en.userData.flameEffect.points.visible = false;
+                                    }
+                                    const ep = en.position.clone(); ep.y += 0.8;
+                                    spawnFragments(ep, '#8B7D4A');
+                                    spawnExplosion(ep);
+                                    playExplosionSound();
+                                    if (combatData) combatData.score += (en.cfg.score || 100);
+                                    // v0.26.5: 战利品掉落
+                                    spawnPickup(en);
+                                    const deadEnemy = en;
+                                    setTimeout(() => {
+                                        if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                        deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                        if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
+                                        const idx = enemies.indexOf(deadEnemy);
+                                        if (idx >= 0) enemies.splice(idx, 1);
+                                    }, 300);
+                                    if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
+                                        setTimeout(() => {
+                                            if (combatData) {
+                                                const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                                hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
+                                                    (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                            }
+                                        }, 1500);
+                                    }
+                                }
+                            }
+                            hitEnemyFound = true;
+                            break;
+                        }
+                    }
+                    if (hitEnemyFound) { hitDist = hit.distance; break; }
+                    obj = obj.parent;
+                }
+                if (hitEnemyFound) break;
+                // 命中非敌人障碍物 → 子弹被阻挡
+                hitDist = Math.min(hitDist, hit.distance);
+            }
+
+            const bullet = createMGBullet(mgOrigin, epos, hitDist);
+            mgBullets.push(bullet);
+        }
+
+        function updateMGBullets(dt) {
+            for (let i = mgBullets.length - 1; i >= 0; i--) {
+                const b = mgBullets[i];
+                b.life -= dt;
+                if (b.life <= 0 || b.travelled >= b.travelDist) {
+                    scene.remove(b.mesh);
+                    b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } });
+                    b.mesh.geometry.dispose(); b.mesh.material.dispose();
+                    mgBullets.splice(i, 1);
+                    continue;
+                }
+                const step = b.vel.clone().multiplyScalar(dt);
+                b.mesh.position.add(step);
+                b.travelled += step.length();
+                const lr = Math.max(0, b.life / b.maxLife);
+                b.mesh.material.opacity = lr;
+                if (b.mesh.children.length > 0 && b.mesh.children[0].material) b.mesh.children[0].material.opacity = 0.7 * lr;
+            }
+        }
+
+        // ==================== PvE 近防机枪系统结束 ====================
+
+        function cleanupEnemies() {
+            for (const enemy of enemies) {
+                if (enemy.userData.flameEffect) {
+                    enemy.userData.flameEffect.dispose();
+                }
+                if (enemy.parent) enemy.parent.remove(enemy);
+                enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            }
+            enemies = [];
+        }
+
+        function respawnPlayer() {
+            if (!player1 || !combatData || combatData.lives <= 0) return;
+            // 恢复到出生点
+            const sp = currentMapData && currentMapData.spawnPoints && currentMapData.spawnPoints.p1;
+            const sx = sp ? sp[0] : POINT_A_X;
+            const sz = sp ? sp[1] : POINT_A_Z;
+            const sy = sp ? sp[2] : Math.PI / 2;
+            player1.state.x = sx; player1.state.z = sz; player1.state.yaw = sy;
+            player1.hp = player1.maxHp || player1.userData.maxHp || 100;
+            player1.dead = false;
+            player1.group.visible = true;
+            player1.group.position.set(sx, getGroundHeight(sx, sz), sz);
+            player1.group.rotation.set(0, Math.PI / 2 - sy, 0);
+            if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+            tankState.x = sx; tankState.z = sz; tankState.yaw = sy;
+            // 清除敌人锁定 + 重置火焰状态（避免重生后炮口残留火焰）
+            for (const enemy of enemies) {
+                if (enemy.ai) {
+                    enemy.ai.target = null;
+                    enemy.ai.lastSeenPlayerPos = null;
+                    enemy.ai.isFlaming = false;
+                    enemy.ai.flameRequest = false;
+                    enemy.ai.flameTicksLeft = 0;
+                    enemy.ai.flameStartTime = 0;
+                }
+            }
+            hintBar.textContent = '⚔️ 战斗继续 | 剩余命数:' + combatData.lives + ' | 得分:' + combatData.score;
+        }
+
         function versusGameLoop() {
             // 先复位为全屏（清除上一帧的 scissor/viewport 残留）
             const dpr = renderer.getPixelRatio();
@@ -3311,7 +4445,7 @@
                     (player1.state.x - player2.state.x) ** 2 +
                     (player1.state.z - player2.state.z) ** 2
                 );
-                const he = Math.max(18, pDist * 0.6 + 5); // 基础36m，按玩家间距动态扩展
+                const he = Math.max(36, pDist * 0.6 + 5); // v0.25.5: 基础72m（与单人模式一致），按玩家间距动态扩展
                 sunLight.position.set(mx + 30, 40, mz + 20);
                 sunLight.target.position.set(mx, 0, mz);
                 sunLight.shadow.camera.left = -he;
@@ -3359,22 +4493,27 @@
                 if(s.tracerLight)s.tracerLight.position.copy(s.mesh.position);
                 if(s.glowTail){const vd=s.vel.clone().normalize();s.glowTail.position.copy(s.mesh.position).addScaledVector(vd,-0.18);}
                 let hit=false;const sR=.18, mv=new THREE.Vector3().subVectors(s.mesh.position,prevPos), mvL=mv.length();
-                for(let j=obstacleMeshes.length-1;j>=0;j--){const obs=obstacleMeshes[j];if(!obs.visible)continue;
-                    const od2=obstacleData[j];const oR=od2.radius||.55, cR=sR+oR, oT=od2.height||1.5;
-                    // 垂直方向快速剔除（仅上方优化，不剔除下方）
-                    const prevY=prevPos.y,currY=s.mesh.position.y,oTL=obs.position.y+oT+.3;
+                for(let j=obstacleData.length-1;j>=0;j--){const od=obstacleData[j];
+                    if(od.type==='building'&&od.groupRef&&!od.groupRef.visible)continue;
+                    const oR=od.radius||.55, cR=sR+oR, oT=od.height||1.5;
+                    const oX=(od.type==='building'&&od.groupRef)?od.groupRef.position.x:od.x;
+                    const oZ=(od.type==='building'&&od.groupRef)?od.groupRef.position.z:od.z;
+                    const oY=(od.type==='building'&&od.groupRef)?od.groupRef.position.y:(isVersusMap?0:getTerrainHeight(od.x,od.z));
+                    const prevY=prevPos.y,currY=s.mesh.position.y,oTL=oY+oT+.3;
                     if(currY>oTL&&prevY>oTL)continue;
-                    // 水平扫掠检测
                     let hh=false;
-                    if(mvL<.0001){const dx=s.mesh.position.x-obs.position.x,dz=s.mesh.position.z-obs.position.z;hh=dx*dx+dz*dz<cR*cR;}
-                    else{const ox=obs.position.x,oz=obs.position.z;const px=prevPos.x,pz=prevPos.z;
+                    if(mvL<.0001){const dx=s.mesh.position.x-oX,dz=s.mesh.position.z-oZ;hh=dx*dx+dz*dz<cR*cR;}
+                    else{const ox=oX,oz=oZ;const px=prevPos.x,pz=prevPos.z;
                         const vx=s.mesh.position.x-px,vz=s.mesh.position.z-pz;
                         const dx0=px-ox,dz0=pz-oz;const a=vx*vx+vz*vz,b=2*(dx0*vx+dz0*vz),c=dx0*dx0+dz0*dz0-cR*cR;
                         const disc=b*b-4*a*c;if(disc>=0){const sq=Math.sqrt(disc),t1=(-b-sq)/(2*a),t2=(-b+sq)/(2*a);
                             if((t1>=0&&t1<=1)||(t2>=0&&t2<=1)||(t1<0&&t2>1))hh=true;}}
-                    if(hh){const op=obs.position.clone();op.y+=oT/2;spawnFragments(op,od2.color);playExplosionSound();
-                        if(obs.parent){obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});}
-                        obstacleMeshes.splice(j,1);obstacleData.splice(j,1);hit=true;break;}}
+                    if(hh){const op=new THREE.Vector3(oX,oY+oT/2,oZ);spawnFragments(op,od.color);playExplosionSound();
+                        if(od.type==='building'&&od.groupRef){const obs=od.groupRef;
+                            obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+                            const mIdx=obstacleMeshes.indexOf(obs);if(mIdx>=0)obstacleMeshes.splice(mIdx,1);}
+                        else if(od.type&&od.type!=='building'){disposeTreeInstance(od);}
+                        obstacleData.splice(j,1);hit=true;break;}}
                 if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
                     if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
                         if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
@@ -3448,6 +4587,11 @@
             if (!loadMapConfig(selectedMapId)) {
                 console.warn('地图加载失败，使用默认配置');
                 loadMapConfig('test_map_01a');
+            }
+            // 战斗地图路由
+            if (currentMapData && currentMapData.mode === 'combat') {
+                enterCombatMode();
+                return;
             }
             gameMode='single';isVersusMap=false;
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
@@ -3538,9 +4682,14 @@
             }
             const shadowHint = '\n🔦 阴影:' + (shadowEnabled ? '开(H键关)' : '关(H键开)');
 
+            let combatLine = '';
+            if (gameMode === 'combat' && combatData) {
+                combatLine = '\n⚔️ 得分:' + combatData.score + ' | 命数:' + combatData.lives + ' | 敌:' + enemies.filter(e => e.ai && e.ai.state !== 'dead').length + '只';
+            }
+
             el.textContent =
-                'v0.25.4  ' + mapName + '  FPS:' + fpsCurrent +
-                '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo +
+                'v0.26.5  ' + mapName + '  FPS:' + fpsCurrent +
+                (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
 
@@ -3553,6 +4702,9 @@
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
             if(player2&&player2.hpBarGroup)player2.hpBarGroup.visible=false;
             if(player2&&player2.reloadBarGroup)player2.reloadBarGroup.visible=false;
+            cleanupEnemies();
+            cleanupPickups();
+            combatData = null;
             stopEngineSound();if(animationId){cancelAnimationFrame(animationId);animationId=null;}
         }
 
@@ -3663,6 +4815,8 @@
                 trees: { id: 'trees', label: '树木', models: [] },
                 buildings: { id: 'buildings', label: '建筑', models: [] },
                 grass: { id: 'grass', label: '草丛', models: [] },
+                enemies: { id: 'enemies', label: '敌方单位', models: [] },
+                pickups: { id: 'pickups', label: '战利品', models: [] },
                 special: { id: 'special', label: '特殊物件', models: [] },
                 glb: { id: 'glb', label: 'GLB模型', models: [] }
             };
@@ -3866,7 +5020,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.25.4 | 双人阴影跟随两玩家中点 | PCFShadow+512+36m跟随 | 四阶段探针 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.5 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
