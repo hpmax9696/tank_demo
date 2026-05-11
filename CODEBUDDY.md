@@ -7,7 +7,7 @@ This file provides guidance to CodeBuddy when working with code in this reposito
 完成每轮开发任务后，必须在最终回复末尾（预览/结果之后）报告当前对话的上下文使用情况，格式：
 
 ```
-📊 上下文用量: ~XX.XK/1M tokens（约 XX%）| 余量: ~YY.YK
+📊 上下文用量: ~XX.XK/500K tokens（约 XX%）| 余量: ~YY.YK
 ```
 
 当余量 < 30K tokens 时主动提示用户："上下文即将耗尽，建议开启新对话继续开发。"
