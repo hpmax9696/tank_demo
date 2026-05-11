@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.26.5</title>
+    <title>坦克运动demo v0.26.6</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.26.5</div>
+        <div class="menu-version">v0.26.6</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">📋 v0.26.6 计划 — 混元3D丧尸GLB模型生成方案(TPose→Blender减面→骨骼绑定→5动画→导出)</div>
             <div class="cl-title">🧰 v0.26.5 新增 — 战利品掉落系统(医疗箱100%掉落+旋转拾取)+丧尸模型+巡逻防卡+敌间碰撞</div>
             <div class="cl-title">🔧 v0.26.4 修复 — av-01巡逻启动+地形俯仰+MG音效+仇恨共享(4个PvE bug全修复)</div>
             <div class="cl-title">🔥 v0.26.3 修复 — 火焰伤害跳距模型(视觉/伤害统一)+近防机枪+方向校验收紧</div>
             <div class="cl-title">⚔️ v0.26.0 新增 — PvE战斗系统架构(突击车巡逻/追击/喷火+积分持久化+03a地图)</div>
-            <div class="cl-title">🌳 v0.25.5 改进 — 球形树重构(蓬松伞形树冠)+阴影范围翻倍(72m/1024²)</div>
         </div>
     </div>
 
@@ -4688,7 +4688,7 @@
             }
 
             el.textContent =
-                'v0.26.5  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.26.6  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5020,7 +5020,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.26.5 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.6 | PvE战斗系统+装甲突击车+丧尸 | 混元3D丧尸方案 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

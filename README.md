@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.5** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.6** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,15 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.26.6 — 混元3D丧尸GLB模型生成方案（2026-05-11）
+**计划**：
+- 混元3D「3D人物生成」→ T-Pose 丧尸白模（50K面）
+- Blender Decimate → ~3K三角面（保留关键轮廓）
+- 骨骼绑定 Armature + 自动蒙皮
+- 5个动画：idle/walk/sprint/lunge/death
+- 导出 GLB（勾选 Animation）→ `models/glb/zombie.glb`
+- 提示词已备妥：三种方案（文生3D/图生3D/备用变体）
 
 ### v0.26.5 — 战利品掉落系统+丧尸模型（2026-05-10）
 **新增**：
@@ -679,12 +688,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.5 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.6 | PvE战斗系统+装甲突击车+丧尸 | 混元3D丧尸方案 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.5）
-- `index.html`：约 4400 行（HTML+CSS+JS，战斗系统+近防机枪+掉落拾取+敌间碰撞+巡逻防卡+丧尸）
+### 代码规模（截至 v0.26.6）
+- `index.html`：约 4400 行（HTML+CSS+JS，战斗系统+近防机枪+掉落拾取+敌间碰撞+巡逻防卡+丧尸+混元3D方案）
 - `combat/enemyAI.js`：约 280 行（AI状态机 PATROL/CHASE/ENGAGE）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
 - `models/enemies.js`：约 210 行（装甲突击车程序化模型）
