@@ -263,6 +263,7 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 7 | av-02 车身不随地形俯仰 | ✅ 已修复 v0.26.4 | enemyAI循环中添加terrainPitch计算 |
 | 8 | 首战时机枪音效频率翻倍 | ✅ 已修复 v0.26.4 | updateMGAutoTarget移出敌人循环 |
 | 9 | av-02 不共享仇恨（独立巡逻） | ✅ 已修复 v0.26.4 | shareAggro 40m半径广播 |
+| 10 | 丧尸多动作.glb 在Blender中显示异常 | 🟡 待排查 | Blender显示巨大棱角球+仅mesh，但demo预览可用 |
 
 ---
 
@@ -448,29 +449,24 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务（v0.26.6 → v0.26.7）
+## 🔄 下一对话起手任务（v0.26.8 → v0.26.9）
 
-当前版本 **v0.26.6**。
+当前版本 **v0.26.8**。
 
-### ✅ v0.26.6 已新增（方案设计阶段，无代码变更）
+### ✅ v0.26.8 已新增
 
-- **🎯 混元3D 丧尸 GLB 模型生成方案（完整落地计划，见下方）**
+- 🧟 `models/glb/丧尸多动作.glb`：Blender多动画GLB模型
+- 菜单模型预览 → GLB模型 → 新增「丧尸 (多动作)」条目
+- 多动画切换功能：按 ← → 方向键在动画之间循环切换
+- 人形模型缩放修复：用高度Y轴而非最大维度（避免T-Pose缩放错误）
+- 包围盒尺寸日志（F12控制台）
 
-### ✅ v0.26.5 已新增/修复
+### ✅ v0.26.7 已新增/修复
 
-**新增**：
-- 战利品掉落系统（`spawnPickup`/`updatePickups`/`cleanupPickups`，医疗箱100%掉落，旋转悬浮，3m拾取，+30HP）
-- 丧尸近战杂兵模型（`models/enemies.js` `makeZombie`，灰白皮肤+肋骨+牛仔裤+抓握手势）
-- 专属拾取音效 `playPickupSound`（上升音阶叮铃，区别于机枪）
-- 满血穿越（HP满时道具不消耗）
-- 巡逻防卡：`wpStuckTimer` 3秒未移动自动跳过路径点
-- 敌人间碰撞：间距 < `ENEMY_HALF_W*2` 推开
+- 丧尸高精GLB模型预览（`models/glb/zombie.glb`，27.63MB）
+- GLB路径映射重构为名称→路径表
 
-**修复**：
-- MG射线排除自身坦克（过滤 `player1.group` 子节点）
-- 出生点安全距离：敌人移至40m外
-
-**待开始（v0.26.7）**：
+**待开始（v0.26.9）**：
 1. 🎯 执行混元3D丧尸GLB生成流程（见下方方案），产生 `models/glb/zombie.glb`
 2. 丧尸AI实装（近战爪击伤害+靠近玩家→攻击），替换现有程序化模型为GLB模型
 3. Phase 5 HUD改造

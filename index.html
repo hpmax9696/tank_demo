@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.26.6</title>
+    <title>坦克运动demo v0.26.8</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.26.6</div>
+        <div class="menu-version">v0.26.8</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧟 v0.26.8 新增 — 丧尸多动作GLB模型+动画切换(←→键)+人形缩放修复(高度基准)</div>
             <div class="cl-title">📋 v0.26.6 计划 — 混元3D丧尸GLB模型生成方案(TPose→Blender减面→骨骼绑定→5动画→导出)</div>
             <div class="cl-title">🧰 v0.26.5 新增 — 战利品掉落系统(医疗箱100%掉落+旋转拾取)+丧尸模型+巡逻防卡+敌间碰撞</div>
             <div class="cl-title">🔧 v0.26.4 修复 — av-01巡逻启动+地形俯仰+MG音效+仇恨共享(4个PvE bug全修复)</div>
             <div class="cl-title">🔥 v0.26.3 修复 — 火焰伤害跳距模型(视觉/伤害统一)+近防机枪+方向校验收紧</div>
-            <div class="cl-title">⚔️ v0.26.0 新增 — PvE战斗系统架构(突击车巡逻/追击/喷火+积分持久化+03a地图)</div>
         </div>
     </div>
 
@@ -1045,6 +1045,29 @@
                 if (sunLight) sunLight.castShadow = shadowEnabled;
                 renderer.shadowMap.enabled = shadowEnabled;
                 console.log('🔦 阴影已' + (shadowEnabled ? '开启' : '关闭') + '（H键切换）| 对比渲染耗时变化');
+            }
+            if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+                // 预览模式下切换动画
+                if (previewContainer.classList.contains('active') && previewAnimActions.length > 1) {
+                    e.preventDefault();
+                    // 停止当前动画
+                    previewAnimActions[previewAnimIndex].stop();
+                    // 切换到上一个/下一个
+                    if (e.code === 'ArrowLeft') {
+                        previewAnimIndex = (previewAnimIndex - 1 + previewAnimActions.length) % previewAnimActions.length;
+                    } else {
+                        previewAnimIndex = (previewAnimIndex + 1) % previewAnimActions.length;
+                    }
+                    // 播放新动画
+                    previewAnimActions[previewAnimIndex].reset().play();
+                    const clip = previewAnimActions[previewAnimIndex].getClip();
+                    const name = clip.name || ('动作' + (previewAnimIndex + 1));
+                    const allNames = previewAnimActions.map((a, i) => {
+                        const cn = a.getClip().name || ('动作' + (i+1));
+                        return (i === previewAnimIndex ? '▶' + cn + '◀' : cn);
+                    }).join(', ');
+                    previewLabel.textContent = '左右方向键切换动画 | 动画: [' + allNames + '] | 当前: ' + name;
+                }
             }
             if (e.code === 'Escape') {
                 if (previewContainer.classList.contains('active')) {
@@ -4688,7 +4711,7 @@
             }
 
             el.textContent =
-                'v0.26.6  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.26.8  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -4721,6 +4744,8 @@
         let previewScene = null, previewCamera = null, previewRenderer = null;
         let previewModel = null;
         let previewAnimId = null;
+        let previewMixer = null, previewClock = null; // 动画混合器+时钟（GLB骨骼动画播放）
+        let previewAnimActions = [], previewAnimIndex = 0; // 多动画切换
         // 轨道旋转状态
         let previewTheta = 0, previewPhi = Math.PI / 4, previewRadius = 5;
         let previewIsDragging = false, previewPrevMouse = { x: 0, y: 0 };
@@ -4798,6 +4823,9 @@
 
             // 动画循环
             function previewLoop() {
+                if (previewMixer && previewClock) {
+                    previewMixer.update(previewClock.getDelta());
+                }
                 updatePreviewCamera();
                 previewRenderer.render(previewScene, previewCamera);
                 previewAnimId = requestAnimationFrame(previewLoop);
@@ -4832,6 +4860,8 @@
             // GLB 模型
             catMap.glb.models.push({ cat: 'glb', name: 't34-green', label: 'T-34/85 绿色 (1P)', value: 'glb/t34-green' });
             catMap.glb.models.push({ cat: 'glb', name: 't34-yellow', label: 'T-34/85 黄色 (2P)', value: 'glb/t34-yellow' });
+            catMap.glb.models.push({ cat: 'glb', name: 'zombie', label: '丧尸 (高精)', value: 'glb/zombie' });
+            catMap.glb.models.push({ cat: 'glb', name: 'zombie-multi', label: '丧尸 (多动作)', value: 'glb/zombie-multi' });
 
             // 过滤空分类，构建分类数据
             previewCatData = Object.values(catMap).filter(c => c.models.length > 0);
@@ -4884,7 +4914,13 @@
         }
 
         function loadPreviewModel(m) {
-            // 移除旧模型
+            // 移除旧模型 + 清理动画混合器
+            if (previewMixer) {
+                previewMixer.stopAllAction();
+                previewMixer = null;
+                previewClock = null;
+            }
+            previewAnimActions = []; previewAnimIndex = 0;
             if (previewModel && previewModel.parent) {
                 previewModel.parent.remove(previewModel);
                 previewModel.traverse(c => {
@@ -4896,24 +4932,58 @@
 
             // GLB 模型分支
             if (m.cat === 'glb') {
-                const glbPath = m.name === 't34-yellow'
-                    ? 'models/glb/t34-85_textured_yellow.glb'
-                    : 'models/glb/t34-85_textured.glb';
+                const GLB_PATH_MAP = {
+                    't34-green': 'models/glb/t34-85_textured.glb',
+                    't34-yellow': 'models/glb/t34-85_textured_yellow.glb',
+                    'zombie': 'models/glb/zombie.glb',
+                    'zombie-multi': 'models/glb/丧尸多动作.glb'
+                };
+                const glbPath = GLB_PATH_MAP[m.name];
+                if (!glbPath) {
+                    previewLabel.textContent = '未知GLB模型: ' + m.name;
+                    return;
+                }
 
                 const loader = new THREE.GLTFLoader();
                 loader.load(glbPath, (gltf) => {
                     const model = gltf.scene;
                     const bbox = new THREE.Box3().setFromObject(model);
                     const sz = new THREE.Vector3(); bbox.getSize(sz);
+                    console.log('📏 模型原始包围盒:', '宽=' + sz.x.toFixed(2), '高=' + sz.y.toFixed(2), '深=' + sz.z.toFixed(2),
+                        '| minY=' + bbox.min.y.toFixed(2), 'maxY=' + bbox.max.y.toFixed(2));
+                    // 人形模型用高度(Y)缩放，坦克用最大维度缩放
                     const targetH = 3.5;
-                    const s = targetH / Math.max(sz.x, sz.y, sz.z);
+                    const isHumanoid = (m.name === 'zombie' || m.name === 'zombie-multi');
+                    const refDim = isHumanoid ? sz.y : Math.max(sz.x, sz.y, sz.z);
+                    const s = (refDim > 0.001) ? (targetH / refDim) : 1.0;
                     model.scale.setScalar(s);
                     const center = new THREE.Vector3(); bbox.getCenter(center);
                     model.position.set(-center.x * s, -bbox.min.y * s, -center.z * s);
                     model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+                    console.log('📏 缩放后: s=' + s.toFixed(4), '| 最终高度≈' + (sz.y * s).toFixed(2));
                     previewModel = model;
                     previewScene.add(model);
-                    previewLabel.textContent = '拖拽鼠标旋转模型 | 滚轮缩放 | 当前: GLB ' + m.name;
+
+                    // 如果模型包含骨骼动画
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        previewMixer = new THREE.AnimationMixer(model);
+                        previewClock = new THREE.Clock();
+                        // 创建所有动画动作
+                        previewAnimActions = gltf.animations.map(clip => previewMixer.clipAction(clip));
+                        previewAnimIndex = 0;
+                        // 播放第一个动画
+                        if (previewAnimActions.length > 0) {
+                            previewAnimActions[0].play();
+                        }
+                        const names = gltf.animations.map((a, i) => (a.name || '动作' + (i+1))).join(', ');
+                        if (gltf.animations.length > 1) {
+                            previewLabel.textContent = '左右方向键切换动画 | 滚轮缩放 | 动画: [' + names + '] | 当前: ' + (gltf.animations[0].name || '动作1');
+                        } else {
+                            previewLabel.textContent = '拖拽鼠标旋转模型 | 滚轮缩放 | 当前: GLB ' + m.name + ' (' + (gltf.animations[0].name || '含动画') + ')';
+                        }
+                    } else {
+                        previewLabel.textContent = '拖拽鼠标旋转模型 | 滚轮缩放 | 当前: GLB ' + m.name;
+                    }
                 }, undefined, (err) => {
                     console.warn('预览GLB加载失败:', err.message);
                     previewLabel.textContent = 'GLB 模型加载失败';
@@ -4968,6 +5038,8 @@
 
         function exitPreviewMode() {
             if (previewAnimId) { cancelAnimationFrame(previewAnimId); previewAnimId = null; }
+            if (previewMixer) { previewMixer.stopAllAction(); previewMixer = null; previewClock = null; }
+            previewAnimActions = []; previewAnimIndex = 0;
             if (previewRenderer && previewRenderer.domElement) {
                 previewRenderer.domElement.removeEventListener('mousedown', onPreviewMouseDown);
                 previewRenderer.domElement.removeEventListener('wheel', onPreviewWheel);
@@ -5020,7 +5092,7 @@
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.26.6 | PvE战斗系统+装甲突击车+丧尸 | 混元3D丧尸方案 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.8 | 丧尸多动作GLB+动画切换 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
