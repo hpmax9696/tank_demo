@@ -2104,16 +2104,29 @@
                         }
                     });
                     const sz = new THREE.Vector3(); bbox.getSize(sz);
+                    // 检测 Armature 自身的 scale（Blender导出常为 0.01），
+                    // 不能直接改 Armature.scale（会破坏 skeleton bindMatrices），
+                    // 必须将其压缩比计入外层 model.scale 来补偿。
+                    let armatureScale = 1.0;
+                    gltf.scene.traverse(c => {
+                        if ((c.name === 'Armature' || c.name === 'armature') && c.scale) {
+                            armatureScale = c.scale.y;
+                        }
+                    });
+                    const effectiveH = sz.y * armatureScale;
                     // 目标场景高度 1.8 米（坦克约 3 米，丧尸比坦克矮）
                     const targetH = 1.8;
-                    _zombieGlbCache.baseScale = (sz.y > 0.001) ? (targetH / sz.y) : 1.0;
+                    _zombieGlbCache.baseScale = (effectiveH > 0.001) ? (targetH / effectiveH) : 1.0;
                     _zombieGlbCache.bboxMinY = bbox.min.y;
                     _zombieGlbCache.center = new THREE.Vector3();
                     bbox.getCenter(_zombieGlbCache.center);
                     _zombieGlbCache.loaded = true;
                     _zombieGlbLoading = false;
                     console.log('✅ 丧尸GLB加载成功 | 原始尺寸:', sz.x.toFixed(3), '×', sz.y.toFixed(3), '×', sz.z.toFixed(3),
-                        '| 缩放: ×' + _zombieGlbCache.baseScale.toFixed(4), '| 动画数:', _zombieGlbCache.clips.length);
+                        '| ArmatureScale: ×' + armatureScale.toFixed(3),
+                        '| 有效高度: ' + effectiveH.toFixed(3),
+                        '| 最终缩放: ×' + _zombieGlbCache.baseScale.toFixed(4),
+                        '| 动画数:', _zombieGlbCache.clips.length);
                     // 升级所有挂起的丧尸：清除程序化模型子节点 → 替换为 GLB 模型 + 动画
                     if (_zombieGlbCache.pending.length > 0) {
                         console.log('🔄 升级 ' + _zombieGlbCache.pending.length + ' 只丧尸: 程序化 → GLB');
@@ -2150,6 +2163,7 @@
             if (!_zombieGlbCache.baseScene) return null;
             const model = _zombieGlbCache.baseScene.clone(true);
             const s = _zombieGlbCache.baseScale;
+            // baseScale 已在 loadZombieGlb 中将 Armature 的 0.01 压缩计入，此处直接使用
             model.scale.setScalar(s);
             model.position.set(
                 -_zombieGlbCache.center.x * s,
@@ -4490,7 +4504,7 @@
                 }
                 scene.add(model);
                 enemies.push(model);
-                console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + pos[1].toFixed(1) + ',' + pos[2].toFixed(1) + ']');
+                console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + gy.toFixed(1) + ',' + pos[2].toFixed(1) + ']');
             }
         }
 

@@ -456,35 +456,51 @@ ScoreSystem.clearAllScores();
 
 ## 🔄 下一对话起手任务（v0.26.12 接力点）
 
-当前版本 **v0.26.11**（已推送至 Gitee）。
+当前版本 **v0.26.12-dev**（未推送）。GLB 文件已从 git 恢复原始版本。
 
-### ✅ v0.26.11 已完成
+### ✅ v0.26.11 已完成（略）
 
-- 🗺️ **地图分拆**：03a恢复为纯装甲突击车(av-01/av-02)，新建04a丧尸专属地图(zm-01/zm-02，出生距离~90m)
-- ⚡ **GLB预加载**：`loadZombieGlb()` 页面初始化时异步启动，进入战斗地图时大概率已就绪
-- 🔄 **挂起队列升级**：GLB未就绪时创建的丧尸加入 `_zombieGlbCache.pending[]`，加载完自动升级
-- 💀 **丧尸死亡无爆炸**：倒地动画播完直接 remove，GLB+程序化两条路径均已移除爆炸
-- 🧟 **丧尸禁用地形俯仰**：`_noTerrainPitch = true`，人形单位不随地形倾斜
-- 🎬 **动画名hash匹配**：`KNOWN_MAP` 改为 hash 前缀（20aff4d1=idle, 97951ef0=walk, adfdbf68=run, 31d8bc8b=attack, 38bab115=hit, 6981c077=death），控制台可验证全匹配
-- 🧹 **cleanupEnemies** 同步清理 pending 队列
+### 🔍 v0.26.12 本对话排查成果
 
-### 🔴 v0.26.11 已知遗留问题（待下轮修复）
+1. **Armature scale=0.01 为根因**：GLB 中 Armature Object3D 自带 `scale=(0.01,0.01,0.01)`，使 1.9m 几何体渲染为 0.019m（不可见）。
+2. **Apply Scale 不可行**：Blender `Ctrl+A→Scale` 会破坏 `inverseBindMatrices`，导致蒙皮顶点被错误位移（模型"炸开"）。必须恢复原始 GLB。
+3. **不可在代码中改 Armature.scale**：`Armature.scale=1` 同样破坏骨骼绑定矩阵，导致顶点不可见。
+4. **✅ 正确补偿方案**：`baseScale = targetH / (meshHeight × armatureScale) = 1.8 / (1.9 × 0.01) = 94.76`，放大外层 model.scale 来补偿 Armature 的 0.01 压缩。**已实现**。
+5. **✅ 动画、AI、碰撞正常**：mixer 时间持续递增，walk 动画播放，AI patrol 状态正确，HP条/受击/掉落/机枪全部工作。**仅 SkinnedMesh 渲染不可见**。
 
-1. **丧尸出现在出生点**：日志显示部署位置正确（zm-01: [60,-70], zm-02: [-55,-65]），但视觉上丧尸挤在玩家出生点 [0,0] 附近。怀疑 GLB 场景根级有 Armature 骨骼偏移，导致 `spawnZombieFromGlb` 的 `model.position.set(-center*s, -bboxMinY*s, -center*z*s)` 定位失效。
-2. **丧尸巨大**：包围盒计算多次切换方案（`expandByObject`→`matrixWorld`手动→恢复`localMatrix`），始终未得到正确尺寸。`computeBoundingSphere` 已调用但可能对 SkinnedMesh 无效。
-3. **丧尸不动（T-pose）**：动画 hash 名匹配已验证通过，但 `initZombieAnimController` 创建的 `anim` 控制器可能因 mixer 绑定 group 而非 SkinnedMesh 导致动画不驱动骨骼。
+### 🔴 v0.26.12 当前遗留（1个核心问题）
 
-### 🎯 排查建议（下轮优先）
+| # | 问题 | 详情 |
+|---|------|------|
+| 1 | **SkinnedMesh 不可见** | baseScale=94.76 已正确计算（理论高度 1.8m），但视觉上完全看不到丧尸。战斗交互（HP条/受击/掉落）均正常，证明 position/collision/AI 都对。 |
 
-1. **Blender 打开 GLB** 检查层级结构：Armature 根节点是否有巨大 scale/translate？SkinnedMesh 是否挂在 Armature 下？
-2. **在 `spawnZombieFromGlb` 加断点日志**：打印 `model.position`、`group.position`、遍历 `model.children` 看层级深度
-3. **临时方案**：若 GLB 层级异常，可考虑在 Blender 中 `Apply All Transforms` 后重新导出
+### 🎯 下轮排查建议（按优先级）
 
-### 🗺️ 动画名映射（已确认，无需再排查）
+1. **frutumCulled**：在 `spawnZombieFromGlb` 的 traverse 中加 `c.frustumCulled = false`，排除视锥剔除干扰。
+2. **skeleton 状态**：检查 `skin.skeleton` 是否初始化，尝试 `skin.skeleton.update()` 或 `skin.skeleton.computeBoneTransform()`。
+3. **材质/纹理**：打印 `skin.material`，检查 opacity/visible/wireframe/alphaTest 等属性。
+4. **世界空间包围盒**：`new THREE.Box3().setFromObject(skin)` 看 SkinnedMesh 实际渲染范围。
+5. **备选兜底**：若 GLB SkinnedMesh 短时间无法修复，可临时用程序化 `zombieFallbackModel` 渲染，保留 GLB 的 AI/动画数据。
 
-| 动作 | GLB clip name（前缀） |
-|------|----------------------|
-| idle 待机 | `Armature\|20aff4d1..._remap` |
+### 🗺️ GLB 层级结构（已确认）
+
+```
+Scene (Group, scale=1)
+  Object3D "Armature" (scale=0.01 ← 根因)
+    Bone "root" (pos: ~0,-1,0)
+      Bone "Hips" (pos: 0,1,0) → Spine → ... → Head
+      LeftUpLeg/RightUpLeg → LeftLeg/RightLeg → ...
+    SkinnedMesh "Mesh_0001" (pos: 0,0,0, scale: 1)
+```
+
+### 🎬 baseScale 计算公式（已实现）
+
+```
+armatureScale = 0.01
+effectiveH = sz.y × armatureScale = 1.9 × 0.01 = 0.019
+baseScale = targetH / effectiveH = 1.8 / 0.019 = 94.76
+→ 最终渲染高度 = 1.9 × 0.01 × 94.76 = 1.80m ✅
+```
 | walk 行走 | `Armature\|97951ef0..._remap` |
 | run 奔跑 | `Armature\|adfdbf68..._remap` |
 | attack 挥击 | `Armature\|31d8bc8b..._remap` (×2) |
