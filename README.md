@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.9** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.11** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -226,6 +226,26 @@ fireSmokeParticles.js:
 
 ## 完整版本历史
 
+### v0.26.11 — 分图04a丧尸专属+GLB预加载+丧尸死亡无爆炸+动画hash匹配（2026-05-12）
+-**改进**：
+-- **地图分拆**：03a恢复为纯装甲突击车(av-01/av-02)，新建04a丧尸专属地图(zm-01/zm-02，出生距离~90m)
+-- **GLB预加载**：页面初始化时即启动丧尸GLB异步加载+挂起队列自动升级
+-- **丧尸死亡**：倒地动画播完后直接移除实例，无爆炸/碎片/音效
+-- **动画名hash匹配**：KNOWN_MAP改为hash前缀（20aff4d1=idle, 97951ef0=walk, adfdbf68=run, 31d8bc8b=attack, 38bab115=hit, 6981c077=death）
+-- **丧尸禁用地形俯仰**：`_noTerrainPitch = true`
+-- **🔴 已知遗留**：丧尸GLB出现位置异常(挤在出生点)、尺寸巨大、T-pose不动。AnimationMixer绑定group而非SkinnedMesh可能是动画不播放的原因；GLB Armature层级transform可能导致定位/尺寸异常。
+
+### v0.26.10 — 丧尸GLB动画集成：AI状态驱动6动作+STUNNED定身+近战命中帧判定+死亡动画（2026-05-12）
+-**新增**：
+-- 丧尸GLB动画集成：6个GLB骨骼动画（待机/走路/跑步/挥击/受击/倒地）与AI状态机双向映射
+-- 新增 AI_STATE.STUNNED：丧尸受击后循环受击动画定身，1.5秒未再受击恢复
+-- 挥击动画命中帧检测：动画播放到~60%时一次性扣血（间隔式伤害），冷却2秒方可再次攻击
+-- 死亡动画：丧尸死亡播放倒地动画（单次），播完后触发爆炸+碎片+移除模型
+-- 丧尸GLB缓存系统：首次加载→clone(true)复用，回退程序化模型兜底
+-- 测试03a地图加入2只丧尸（zm-01/zm-02，间距5-8m，含巡逻路径+近战参数）
+-- 敌间碰撞按类型区分半径：丧尸0.4m，车辆0.85m
+-- cleanupEnemies 支持丧尸 mixer 内存清理
+-
 ### v0.26.9 — GLB预览缩放统一+红色工具箱GLB+包围盒重构（2026-05-12）
 **改进**：
 - GLB预览包围盒计算重构：改用各Mesh几何体local包围盒8角点×mesh.matrix变换到模型空间（排除骨骼Armature干扰）
@@ -236,6 +256,9 @@ fireSmokeParticles.js:
 **新增**：
 - 模型预览→GLB模型→新增「维修工具箱 (红色)」条目（`models/glb/红色维修工具箱减面.glb`）
 - 战利品工具箱改用GLB模型优先加载（`models/pickups.js`，`preloadGLB()`），程序化回退兜底
+
+
+- 丧尸GLB缓存克隆复用（1.8m高度，程序化makeZombie回退兜底）
 
 ### v0.26.8 — 丧尸多动作GLB模型+动画切换（2026-05-11）
 **新增**：
@@ -716,13 +739,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.9 | GLB预览缩放统一+工具箱GLB+包围盒重构 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.11 | 分图04a丧尸专属+GLB预加载+丧尸死亡倒地动画(无爆炸)+安全出生距离 | 03a=装甲车, 04a=丧尸`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.9）
-- `index.html`：约 4810 行（HTML+CSS+JS，GLB预览缩放统一+包围盒重构+红色工具箱GLB+战斗系统+近防机枪+掉落拾取+敌间碰撞）
-- `combat/enemyAI.js`：约 280 行（AI状态机 PATROL/CHASE/ENGAGE）
+### 代码规模（截至 v0.26.11）
+- `index.html`：约 5400 行（HTML+CSS+JS，丧尸地图分拆+GLB预加载挂起升级+动画hash匹配+死亡无爆炸）
+- `combat/enemyAI.js`：约 400 行（AI状态机扩展 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD，丧尸专用移动+受击定身）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
 - `models/pickups.js`：约 214 行（战利品拾取模型+GLB优先加载+程序化回退）
 - `models/enemies.js`：约 210 行（装甲突击车程序化模型）
@@ -939,13 +962,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 🚧 下一步计划（v0.26.0）
+## 🚧 下一步计划（v0.26.11）
 
-### PvE战斗测试与调试
-- 装甲突击车巡逻/追击/喷火实战测试
-- 玩家与敌人碰撞伤害调整
-- 掉落物品系统（回血道具）
-- 清空积分UI按钮
+### 后续功能规划
+- [ ] 战利品掉落物品类型扩展：弹药箱/经验值
+- [ ] Boss 炮舰：多联装火炮+导弹+多阶段战斗
+- [ ] 积分大厅/排名UI：HUD显示+清空按钮
+- [ ] 详细计划见 CODEBUDDY.md
 
 ### 树木 InstancedMesh 重构 + 几何精度提升
 - ~245棵树木从490个独立draw call迁移到4个InstancedMesh（树干+锥形冠+球形冠+橡树冠）

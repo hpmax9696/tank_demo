@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.26.9</title>
+    <title>坦克运动demo v0.26.11</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.26.9</div>
+        <div class="menu-version">v0.26.11</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧟 v0.26.11 改进 — 分图(03a装甲车/04a丧尸)+GLB预加载+丧尸死亡倒地动画无爆炸+fix包围盒世界矩阵+丧尸禁用地形俯仰</div>
+            <div class="cl-title">🧟 v0.26.10 新增 — 丧尸GLB动画集成(6动作:待机/走路/跑步/挥击/受击/倒地)+AI状态驱动+STUNNED定身+近战攻击命中帧判定+死亡动画+2只丧尸部署测试03a地图</div>
             <div class="cl-title">🛠️ v0.26.9 改进 — GLB预览缩放统一1.5m+贴地+包围盒重构+红色工具箱GLB+动画手动播放</div>
             <div class="cl-title">🧟 v0.26.8 新增 — 丧尸多动作GLB模型+动画切换(←→键)+人形缩放修复(高度基准)</div>
             <div class="cl-title">📋 v0.26.6 计划 — 混元3D丧尸GLB模型生成方案(TPose→Blender减面→骨骼绑定→5动画→导出)</div>
-            <div class="cl-title">🧰 v0.26.5 新增 — 战利品掉落系统(医疗箱100%掉落+旋转拾取)+丧尸模型+巡逻防卡+敌间碰撞</div>
-            <div class="cl-title">🔧 v0.26.4 修复 — av-01巡逻启动+地形俯仰+MG音效+仇恨共享(4个PvE bug全修复)</div>
         </div>
     </div>
 
@@ -540,6 +540,48 @@
                         reactive: true, hp: 60, speed: 5.0, viewDist: 50, engageDist: 15,
                         ramDamage: 15, flameDamage: 8, flameTicks: 5, flameRange: 12,
                         ramCooldown: 3, score: 100, dropRate: 1.0, dropHeal: 30
+                    },
+                ],
+                terrain: {
+                    pond: { cx: 0, cz: 50, rx: 4.5, rz: 6, depth: 5 },
+                    river: { zc: -60, amp: 8, period: 30, hwBase: 6.25, hwVar: 1.25, hwPeriod: 20, hwPhase: 1.5, depth: 5 },
+                    hill: { cx: 40, cz: -30, height: 4, radius: 8 },
+                    basin: { cx: 48, cz: -25, depth: 3, radius: 5 }
+                },
+                terrainTypes: {
+                    default: 'grass',
+                    riverBank: { bankWidth: 5, type: 'mud' },
+                    pondEdge: { bankWidth: 3, type: 'mud' },
+                    hillTop: { radius: 4, type: 'sand' },
+                    basin: { radius: 3, type: 'sand' },
+                    bridgeSurface: { type: 'asphalt' }
+                },
+                waters: { pond: { waterLevel: -1 }, river: { waterLevel: -1 } },
+                bridges: [{ cx: 0, halfW: 4, deckH: 0.35 }],
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
+            },
+            'test_map_04a': {
+                version: '1.0', name: '测试地图04a（丧尸）', size: 200, type: 'single', mode: 'combat',
+                desc: 'PvE丧尸地图：出生点→丧尸群 | 噪声地形+河流+桥梁',
+                spawnPoints: { p1: [0, 0, 1.57] },
+                players: {
+                    lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5,
+                    mgDamage: 5, mgRange: 50, mgFireRate: 3
+                },
+                enemies: [
+                    {
+                        id: 'zm-01', type: 'zombie', position: [60, 0, -70],
+                        patrolPath: [[60,-70], [70,-60], [75,-75], [55,-65]],
+                        reactive: false, hp: 40, speed: 2.5, viewDist: 30,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        stunRecoverTime: 1.5, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-02', type: 'zombie', position: [-55, 0, -65],
+                        patrolPath: [[-55,-65], [-65,-55], [-60,-75], [-45,-60]],
+                        reactive: false, hp: 40, speed: 2.5, viewDist: 30,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        stunRecoverTime: 1.5, score: 50, dropRate: 0.3, dropHeal: 30
                     }
                 ],
                 terrain: {
@@ -1903,6 +1945,11 @@
             yellow: { key: 'yellow', path: 'models/glb/t34-85_textured_yellow.glb', cache: {}, pending: [] }
         };
 
+        // ==================== 丧尸 GLB 缓存系统 ====================
+        // 首次加载→缓存 gltf.scene 和 AnimationClip，后续 clone(true) 复用
+        let _zombieGlbCache = { baseScene: null, baseScale: 1.0, bboxMinY: 0, clips: [], loaded: false, pending: [] };
+        let _zombieGlbLoading = false;
+
         function createPlayerTank(player) {
             const group = new THREE.Group();
             group.rotation.order = 'YXZ'; // 先偏航再俯仰，确保坡度俯仰跟随坦克朝向
@@ -2017,6 +2064,181 @@
                 player.hull = tankGroup.userData.hull;
             }
             console.log('🔄 已回退到程序化 T-34/85 模型');
+        }
+
+        // ==================== 丧尸 GLB 加载 ====================
+        function loadZombieGlb() {
+            if (_zombieGlbCache.loaded || _zombieGlbLoading) return;
+            if (document.location.protocol === 'file:') {
+                console.log('📄 file:// 协议，跳过丧尸 GLB 加载');
+                return;
+            }
+            _zombieGlbLoading = true;
+            const loader = new THREE.GLTFLoader();
+            loader.load('models/glb/丧尸多动作.glb',
+                (gltf) => {
+                    _zombieGlbCache.baseScene = gltf.scene;
+                    _zombieGlbCache.clips = gltf.animations || [];
+                    console.log('🎬 GLB动画剪辑名 (' + _zombieGlbCache.clips.length + '个):',
+                        _zombieGlbCache.clips.map(c => c.name).join(', '));
+                    // 计算包围盒（遍历每个Mesh，用局部矩阵变换8角点）
+                    const bbox = new THREE.Box3();
+                    const tmpVec = new THREE.Vector3();
+                    gltf.scene.traverse(c => {
+                        if (c.isMesh && c.geometry) {
+                            c.geometry.computeBoundingBox();
+                            c.geometry.computeBoundingSphere();
+                            if (c.geometry.boundingBox) {
+                                c.updateMatrix();
+                                const bb = c.geometry.boundingBox;
+                                for (let xi = 0; xi <= 1; xi++) {
+                                    for (let yi = 0; yi <= 1; yi++) {
+                                        for (let zi = 0; zi <= 1; zi++) {
+                                            tmpVec.set(xi ? bb.max.x : bb.min.x, yi ? bb.max.y : bb.min.y, zi ? bb.max.z : bb.min.z);
+                                            tmpVec.applyMatrix4(c.matrix);
+                                            bbox.expandByPoint(tmpVec);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    const sz = new THREE.Vector3(); bbox.getSize(sz);
+                    // 目标场景高度 1.8 米（坦克约 3 米，丧尸比坦克矮）
+                    const targetH = 1.8;
+                    _zombieGlbCache.baseScale = (sz.y > 0.001) ? (targetH / sz.y) : 1.0;
+                    _zombieGlbCache.bboxMinY = bbox.min.y;
+                    _zombieGlbCache.center = new THREE.Vector3();
+                    bbox.getCenter(_zombieGlbCache.center);
+                    _zombieGlbCache.loaded = true;
+                    _zombieGlbLoading = false;
+                    console.log('✅ 丧尸GLB加载成功 | 原始尺寸:', sz.x.toFixed(3), '×', sz.y.toFixed(3), '×', sz.z.toFixed(3),
+                        '| 缩放: ×' + _zombieGlbCache.baseScale.toFixed(4), '| 动画数:', _zombieGlbCache.clips.length);
+                    // 升级所有挂起的丧尸：清除程序化模型子节点 → 替换为 GLB 模型 + 动画
+                    if (_zombieGlbCache.pending.length > 0) {
+                        console.log('🔄 升级 ' + _zombieGlbCache.pending.length + ' 只丧尸: 程序化 → GLB');
+                        for (const group of _zombieGlbCache.pending) {
+                            // 清除程序化子节点
+                            while (group.children.length > 0) {
+                                const child = group.children[0];
+                                group.remove(child);
+                                if (child.traverse) child.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                            }
+                            // 添加 GLB 模型
+                            spawnZombieFromGlb(group);
+                            // 如果已有 anim 控制器，从新 mixer 重建
+                            if (group.userData.zombieMixer) {
+                                initZombieAnimController(group);
+                                // 立即播放 idle 动画
+                                if (group.userData.anim && group.userData.anim.actions.idle) {
+                                    group.userData.anim.play('idle', 0.5);
+                                }
+                            }
+                        }
+                        _zombieGlbCache.pending = [];
+                    }
+                },
+                undefined,
+                (err) => {
+                    console.warn('⚠️ 丧尸GLB加载失败:', err.message);
+                    _zombieGlbLoading = false;
+                }
+            );
+        }
+
+        function spawnZombieFromGlb(group) {
+            if (!_zombieGlbCache.baseScene) return null;
+            const model = _zombieGlbCache.baseScene.clone(true);
+            const s = _zombieGlbCache.baseScale;
+            model.scale.setScalar(s);
+            model.position.set(
+                -_zombieGlbCache.center.x * s,
+                -_zombieGlbCache.bboxMinY * s,
+                -_zombieGlbCache.center.z * s
+            );
+            model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; if (c.geometry) { c.geometry.computeBoundingBox(); c.geometry.computeBoundingSphere(); } } });
+            group.add(model);
+
+            // 创建动画控制器
+            if (_zombieGlbCache.clips.length > 0) {
+                const mixer = new THREE.AnimationMixer(group);
+                const clipMap = {};
+                // hash前缀匹配：GLB动画名为 hash_remap 格式
+                const KNOWN_MAP = { idle: ['20aff4d1'], walk: ['97951ef0'], run: ['adfdbf68'],
+                    attack: ['31d8bc8b'], hit: ['38bab115'], death: ['6981c077'] };
+                for (const [key, names] of Object.entries(KNOWN_MAP)) {
+                    const clip = _zombieGlbCache.clips.find(c => names.some(n => c.name.toLowerCase().includes(n)));
+                    if (clip) {
+                        const action = mixer.clipAction(clip);
+                        clipMap[key] = action;
+                    }
+                }
+                console.log('🎬 丧尸动画匹配:', Object.keys(clipMap).join(', '), '| 未匹配:', 
+                    Object.keys(KNOWN_MAP).filter(k => !clipMap[k]).join(', ') || '无');
+                group.userData.zombieMixer = mixer;
+                group.userData.zombieClips = clipMap;
+                group.userData.zombieCurrent = null;
+                // 默认播放 idle
+                if (clipMap.idle) { clipMap.idle.reset().play(); group.userData.zombieCurrent = 'idle'; }
+                return true;
+            }
+            return false;
+        }
+
+        function zombieFallbackModel(group) {
+            if (!window.EnemyModels || !window.EnemyModels.createZombie) {
+                console.warn('zombieFallbackModel: createZombie 不可用');
+                return false;
+            }
+            const prog = window.EnemyModels.createZombie();
+            // 缩放到 1.8m
+            const bbox = new THREE.Box3().setFromObject(prog);
+            const sz = new THREE.Vector3(); bbox.getSize(sz);
+            if (sz.y > 0.001) {
+                const s = 1.8 / sz.y;
+                prog.scale.setScalar(s);
+                prog.position.set(0, -bbox.min.y * s, 0);
+            }
+            while (prog.children.length > 0) group.add(prog.children[0]);
+            return true;
+        }
+
+        // ─── 丧尸动画控制器（驱动 enemy.userData.anim） ───
+        function initZombieAnimController(enemy) {
+            const mixer = enemy.userData.zombieMixer;
+            const clips = enemy.userData.zombieClips;
+            if (!mixer || !clips) return;
+            console.log('🎬 丧尸动画控制器初始化 | 当前动作:', enemy.userData.zombieCurrent, 
+                '| 可用动作:', Object.keys(clips).join(','));
+            const anim = {
+                mixer,
+                actions: clips,
+                current: enemy.userData.zombieCurrent || 'idle',
+                atkAnimStart: 0,
+                atkHitApplied: false,
+                deathAnimDone: false,
+                play(name, crossfadeSec) {
+                    crossfadeSec = crossfadeSec || 0.15;
+                    const fromAction = clips[this.current];
+                    const toAction = clips[name];
+                    if (!toAction || !fromAction) {
+                        if (toAction && !fromAction) { toAction.reset().play(); this.current = name; }
+                        return;
+                    }
+                    if (this.current === name) return;
+                    // crossFade 切换
+                    fromAction.fadeOut(crossfadeSec);
+                    toAction.reset().fadeIn(crossfadeSec).play();
+                    this.current = name;
+                },
+                update(dt) {
+                    if (mixer) mixer.update(dt);
+                },
+                dispose() {
+                    if (mixer) mixer.stopAllAction();
+                }
+            };
+            enemy.userData.anim = anim;
         }
 
         function createBarsForPlayer(player) {
@@ -3037,49 +3259,47 @@
                         if (eDist < 1.2 && s.mesh.position.y < 1.5) {
                             const dmg = (combatData && combatData.playerCannonDamage) || 40;
                             const killed = window.EnemyAI.onEnemyDamaged(enemy, dmg, player1);
-                            window.EnemyAI.shareAggro(enemy, player1, enemies, 40);  // v0.26.4: 仇恨共享
+                            window.EnemyAI.shareAggro(enemy, player1, enemies, 40);
                             const hitPos = s.mesh.position.clone();
                             spawnHitSparks(hitPos);
                             hit = true;
                             if (killed) {
-                                // 敌人死亡：立即播放爆炸 + 隐藏模型 + 清理
-                                enemy.ai.state = 'dead';
-                                // 立即隐藏模型和 HP 条
-                                enemy.visible = false;
-                                if (enemy.userData.flameEffect) {
-                                    enemy.userData.flameEffect.active = false;
-                                    enemy.userData.flameEffect.points.visible = false;
-                                }
-                                const ep2 = enemy.position.clone(); ep2.y += 0.8;
-                                // 碎片 + 爆炸音效 + 大型爆炸火焰烟雾
-                                spawnFragments(ep2, '#8B7D4A');
-                                spawnExplosion(ep2);
-                                playExplosionSound();
-                                // 加分
-                                if (combatData) combatData.score += (enemy.cfg.score || 100);
-                                // v0.26.5: 战利品掉落
-                                spawnPickup(enemy);
-                                // 短延迟后销毁几何体/材质释放内存
-                                const deadEnemy = enemy;
-                                setTimeout(() => {
-                                    if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                                    deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                    // 清理火焰粒子效果
-                                    if (deadEnemy.userData.flameEffect) {
-                                        deadEnemy.userData.flameEffect.dispose();
+                                const isZombie = (enemy.cfg && enemy.cfg.type === 'zombie');
+                                if (isZombie) {
+                                    // 丧尸：不立即隐藏/爆炸，走死亡动画流程
+                                    enemy.ai.state = 'dead';
+                                    // 加分和掉落由 gameLoop 死亡动画处理，此处不重复执行
+                                } else {
+                                    // 敌人死亡：立即播放爆炸 + 隐藏模型 + 清理
+                                    enemy.ai.state = 'dead';
+                                    enemy.visible = false;
+                                    if (enemy.userData.flameEffect) {
+                                        enemy.userData.flameEffect.active = false;
+                                        enemy.userData.flameEffect.points.visible = false;
                                     }
-                                    const idx = enemies.indexOf(deadEnemy);
-                                    if (idx >= 0) enemies.splice(idx, 1);
-                                }, 300);
-                                // 检查是否清场
-                                if (enemies.every(e => e.ai.state === 'dead')) {
+                                    const ep2 = enemy.position.clone(); ep2.y += 0.8;
+                                    spawnFragments(ep2, '#8B7D4A');
+                                    spawnExplosion(ep2);
+                                    playExplosionSound();
+                                    if (combatData) combatData.score += (enemy.cfg.score || 100);
+                                    spawnPickup(enemy);
+                                    const deadEnemy = enemy;
                                     setTimeout(() => {
-                                        if (combatData) {
-                                            const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
-                                            hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
-                                                (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
-                                        }
-                                    }, 1500);
+                                        if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                        deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                        if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
+                                        const idx = enemies.indexOf(deadEnemy);
+                                        if (idx >= 0) enemies.splice(idx, 1);
+                                    }, 300);
+                                    if (enemies.every(e => e.ai.state === 'dead')) {
+                                        setTimeout(() => {
+                                            if (combatData) {
+                                                const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                                hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
+                                                    (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                            }
+                                        }, 1500);
+                                    }
                                 }
                             }
                             break; // 一发炮弹最多命中一个敌人
@@ -3278,7 +3498,71 @@
             if (gameMode === 'combat' && enemies.length > 0) {
                 for (let ei = enemies.length - 1; ei >= 0; ei--) {
                     const enemy = enemies[ei];
-                    if (!enemy || enemy.ai.state === 'dead') continue;
+                    if (!enemy) continue;
+                    const isDead = (enemy.ai.state === 'dead');
+                    const isZombie = (enemy.cfg && enemy.cfg.type === 'zombie');
+                    // 已死亡的非丧尸跳过全部处理
+                    if (isDead && !isZombie) continue;
+                    // 已死亡的丧尸只做动画处理（不执行AI/物理/伤害）
+                    if (isDead && isZombie) {
+                        if (enemy.userData.anim) {
+                            const anim = enemy.userData.anim;
+                            if (anim.mixer) anim.update(dt);
+                            if (!enemy.ai.deathAnimStarted && anim.actions.death) {
+                                enemy.ai.deathAnimStarted = true;
+                                anim.play('death', 0.3);
+                                anim.deathDoneTimer = 0;
+                            }
+                            if (enemy.ai.deathAnimStarted && anim.current === 'death') {
+                                const clip = anim.actions.death && anim.actions.death.getClip();
+                                const clipDur = clip ? clip.duration : 2.0;
+                                anim.deathDoneTimer = (anim.deathDoneTimer || 0) + dt;
+                                if (anim.deathDoneTimer >= clipDur) {
+                                    // 倒地动画结束 → 直接移除实例，无爆炸
+                                    enemy.visible = false;
+                                    if (combatData) combatData.score += (enemy.cfg.score || 50);
+                                    spawnPickup(enemy);
+                                    const deadEnemy = enemy;
+                                    setTimeout(() => {
+                                        if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                        deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                        if (deadEnemy.userData.anim && deadEnemy.userData.anim.mixer) deadEnemy.userData.anim.mixer.stopAllAction();
+                                        const idx = enemies.indexOf(deadEnemy);
+                                        if (idx >= 0) enemies.splice(idx, 1);
+                                    }, 300);
+                                    if (enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
+                                        setTimeout(() => {
+                                            if (combatData) {
+                                                const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                                hintBar.textContent = '🎉 已清场! 得分:' + combatData.score + (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                            }
+                                        }, 1500);
+                                    }
+                                }
+                            }
+                        } else {
+                            // 程序化丧尸（无 GLB 动画，兜底）：直接移除，无爆炸
+                            enemy.visible = false;
+                            if (combatData) combatData.score += (enemy.cfg.score || 50);
+                            spawnPickup(enemy);
+                            const deadEnemy = enemy;
+                            setTimeout(() => {
+                                if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                const idx = enemies.indexOf(deadEnemy);
+                                if (idx >= 0) enemies.splice(idx, 1);
+                            }, 300);
+                            if (enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
+                                setTimeout(() => {
+                                    if (combatData) {
+                                        const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                        hintBar.textContent = '🎉 已清场! 得分:' + combatData.score + (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                    }
+                                }, 1500);
+                            }
+                        }
+                        continue;
+                    }
                     // AI 状态机更新
                     window.EnemyAI.updateEnemyAI(enemy, dt, [player1], scene);
                     // 贴地 + 地形俯仰 (v0.26.4fix: 敌人车身随地形俯仰)
@@ -3375,6 +3659,112 @@
                             enemy.ai.flameRequest = false;
                         }
                     }
+
+                    // ── 丧尸专用更新：动画 + STUNNED + 攻击命中 + 死亡动画 ──
+                    if (enemy.cfg && enemy.cfg.type === 'zombie' && enemy.userData.anim) {
+                        const anim = enemy.userData.anim;
+                        const ai = enemy.ai;
+
+                        // 1. 更新动画混合器
+                        if (anim.mixer) anim.update(dt);
+
+                        // 2. 处理 STUNNED 退出
+                        if (ai.state === 'stunned') {
+                            const now = Date.now() / 1000;
+                            if (enemy.hp <= 0) {
+                                ai.state = 'dead';
+                                ai.animRequest = 'death';
+                                ai.deathAnimStarted = false;
+                            } else if (now - ai.lastHitTime > (enemy.cfg.stunRecoverTime || 1.5)) {
+                                ai.state = ai.prevState || 'patrol';
+                                ai.animRequest = 'walk';
+                            }
+                        }
+
+                        // 3. 攻击命中检测（挥击播放到 ~60% 时扣血）
+                        if (ai.animRequest === 'attack' && ai.animAtkStart > 0 && !ai.animHitApplied) {
+                            const elapsed = (Date.now() / 1000) - ai.animAtkStart;
+                            const clip = anim.actions.attack && anim.actions.attack.getClip();
+                            const clipDur = clip ? clip.duration : 1.0;
+                            const hitTime = clipDur * 0.6;
+                            if (elapsed >= hitTime) {
+                                ai.animHitApplied = true;
+                                if (player1 && !player1.dead) {
+                                    const pDist = enemy.position.distanceTo(player1.group.position);
+                                    if (pDist < (enemy.cfg.attackDist || 2.5)) {
+                                        const dmg = enemy.cfg.attackDamage || 10;
+                                        player1.hp -= dmg;
+                                        if (player1.hp < 0) player1.hp = 0;
+                                        playHitSound();
+                                        player1.ai = player1.ai || {};
+                                        player1.ai.hitFlash = 0.15;
+                                        combatShakeTimer = 0.12;
+                                        if (player1.damageEffects && !player1.damageEffects.active && player1.hp < 50) {
+                                            player1.damageEffects.show();
+                                        }
+                                        if (player1.hp <= 0) {
+                                            player1.dead = true;
+                                            const pep = player1.group.position.clone(); pep.y += 0.5;
+                                            spawnFragments(pep, '#4a5c2e');
+                                            playExplosionSound();
+                                            player1.group.visible = false;
+                                            if (combatData) combatData.lives--;
+                                            if (combatData && combatData.lives > 0) {
+                                                hintBar.textContent = '💀 你被丧尸击倒了! 剩余命数:' + combatData.lives + ' | 3秒后重生...';
+                                                setTimeout(() => respawnPlayer(), 3000);
+                                            } else {
+                                                hintBar.textContent = '💀 游戏结束! 最终得分:' + (combatData ? combatData.score : 0) + ' | 按ESC返回菜单';
+                                                const finalScore = combatData ? combatData.score : 0;
+                                                if (window.ScoreSystem) {
+                                                    window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. 攻击动画播完→进入冷却
+                        if (ai.animRequest === 'attack' && ai.animAtkStart > 0) {
+                            const elapsed = (Date.now() / 1000) - ai.animAtkStart;
+                            const clip = anim.actions.attack && anim.actions.attack.getClip();
+                            const clipDur = clip ? clip.duration : 1.0;
+                            const cd = enemy.cfg.attackCooldown || 2.0;
+                            if (elapsed >= clipDur + cd) {
+                                ai.atkReady = true;
+                                ai.animRequest = 'walk';
+                            }
+                        }
+
+                        // 5. 播放 AI 状态请求的动画
+                        if (ai.state !== 'stunned') {
+                            if (ai.animRequest === 'attack' && anim.current !== 'attack') {
+                                if (anim.actions.attack) {
+                                    anim.play('attack', 0.15);
+                                    ai.animAtkStart = Date.now() / 1000;
+                                    ai.animHitApplied = false;
+                                }
+                            } else if (ai.animRequest && ai.animRequest !== anim.current && ai.animRequest !== 'attack') {
+                                anim.play(ai.animRequest, 0.2);
+                            }
+                        } else {
+                            // STUNNED：播放受击动画（循环）
+                            if (anim.current !== 'hit' && anim.actions.hit) {
+                                anim.actions.hit.reset().play();
+                                anim.current = 'hit';
+                            }
+                        }
+
+                        // 6. 死亡动画启动（播完/清理由顶部跳过逻辑处理）
+                        if (enemy.hp <= 0 && ai.state === 'dead' && !ai.deathAnimStarted) {
+                            ai.deathAnimStarted = true;
+                            if (anim.actions.death) {
+                                anim.play('death', 0.3);
+                                anim.deathDoneTimer = 0;
+                            }
+                        }
+                    }
                 }
 
                 // 敌人障碍物碰撞检测（防止穿透建筑/树木/河流，使用装甲车半宽）
@@ -3396,7 +3786,10 @@
                         const dx = ea.position.x - eb.position.x;
                         const dz = ea.position.z - eb.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
-                        const minDist = ENEMY_HALF_W * 2; // 两车半宽之和=1.7
+                        // 按类型区分碰撞半径：丧尸 0.4m，车辆半宽 0.85m
+                        const ra = (ea.cfg && ea.cfg.type === 'zombie') ? 0.4 : ENEMY_HALF_W;
+                        const rb = (eb.cfg && eb.cfg.type === 'zombie') ? 0.4 : ENEMY_HALF_W;
+                        const minDist = (ra + rb) * 1.5; // 留 50% 余量
                         if (dist < minDist && dist > 0.001) {
                             const push = (minDist - dist) / 2;
                             const nx = dx / dist;
@@ -4000,6 +4393,16 @@
                         continue;
                     }
                     model = window.EnemyModels.createAssaultVehicle();
+                } else if (ecfg.type === 'zombie') {
+                    model = new THREE.Group();
+                    // 尝试 GLB 缓存 + 动画控制器
+                    const useGlb = loadOrQueueZombieGlb(model);
+                    if (!useGlb) {
+                        if (!zombieFallbackModel(model)) {
+                            console.warn('createEnemies: 丧尸 GLB 不可用且程序化回退失败');
+                            continue;
+                        }
+                    }
                 } else {
                     console.warn('createEnemies: 未知敌人类型 ' + ecfg.type);
                     continue;
@@ -4015,8 +4418,13 @@
                     const wpDz = wp0[1] - pos[2];
                     const wpDist = Math.sqrt(wpDx * wpDx + wpDz * wpDz);
                     if (wpDist > 0.5) {
-                        // 使前端 -X 指向首个巡逻点
-                        model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
+                        if (ecfg.type === 'zombie') {
+                            // 丧尸前端朝 +Z: rotY = atan2(dx, dz)
+                            model.rotation.set(0, Math.atan2(wpDx, wpDz), 0);
+                        } else {
+                            // 车辆前端朝 -X
+                            model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
+                        }
                     } else {
                         model.rotation.set(0, 0, 0);
                     }
@@ -4028,6 +4436,10 @@
                 model.userData.maxHp = model.hp;
                 model.userData.enemyType = ecfg.type;
                 model.userData.enemyId = ecfg.id;
+                // 丧尸不需要地形俯仰（人形单位应保持直立）
+                if (ecfg.type === 'zombie') {
+                    model.userData._noTerrainPitch = true;
+                }
                 // AI 运行时数据
                 model.ai = {
                     state: 'patrol',
@@ -4045,21 +4457,52 @@
                     strafeDir: 1,
                     wpStuckTimer: 0,  // v0.26.5: 巡逻卡住计时器
                     hitFlash: 0,
+                    // 丧尸专用字段
+                    animRequest: 'idle',
+                    animAtkStart: 0,
+                    animHitApplied: false,
+                    atkReady: true,
+                    lastHitTime: 0,
+                    prevState: 'patrol',
+                    deathAnimStarted: false,
                 };
-                // 初始化炮塔朝前
-                if (model.userData.turretPivot) {
+                // 初始化丧尸动画控制器（GLB 已加载时）
+                if (ecfg.type === 'zombie' && model.userData.zombieMixer) {
+                    initZombieAnimController(model);
+                }
+                // 初始化炮塔朝前（仅车辆）
+                if (ecfg.type !== 'zombie' && model.userData.turretPivot) {
                     model.userData.turretPivot.rotation.y = 0;
                 }
                 // 添加受击闪光白膜（半透明叠加层）
                 createEnemyHitFlashOverlay(model);
                 // 添加HP条
                 createEnemyHpBar(model);
-                // 火焰喷射视觉（初始隐藏）
-                createEnemyFlameVFX(model);
+                // 火焰喷射视觉（仅车辆）
+                if (ecfg.type !== 'zombie') {
+                    createEnemyFlameVFX(model);
+                } else if (model.userData.zombieMixer) {
+                    // 如果有 GLB 动画，启动 idle
+                    model.userData.anim = model.userData.anim || {};
+                    if (model.userData.zombieClips && model.userData.zombieClips.idle) {
+                        // 已在 initZombieAnimController 中处理
+                    }
+                }
                 scene.add(model);
                 enemies.push(model);
                 console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + pos[1].toFixed(1) + ',' + pos[2].toFixed(1) + ']');
             }
+        }
+
+        // ── 丧尸 GLB 按需加载（未加载时回退程序化） ──
+        function loadOrQueueZombieGlb(group) {
+            if (_zombieGlbCache.loaded) {
+                return spawnZombieFromGlb(group);
+            }
+            // GLB 尚未就绪：加入挂起队列，等加载完成后升级模型
+            _zombieGlbCache.pending.push(group);
+            loadZombieGlb();
+            return false; // 先用程序化回退，稍后升级
         }
 
         function createEnemyHpBar(enemy) {
@@ -4282,35 +4725,41 @@
                                 const hitWorldPos = hit.point.clone();
                                 spawnHitSparks(hitWorldPos);
                                 if (killed) {
-                                    en.ai.state = 'dead';
-                                    en.visible = false;
-                                    if (en.userData.flameEffect) {
-                                        en.userData.flameEffect.active = false;
-                                        en.userData.flameEffect.points.visible = false;
-                                    }
-                                    const ep = en.position.clone(); ep.y += 0.8;
-                                    spawnFragments(ep, '#8B7D4A');
-                                    spawnExplosion(ep);
-                                    playExplosionSound();
-                                    if (combatData) combatData.score += (en.cfg.score || 100);
-                                    // v0.26.5: 战利品掉落
-                                    spawnPickup(en);
-                                    const deadEnemy = en;
-                                    setTimeout(() => {
-                                        if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                                        deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                        if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
-                                        const idx = enemies.indexOf(deadEnemy);
-                                        if (idx >= 0) enemies.splice(idx, 1);
-                                    }, 300);
-                                    if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
+                                    const isZombie = (en.cfg && en.cfg.type === 'zombie');
+                                    if (isZombie) {
+                                        // 丧尸：不立即隐藏/爆炸，走死亡动画流程
+                                        en.ai.state = 'dead';
+                                        // 加分和掉落由 gameLoop 死亡动画处理，此处不重复执行
+                                    } else {
+                                        en.ai.state = 'dead';
+                                        en.visible = false;
+                                        if (en.userData.flameEffect) {
+                                            en.userData.flameEffect.active = false;
+                                            en.userData.flameEffect.points.visible = false;
+                                        }
+                                        const ep = en.position.clone(); ep.y += 0.8;
+                                        spawnFragments(ep, '#8B7D4A');
+                                        spawnExplosion(ep);
+                                        playExplosionSound();
+                                        if (combatData) combatData.score += (en.cfg.score || 100);
+                                        spawnPickup(en);
+                                        const deadEnemy = en;
                                         setTimeout(() => {
-                                            if (combatData) {
-                                                const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
-                                                hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
-                                                    (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
-                                            }
-                                        }, 1500);
+                                            if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                            deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                            if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
+                                            const idx = enemies.indexOf(deadEnemy);
+                                            if (idx >= 0) enemies.splice(idx, 1);
+                                        }, 300);
+                                        if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
+                                            setTimeout(() => {
+                                                if (combatData) {
+                                                    const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
+                                                    hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
+                                                        (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
+                                                }
+                                            }, 1500);
+                                        }
                                     }
                                 }
                             }
@@ -4357,10 +4806,18 @@
                 if (enemy.userData.flameEffect) {
                     enemy.userData.flameEffect.dispose();
                 }
+                if (enemy.userData.zombieMixer) {
+                    enemy.userData.zombieMixer.stopAllAction();
+                }
+                if (enemy.userData.anim && enemy.userData.anim.mixer) {
+                    enemy.userData.anim.mixer.stopAllAction();
+                }
                 if (enemy.parent) enemy.parent.remove(enemy);
                 enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             }
             enemies = [];
+            // 清除丧尸 GLB 挂起队列（这些 group 已被 remove，不应再升级）
+            _zombieGlbCache.pending = [];
         }
 
         function respawnPlayer() {
@@ -4711,7 +5168,7 @@
             }
 
             el.textContent =
-                'v0.26.9  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.26.11  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5126,8 +5583,10 @@
 
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
+        // 预加载丧尸 GLB（异步，确保进入战斗地图前已就绪）
+        loadZombieGlb();
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.26.9 | GLB预览缩放统一+工具箱GLB+包围盒重构 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°');
+        console.log('🎮 坦克运动demo v0.26.11 | 分图04a丧尸专属+GLB预加载+丧尸死亡倒地动画(无爆炸)+安全出生距离 | 03a=装甲车, 04a=丧尸');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

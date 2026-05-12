@@ -263,7 +263,12 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 7 | av-02 车身不随地形俯仰 | ✅ 已修复 v0.26.4 | enemyAI循环中添加terrainPitch计算 |
 | 8 | 首战时机枪音效频率翻倍 | ✅ 已修复 v0.26.4 | updateMGAutoTarget移出敌人循环 |
 | 9 | av-02 不共享仇恨（独立巡逻） | ✅ 已修复 v0.26.4 | shareAggro 40m半径广播 |
-| 10 | 丧尸多动作.glb 在Blender中显示异常 | 🟡 待排查 | Blender显示巨大棱角球+仅mesh，但demo预览可用 |
+| 10 | 丧尸多动作.glb 在Blender中显示异常 | 🟡 待排查 | Blender显示巨大棱角球+仅mesh，但引擎渲染正常 |
+| 11 | 丧尸GLB首次加载时序 | ✅ 已修复 v0.26.11 | GLB预加载+挂起队列升级 | 修复 v0.26.11 |
+| 12 | 丧尸地形俯仰方向与车辆不同 | ✅ 已修复 v0.26.11 | `_noTerrainPitch = true` | 修复 v0.26.11 |
+| 13 | 04a丧尸GLB出现在出生点(非部署点) | 🔴 需修复 | 日志部署坐标正确，视觉挤在[0,0]。疑似GLB Armature根级transform导致定位失效 | 待排查 |
+| 14 | 04a丧尸GLB尺寸巨大 | 🔴 需修复 | 包围盒计算多次切换方案未解决。computeBoundingSphere已调用但可能对SkinnedMesh无效 | 待排查 |
+| 15 | 04a丧尸T-pose不播放动画 | 🔴 需修复 | hash动画名6项全匹配，但AnimationMixer绑定group而非SkinnedMesh骨骼，可能动画不驱动骨骼 | 待排查 |
 
 ---
 
@@ -449,32 +454,48 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务（v0.26.10 接力点）
+## 🔄 下一对话起手任务（v0.26.12 接力点）
 
-当前版本 **v0.26.9**（已发布至 Gitee）。
+当前版本 **v0.26.11**（已推送至 Gitee）。
 
-### ✅ v0.26.9 已新增/改进
+### ✅ v0.26.11 已完成
 
-- **GLB预览包围盒计算重构**：改用各Mesh几何体local包围盒8角点×mesh.matrix变换到模型空间（排除骨骼Armature干扰）
-- **统一预览高度**：所有模型（GLB+程序化）按高度 Y 缩放到 **1.5 米**（原 3.0 米），底面贴地
-- **程序化模型定位修复**：`position.sub(center*s)` → `position.set(-cx*s, -minY*s, -cz*s)`，底面精确对齐 y=0
-- **不自动播放动画**：T-Pose静止姿态，按 ← → 键手动播放/切换（避免骨骼动画帧导致脚抬离地面）
-- **红色维修工具箱GLB**：模型预览→GLB模型→新增条目（`models/glb/红色维修工具箱减面.glb`）
-- **战利品工具箱GLB优先**：`models/pickups.js` 新增 `preloadGLB()`，GLB失败时自动回退程序化模型
+- 🗺️ **地图分拆**：03a恢复为纯装甲突击车(av-01/av-02)，新建04a丧尸专属地图(zm-01/zm-02，出生距离~90m)
+- ⚡ **GLB预加载**：`loadZombieGlb()` 页面初始化时异步启动，进入战斗地图时大概率已就绪
+- 🔄 **挂起队列升级**：GLB未就绪时创建的丧尸加入 `_zombieGlbCache.pending[]`，加载完自动升级
+- 💀 **丧尸死亡无爆炸**：倒地动画播完直接 remove，GLB+程序化两条路径均已移除爆炸
+- 🧟 **丧尸禁用地形俯仰**：`_noTerrainPitch = true`，人形单位不随地形倾斜
+- 🎬 **动画名hash匹配**：`KNOWN_MAP` 改为 hash 前缀（20aff4d1=idle, 97951ef0=walk, adfdbf68=run, 31d8bc8b=attack, 38bab115=hit, 6981c077=death），控制台可验证全匹配
+- 🧹 **cleanupEnemies** 同步清理 pending 队列
 
-### ✅ v0.26.8 已新增
+### 🔴 v0.26.11 已知遗留问题（待下轮修复）
 
-- 🧟 `models/glb/丧尸多动作.glb`：Blender多动画GLB模型
-- 菜单模型预览 → GLB模型 → 新增「丧尸 (多动作)」条目
-- 多动画切换功能：按 ← → 方向键在动画之间循环切换
-- 人形模型缩放修复：用高度Y轴而非最大维度（避免T-Pose缩放错误）
-- 包围盒尺寸日志（F12控制台）
+1. **丧尸出现在出生点**：日志显示部署位置正确（zm-01: [60,-70], zm-02: [-55,-65]），但视觉上丧尸挤在玩家出生点 [0,0] 附近。怀疑 GLB 场景根级有 Armature 骨骼偏移，导致 `spawnZombieFromGlb` 的 `model.position.set(-center*s, -bboxMinY*s, -center*z*s)` 定位失效。
+2. **丧尸巨大**：包围盒计算多次切换方案（`expandByObject`→`matrixWorld`手动→恢复`localMatrix`），始终未得到正确尺寸。`computeBoundingSphere` 已调用但可能对 SkinnedMesh 无效。
+3. **丧尸不动（T-pose）**：动画 hash 名匹配已验证通过，但 `initZombieAnimController` 创建的 `anim` 控制器可能因 mixer 绑定 group 而非 SkinnedMesh 导致动画不驱动骨骼。
 
-**待开始（v0.26.10）**：
-1. 🎯 丧尸AI实装（近战爪击伤害+靠近玩家→攻击），替换现有程序化模型为GLB模型
-2. Phase 5 HUD改造（HP/弹药/分数/积分）
-3. 清空积分UI按钮
-4. 执行混元3D丧尸GLB生成流程（如需要更精细模型）
+### 🎯 排查建议（下轮优先）
+
+1. **Blender 打开 GLB** 检查层级结构：Armature 根节点是否有巨大 scale/translate？SkinnedMesh 是否挂在 Armature 下？
+2. **在 `spawnZombieFromGlb` 加断点日志**：打印 `model.position`、`group.position`、遍历 `model.children` 看层级深度
+3. **临时方案**：若 GLB 层级异常，可考虑在 Blender 中 `Apply All Transforms` 后重新导出
+
+### 🗺️ 动画名映射（已确认，无需再排查）
+
+| 动作 | GLB clip name（前缀） |
+|------|----------------------|
+| idle 待机 | `Armature\|20aff4d1..._remap` |
+| walk 行走 | `Armature\|97951ef0..._remap` |
+| run 奔跑 | `Armature\|adfdbf68..._remap` |
+| attack 挥击 | `Armature\|31d8bc8b..._remap` (×2) |
+| hit 受击 | `Armature\|38bab115..._remap` |
+| death 倒地 | `Armature\|6981c077..._remap` |
+
+### 📋 后续计划（待设计）
+
+- 修复上述 🔴 遗留问题
+- 增加丧尸数量（4-6只）+ 分批巡逻
+- Boss 炮舰、积分UI等
 
 ### 🎯 混元3D 丧尸 GLB 模型生成方案（v0.26.6 新计划）
 

@@ -8,7 +8,7 @@
 
 (function() {
 
-    const AI_STATE = { PATROL:'patrol', CHASE:'chase', ENGAGE:'engage', FLEE:'flee', DEAD:'dead' };
+    const AI_STATE = { PATROL:'patrol', CHASE:'chase', ENGAGE:'engage', FLEE:'flee', STUNNED:'stunned', DEAD:'dead' };
 
     // ─── 通用工具 ───
     function moveToward(cur, target, step) {
@@ -242,71 +242,207 @@
             cfg.speed || 5.0, dt);
     }
 
+    // ── 丧尸专用：移动（步行）──
+    // 丧尸模型前端朝向 +Z，rotation.y=0 时面向 +Z
+    function moveZombieToward(enemy, targetX, targetZ, speed, dt) {
+        if (!dt || dt <= 0 || isNaN(dt)) return false;
+        const dx = targetX - enemy.position.x;
+        const dz = targetZ - enemy.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < 0.3) return true;
+
+        // 丧尸前端朝 +Z 时：worldForward = (sin(rotY), 0, cos(rotY))
+        // 目标方向角：让 sin(rotY)=dx/dist, cos(rotY)=dz/dist → rotY = atan2(dx, dz)
+        const targetYaw = Math.atan2(dx, dz);
+        const curYaw = enemy.rotation.y;
+        const rotSpeed = 4.0;
+        let ad = angleDiff(curYaw, targetYaw);
+        const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
+        enemy.rotation.y += rotStep;
+
+        // 前进（沿目标方向移动，不依赖局部坐标）
+        const forwardDot = Math.cos(curYaw - targetYaw);
+        if (forwardDot > -0.5) {
+            const alignment = Math.max(0.3, (forwardDot + 0.5) / 1.5);
+            const step = Math.min(speed * dt * alignment, dist);
+            enemy.position.x += (dx / dist) * step;
+            enemy.position.z += (dz / dist) * step;
+        }
+        return false;
+    }
+
+    // ── 丧尸近战攻击检测 ──
+    function canZombieAttack(enemy, player, attackDist) {
+        if (!player || player.dead) return false;
+        const dist = enemy.position.distanceTo(player.group.position);
+        return dist < (attackDist || 2.0);
+    }
+
     // ==================== 主 AI 更新（每帧调用） ====================
     function updateEnemyAI(enemy, dt, players, scene) {
         if (!enemy.ai || enemy.ai.state === AI_STATE.DEAD) return;
 
         const ai = enemy.ai;
         const cfg = enemy.cfg || {};
+        const isZombie = (cfg.type === 'zombie' || (enemy.userData && enemy.userData.enemyType === 'zombie'));
 
         // 寻找最近的存活玩家
         const { player: nearestPlayer, dist: nearestDist } = findNearestPlayer(enemy, players);
 
-        // 重置火焰请求标志
+        // 重置请求标志
         ai.flameRequest = false;
 
-        switch (ai.state) {
-            case AI_STATE.PATROL:
-                updatePatrol(enemy, ai, cfg, dt);
-                // 非被动模式下自动检测玩家
-                if (!cfg.reactive && nearestPlayer && canSeeTarget(enemy, nearestPlayer, Math.PI/4, cfg.viewDist || 60, scene)) {
-                    ai.state = AI_STATE.CHASE;
-                    ai.target = nearestPlayer;
-                    ai.lastSeenPlayerPos = nearestPlayer.group.position.clone();
-                    ai.alertTimer = 0;
-                }
-                break;
+        if (isZombie) {
+            // ── 丧尸专用 AI 状态机 ──
+            // STUNNED 状态由 gameLoop 管理，不在此处理
+            if (ai.state === AI_STATE.STUNNED) {
+                // STUNNED 状态下不移动不攻击，状态由 gameLoop 管理
+                ai.animRequest = 'hit';
+                return;
+            }
 
-            case AI_STATE.CHASE:
-                updateChase(enemy, ai, cfg, dt, nearestPlayer);
-                // 逼近到武器射程内 → 进入绕圈战斗
-                // 阈值 = 0.85×武器射程，保证进入 ENGAGE 时已在攻击距离内
-                {
-                    const wr = cfg.flameRange || 12;
-                    if (nearestPlayer && nearestDist < wr * 0.85) {
-                        ai.state = AI_STATE.ENGAGE;
+            switch (ai.state) {
+                case AI_STATE.PATROL:
+                    // 丧尸巡逻用步行
+                    if (cfg.patrolPath && cfg.patrolPath.length > 0) {
+                        const wp = cfg.patrolPath[ai.patrolIndex];
+                        moveZombieToward(enemy, wp[0], wp[1], cfg.speed || 2.5, dt);
+                        const dx = wp[0] - enemy.position.x;
+                        const dz = wp[1] - enemy.position.z;
+                        if (dx*dx+dz*dz < 1.0) {
+                            ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
+                        }
                     }
-                }
-                // 丢失目标 > 8 秒 → 返回巡逻
-                if (!nearestPlayer || nearestDist > (cfg.viewDist || 60) * 1.5) {
-                    ai.alertTimer = (ai.alertTimer || 0) + dt;
-                    if (ai.alertTimer > 8) {
-                        ai.state = AI_STATE.PATROL;
-                        ai.alertTimer = 0;
-                        ai.target = null;
+                    // 检测玩家
+                    if (!cfg.reactive && nearestPlayer && nearestDist < (cfg.viewDist || 30)) {
+                        ai.state = AI_STATE.CHASE;
+                        ai.target = nearestPlayer;
+                        ai.lastSeenPlayerPos = nearestPlayer.group.position.clone();
                     }
-                } else {
-                    ai.alertTimer = 0;
-                }
-                break;
+                    break;
 
-            case AI_STATE.ENGAGE:
-                updateEngage(enemy, ai, cfg, dt, nearestPlayer);
-                // 玩家跑远超出武器射程1.3倍 → 追击
-                {
-                    const wr = cfg.flameRange || 12;
-                    if (!nearestPlayer || nearestDist > wr * 1.3) {
+                case AI_STATE.CHASE:
+                    if (nearestPlayer) {
+                        moveZombieToward(enemy, nearestPlayer.group.position.x, nearestPlayer.group.position.z, (cfg.speed || 2.5) * 1.5, dt);
+                        ai.lastSeenPlayerPos = nearestPlayer.group.position.clone();
+                        // 进入攻击距离
+                        if (nearestDist < (cfg.attackDist || 2.0)) {
+                            ai.state = AI_STATE.ENGAGE;
+                            ai.atkReady = true;
+                        }
+                    }
+                    // 丢失目标
+                    if (!nearestPlayer || nearestDist > (cfg.viewDist || 30) * 1.5) {
+                        ai.alertTimer = (ai.alertTimer || 0) + dt;
+                        if (ai.alertTimer > 8) {
+                            ai.state = AI_STATE.PATROL;
+                            ai.alertTimer = 0;
+                            ai.target = null;
+                        }
+                    } else { ai.alertTimer = 0; }
+                    break;
+
+                case AI_STATE.ENGAGE:
+                    if (nearestPlayer) {
+                        const pDist = enemy.position.distanceTo(nearestPlayer.group.position);
+                        if (pDist < (cfg.attackDist || 2.0) && ai.atkReady) {
+                            // 攻击状态 — 播放挥击（单次）
+                            ai.animAtkStart = Date.now() / 1000;
+                            ai.animHitApplied = false;
+                            ai.atkReady = false;
+                        } else {
+                            // 靠近玩家
+                            moveZombieToward(enemy, nearestPlayer.group.position.x, nearestPlayer.group.position.z, cfg.speed || 2.5, dt);
+                        }
+                    }
+                    // 超出追击距离
+                    if (!nearestPlayer || nearestDist > (cfg.viewDist || 30) * 1.3) {
                         ai.state = AI_STATE.CHASE;
                     }
-                }
-                if (cfg.canFlee && enemy.hp < cfg.hp * 0.25) {
-                    ai.state = AI_STATE.FLEE;
-                }
-                break;
+                    // 逃跑判断
+                    if (cfg.canFlee && enemy.hp < cfg.hp * 0.25) {
+                        ai.state = AI_STATE.FLEE;
+                    }
+                    break;
 
-            case AI_STATE.FLEE:
-                updateFlee(enemy, ai, cfg, dt, nearestPlayer);
-                break;
+                case AI_STATE.FLEE:
+                    if (nearestPlayer) {
+                        const fx = enemy.position.x + (enemy.position.x - nearestPlayer.group.position.x);
+                        const fz = enemy.position.z + (enemy.position.z - nearestPlayer.group.position.z);
+                        moveZombieToward(enemy, fx, fz, (cfg.speed || 2.5) * 1.2, dt);
+                    }
+                    break;
+            }
+
+            // ── 丧尸 animRequest ──
+            if (ai.state === AI_STATE.STUNNED) {
+                ai.animRequest = 'hit';
+            } else if (ai.state === AI_STATE.DEAD) {
+                ai.animRequest = 'death';
+            } else if (ai.state === AI_STATE.ENGAGE && !ai.atkReady && !ai.animHitApplied && ai.animAtkStart) {
+                // 攻击动画播放中
+                ai.animRequest = 'attack';
+            } else if (ai.state === AI_STATE.ENGAGE && ai.atkReady) {
+                // 准备好攻击但不在攻击中 → 走路靠近
+                ai.animRequest = 'walk';
+            } else if (ai.state === AI_STATE.ENGAGE) {
+                // 攻击冷却中 → 走路
+                ai.animRequest = 'walk';
+            } else if (ai.state === AI_STATE.CHASE) {
+                ai.animRequest = 'run';
+            } else if (ai.state === AI_STATE.FLEE) {
+                ai.animRequest = 'run';
+            } else {
+                ai.animRequest = 'walk';
+            }
+        } else {
+            // ── 原有车辆 AI ──
+            switch (ai.state) {
+                case AI_STATE.PATROL:
+                    updatePatrol(enemy, ai, cfg, dt);
+                    if (!cfg.reactive && nearestPlayer && canSeeTarget(enemy, nearestPlayer, Math.PI/4, cfg.viewDist || 60, scene)) {
+                        ai.state = AI_STATE.CHASE;
+                        ai.target = nearestPlayer;
+                        ai.lastSeenPlayerPos = nearestPlayer.group.position.clone();
+                        ai.alertTimer = 0;
+                    }
+                    break;
+
+                case AI_STATE.CHASE:
+                    updateChase(enemy, ai, cfg, dt, nearestPlayer);
+                    {
+                        const wr = cfg.flameRange || 12;
+                        if (nearestPlayer && nearestDist < wr * 0.85) {
+                            ai.state = AI_STATE.ENGAGE;
+                        }
+                    }
+                    if (!nearestPlayer || nearestDist > (cfg.viewDist || 60) * 1.5) {
+                        ai.alertTimer = (ai.alertTimer || 0) + dt;
+                        if (ai.alertTimer > 8) {
+                            ai.state = AI_STATE.PATROL;
+                            ai.alertTimer = 0;
+                            ai.target = null;
+                        }
+                    } else { ai.alertTimer = 0; }
+                    break;
+
+                case AI_STATE.ENGAGE:
+                    updateEngage(enemy, ai, cfg, dt, nearestPlayer);
+                    {
+                        const wr = cfg.flameRange || 12;
+                        if (!nearestPlayer || nearestDist > wr * 1.3) {
+                            ai.state = AI_STATE.CHASE;
+                        }
+                    }
+                    if (cfg.canFlee && enemy.hp < cfg.hp * 0.25) {
+                        ai.state = AI_STATE.FLEE;
+                    }
+                    break;
+
+                case AI_STATE.FLEE:
+                    updateFlee(enemy, ai, cfg, dt, nearestPlayer);
+                    break;
+            }
         }
     }
 
@@ -315,19 +451,34 @@
         if (!enemy || !enemy.ai) return;
         const ai = enemy.ai;
         const eid = (enemy.userData && enemy.userData.enemyId) || '??';
+        const isZombie = (enemy.cfg && enemy.cfg.type === 'zombie') || (enemy.userData && enemy.userData.enemyType === 'zombie');
 
         enemy.hp = Math.max(0, enemy.hp - damage);
 
-        // 受击触发迎击（被动还击模式）
-        const prevState = ai.state;
-        if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE) {
-            ai.state = AI_STATE.CHASE;
-            ai.target = attacker;
-            if (attacker && attacker.group) {
-                ai.lastSeenPlayerPos = attacker.group.position.clone();
+        // 丧尸受击 → STUNNED（定身）
+        if (isZombie && enemy.hp > 0 && ai.state !== AI_STATE.STUNNED) {
+            const prevState = ai.state;
+            ai.prevState = prevState;
+            ai.state = AI_STATE.STUNNED;
+            ai.lastHitTime = Date.now() / 1000;
+            console.log('⚡ ' + eid + ' 受击! ' + prevState + ' → STUNNED (HP:' + enemy.hp + ')');
+        } else if (isZombie && enemy.hp > 0 && ai.state === AI_STATE.STUNNED) {
+            // 已定身中再次受击 → 刷新计时器
+            ai.lastHitTime = Date.now() / 1000;
+        }
+
+        // 非丧尸：受击触发迎击（被动还击模式）
+        if (!isZombie) {
+            const prevState = ai.state;
+            if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE) {
+                ai.state = AI_STATE.CHASE;
+                ai.target = attacker;
+                if (attacker && attacker.group) {
+                    ai.lastSeenPlayerPos = attacker.group.position.clone();
+                }
+                ai.alertTimer = 0;
+                console.log('⚡ ' + eid + ' 受击! ' + prevState + ' → CHASE (HP:' + enemy.hp + ')');
             }
-            ai.alertTimer = 0;
-            console.log('⚡ ' + eid + ' 受击! ' + prevState + ' → CHASE (HP:' + enemy.hp + ')');
         }
 
         // 受击反馈 → 交由 index.html 处理（闪光/粒子）
@@ -369,8 +520,10 @@
         onEnemyDamaged,
         shareAggro,
         findNearestPlayer,
+        moveZombieToward,
+        canZombieAttack,
     };
 
-    console.log('🧠 敌人AI系统已就绪 | 状态机: PATROL→CHASE→ENGAGE→FLEE | 被动还击模式已支持');
+    console.log('🧠 敌人AI系统已就绪 | 状态机扩展: PATROL→CHASE→ENGAGE→FLEE→STUNNED→DEAD | 丧尸AI已集成');
 
 })();

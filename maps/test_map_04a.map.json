@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "测试地图04a（丧尸）",
+  "size": 200,
+  "type": "single",
+  "mode": "combat",
+  "desc": "PvE丧尸地图：出生点→丧尸群 | 噪声地形+河流+桥梁",
+  "spawnPoints": { "p1": [0, 0, 1.57] },
+
+  "players": {
+    "lives": 3,
+    "hp": 100,
+    "cannonDamage": 40,
+    "cannonReload": 2.5,
+    "mgDamage": 5,
+    "mgRange": 50,
+    "mgFireRate": 3
+  },
+
+  "enemies": [
+    {
+      "id": "zm-01",
+      "type": "zombie",
+      "position": [60, 0, -70],
+      "patrolPath": [[60,-70], [70,-60], [75,-75], [55,-65]],
+      "reactive": false,
+      "hp": 40,
+      "speed": 2.5,
+      "viewDist": 30,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "stunRecoverTime": 1.5,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-02",
+      "type": "zombie",
+      "position": [-55, 0, -65],
+      "patrolPath": [[-55,-65], [-65,-55], [-60,-75], [-45,-60]],
+      "reactive": false,
+      "hp": 40,
+      "speed": 2.5,
+      "viewDist": 30,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "stunRecoverTime": 1.5,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    }
+  ],
+
+  "terrain": {
+    "pond": { "cx": 0, "cz": 50, "rx": 4.5, "rz": 6, "depth": 5 },
+    "river": { "zc": -60, "amp": 8, "period": 30, "hwBase": 6.25, "hwVar": 1.25, "hwPeriod": 20, "hwPhase": 1.5, "depth": 5 },
+    "hill": { "cx": 40, "cz": -30, "height": 4, "radius": 8 },
+    "basin": { "cx": 48, "cz": -25, "depth": 3, "radius": 5 }
+  },
+  "terrainTypes": {
+    "default": "grass",
+    "riverBank": { "bankWidth": 5, "type": "mud" },
+    "pondEdge": { "bankWidth": 3, "type": "mud" },
+    "hillTop": { "radius": 4, "type": "sand" },
+    "basin": { "radius": 3, "type": "sand" },
+    "bridgeSurface": { "type": "asphalt" }
+  },
+  "waters": {
+    "pond": { "waterLevel": -1 },
+    "river": { "waterLevel": -1 }
+  },
+  "bridges": [{ "cx": 0, "halfW": 4, "deckH": 0.35 }],
+  "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 }
+}
