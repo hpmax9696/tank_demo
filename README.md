@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.8** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.9** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,17 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.26.9 — GLB预览缩放统一+红色工具箱GLB+包围盒重构（2026-05-12）
+**改进**：
+- GLB预览包围盒计算重构：改用各Mesh几何体local包围盒8角点×mesh.matrix变换到模型空间（排除骨骼Armature干扰）
+- 模型预览统一缩放到1.5m高度，底面精确贴地（原3.0m，不统一导致部分模型悬浮或埋地）
+- 程序化模型定位修复：`position.sub(center*s)` → `position.set(-cx*s, -minY*s, -cz*s)`，底面精确对齐y=0
+- 丧尸多动作GLB不自动播放动画（T-Pose静止姿态，按←→键手动控制，避免骨骼动画帧导致脚抬离地面）
+
+**新增**：
+- 模型预览→GLB模型→新增「维修工具箱 (红色)」条目（`models/glb/红色维修工具箱减面.glb`）
+- 战利品工具箱改用GLB模型优先加载（`models/pickups.js`，`preloadGLB()`），程序化回退兜底
 
 ### v0.26.8 — 丧尸多动作GLB模型+动画切换（2026-05-11）
 **新增**：
@@ -705,14 +716,15 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.6 | PvE战斗系统+装甲突击车+丧尸 | 混元3D丧尸方案 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.9 | GLB预览缩放统一+工具箱GLB+包围盒重构 | PvE战斗系统+装甲突击车+丧尸 | 战利品掉落 | 积分持久化 | 陡视角+FOV 45°`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.8）
-- `index.html`：约 4430 行（HTML+CSS+JS，丧尸多动作GLB+动画切换+人形缩放修复+战斗系统+近防机枪+掉落拾取+敌间碰撞）
+### 代码规模（截至 v0.26.9）
+- `index.html`：约 4810 行（HTML+CSS+JS，GLB预览缩放统一+包围盒重构+红色工具箱GLB+战斗系统+近防机枪+掉落拾取+敌间碰撞）
 - `combat/enemyAI.js`：约 280 行（AI状态机 PATROL/CHASE/ENGAGE）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
+- `models/pickups.js`：约 214 行（战利品拾取模型+GLB优先加载+程序化回退）
 - `models/enemies.js`：约 210 行（装甲突击车程序化模型）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
