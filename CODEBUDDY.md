@@ -266,9 +266,11 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 10 | 丧尸多动作.glb 在Blender中显示异常 | 🟡 待排查 | Blender显示巨大棱角球+仅mesh，但引擎渲染正常 |
 | 11 | 丧尸GLB首次加载时序 | ✅ 已修复 v0.26.11 | GLB预加载+挂起队列升级 | 修复 v0.26.11 |
 | 12 | 丧尸地形俯仰方向与车辆不同 | ✅ 已修复 v0.26.11 | `_noTerrainPitch = true` | 修复 v0.26.11 |
-| 13 | 04a丧尸GLB出现在出生点(非部署点) | 🔴 需修复 | 日志部署坐标正确，视觉挤在[0,0]。疑似GLB Armature根级transform导致定位失效 | 待排查 |
-| 14 | 04a丧尸GLB尺寸巨大 | 🔴 需修复 | 包围盒计算多次切换方案未解决。computeBoundingSphere已调用但可能对SkinnedMesh无效 | 待排查 |
-| 15 | 04a丧尸T-pose不播放动画 | 🔴 需修复 | hash动画名6项全匹配，但AnimationMixer绑定group而非SkinnedMesh骨骼，可能动画不驱动骨骼 | 待排查 |
+| 13 | 04a丧尸GLB不可见（SkinnedMesh渲染故障） | ✅ 已修复 v0.26.13 | 根因：clone(true)不重新绑定骨骼引用→AnimationMixer更新无效。修复：cloneWithSkinnedMesh()内联SkeletonUtils.clone()重新bind |
+| 14 | 04a丧尸GLB尺寸巨大 | ✅ 已修复 v0.26.14 | 根因: boneInverses缩放不匹配(旧 1/0.01=100, 新需要1/0.9476)。修复: Armature.scale→1消除压缩 + inv(boneWorld)重算 |
+| 15 | 04a丧尸T-pose不播放动画 | ✅ 已修复 v0.26.13 | 骨骼绑定修复后AnimationMixer正确驱动克隆骨骼，6动作hash匹配全部可用 |
+| 16 | 机枪MG击杀丧尸无效 | ✅ 已修复 v0.26.13 | 添加全局安全网：僵尸hp≤0立即→dead（不限STUNNED状态） |
+| 17 | 丧尸GLB渲染异常(两条飘带) | 🔴 需修复 v0.26.14遗留 | Armature.scale→1修复尺寸但骨架蒙皮异常，可能需在Blender中Apply Scale后重新导出GLB |
 
 ---
 
@@ -454,33 +456,41 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务（v0.26.12 接力点）
+## 🔄 下一对话起手任务（v0.26.14 接力点）
 
-当前版本 **v0.26.12-dev**（未推送）。GLB 文件已从 git 恢复原始版本。
+当前版本 **v0.26.14**。丧尸GLB尺寸修复（1.8m），但渲染异常。
 
-### ✅ v0.26.11 已完成（略）
+### ✅ v0.26.14 已完成
 
-### 🔍 v0.26.12 本对话排查成果
+1. **骨骼绑定修复**：`cloneWithSkinnedMesh()` 替代 `clone(true)`，正确重绑定克隆骨骼
+2. **尺寸修复**：`Armature.scale→(1,1,1)` 消除 Blender 0.01 压缩，`model.scale≈0.948`，`boneInverses=inv(boneWorld)`
+3. **双倍掉落修复**：死亡动画加入 `deathAnimDone` 防重复标记
+4. **MG击杀修复**：全局安全网 `hp≤0→dead`（不限状态）
+5. **纹理恢复**：关闭 `ZOMBIE_GLB_DEBUG`，恢复原始GLB材质
 
-1. **Armature scale=0.01 为根因**：GLB 中 Armature Object3D 自带 `scale=(0.01,0.01,0.01)`，使 1.9m 几何体渲染为 0.019m（不可见）。
-2. **Apply Scale 不可行**：Blender `Ctrl+A→Scale` 会破坏 `inverseBindMatrices`，导致蒙皮顶点被错误位移（模型"炸开"）。必须恢复原始 GLB。
-3. **不可在代码中改 Armature.scale**：`Armature.scale=1` 同样破坏骨骼绑定矩阵，导致顶点不可见。
-4. **✅ 正确补偿方案**：`baseScale = targetH / (meshHeight × armatureScale) = 1.8 / (1.9 × 0.01) = 94.76`，放大外层 model.scale 来补偿 Armature 的 0.01 压缩。**已实现**。
-5. **✅ 动画、AI、碰撞正常**：mixer 时间持续递增，walk 动画播放，AI patrol 状态正确，HP条/受击/掉落/机枪全部工作。**仅 SkinnedMesh 渲染不可见**。
-
-### 🔴 v0.26.12 当前遗留（1个核心问题）
+### 🔴 v0.26.14 遗留（1个核心问题）
 
 | # | 问题 | 详情 |
 |---|------|------|
-| 1 | **SkinnedMesh 不可见** | baseScale=94.76 已正确计算（理论高度 1.8m），但视觉上完全看不到丧尸。战斗交互（HP条/受击/掉落）均正常，证明 position/collision/AI 都对。 |
+| 17 | **丧尸渲染异常（两条飘带）** | 尺寸已修复(1.8m/红色参考线验证)，但 SkinnedMesh 渲染像两条若隐若现的飘带。推测 Armature.scale→1 后 `inverseBindMatrices` 仍按旧骨骼位置计算，导致顶点蒙皮偏移 |
 
-### 🎯 下轮排查建议（按优先级）
+### 🎯 下轮建议
 
-1. **frutumCulled**：在 `spawnZombieFromGlb` 的 traverse 中加 `c.frustumCulled = false`，排除视锥剔除干扰。
-2. **skeleton 状态**：检查 `skin.skeleton` 是否初始化，尝试 `skin.skeleton.update()` 或 `skin.skeleton.computeBoneTransform()`。
-3. **材质/纹理**：打印 `skin.material`，检查 opacity/visible/wireframe/alphaTest 等属性。
-4. **世界空间包围盒**：`new THREE.Box3().setFromObject(skin)` 看 SkinnedMesh 实际渲染范围。
-5. **备选兜底**：若 GLB SkinnedMesh 短时间无法修复，可临时用程序化 `zombieFallbackModel` 渲染，保留 GLB 的 AI/动画数据。
+1. **Blender 修复**（推荐）：在 Blender 中对 Armature 执行 `Ctrl+A→Apply Scale`，重新导出 GLB。这样骨骼的 `inverseBindMatrices` 在导出时就匹配 scale=1，无需运行时改 Armature.scale。
+2. **预留还原点**：`_zombieGlbCache` 中有原始 `armatureScale=0.01` 检测逻辑，备选方案回退到外缩放方案。
+3. **双倍掉落**：已修复（`deathAnimDone` 守卫）。
+4. **MG击杀**：已修复（全局安全网）。
+
+### 📏 尺寸修复方案详情
+
+```
+Blender导出: Armature.scale=0.01 → 1.9m模型→0.019m
+旧方案: model.scale=94.76, Armature=0.01, boneInverse=100 → 170m巨人
+新方案: Armature.scale→1, model.scale=0.948, boneInverse=inv(boneWorld) → 1.80m
+渲染异常: Armature.scale变化改变了骨骼模型空间坐标，但蒙皮权重绑定点未同步适配
+```
+- **frutumCulled=false** 保留作为安全措施
+- **baseScale=94.76** 补偿公式保持不变
 
 ### 🗺️ GLB 层级结构（已确认）
 
@@ -501,17 +511,14 @@ effectiveH = sz.y × armatureScale = 1.9 × 0.01 = 0.019
 baseScale = targetH / effectiveH = 1.8 / 0.019 = 94.76
 → 最终渲染高度 = 1.9 × 0.01 × 94.76 = 1.80m ✅
 ```
-| walk 行走 | `Armature\|97951ef0..._remap` |
-| run 奔跑 | `Armature\|adfdbf68..._remap` |
-| attack 挥击 | `Armature\|31d8bc8b..._remap` (×2) |
-| hit 受击 | `Armature\|38bab115..._remap` |
-| death 倒地 | `Armature\|6981c077..._remap` |
 
-### 📋 后续计划（待设计）
+### 🎯 下轮建议（按优先级）
 
-- 修复上述 🔴 遗留问题
-- 增加丧尸数量（4-6只）+ 分批巡逻
-- Boss 炮舰、积分UI等
+1. **验证渲染效果**：启动04a地图确认丧尸 GLB 正确显示（位置/尺寸/动画）
+2. **动画验证**：确认6个动画全部正常播放（idle/walk/run/attack/hit/death）
+3. **性能检查**：多只丧尸（4-6只）场景下的 FPS 表现
+4. **后续增强**：增加丧尸数量、分批巡逻、Boss 单位等
+
 
 ### 🎯 混元3D 丧尸 GLB 模型生成方案（v0.26.6 新计划）
 

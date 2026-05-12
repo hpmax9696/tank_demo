@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.11** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.26.14** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -225,6 +225,29 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.26.14 — 丧尸GLB尺寸修复：Armature.scale→1+双倍掉落+纹理恢复（2026-05-12）
+-**修复**：
+-- **尺寸修复**：`Armature.scale=(1,1,1)` 消除Blender导出的0.01压缩，`boneInverses=inv(boneWorld)`重算，`model.scale≈0.95`
+-- **双倍掉落**：死亡动画添加`deathAnimDone`防重复标记
+-- **纹理恢复**：关闭`ZOMBIE_GLB_DEBUG`，恢复原始GLB材质
+-- **MG击杀**：僵尸更新环添加全局安全网（hp≤0→dead，不限状态）
+-- **🔴 已知遗留**：丧尸渲染异常（两条飘带），可能因`Armature.scale`变化影响骨骼蒙皮
+
+### v0.26.13 — GLB包围盒世界矩阵修复+僵尸尺寸/位置恢复正常+MG击杀安全网（2026-05-12）
+-**修复**：
+-- **巨人bug**：包围盒计算改用 `gltf.scene.updateMatrixWorld(true)` + `c.matrixWorld` 替代 `c.updateMatrix()` + `c.matrix`。局部矩阵不包含 Armature scale=0.01，导致 bboxMinY=-0.95m → position.y=90m（浮空）。世界矩阵修正后 bboxMinY≈-0.0095 → 正常贴地。
+-- **MG击杀**：僵尸更新中添加全局安全网（不论状态，hp≤0 立即→dead）。之前仅 STUNNED 状态下有 hp≤0 检查，MG击杀时可能跳过。
+-- ZOMBIE_GLB_DEBUG 恢复开启（MeshNormalMaterial 替代纹理便于验证尺寸）
+-- **🔴 验证中**：04a地图丧尸尺寸/位置/动画是否全部正常
+
+### v0.26.12 — 丧尸GLB渲染诊断：Armature.scale根因+baseScale补偿公式（2026-05-12）
+-**诊断成果**：
+-- **Armature scale=0.01根因**：GLB中 `Object3D "Armature"` 自带 `scale=(0.01,0.01,0.01)`，使1.9m模型渲染为0.019m
+-- **补偿公式**：`baseScale = targetH / (sz.y × armatureScale) = 1.8 / (1.9 × 0.01) = 94.74`，放大外层model.scale补偿
+-- **不可改Armature.scale**：直接修改会破坏骨骼绑定矩阵（`inverseBindMatrices`）
+-- frutumCulled=false已应用、SkinnedMesh MeshNormalMaterial诊断已添加
+-- SkinnedMesh 仍不可见 → 怀疑 `clone(true)` 骨骼引用未重新绑定
 
 ### v0.26.11 — 分图04a丧尸专属+GLB预加载+丧尸死亡无爆炸+动画hash匹配（2026-05-12）
 -**改进**：
@@ -739,12 +762,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.11 | 分图04a丧尸专属+GLB预加载+丧尸死亡倒地动画(无爆炸)+安全出生距离 | 03a=装甲车, 04a=丧尸`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.26.14 | 丧尸GLB尺寸修复+Armature.scale消除压缩 | 03a=装甲车, 04a=丧尸`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.11）
-- `index.html`：约 5400 行（HTML+CSS+JS，丧尸地图分拆+GLB预加载挂起升级+动画hash匹配+死亡无爆炸）
+### 代码规模（截至 v0.26.14）
+- `index.html`：约 5450 行（HTML+CSS+JS，丧尸GLB尺寸修复Armature.scale消除压缩+双倍掉落修复）
 - `combat/enemyAI.js`：约 400 行（AI状态机扩展 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD，丧尸专用移动+受击定身）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
 - `models/pickups.js`：约 214 行（战利品拾取模型+GLB优先加载+程序化回退）
