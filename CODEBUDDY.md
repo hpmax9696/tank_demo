@@ -161,6 +161,11 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 雾距 | near 70 / far 110 | `Fog` |
 | 天空 | 已移除（v0.24.5，陡视角不可见） | — |
 | 地面 | 300×300 | `createGround()` 地形 + 纹理混合 |
+| 丧尸模型 | ZOMBIE_CONFIG 24节点 ~458 tris | `zombie_prototype.html` |
+| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值 |
+| 丧尸身高 | 1.0m | pivot 系统 + buildZombieFromConfig |
+| 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
+| 04a地图 | GLB丧尸 ×2 | 预加载+缓存克隆 |
 
 ## 常见修复模式
 
@@ -182,7 +187,7 @@ git push origin master    # Gitee
 git push github master    # GitHub
 
 # OneDrive 同步（含 CODEBUDDY.md 和 sky-panorama.png）
-Copy-Item -Path "index.html","README.md","CODEBUDDY.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
+Copy-Item -Path "index.html","README.md","CODEBUDDY.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js","zombie_prototype.html" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
 Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
 Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
 Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\combat\" -Recurse -Force
@@ -254,23 +259,10 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 | # | 问题 | 优先级 | 详情 |
 |---|------|--------|------|
-| 1 | 里程恒为 0 | 🔴 需修复 | — |
-| 2 | 坦克驶上桥梁不提升 | 🔴 需修复 | — |
-| 3 | 河水效果不真实 | 🟡 改进项 | — |
-| 4 | 草丛不显示（InstancedMesh 初始化时序） | 🟡 间歇性 | — |
-| 5 | `.encoding` 废弃警告 | 🟢 可忽略 | — |
-| 6 | av-01 初始停在出生点不移动 | ✅ 已修复 v0.26.4 | 初始朝向面向首巡逻点 + dt防护 |
-| 7 | av-02 车身不随地形俯仰 | ✅ 已修复 v0.26.4 | enemyAI循环中添加terrainPitch计算 |
-| 8 | 首战时机枪音效频率翻倍 | ✅ 已修复 v0.26.4 | updateMGAutoTarget移出敌人循环 |
-| 9 | av-02 不共享仇恨（独立巡逻） | ✅ 已修复 v0.26.4 | shareAggro 40m半径广播 |
-| 10 | 丧尸多动作.glb 在Blender中显示异常 | 🟡 待排查 | Blender显示巨大棱角球+仅mesh，但引擎渲染正常 |
-| 11 | 丧尸GLB首次加载时序 | ✅ 已修复 v0.26.11 | GLB预加载+挂起队列升级 | 修复 v0.26.11 |
-| 12 | 丧尸地形俯仰方向与车辆不同 | ✅ 已修复 v0.26.11 | `_noTerrainPitch = true` | 修复 v0.26.11 |
-| 13 | 04a丧尸GLB不可见（SkinnedMesh渲染故障） | ✅ 已修复 v0.26.13 | 根因：clone(true)不重新绑定骨骼引用→AnimationMixer更新无效。修复：cloneWithSkinnedMesh()内联SkeletonUtils.clone()重新bind |
-| 14 | 04a丧尸GLB尺寸巨大 | ✅ 已修复 v0.26.14 | 根因: boneInverses缩放不匹配(旧 1/0.01=100, 新需要1/0.9476)。修复: Armature.scale→1消除压缩 + inv(boneWorld)重算 |
-| 15 | 04a丧尸T-pose不播放动画 | ✅ 已修复 v0.26.13 | 骨骼绑定修复后AnimationMixer正确驱动克隆骨骼，6动作hash匹配全部可用 |
-| 16 | 机枪MG击杀丧尸无效 | ✅ 已修复 v0.26.13 | 添加全局安全网：僵尸hp≤0立即→dead（不限STUNNED状态） |
-| 17 | 丧尸GLB渲染异常(两条飘带) | 🔴 需修复 v0.26.14遗留 | Armature.scale→1修复尺寸但骨架蒙皮异常，可能需在Blender中Apply Scale后重新导出GLB |
+| 1 | GLB丧尸模型系统待清理 | 🔴 待执行 | 约300行GLB加载/缓存/cloneWithSkinnedMesh代码，新程序化模型就绪后移除 |
+| 2 | 丧尸程序化模型集成到主项目 enemies.js | 🔴 待执行 | 原型在 zombie_prototype.html，含 ZOMBIE_CONFIG + buildZombieFromConfig + AnimationSystem |
+| 3 | ZombieAIController 8状态机实现 | 🔴 待执行 | 新建类含 IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD，空间网格优化 |
+| 4 | 04a地图部署5只新程序化丧尸 | 🔴 待执行 | 替换现有2只GLB丧尸，含独立巡逻路径+行为参数 |
 
 ---
 
@@ -456,170 +448,62 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务（v0.26.14 接力点）
+## 🔄 下一对话起手任务（Zombie 程序化模型 v0.27.0 原型）
 
-当前版本 **v0.26.14**。丧尸GLB尺寸修复（1.8m），但渲染异常。
+当前进度：**丧尸程序化模型原型已完成**（`zombie_prototype.html`），待集成到主项目 `enemies.js`。
 
-### ✅ v0.26.14 已完成
+### ✅ 已完成
 
-1. **骨骼绑定修复**：`cloneWithSkinnedMesh()` 替代 `clone(true)`，正确重绑定克隆骨骼
-2. **尺寸修复**：`Armature.scale→(1,1,1)` 消除 Blender 0.01 压缩，`model.scale≈0.948`，`boneInverses=inv(boneWorld)`
-3. **双倍掉落修复**：死亡动画加入 `deathAnimDone` 防重复标记
-4. **MG击杀修复**：全局安全网 `hp≤0→dead`（不限状态）
-5. **纹理恢复**：关闭 `ZOMBIE_GLB_DEBUG`，恢复原始GLB材质
+1. **程序化丧尸骨架**（`zombie_prototype.html` ~900 行完整原型）
+   - `ZOMBIE_CONFIG` 层级树配置（根→骨盆→躯干→头/颈/双臂/双腿/足，24 个节点）
+   - `buildZombieFromConfig()` 递归构建函数，支持 `Box/Sphere/Cylinder/Group`
+   - **关节 pivot 系统**：每个转动的部位有独立的 pivot Group（如 `l_upper_arm_pivot`），旋转围绕关节端而非几何中心
+   - **pivot 补偿算法**：子节点位置自动补偿父节点 pivot 偏移，不累计
+   - **程序化贴图**：`createZombieMaterials()` 使用 Canvas 2D 生成 256×256 diffuse + roughness 贴图（灰绿基底 + 血渍 + 溃烂斑 + 污垢线条）
+   - **材质字典**：`skin_rot` / `cloth_torn` / `eye_glow` 三种材质，同 materialId 共享 MeshStandardMaterial 实例
+   - **自动插入部件**：发光眼睛（emissive #ff2200 × 2）+ 血迹滴落 × 4
+   - **lil-gui 调试面板**：18 个部件独立滑杆控制 position/rotation + 固化 JSON 输出
+   - **总面数**: ~458 tris
 
-### 🔴 v0.26.14 遗留（1个核心问题）
+2. **AnimationSystem**（自定义动画系统，不依赖 THREE.AnimationMixer）
+   - `AnimationSystem` 类：直接对象引用 + 线性插值 + 循环/单次模式
+   - 6 种动画 Clip：
+     | 动作 | 时长 | 关键特征 |
+     |------|------|---------|
+     | Idle | 2.0s | 躯干左右摇摆 + 呼吸起伏 + 头晃动 |
+     | Hit | 0.5s | 躯干/头快速后仰→恢复，短促有力 |
+     | Attack | 1.0s | 曲臂回收→前臂前伸刺击→复位，躯干前倾配合 |
+     | Walk | 1.5s | 双腿交替摆动 + 膝盖微曲 + 骨盆起伏 + 手臂晃动 |
+     | Run | 0.8s | Walk 加速版 + 躯干前倾 0.55 + 摆臂加大 |
+     | Die | 1.5s | **分阶段协同**：Phase1 前扑触地(0~0.5s) + Phase2 瘫软松弛四肢外展(0.5~1.5s) |
 
-| # | 问题 | 详情 |
-|---|------|------|
-| 17 | **丧尸渲染异常（两条飘带）** | 尺寸已修复(1.8m/红色参考线验证)，但 SkinnedMesh 渲染像两条若隐若现的飘带。推测 Armature.scale→1 后 `inverseBindMatrices` 仍按旧骨骼位置计算，导致顶点蒙皮偏移 |
+3. **已知问题已修复**
+   - ✅ 关节旋转轴心（pivot 系统解决）
+   - ✅ headPivot 引用错误
+   - ✅ childComp vs appliedComp 混淆
+   - ✅ SyntaxError (console.log 在数组字面量内)
+   - ✅ Die 手臂向外摊开方向
 
-### 🎯 下轮建议
+### 🔴 待完成任务
 
-1. **Blender 修复**（推荐）：在 Blender 中对 Armature 执行 `Ctrl+A→Apply Scale`，重新导出 GLB。这样骨骼的 `inverseBindMatrices` 在导出时就匹配 scale=1，无需运行时改 Armature.scale。
-2. **预留还原点**：`_zombieGlbCache` 中有原始 `armatureScale=0.01` 检测逻辑，备选方案回退到外缩放方案。
-3. **双倍掉落**：已修复（`deathAnimDone` 守卫）。
-4. **MG击杀**：已修复（全局安全网）。
+| # | 任务 | 优先级 | 详情 |
+|---|------|--------|------|
+| 1 | **集成到主项目** | P0 | 将 `ZOMBIE_CONFIG` + `buildZombieFromConfig` + `createMaterial` + `AnimationSystem` 移植到 `models/enemies.js` 和 `index.html` |
+| 2 | **丧尸 AI 播放动画** | P0 | 在 `enemyAI.js` 状态机中调用 `AnimationSystem.play()`，PATROL→Walk、CHASE→Run、ENGAGE→Attack、HIT→Hit、DEAD→Die |
+| 3 | **3D 预览菜单** | P1 | 将原型 lil-gui 替换为菜单系统模型预览（敌方单位→丧尸） |
 
-### 📏 尺寸修复方案详情
+### 📊 原型参数表
 
-```
-Blender导出: Armature.scale=0.01 → 1.9m模型→0.019m
-旧方案: model.scale=94.76, Armature=0.01, boneInverse=100 → 170m巨人
-新方案: Armature.scale→1, model.scale=0.948, boneInverse=inv(boneWorld) → 1.80m
-渲染异常: Armature.scale变化改变了骨骼模型空间坐标，但蒙皮权重绑定点未同步适配
-```
-- **frutumCulled=false** 保留作为安全措施
-- **baseScale=94.76** 补偿公式保持不变
-
-### 🗺️ GLB 层级结构（已确认）
-
-```
-Scene (Group, scale=1)
-  Object3D "Armature" (scale=0.01 ← 根因)
-    Bone "root" (pos: ~0,-1,0)
-      Bone "Hips" (pos: 0,1,0) → Spine → ... → Head
-      LeftUpLeg/RightUpLeg → LeftLeg/RightLeg → ...
-    SkinnedMesh "Mesh_0001" (pos: 0,0,0, scale: 1)
-```
-
-### 🎬 baseScale 计算公式（已实现）
-
-```
-armatureScale = 0.01
-effectiveH = sz.y × armatureScale = 1.9 × 0.01 = 0.019
-baseScale = targetH / effectiveH = 1.8 / 0.019 = 94.76
-→ 最终渲染高度 = 1.9 × 0.01 × 94.76 = 1.80m ✅
-```
-
-### 🎯 下轮建议（按优先级）
-
-1. **验证渲染效果**：启动04a地图确认丧尸 GLB 正确显示（位置/尺寸/动画）
-2. **动画验证**：确认6个动画全部正常播放（idle/walk/run/attack/hit/death）
-3. **性能检查**：多只丧尸（4-6只）场景下的 FPS 表现
-4. **后续增强**：增加丧尸数量、分批巡逻、Boss 单位等
-
-
-### 🎯 混元3D 丧尸 GLB 模型生成方案（v0.26.6 新计划）
-
-> **记录日期**: 2026-05-11 | **优先级**: 🔴 P0 | **预计耗时**: 2-3小时人工操作 + 1轮AI集成
-
-#### 背景
-
-当前丧尸模型为 `models/enemies.js` 中的 `makeZombie()` 程序化生成（~450三角面，灰白皮肤+肋骨+牛仔裤）。计划用混元3D AI生成的GLB模型替代，以获得更好的视觉效果和骨骼动画。
-
-#### 为什么选混元3D？
-
-- 腾讯混元3D支持「3D人物生成」模式，**自动输出标准 T-Pose 全身人形模型**
-- 支持文生3D/图生3D两种方式
-- 平台最低输出 5万面，后续减面到 ~3K
-- 生成后可直接使用「自动骨骼绑定」功能
-
-#### 流程图
-
-```
-混元3D「文生3D」     Blender              Blender              Blender
-  ──────────────►    ──────────►         ──────────►          ──────────►
-  T-Pose 白模        Decimate 减面       Armature 绑骨        5个动画制作
-  5万面 GLB          → ~3K三角面         自动蒙皮             idle/walk/
-                                                            sprint/lunge/death
-
-Blender                   项目
-  ──────────►             ──────────►
-  导出 GLB                index.html 集成
-  勾选 Animation          替换 makeZombie()
-  ↓
-models/glb/zombie.glb
-```
-
-#### 详细步骤
-
-| 步骤 | 工具 | 操作 | 预计耗时 |
-|------|------|------|----------|
-| **1** | 混元3D | 「文生3D → 3D人物生成」输入提示词（见下方），生成 T-Pose 丧尸 | 5min |
-| **2** | 混元3D | 下载 GLB 文件到本地 | 1min |
-| **3** | Blender | 导入 GLB，添加 Decimate Modifier（Collapse，Ratio≈0.06），应用减面至 ~3K 三角面 | 5min |
-| **4** | Blender | 添加 Armature（Human Meta-Rig / Auto-Rig Pro），自动蒙皮 | 10min |
-| **5** | Blender | 制作 5 个 NLA Action：idle(原地微晃)、walk(慢步前倾)、sprint(快速冲扑)、lunge(双手前抓)、death(倒地) | 30-45min |
-| **6** | Blender | Export → GLB 2.0，勾选 Animation、Skinning、Compression | 2min |
-| **7** | 项目 | 将 `zombie.glb` 放入 `models/glb/`，index.html 集成加载+动画播放 | 1轮AI |
-
-#### 提示词（3套方案，按优先级使用）
-
-**方案一：文生3D（推荐首选）**
-```
-一个瘦削的男性丧尸，T-Pose站立姿势，双臂水平向两侧完全伸展，双腿并拢直立。灰白色腐烂皮肤，身上有明显的肋骨轮廓，穿着破烂的深蓝色牛仔裤，赤脚。面部凹陷，眼窝深黑，嘴部微张露出牙齿。头发稀疏凌乱。身体前倾微驼，手臂略微前伸呈抓握状。低多边形风格，适合游戏使用。
-```
-
-**方案二：图生3D（有参考图时用）**
-```
-将这个角色转换为标准T-Pose站姿的3D模型，双臂水平伸展，双腿并拢直立。保留原角色的腐烂皮肤、伤口纹理和服装特征。适合游戏引擎使用的低多边形风格。
-```
-
-**方案三：备用变体（方案一效果不理想时）**
-```
-卡通风格的男性丧尸角色，T-Pose大字型站姿。青灰色皮肤带暗紫色斑点，上半身赤裸露出嶙峋肋骨，下半身穿着破烂的深色长裤。头部略大，眼球突出呈黄色，嘴巴歪斜流着暗色液体。手臂向前方伸出，手指呈爪状弯曲。整体风格偏向写实与卡通之间，适合第三人称射击游戏的杂兵敌人。
-```
-
-#### 关键参考
-
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| 生成面数 | 5万面（最小档） | 混元3D平台最低档，几何信息充足 |
-| 减面后目标 | ~3,000三角面 | 适合 Web 游戏同屏 5-8 个丧尸 |
-| 骨骼动画 | 5个 Action | idle/walk/sprint/lunge/death |
-| 姿势要求 | T-Pose 双臂水平 | 必须，否则自动绑骨失败 |
-| 材质 | 混元3D自动生成 PBR | 含颜色+法线贴图 |
-
-#### 检查清单（生成后验证）
-
-- [ ] 姿势：双臂水平、双腿直立，无明显歪斜
-- [ ] 身体完整性：无缺胳膊少腿、无破洞
-- [ ] 左右大致对称（丧尸不必完美）
-- [ ] 减面后轮廓清晰，头部/躯干/四肢可辨
-- [ ] 骨骼动画可正常播放，无严重扭曲
-
-### 🟢 P0 计划任务: 树木 InstancedMesh 重构 + 精度提升
-
-**目标**：将 ~245 棵树木从独立 Mesh（490 draw calls）迁移到 InstancedMesh（4 draw calls），释放性能后提高几何精度并新增橡树品种。
-
-**方案概要**：
-1. `trees.js` 重构：锥形树/球形树/橡树各输出共享 Geometry+Material，不再每棵 new Group/Mesh
-2. `createObstacles()` 改为两阶段：采样时分类收集（coneList/sphereList/oakList/buildingPoints），采样后批量创建 InstancedMesh
-3. 几何精度提升：树干 6→16段、锥形树冠 8→24段、球形树冠 8×6→20×14段
-4. 新增橡树品种（椭球形树冠，注册权重≈20），总树种从2→3
-5. 地图重建 `rebuildMap()` 中一行 `.dispose()` 清理
-
-**预期收益**：draw calls 810→~322（-60%），树木精度提升5-10倍，性能余量 3ms→5-6ms
-
-### 📊 当前性能基线
-
-| 指标 | 值 |
+| 参数 | 值 |
 |------|-----|
-| FPS | 60 |
-| 渲染耗时 | ~13.45ms |
-| 帧预算余量 | ~3.2ms |
-| 阴影 | PCFShadowMap, 1024px, 72×72（双人动态扩展到两玩家中点） |
+| 总节点数 | 24（含 11 个 pivot） |
+| 总面数 | ~458 tris |
+| Diffuse/Roughness | 256×256 Canvas 程序化 |
+| 材质类型 | skin_rot, cloth_torn, eye_glow |
+| 发光眼睛 | emissive #ff2200, intensity 3 |
+| 动画系统 | 自定义 AnimationSystem（6 clips） |
+| 调试工具 | lil-gui 面板 + 固化 JSON 输出 |
+| Three.js 版本 | r160 (CDN)
 
 ### ✅ v0.26.4 已修复
 

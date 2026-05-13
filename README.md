@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.26.14** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.27.0** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -74,11 +74,17 @@ python -m http.server 8080
 ├── grass.js               # 程序化草丛生成（弯曲草叶 InstancedMesh + 空间分块）
 ├── fbx-test.html          # FBX 模型测试页
 ├── glb-test.html          # GLB 模型测试页
+├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
 ├── README.md              # 本文件
+├── combat/                # PvE 战斗系统
+│   ├── enemyAI.js         # AI 状态机（PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
+│   └── scoreSystem.js     # 积分系统（localStorage 持久化）
 ├── maps/                  # 地图配置文件
 │   ├── test_map_01a.map.json  # 单人测试地图（池塘+河流+高地+盆地，地貌纹理版）
 │   ├── test_map_01b.map.json  # 双人对战地图（大平原）
-│   └── test_map_02a.map.json  # 单人进阶地图（程序化草丛覆盖版）
+│   ├── test_map_02a.map.json  # 单人进阶地图（程序化草丛覆盖版）
+│   ├── test_map_03a.map.json  # PvE战斗地图（装甲突击车）
+│   └── test_map_04a.map.json  # PvE丧尸地图（2只丧尸GLB版）
 └── models/                # 模型文件夹
     ├── modelRegistry.js   # 模型注册表（统一管理+权重随机）
     ├── terrainTextures.js # 程序化地形纹理生成（FBM噪声，6种地形）
@@ -225,6 +231,18 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.27.0 — 程序化丧尸模型原型：ZOMBIE_CONFIG + 关节pivot + 程序化贴图 + AnimationSystem（2026-05-13）
+
+- **`zombie_prototype.html`** 独立原型文件（~900行），包含完整工具链
+- **ZOMBIE_CONFIG** 层级树配置：24个节点（含11个关节pivot），458 tris
+- **buildZombieFromConfig()** 递归构建函数：Box/Sphere/Cylinder + 关节pivot补偿算法
+- **程序化贴图**：Canvas 2D 生成 256×256 diffuse + roughness（血渍/溃烂/污垢）
+- **材质字典**：skin_rot / cloth_torn / eye_glow，materialId 复用 MeshStandardMaterial
+- **自动插入部件**：发光眼睛(emissive #ff2200) × 2 + 血迹滴落 × 4
+- **AnimationSystem**：自定义动画系统（6种动作：Idle/Hit/Attack/Walk/Run/Die）
+- **lil-gui 调试面板**：18个部件位置/角度滑杆 + 固化JSON输出
+- **Three.js CDN**：r160 (unpkg)，独立运行无需主项目环境
 
 ### v0.26.14 — 丧尸GLB尺寸修复：Armature.scale→1+双倍掉落+纹理恢复（2026-05-12）
 -**修复**：
@@ -762,30 +780,31 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.26.14 | 丧尸GLB尺寸修复+Armature.scale消除压缩 | 03a=装甲车, 04a=丧尸`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.27.0 | 程序化丧尸模型原型 | zombie_prototype.html 独立运行`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.26.14）
-- `index.html`：约 5450 行（HTML+CSS+JS，丧尸GLB尺寸修复Armature.scale消除压缩+双倍掉落修复）
-- `combat/enemyAI.js`：约 400 行（AI状态机扩展 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD，丧尸专用移动+受击定身）
+### 代码规模（截至 v0.27.0）
+- `index.html`：约 5450 行（HTML+CSS+JS，含GLB丧尸加载系统+模型预览+combat模式）
+- `zombie_prototype.html`：约 900 行（独立原型：程序化丧尸模型+AnimationSystem 6动作）
+- `combat/enemyAI.js`：约 400 行（AI状态机 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
 - `models/pickups.js`：约 214 行（战利品拾取模型+GLB优先加载+程序化回退）
-- `models/enemies.js`：约 210 行（装甲突击车程序化模型）
-- `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
+- `models/enemies.js`：约 483 行（装甲突击车+旧丧尸程序化模型，待替换为新丧尸）
 - `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
 - `models/buildings.js`：约 220 行（平房/别墅/公寓精细化）
 - `models/windmill.js`：约 59 行（风车磨坊已修复）
+- `zombie_prototype.html`：约 900 行（程序化丧尸模型原型+AnimationSystem 6动作）
 - `grass.js`：程序化草丛生成（~210 行）
 - 其他模型文件：约 211 行（tank / trees / modelRegistry）
-- `maps/`：4个地图配置文件（test_map_01a / 01b / 02a / 03a）
-- **总计约 6000 行**
+- `maps/`：5个地图配置文件（test_map_01a / 01b / 02a / 03a / 04a）
+- **总计约 6900 行**
 
 ---
 
-## 当前版本关键参数（v0.26.3）
+## 当前版本关键参数（v0.27.0）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
@@ -802,19 +821,8 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 装甲突击车HP | 60 | 敌人生命值 |
 | 喷火伤害 | 8/跳×3跳 | 突击车火焰伤害 |
 | 玩家命数 | 3 (combat) | PvE战斗模式复活次数 |
-
----
-
-## == 已知未解决问题（移交重点） ==
-
-| # | 严重度 | 问题 | 期望行为 | 当前行为 | 可能原因 / 修复方向 |
-|---|--------|------|----------|----------|-------------------|
-| 1 | 🔴 | **本地 HTTP 服务器启动后无法访问** | 浏览器正常加载游戏 | `ERR_EMPTY_RESPONSE`（Python HTTP 服务器在 IPv6 绑定问题） | 使用 `python -m http.server 8081 --bind 127.0.0.1` 强制 IPv4，或使用 VS Code Live Server 插件 |
-| 2 | 🔴 | **坦克驶上桥梁时不提升** | 坦克底盘 y 应抬高到桥面 y=0.35，模拟爬坡 | 坦克 y=0 固定，桥面 y=0.35 在坦克上方 | 需在 `checkCollision` 中检测桥梁区域，返回 `bridgeY` 偏移量，`tankGroup.position.y` 设为桥面高度 |
-| 3 | 🔴 | **里程数字恒定为 0** | 坦克移动时里程累加 | 始终显示 `0.0 米` | `totalDistance` 累加在 `gameLoop` 中但可能：① `gameLoop` 未执行到此行 ② `v` 始终为 0（输入检测问题）③ 检查 `try/catch` 是否捕获了错误 |
-| 4 | 🟡 | **河水效果太假（无下陷/无流动）** | 下陷河床 + 流动河水 | 扁平色块 | ① 当前 `makeStrip` 创建的扁平条纹材质无纹理偏移 ② 需要恢复 V 形河床+程序化水纹+UV 流动 ③ 参考 v0.19.3 的河流方案 |
-| 5 | 🟡 | **GLB 模型 CORS 问题** | 从 file:// 协议加载 GLB 模型 | CORS 阻止，已回退程序化模型 | 必须通过 HTTP 服务器（`python -m http.server`）访问，不能直接双击 index.html |
-| 6 | 🟢 | **控制台 `.encoding` 废弃警告** | 无警告 | `THREE.Texture: Property .encoding has been replaced by .colorSpace` | three.min.js 版本旧，仅警告不崩溃，可忽略 |
+| 程序化丧尸 | ZOMBIE_CONFIG 24节点 + 458 tris | zombie_prototype.html 独立原型 |
+| AnimationSystem | 6 动作 (Idle/Hit/Attack/Walk/Run/Die) | 手动插值动画，不依赖 Mixer |
 
 ---
 

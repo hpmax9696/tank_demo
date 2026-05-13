@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.26.14</title>
+    <title>坦克运动demo v0.27.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.26.14</div>
+        <div class="menu-version">v0.27.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧟 v0.27.0 新增 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+lil-gui调试面板+zombie_prototype.html</div>
             <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复(Armature.scale→1消除压缩+boneInverses重算)+双倍掉落修复+纹理恢复</div>
             <div class="cl-title">🩻 v0.26.13 修复 — GLB包围盒世界矩阵修复+MG击杀安全网</div>
             <div class="cl-title">🩻 v0.26.12 修复 — SkinnedMesh骨骼绑定修复(cloneWithSkinnedMesh)</div>
             <div class="cl-title">🧟 v0.26.11 改进 — 分图(03a装甲车/04a丧尸)+GLB预加载+丧尸死亡倒地动画+丧尸禁用地形俯仰</div>
-            <div class="cl-title">🧟 v0.26.10 新增 — 丧尸GLB动画集成(6动作)+AI状态驱动+STUNNED定身+近战命中帧判定+死亡动画</div>
         </div>
     </div>
 
@@ -2068,7 +2068,12 @@
         }
 
         // ==================== 丧尸 GLB 加载 ====================
+        const ZOMBIE_GLB_ENABLED = true; // v0.26.15fix: 修复 cloneWithSkinnedMesh 后重新启用GLB
         function loadZombieGlb() {
+            if (!ZOMBIE_GLB_ENABLED) {
+                console.log('💀 GLB已禁用，使用程序化丧尸模型');
+                return;
+            }
             if (_zombieGlbCache.loaded || _zombieGlbLoading) return;
             if (document.location.protocol === 'file:') {
                 console.log('📄 file:// 协议，跳过丧尸 GLB 加载');
@@ -2108,7 +2113,7 @@
                     const rawMinY = rawBB ? rawBB.min.y : -0.95;
                     const rawCx = rawBB ? (rawBB.max.x + rawBB.min.x) / 2 : 0;
                     const rawCz = rawBB ? (rawBB.max.z + rawBB.min.z) / 2 : 0;
-                    _zombieGlbCache.bboxMinY = rawMinY * armatureScale;
+                    _zombieGlbCache.bboxMinY = rawMinY;
                     _zombieGlbCache.center = new THREE.Vector3(rawCx * armatureScale, 0, rawCz * armatureScale);
                     _zombieGlbCache.loaded = true;
                     _zombieGlbLoading = false;
@@ -2150,27 +2155,28 @@
             );
         }
 
-        // SkeletonUtils.clone 精简内联版：正确克隆 SkinnedMesh 并重新绑定骨骼
-        // Three.js 原生 clone(true) 会共享原始骨骼引用，导致蒙皮动画不驱动克隆体
-        // @see node_modules/three/examples/jsm/utils/SkeletonUtils.js
+        // 完全匹配 THREE.SkeletonUtils.clone (r146) — 解决克隆后蒙皮不驱动的问题
         function cloneWithSkinnedMesh(source) {
-            const srcMap = new Map(); // cloned → source
-            const dstMap = new Map(); // source → cloned
-            const clone = source.clone(true);
-            (function _paraTraverse(a, b) {
-                srcMap.set(b, a); dstMap.set(a, b);
+            const sourceLookup = new Map(); // cloned → source
+            const cloneLookup  = new Map(); // source → cloned
+            const clone = source.clone();
+            (function _para(a, b) {
+                sourceLookup.set(b, a);
+                cloneLookup.set(a, b);
                 const len = Math.min(a.children.length, b.children.length);
-                for (let i = 0; i < len; i++) _paraTraverse(a.children[i], b.children[i]);
+                for (let i = 0; i < len; i++) _para(a.children[i], b.children[i]);
             })(source, clone);
             clone.traverse(function (node) {
                 if (!node.isSkinnedMesh) return;
-                const srcMesh = srcMap.get(node);
+                const srcMesh = sourceLookup.get(node);
                 if (!srcMesh || !srcMesh.skeleton) return;
-                node.skeleton = srcMesh.skeleton.clone();
-                node.bindMatrix.copy(srcMesh.bindMatrix);
-                node.skeleton.bones = srcMesh.skeleton.bones.map(function (b) { return dstMap.get(b); });
-                node.bind(node.skeleton, node.bindMatrix);
-                console.log('🩻 SkinnedMesh 骨骼重新绑定:', srcMesh.name || '(unnamed)', '→ bones:', node.skeleton.bones.length);
+                // 用克隆后的骨骼创建新 Skeleton，再 bind
+                const clonedSkeleton = new THREE.Skeleton(
+                    srcMesh.skeleton.bones.map(function (b) { return cloneLookup.get(b); })
+                );
+                node.bind(clonedSkeleton, node.bindMatrix);
+                console.log('🩻 SkeletonUtils.clone →', srcMesh.name || '(unnamed)',
+                    '| bones:', clonedSkeleton.bones.length);
             });
             return clone;
         }
@@ -2178,39 +2184,16 @@
         function spawnZombieFromGlb(group) {
             if (!_zombieGlbCache.baseScene) return null;
             const model = cloneWithSkinnedMesh(_zombieGlbCache.baseScene);
-            // v0.26.13fix: 消除 Armature 的 0.01 压缩，改用简洁外缩放
-            // 之前：model.scale=94.76 × Armature=0.01 = 有效0.9476 → boneInverses跨层匹配困难
-            // 现在：Armature.scale→1.0，重算boneInverses，model.scale=rawH/目标高度=~0.95
-            let rawH = 1.9, rawMinY = -0.01;
-            model.traverse(c => {
-                if ((c.name === 'Armature' || c.name === 'armature') && c.scale) {
-                    c.scale.set(1, 1, 1);  // 消除 Blender 导出的 0.01 压缩
-                }
-                if (c.isSkinnedMesh && c.geometry) {
-                    c.geometry.computeBoundingBox();
-                    if (c.geometry.boundingBox) {
-                        rawH = c.geometry.boundingBox.max.y - c.geometry.boundingBox.min.y;
-                        rawMinY = c.geometry.boundingBox.min.y;
-                    }
-                }
-            });
-            const targetH = 1.8;
-            const baseScale = targetH / rawH;
+
+            // v0.26.15fix: 不修改 Armature 缩放，用缓存baseScale
+            const baseScale = _zombieGlbCache.baseScale || 94.76;
             model.scale.setScalar(baseScale);
+            const rawMinY = _zombieGlbCache.bboxMinY || -0.012;
+            // 先设 position，再 updateMatrixWorld，确保骨骼 matrixWorld 正确
             model.position.set(0, -rawMinY * baseScale, 0);
-            // Armature.scale→1后重算 boneInverses
-            // GLTF 加载时 bindMatrix=I，boneInverse = inv(boneWorld) 即可
             model.updateMatrixWorld(true);
-            model.traverse(c => {
-                if (c.isSkinnedMesh && c.skeleton && c.skeleton.boneInverses) {
-                    c.skeleton.boneInverses.forEach((inv, i) => {
-                        inv.copy(c.skeleton.bones[i].matrixWorld).invert();
-                    });
-                    c.skeleton.update();
-                }
-            });
-            console.log('📏 新方案 | rawH:', rawH.toFixed(3), '| baseScale:', baseScale.toFixed(3),
-                '| rawMinY:', rawMinY.toFixed(3), '| posY:', (-rawMinY * baseScale).toFixed(3));
+            console.log('>> GLB克隆方案 | baseScale:', baseScale.toFixed(3), '| posY:', model.position.y.toFixed(4));
+
             const skinnedMeshes = [];
             model.traverse(c => {
                 if (c.isMesh) {
@@ -2221,10 +2204,12 @@
                     if (c.isSkinnedMesh) {
                         skinnedMeshes.push(c);
                         if (c.skeleton && typeof c.skeleton.update === 'function') c.skeleton.update();
-                        // 强制使用 MeshNormalMaterial 排除着色器问题
-                        if (ZOMBIE_GLB_DEBUG) {
-                            c.material = new THREE.MeshNormalMaterial();
-                            console.log('🔬 SkinnedMesh 材质已替换为 MeshNormalMaterial');
+                        // 强制开启 skinning
+                        if (Array.isArray(c.material)) {
+                            c.material.forEach(m => { m.skinning = true; m.needsUpdate = true; });
+                        } else if (c.material) {
+                            c.material.skinning = true;
+                            c.material.needsUpdate = true;
                         }
                     }
                     if (c.material && !c.isSkinnedMesh) {
@@ -2244,25 +2229,10 @@
             group.add(model);
             group.userData.zombieGlbRoot = model;
 
-            if (ZOMBIE_GLB_DEBUG) {
-                group.updateMatrixWorld(true);
-                const worldBox = new THREE.Box3().setFromObject(model);
-                const worldSize = new THREE.Vector3();
-                const worldCenter = new THREE.Vector3();
-                worldBox.getSize(worldSize);
-                worldBox.getCenter(worldCenter);
-                console.log('🔬 丧尸GLB部署诊断 | skinned:', skinnedMeshes.length,
-                    '| scale:', s.toFixed(4),
-                    '| localPos:', model.position.x.toFixed(3), model.position.y.toFixed(3), model.position.z.toFixed(3),
-                    '| worldSize:', worldSize.x.toFixed(3), worldSize.y.toFixed(3), worldSize.z.toFixed(3),
-                    '| worldCenter:', worldCenter.x.toFixed(3), worldCenter.y.toFixed(3), worldCenter.z.toFixed(3));
-            }
-
             // 创建动画控制器
             if (_zombieGlbCache.clips.length > 0) {
                 const mixer = new THREE.AnimationMixer(model);
                 const clipMap = {};
-                // hash前缀匹配：GLB动画名为 hash_remap 格式
                 const KNOWN_MAP = { idle: ['20aff4d1'], walk: ['97951ef0'], run: ['adfdbf68'],
                     attack: ['31d8bc8b'], hit: ['38bab115'], death: ['6981c077'] };
                 for (const [key, names] of Object.entries(KNOWN_MAP)) {
@@ -2272,19 +2242,16 @@
                         clipMap[key] = action;
                     }
                 }
-                console.log('🎬 丧尸动画匹配:', Object.keys(clipMap).join(', '), '| 未匹配:', 
+                console.log('>> 丧尸动画匹配:', Object.keys(clipMap).join(', '), '| 未匹配:',
                     Object.keys(KNOWN_MAP).filter(k => !clipMap[k]).join(', ') || '无');
                 group.userData.zombieMixer = mixer;
                 group.userData.zombieClips = clipMap;
                 group.userData.zombieCurrent = null;
-                // 默认播放 idle
                 if (clipMap.idle) { clipMap.idle.reset().play(); group.userData.zombieCurrent = 'idle'; }
                 return true;
             }
             return false;
-        }
-
-        function zombieFallbackModel(group) {
+        }        function zombieFallbackModel(group) {
             if (!window.EnemyModels || !window.EnemyModels.createZombie) {
                 console.warn('zombieFallbackModel: createZombie 不可用');
                 return false;
@@ -5276,7 +5243,7 @@
             }
 
             el.textContent =
-                'v0.26.14  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.27.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5694,7 +5661,7 @@
         // 预加载丧尸 GLB（异步，确保进入战斗地图前已就绪）
         loadZombieGlb();
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.26.14 | 丧尸GLB尺寸修复+Armature.scale消除压缩 | 03a=装甲车, 04a=丧尸');
+        console.log('🎮 坦克运动demo v0.27.0 | 程序化丧尸模型原型+AnimationSystem(6动作) | zombie_prototype.html');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
