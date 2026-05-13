@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.27.0</title>
+    <title>坦克运动demo v0.28.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.27.0</div>
+        <div class="menu-version">v0.28.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧠 v0.28.0 丧尸AI — 8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)</div>
             <div class="cl-title">🧟 v0.27.0 集成 — 新程序化丧尸(enemies.js骨架+AnimationSystem)+清理GLB丧尸系统(~300行)+04a地图5只丧尸</div>
             <div class="cl-title">🧟 v0.27.0 原型 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+zombie_prototype.html</div>
             <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复+双倍掉落修复+纹理恢复</div>
             <div class="cl-title">🩻 v0.26.12 修复 — SkinnedMesh骨骼绑定修复(cloneWithSkinnedMesh)</div>
-            <div class="cl-title">🧟 v0.26.11 改进 — 分图(03a装甲车/04a丧尸)+GLB预加载+丧尸死亡倒地动画+丧尸禁用地形俯仰</div>
         </div>
     </div>
 
@@ -570,18 +570,214 @@
                 },
                 enemies: [
                     {
-                        id: 'zm-01', type: 'zombie', position: [60, 0, -70],
-                        patrolPath: [[60,-70], [70,-60], [75,-75], [55,-65]],
-                        reactive: false, hp: 40, speed: 2.5, viewDist: 30,
+                        id: 'zm-01', type: 'zombie', position: [24.5, 0, 30.0],
+                        patrolPath: [[24.5, 32.2], [22.1, 28.3], [25.1, 30.3], [26.2, 30.3]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
                         attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
-                        stunRecoverTime: 1.5, score: 50, dropRate: 0.3, dropHeal: 30
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
                     },
                     {
-                        id: 'zm-02', type: 'zombie', position: [-55, 0, -65],
-                        patrolPath: [[-55,-65], [-65,-55], [-60,-75], [-45,-60]],
-                        reactive: false, hp: 40, speed: 2.5, viewDist: 30,
+                        id: 'zm-02', type: 'zombie', position: [34.9, 0, 31.1],
+                        patrolPath: [[36.4, 31.6], [33.4, 31.8], [32.6, 33.0], [34.6, 33.0]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
                         attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
-                        stunRecoverTime: 1.5, score: 50, dropRate: 0.3, dropHeal: 30
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-03', type: 'zombie', position: [42.7, 0, 30.7],
+                        patrolPath: [[41.0, 29.2], [45.6, 33.3], [44.6, 33.7], [42.8, 28.2]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-04', type: 'zombie', position: [49.4, 0, 30.2],
+                        patrolPath: [[48.1, 30.0], [51.6, 31.5], [49.8, 27.4], [50.6, 29.4]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-05', type: 'zombie', position: [57.7, 0, 29.6],
+                        patrolPath: [[58.2, 29.6], [55.4, 29.6], [59.2, 30.2], [57.6, 32.1]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-06', type: 'zombie', position: [25.0, 0, 37.7],
+                        patrolPath: [[27.6, 37.6], [25.1, 34.8], [23.4, 35.5], [22.3, 38.9]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-07', type: 'zombie', position: [35.5, 0, 36.4],
+                        patrolPath: [[36.3, 36.2], [35.4, 34.8], [37.9, 37.2], [35.3, 36.2]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-08', type: 'zombie', position: [43.7, 0, 39.9],
+                        patrolPath: [[44.0, 40.3], [44.7, 38.8], [45.5, 40.0], [43.6, 42.3]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-09', type: 'zombie', position: [49.7, 0, 37.2],
+                        patrolPath: [[48.3, 34.4], [50.7, 37.8], [49.5, 37.3], [49.7, 39.7]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-10', type: 'zombie', position: [57.0, 0, 37.9],
+                        patrolPath: [[57.1, 39.9], [58.9, 38.3], [59.5, 39.9], [55.9, 40.4]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-11', type: 'zombie', position: [24.4, 0, 46.8],
+                        patrolPath: [[26.1, 46.8], [24.1, 49.5], [27.2, 48.8], [24.3, 44.1]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-12', type: 'zombie', position: [33.1, 0, 46.0],
+                        patrolPath: [[30.6, 47.5], [32.5, 45.7], [30.2, 43.0], [33.5, 48.6]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-13', type: 'zombie', position: [40.3, 0, 47.2],
+                        patrolPath: [[38.8, 47.9], [41.8, 49.9], [41.3, 48.0], [38.3, 46.1]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-14', type: 'zombie', position: [50.3, 0, 47.1],
+                        patrolPath: [[53.0, 47.0], [51.7, 44.9], [48.7, 47.6], [53.1, 49.3]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-15', type: 'zombie', position: [58.0, 0, 44.3],
+                        patrolPath: [[59.0, 46.9], [59.7, 46.8], [56.9, 43.8], [59.9, 44.5]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-16', type: 'zombie', position: [24.8, 0, 52.1],
+                        patrolPath: [[22.4, 54.4], [22.1, 51.1], [23.9, 53.7], [21.9, 52.1]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-17', type: 'zombie', position: [33.3, 0, 53.2],
+                        patrolPath: [[32.3, 50.9], [36.0, 53.6], [35.1, 51.1], [33.4, 52.8]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-18', type: 'zombie', position: [41.3, 0, 54.4],
+                        patrolPath: [[42.4, 51.8], [40.7, 52.6], [43.9, 51.7], [41.6, 56.4]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-19', type: 'zombie', position: [49.8, 0, 55.0],
+                        patrolPath: [[47.9, 56.3], [52.1, 52.8], [50.0, 56.7], [49.9, 57.8]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-20', type: 'zombie', position: [56.6, 0, 55.4],
+                        patrolPath: [[56.0, 54.9], [56.1, 52.8], [55.5, 54.4], [55.2, 55.4]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-21', type: 'zombie', position: [27.1, 0, 61.7],
+                        patrolPath: [[26.9, 60.6], [27.0, 59.4], [28.9, 63.4], [29.0, 63.8]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-22', type: 'zombie', position: [32.9, 0, 63.8],
+                        patrolPath: [[35.2, 64.7], [32.4, 65.5], [35.0, 64.8], [35.7, 62.9]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-23', type: 'zombie', position: [40.6, 0, 62.2],
+                        patrolPath: [[41.1, 62.5], [38.3, 63.5], [41.0, 62.7], [38.9, 61.0]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-24', type: 'zombie', position: [49.1, 0, 62.2],
+                        patrolPath: [[46.7, 60.8], [51.8, 60.3], [50.2, 63.8], [50.4, 60.3]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-25', type: 'zombie', position: [58.5, 0, 62.0],
+                        patrolPath: [[57.2, 64.1], [57.3, 60.9], [57.1, 59.4], [58.0, 64.4]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-26', type: 'zombie', position: [27.1, 0, 69.7],
+                        patrolPath: [[24.2, 67.2], [24.2, 67.4], [28.2, 70.1], [29.7, 68.8]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-27', type: 'zombie', position: [35.1, 0, 70.4],
+                        patrolPath: [[36.0, 71.1], [37.7, 69.3], [33.4, 70.2], [38.0, 72.7]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-28', type: 'zombie', position: [42.7, 0, 71.4],
+                        patrolPath: [[43.8, 74.0], [42.1, 74.1], [41.9, 72.9], [42.4, 68.6]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-29', type: 'zombie', position: [50.8, 0, 69.2],
+                        patrolPath: [[53.5, 71.0], [48.5, 70.8], [49.7, 71.6], [51.0, 68.2]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
+                    },
+                    {
+                        id: 'zm-30', type: 'zombie', position: [58.2, 0, 70.9],
+                        patrolPath: [[55.9, 71.6], [56.0, 68.6], [57.4, 71.8], [59.2, 68.1]],
+                        reactive: false, hp: 40, speed: 1.5, viewDist: 22,
+                        attackDist: 2.0, attackDamage: 10, attackCooldown: 2.0,
+                        staggerRecoverTime: 0.6, score: 50, dropRate: 0.3, dropHeal: 30
                     }
                 ],
                 terrain: {
@@ -921,23 +1117,25 @@
         }
 
         function playMGShotSound() {
-            // v0.26.4fix: 机枪发射音效，确保 AudioContext 已运行才播放
+            // "突突突" 三连低音方波脉冲
             ensureAudio();
-            if (audioCtx.state !== 'running') { audioCtx.resume(); return; }
+            if (audioCtx.state !== 'running') audioCtx.resume();
             const now = audioCtx.currentTime;
-            // 白噪声短脉冲模拟枪声
-            const bufSize = Math.floor(audioCtx.sampleRate * 0.06);
-            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.008));
-            const src = audioCtx.createBufferSource(); src.buffer = buf;
-            const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.12, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-            const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass';
-            bp.frequency.setValueAtTime(2000, now);
-            bp.Q.value = 2;
-            src.connect(bp); bp.connect(gain); gain.connect(audioCtx.destination);
-            src.start(now);
+            for (let p = 0; p < 3; p++) {
+                const t = now + p * 0.04;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(200, t);
+                osc.frequency.exponentialRampToValueAtTime(50, t + 0.03);
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+                const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
+                lp.frequency.setValueAtTime(500, t);
+                lp.frequency.exponentialRampToValueAtTime(100, t + 0.03);
+                osc.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(t); osc.stop(t + 0.03);
+            }
         }
 
         function playPickupSound() {
@@ -963,6 +1161,15 @@
 
         function spawnHitSparks(pos) {
             playHitSound();
+            _spawnSparkParticles(pos);
+        }
+
+        // MG命中：仅视觉火花，不发声
+        function spawnSilentHitSparks(pos) {
+            _spawnSparkParticles(pos);
+        }
+
+        function _spawnSparkParticles(pos) {
             for (let i = 0; i < 10; i++) {
                 const size = 0.03 + Math.random() * 0.06;
                 const geo = new THREE.SphereGeometry(size, 4, 4);
@@ -1945,6 +2152,121 @@
             yellow: { key: 'yellow', path: 'models/glb/t34-85_textured_yellow.glb', cache: {}, pending: [] }
         };
 
+
+        // 创建玩家坦克 3D 模型（GLB 优先，程序化回退）
+        function createPlayerTank(player) {
+            const group = new THREE.Group();
+            group.rotation.order = 'YXZ'; // 先偏航再俯仰，确保坡度俯仰跟随坦克朝向
+            group.position.set(player.state.x, 0, player.state.z);
+            group.rotation.y = player.state.yaw;
+            player.group = group;
+            player.hull = group; // GLB 无独立 hull，整体 pitch 用 group 代替
+            player.leftWheels = [];
+            player.rightWheels = [];
+            scene.add(group);
+
+            // 根据涂装选择 GLB 缓存
+            const camoColor = player.camoColor || 'green';
+            const bag = camoColor === 'desert' ? _glbCaches.yellow : _glbCaches.green;
+            const label = bag.key;
+
+            // file:// 协议下浏览器禁止跨源加载外部文件，直接回退程序化模型
+            if (document.location.protocol === 'file:') {
+                console.log('📄 file:// 协议，跳过 GLB 加载，使用程序化模型');
+                fallbackProgrammatic(player, group);
+                return;
+            }
+
+            // 已缓存 → 直接克隆
+            if (bag.cache.model) {
+                spawnFromCache(player, group, bag);
+                return;
+            }
+
+            // 正在加载中 → 加入等待队列
+            bag.pending.push({ player, group });
+
+            // 首次加载（通过 pending.length === 1 防重复触发）
+            if (bag.pending.length === 1) {
+                const loader = new THREE.GLTFLoader();
+                loader.load(bag.path,
+                    (gltf) => {
+                        bag.cache.model = gltf.scene;
+                        bag.cache.bbox = new THREE.Box3().setFromObject(gltf.scene);
+                        const sz = new THREE.Vector3();
+                        bag.cache.bbox.getSize(sz);
+                        bag.cache.center = new THREE.Vector3();
+                        bag.cache.bbox.getCenter(bag.cache.center);
+
+                        // 目标：模型长度(Z) = HULL_L 1.70（与碰撞体系一致）
+                        const targetLen = 1.70;
+                        bag.cache.baseScale = targetLen / sz.z;
+                        console.log('✅ GLB(' + label + ') 加载成功 | 原始:',
+                            sz.x.toFixed(3), '×', sz.y.toFixed(3), '×', sz.z.toFixed(3),
+                            '| 缩放: ×' + bag.cache.baseScale.toFixed(4),
+                            '| TANK_HALF_W=' + TANK_HALF_W.toFixed(2));
+
+                        bag.pending.forEach(p => spawnFromCache(p.player, p.group, bag));
+                        bag.pending.length = 0;
+                    },
+                    undefined,
+                    (err) => {
+                        console.warn('⚠️ GLB(' + label + ') 加载失败，回退程序化:', err.message);
+                        bag.pending.forEach(p => fallbackProgrammatic(p.player, p.group));
+                        bag.pending.length = 0;
+                    }
+                );
+            }
+        }
+
+        function spawnFromCache(player, group, bag) {
+            const model = bag.cache.model.clone(true);
+            const s = bag.cache.baseScale;
+
+            // 缩放 + 居中 + 阴影
+            model.scale.setScalar(s);
+            model.position.set(
+                -bag.cache.center.x * s,
+                -bag.cache.bbox.min.y * s,
+                -bag.cache.center.z * s
+            );
+
+            // 遍历所有网格：开启阴影投射与接收
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            group.add(model);
+
+            // 更新全局引用（initScene 或 双人模式）
+            if (player === player1) {
+                tankGroup = player1.group;
+                tankHull = player1.hull;
+                leftWheels = player1.leftWheels;
+                rightWheels = player1.rightWheels;
+            }
+        }
+
+        function fallbackProgrammatic(player, group) {
+            const camo = player.camoColor === 'desert' ? 't34-85-desert' : 't34-85-green';
+            const tankGroup = window.ModelRegistry.getModel('tanks', camo)({
+                camoColor: player.camoColor,
+                position: { x: player.state.x, y: 0, z: player.state.z },
+                yaw: player.state.yaw
+            });
+            while (tankGroup.children.length > 0) {
+                group.add(tankGroup.children[0]);
+            }
+            player.hull = tankGroup.userData.hull || group;
+            player.leftWheels = tankGroup.userData.leftWheels || [];
+            player.rightWheels = tankGroup.userData.rightWheels || [];
+            group.position.copy(tankGroup.position);
+            group.rotation.copy(tankGroup.rotation);
+            console.log('🔄 已回退到程序化 T-34/85 模型');
+        }
 
         function createBarsForPlayer(player) {
             // 装填条（右方悬浮）——透明通道+高渲染序，确保在水面之上
@@ -3210,6 +3532,13 @@
                     if (isDead && !isZombie) continue;
                     // 已死亡的丧尸只做动画处理（不执行AI/物理/伤害）
                     if (isDead && isZombie) {
+                        // 实时归零HP条（避免停在最后一击之前的值）
+                        if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
+                            enemy.userData.hpBarFill.scale.x = 0;
+                            enemy.userData.hpBarFill.position.x = -0.75;
+                            enemy.userData.hpBarFill.material.color.setRGB(1, 0, 0);
+                            enemy.userData.hpBarGroup.lookAt(camera.position);
+                        }
                         const asys = enemy.userData._animSystem;
                         if (asys) {
                             asys.update(dt);
@@ -3278,6 +3607,51 @@
                         const bh = getGroundHeight(enemy.position.x - eFwdX * sampleDist, enemy.position.z - eFwdZ * sampleDist);
                         const eTerrainPitch = Math.atan2(fh - bh, sampleDist * 2);
                         enemy.rotation.x = -eTerrainPitch;
+                    }
+                    // 🚜 坦克 vs 丧尸碰撞（碾压 或 推开）
+                    if (isZombie && player1 && !player1.dead) {
+                        const crushDist = enemy.position.distanceTo(player1.group.position);
+                        if (crushDist < 1.3 && crushDist > 0.01) {
+                            const tankForward = new THREE.Vector3(Math.cos(player1.state.yaw), 0, Math.sin(player1.state.yaw));
+                            const tankToZombie = new THREE.Vector3().subVectors(enemy.position, player1.group.position).normalize();
+                            const frontAlignment = tankForward.dot(tankToZombie);
+                            const tankTowardZombie = frontAlignment > 0;       // 大方向朝丧尸（用于速度计算）
+                            const inFrontCone = frontAlignment > 0.87;        // 仅在正前方窄锥内碾压（±~30°）
+
+                            // 坦克地面速度
+                            const tankSpeed = Math.abs(currentLeftSpeed) + Math.abs(currentRightSpeed);
+
+                            // 丧尸趋近速度（面向坦克 + 追击/攻击状态才计入）
+                            let zombieApproach = 0;
+                            if (tankTowardZombie) {
+                                const zState = enemy.ai.state;
+                                if (zState === 'pursuit') {
+                                    zombieApproach = (enemy.cfg.speed || 1.5) * 2.5;
+                                } else if (zState === 'attack') {
+                                    zombieApproach = enemy.cfg.speed || 1.5;
+                                }
+                                // 丧尸是否面向坦克（丧尸前端 +Z：forward = (sin(rotY), 0, cos(rotY))）
+                                const zForward = new THREE.Vector3(Math.sin(enemy.rotation.y), 0, Math.cos(enemy.rotation.y));
+                                const zombieToTank = new THREE.Vector3().subVectors(player1.group.position, enemy.position).normalize();
+                                if (zForward.dot(zombieToTank) < 0) zombieApproach = 0; // 背对=无趋近
+                            }
+                            const combinedSpeed = tankSpeed + zombieApproach;
+
+                            if (tankSpeed > 3.0 && combinedSpeed > 4.5 && inFrontCone) {
+                                // ⚡ 碾压击杀
+                                enemy.hp = 0;
+                                enemy.ai.state = 'dead';
+                                enemy.ai.animRequest = 'death';
+                                enemy.ai.prevState = enemy.ai.prevState || 'idle';
+                                enemy.ai.deathAnimStarted = false;
+                                if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
+                                    enemy.userData.hpBarFill.scale.x = 0;
+                                    enemy.userData.hpBarFill.position.x = -0.75;
+                                    enemy.userData.hpBarFill.material.color.setRGB(1, 0, 0);
+                                }
+                            }
+                            // 不满足碾压条件 → 丧尸可正常近战攻击（保留碰撞体积）
+                        }
                     }
                     // HP 条更新
                     if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
@@ -3363,30 +3737,41 @@
                         }
                     }
 
-                    // ── 丧尸专用更新：动画 + STUNNED + 攻击命中 + 死亡动画 ──
+                    // ── 丧尸专用更新：动画 + STAGGER + 攻击命中 + 死亡动画 ──
                     if (enemy.cfg && enemy.cfg.type === 'zombie') {
                         const asys = enemy.userData._animSystem;
                         const ai = enemy.ai;
 
-                        // 1. 更新动画混合器
-                        if (asys) asys.update(dt);
+                        // 1. 动画LOD：按距离分帧（0~30m每帧/30~55m~15fps/>55m冻结）
+                        if (asys) {
+                            const pDist = player1 ? enemy.position.distanceTo(player1.group.position) : 999;
+                            if (pDist > 55) {
+                                asys.skipInterval = 999;  // 冻结动画
+                            } else if (pDist > 30) {
+                                asys.skipInterval = 0.064; // ~15fps
+                            } else {
+                                asys.skipInterval = 0;
+                            }
+                            asys.update(dt);
+                        }
 
-                        // 1.5. 全局安全网：不论状态，hp≤0 立即转 dead（v0.26.13fix）
+                        // 1.5. 全局安全网：不论状态，hp≤0 立即转 dead
                         if (enemy.hp <= 0 && ai.state !== 'dead') {
                             console.log('💀 丧尸安全网: hp=' + enemy.hp + ' state=' + ai.state + ' → dead');
                             ai.state = 'dead';
                             ai.animRequest = 'death';
                             ai.deathAnimStarted = false;
+                            if (asys) asys.skipInterval = 0;  // 倒地动画必须全帧
                         }
 
-                        // 2. 处理 STUNNED 退出
-                        if (ai.state === 'stunned') {
+                        // 2. 处理 STAGGER 退出（硬直恢复）
+                        if (ai.state === 'stagger') {
                             const now = Date.now() / 1000;
                             if (enemy.hp <= 0) {
                                 ai.state = 'dead';
                                 ai.animRequest = 'death';
                                 ai.deathAnimStarted = false;
-                            } else if (now - ai.lastHitTime > (enemy.cfg.stunRecoverTime || 1.5)) {
+                            } else if (now - ai.lastHitTime > (enemy.cfg.staggerRecoverTime || 0.6)) {
                                 ai.state = ai.prevState || 'patrol';
                                 ai.animRequest = 'walk';
                             }
@@ -3445,7 +3830,7 @@
                         if (ai.animRequest && asys) {
                             const nameMap = { idle:'Idle', walk:'Walk', run:'Run', attack:'Attack', hit:'Hit', death:'Die' };
                             const mapped = nameMap[ai.animRequest] || ai.animRequest;
-                            const needLoop = ai.state === 'stunned' ? false : !['Hit','Die'].includes(mapped);
+                            const needLoop = ai.state === 'stagger' ? false : !['Hit','Die'].includes(mapped);
                             if (asys.current !== mapped || !asys.playing) {
                                 asys.play(mapped, needLoop);
                                 if (mapped === 'Attack') { ai.animHitApplied = false; }
@@ -4097,20 +4482,16 @@
                 const gy = getGroundHeight(pos[0], pos[2]);
                 model.position.set(pos[0], gy, pos[2]);
                 model.cfg = ecfg;
-                // v0.26.4fix: 初始朝向第一个巡逻点（而非默认0），避免出生后立即"到达"首点
-                if (ecfg.patrolPath && ecfg.patrolPath.length > 0) {
+                // 初始朝向：丧尸随机（避免整齐划一），车辆朝第一个巡逻点
+                if (ecfg.type === 'zombie') {
+                    model.rotation.set(0, Math.random() * Math.PI * 2, 0);
+                } else if (ecfg.patrolPath && ecfg.patrolPath.length > 0) {
                     const wp0 = ecfg.patrolPath[0];
                     const wpDx = wp0[0] - pos[0];
                     const wpDz = wp0[1] - pos[2];
                     const wpDist = Math.sqrt(wpDx * wpDx + wpDz * wpDz);
                     if (wpDist > 0.5) {
-                        if (ecfg.type === 'zombie') {
-                            // 丧尸前端朝 +Z: rotY = atan2(dx, dz)
-                            model.rotation.set(0, Math.atan2(wpDx, wpDz), 0);
-                        } else {
-                            // 车辆前端朝 -X
-                            model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
-                        }
+                        model.rotation.set(0, Math.atan2(wpDz, -wpDx), 0);
                     } else {
                         model.rotation.set(0, 0, 0);
                     }
@@ -4127,8 +4508,9 @@
                     model.userData._noTerrainPitch = true;
                 }
                 // AI 运行时数据
+                const isZombieAI = (ecfg.type === 'zombie');
                 model.ai = {
-                    state: 'patrol',
+                    state: isZombieAI ? 'idle' : 'patrol',  // 丧尸从 IDLE 起步
                     target: null,
                     patrolIndex: 0,
                     lastSeenPlayerPos: null,
@@ -4144,13 +4526,17 @@
                     wpStuckTimer: 0,  // v0.26.5: 巡逻卡住计时器
                     hitFlash: 0,
                     // 丧尸专用字段
-                    animRequest: 'idle',
+                    animRequest: isZombieAI ? 'idle' : 'walk',
                     animAtkStart: 0,
                     animHitApplied: false,
                     atkReady: true,
+                    atkCooldown: 0,
                     lastHitTime: 0,
-                    prevState: 'patrol',
+                    prevState: 'idle',
                     deathAnimStarted: false,
+                    idleTimer: 0,
+                    lostTargetTimer: 0,
+                    searchTimer: 0,
                 };
                 // 绑定丧尸动画系统
                 if (ecfg.type === 'zombie' && model.userData._animSystem) {
@@ -4186,7 +4572,7 @@
             fill.position.z = 0.015;
             const group = new THREE.Group();
             group.add(bg); group.add(fill);
-            group.position.y = 1.8; // 悬浮在敌人上方
+            group.position.y = (enemy.cfg && enemy.cfg.type === 'zombie') ? 2.0 : 1.8;
             group.renderOrder = 999;
             group.materialDepthTest = false;
             enemy.add(group);
@@ -4393,7 +4779,7 @@
                                 const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1);
                                 window.EnemyAI.shareAggro(en, player1, enemies, 40);
                                 const hitWorldPos = hit.point.clone();
-                                spawnHitSparks(hitWorldPos);
+                                spawnSilentHitSparks(hitWorldPos);  // MG命中只显示火花，不发声
                                 if (killed) {
                                     const isZombie = (en.cfg && en.cfg.type === 'zombie');
                                     if (isZombie) {
@@ -4834,7 +5220,7 @@
             }
 
             el.textContent =
-                'v0.27.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.28.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5247,7 +5633,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.27.0 | 新程序化丧尸集成+GLB清理+enemies.js重写(864行) | 04a×5只丧尸');
+        console.log('🎮 坦克运动demo v0.28.0 | 丧尸8状态AI+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

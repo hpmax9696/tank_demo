@@ -161,11 +161,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 雾距 | near 70 / far 110 | `Fog` |
 | 天空 | 已移除（v0.24.5，陡视角不可见） | — |
 | 地面 | 300×300 | `createGround()` 地形 + 纹理混合 |
-| 丧尸模型 | ZOMBIE_CONFIG 24节点 ~458 tris | `zombie_prototype.html` |
-| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值 |
-| 丧尸身高 | 1.0m | pivot 系统 + buildZombieFromConfig |
+| 丧尸模型 | ZOMBIE_CONFIG 24节点 ~458 tris | `models/enemies.js` buildZombieFromConfig |
+| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值，v0.28.0 支持分帧LOD |
+| 丧尸身高 | 1.0m | Box3 包围盒自动缩放 |
+| 丧尸AI | 8状态机 (IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD) | `combat/enemyAI.js` ZS 枚举 |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
-| 04a地图 | GLB丧尸 ×2 | 预加载+缓存克隆 |
+| 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
 
 ## 常见修复模式
 
@@ -261,8 +262,8 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 |---|------|--------|------|
 | 1 | GLB丧尸模型系统 | ✅ v0.27.0 | 已完成清理（~300行GLB代码已移除） |
 | 2 | 丧尸程序化模型集成 | ✅ v0.27.0 | ZOMBIE_CONFIG+AnimationSystem已集成到enemies.js |
-| 3 | ZombieAIController 8状态机实现 | 🔴 待执行 | 新建类含 IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD，空间网格优化 |
-| 4 | 04a地图部署5只新程序化丧尸 | ✅ v0.27.0 | zm-01~zm-05 已部署，含独立巡逻路径 |
+| 3 | ZombieAIController 8状态机实现 | ✅ v0.28.0 | IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD 完成 |
+| 4 | 04a地图部署5只新程序化丧尸 | ✅ v0.27.0 | zm-01~zm-05 已部署，v0.28.0 扩展至30只 |
 
 ---
 
@@ -411,7 +412,7 @@ index.html             ← 战斗主引擎（加载上述模块，gameMode 新�
 | **Phase 3** | 03a 地图部署1辆突击车 + AI PATROL/CHASE/ENGAGE + 被动反击 + 积分结算 | ✅ 完成 (v0.26.0) |
 | **Phase 3.5** | 火焰伤害跳距模型修复 + 近防机枪系统 + 方向安全校验收紧 | ✅ 完成 (v0.26.3) |
 | **Phase 3.6** | av-01/02 巡逻+地形俯仰+MG音效+仇恨共享 (4个PvE bug修复) | ✅ 完成 (v0.26.4) |
-| **Phase 4** | 敌人HP伤害显示 + 击杀加分 + 掉落物品 + 玩家重生 | 📋 待开始 |
+| **Phase 4** | 敌人HP伤害显示 + 击杀加分 + 掉落物品 + 玩家重生 | ✅ 完成 (v0.28.0) |
 | **Phase 5** | 清空积分UI按钮 + 局内HUD（HP/弹药/分数） | 📋 待开始 |
 | **Phase 6** | 精英单位 + Boss 炮舰 + 多阶段战斗 | 📋 远期 |
 

@@ -1,12 +1,17 @@
 {
   "version": "1.0",
-  "name": "测试地图04a（丧尸）",
+  "name": "测试地图04a（丧尸x30）",
   "size": 200,
   "type": "single",
   "mode": "combat",
   "desc": "PvE丧尸地图：出生点→丧尸群 | 噪声地形+河流+桥梁",
-  "spawnPoints": { "p1": [0, 0, 1.57] },
-
+  "spawnPoints": {
+    "p1": [
+      0,
+      0,
+      1.57
+    ]
+  },
   "players": {
     "lives": 3,
     "hp": 100,
@@ -16,21 +21,41 @@
     "mgRange": 50,
     "mgFireRate": 3
   },
-
   "enemies": [
     {
       "id": "zm-01",
       "type": "zombie",
-      "position": [60, 0, -70],
-      "patrolPath": [[60,-70], [70,-60], [75,-75], [55,-65]],
+      "position": [
+        24.5,
+        0,
+        30.0
+      ],
+      "patrolPath": [
+        [
+          24.5,
+          32.2
+        ],
+        [
+          22.1,
+          28.3
+        ],
+        [
+          25.1,
+          30.3
+        ],
+        [
+          26.2,
+          30.3
+        ]
+      ],
       "reactive": false,
       "hp": 40,
-      "speed": 2.5,
-      "viewDist": 30,
+      "speed": 1.5,
+      "viewDist": 22,
       "attackDist": 2.0,
       "attackDamage": 10,
       "attackCooldown": 2.0,
-      "stunRecoverTime": 1.5,
+      "staggerRecoverTime": 0.6,
       "score": 50,
       "dropRate": 0.3,
       "dropHeal": 30
@@ -38,16 +63,37 @@
     {
       "id": "zm-02",
       "type": "zombie",
-      "position": [-55, 0, -65],
-      "patrolPath": [[-55,-65], [-65,-55], [-60,-75], [-45,-60]],
+      "position": [
+        34.9,
+        0,
+        31.1
+      ],
+      "patrolPath": [
+        [
+          36.4,
+          31.6
+        ],
+        [
+          33.4,
+          31.8
+        ],
+        [
+          32.6,
+          33.0
+        ],
+        [
+          34.6,
+          33.0
+        ]
+      ],
       "reactive": false,
       "hp": 40,
-      "speed": 2.5,
-      "viewDist": 30,
+      "speed": 1.5,
+      "viewDist": 22,
       "attackDist": 2.0,
       "attackDamage": 10,
       "attackCooldown": 2.0,
-      "stunRecoverTime": 1.5,
+      "staggerRecoverTime": 0.6,
       "score": 50,
       "dropRate": 0.3,
       "dropHeal": 30
@@ -55,16 +101,37 @@
     {
       "id": "zm-03",
       "type": "zombie",
-      "position": [70, 0, 60],
-      "patrolPath": [[70,60], [80,55], [75,70], [65,65]],
+      "position": [
+        42.7,
+        0,
+        30.7
+      ],
+      "patrolPath": [
+        [
+          41.0,
+          29.2
+        ],
+        [
+          45.6,
+          33.3
+        ],
+        [
+          44.6,
+          33.7
+        ],
+        [
+          42.8,
+          28.2
+        ]
+      ],
       "reactive": false,
       "hp": 40,
-      "speed": 2.5,
-      "viewDist": 30,
+      "speed": 1.5,
+      "viewDist": 22,
       "attackDist": 2.0,
       "attackDamage": 10,
       "attackCooldown": 2.0,
-      "stunRecoverTime": 1.5,
+      "staggerRecoverTime": 0.6,
       "score": 50,
       "dropRate": 0.3,
       "dropHeal": 30
@@ -72,16 +139,37 @@
     {
       "id": "zm-04",
       "type": "zombie",
-      "position": [-70, 0, 55],
-      "patrolPath": [[-70,55], [-80,50], [-75,65], [-65,60]],
+      "position": [
+        49.4,
+        0,
+        30.2
+      ],
+      "patrolPath": [
+        [
+          48.1,
+          30.0
+        ],
+        [
+          51.6,
+          31.5
+        ],
+        [
+          49.8,
+          27.4
+        ],
+        [
+          50.6,
+          29.4
+        ]
+      ],
       "reactive": false,
       "hp": 40,
-      "speed": 2.5,
-      "viewDist": 30,
+      "speed": 1.5,
+      "viewDist": 22,
       "attackDist": 2.0,
       "attackDamage": 10,
       "attackCooldown": 2.0,
-      "stunRecoverTime": 1.5,
+      "staggerRecoverTime": 0.6,
       "score": 50,
       "dropRate": 0.3,
       "dropHeal": 30
@@ -89,40 +177,1064 @@
     {
       "id": "zm-05",
       "type": "zombie",
-      "position": [0, 0, 80],
-      "patrolPath": [[0,80], [10,75], [-10,85], [0,70]],
+      "position": [
+        57.7,
+        0,
+        29.6
+      ],
+      "patrolPath": [
+        [
+          58.2,
+          29.6
+        ],
+        [
+          55.4,
+          29.6
+        ],
+        [
+          59.2,
+          30.2
+        ],
+        [
+          57.6,
+          32.1
+        ]
+      ],
       "reactive": false,
       "hp": 40,
-      "speed": 2.5,
-      "viewDist": 30,
+      "speed": 1.5,
+      "viewDist": 22,
       "attackDist": 2.0,
       "attackDamage": 10,
       "attackCooldown": 2.0,
-      "stunRecoverTime": 1.5,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-06",
+      "type": "zombie",
+      "position": [
+        25.0,
+        0,
+        37.7
+      ],
+      "patrolPath": [
+        [
+          27.6,
+          37.6
+        ],
+        [
+          25.1,
+          34.8
+        ],
+        [
+          23.4,
+          35.5
+        ],
+        [
+          22.3,
+          38.9
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-07",
+      "type": "zombie",
+      "position": [
+        35.5,
+        0,
+        36.4
+      ],
+      "patrolPath": [
+        [
+          36.3,
+          36.2
+        ],
+        [
+          35.4,
+          34.8
+        ],
+        [
+          37.9,
+          37.2
+        ],
+        [
+          35.3,
+          36.2
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-08",
+      "type": "zombie",
+      "position": [
+        43.7,
+        0,
+        39.9
+      ],
+      "patrolPath": [
+        [
+          44.0,
+          40.3
+        ],
+        [
+          44.7,
+          38.8
+        ],
+        [
+          45.5,
+          40.0
+        ],
+        [
+          43.6,
+          42.3
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-09",
+      "type": "zombie",
+      "position": [
+        49.7,
+        0,
+        37.2
+      ],
+      "patrolPath": [
+        [
+          48.3,
+          34.4
+        ],
+        [
+          50.7,
+          37.8
+        ],
+        [
+          49.5,
+          37.3
+        ],
+        [
+          49.7,
+          39.7
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-10",
+      "type": "zombie",
+      "position": [
+        57.0,
+        0,
+        37.9
+      ],
+      "patrolPath": [
+        [
+          57.1,
+          39.9
+        ],
+        [
+          58.9,
+          38.3
+        ],
+        [
+          59.5,
+          39.9
+        ],
+        [
+          55.9,
+          40.4
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-11",
+      "type": "zombie",
+      "position": [
+        24.4,
+        0,
+        46.8
+      ],
+      "patrolPath": [
+        [
+          26.1,
+          46.8
+        ],
+        [
+          24.1,
+          49.5
+        ],
+        [
+          27.2,
+          48.8
+        ],
+        [
+          24.3,
+          44.1
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-12",
+      "type": "zombie",
+      "position": [
+        33.1,
+        0,
+        46.0
+      ],
+      "patrolPath": [
+        [
+          30.6,
+          47.5
+        ],
+        [
+          32.5,
+          45.7
+        ],
+        [
+          30.2,
+          43.0
+        ],
+        [
+          33.5,
+          48.6
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-13",
+      "type": "zombie",
+      "position": [
+        40.3,
+        0,
+        47.2
+      ],
+      "patrolPath": [
+        [
+          38.8,
+          47.9
+        ],
+        [
+          41.8,
+          49.9
+        ],
+        [
+          41.3,
+          48.0
+        ],
+        [
+          38.3,
+          46.1
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-14",
+      "type": "zombie",
+      "position": [
+        50.3,
+        0,
+        47.1
+      ],
+      "patrolPath": [
+        [
+          53.0,
+          47.0
+        ],
+        [
+          51.7,
+          44.9
+        ],
+        [
+          48.7,
+          47.6
+        ],
+        [
+          53.1,
+          49.3
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-15",
+      "type": "zombie",
+      "position": [
+        58.0,
+        0,
+        44.3
+      ],
+      "patrolPath": [
+        [
+          59.0,
+          46.9
+        ],
+        [
+          59.7,
+          46.8
+        ],
+        [
+          56.9,
+          43.8
+        ],
+        [
+          59.9,
+          44.5
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-16",
+      "type": "zombie",
+      "position": [
+        24.8,
+        0,
+        52.1
+      ],
+      "patrolPath": [
+        [
+          22.4,
+          54.4
+        ],
+        [
+          22.1,
+          51.1
+        ],
+        [
+          23.9,
+          53.7
+        ],
+        [
+          21.9,
+          52.1
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-17",
+      "type": "zombie",
+      "position": [
+        33.3,
+        0,
+        53.2
+      ],
+      "patrolPath": [
+        [
+          32.3,
+          50.9
+        ],
+        [
+          36.0,
+          53.6
+        ],
+        [
+          35.1,
+          51.1
+        ],
+        [
+          33.4,
+          52.8
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-18",
+      "type": "zombie",
+      "position": [
+        41.3,
+        0,
+        54.4
+      ],
+      "patrolPath": [
+        [
+          42.4,
+          51.8
+        ],
+        [
+          40.7,
+          52.6
+        ],
+        [
+          43.9,
+          51.7
+        ],
+        [
+          41.6,
+          56.4
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-19",
+      "type": "zombie",
+      "position": [
+        49.8,
+        0,
+        55.0
+      ],
+      "patrolPath": [
+        [
+          47.9,
+          56.3
+        ],
+        [
+          52.1,
+          52.8
+        ],
+        [
+          50.0,
+          56.7
+        ],
+        [
+          49.9,
+          57.8
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-20",
+      "type": "zombie",
+      "position": [
+        56.6,
+        0,
+        55.4
+      ],
+      "patrolPath": [
+        [
+          56.0,
+          54.9
+        ],
+        [
+          56.1,
+          52.8
+        ],
+        [
+          55.5,
+          54.4
+        ],
+        [
+          55.2,
+          55.4
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-21",
+      "type": "zombie",
+      "position": [
+        27.1,
+        0,
+        61.7
+      ],
+      "patrolPath": [
+        [
+          26.9,
+          60.6
+        ],
+        [
+          27.0,
+          59.4
+        ],
+        [
+          28.9,
+          63.4
+        ],
+        [
+          29.0,
+          63.8
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-22",
+      "type": "zombie",
+      "position": [
+        32.9,
+        0,
+        63.8
+      ],
+      "patrolPath": [
+        [
+          35.2,
+          64.7
+        ],
+        [
+          32.4,
+          65.5
+        ],
+        [
+          35.0,
+          64.8
+        ],
+        [
+          35.7,
+          62.9
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-23",
+      "type": "zombie",
+      "position": [
+        40.6,
+        0,
+        62.2
+      ],
+      "patrolPath": [
+        [
+          41.1,
+          62.5
+        ],
+        [
+          38.3,
+          63.5
+        ],
+        [
+          41.0,
+          62.7
+        ],
+        [
+          38.9,
+          61.0
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-24",
+      "type": "zombie",
+      "position": [
+        49.1,
+        0,
+        62.2
+      ],
+      "patrolPath": [
+        [
+          46.7,
+          60.8
+        ],
+        [
+          51.8,
+          60.3
+        ],
+        [
+          50.2,
+          63.8
+        ],
+        [
+          50.4,
+          60.3
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-25",
+      "type": "zombie",
+      "position": [
+        58.5,
+        0,
+        62.0
+      ],
+      "patrolPath": [
+        [
+          57.2,
+          64.1
+        ],
+        [
+          57.3,
+          60.9
+        ],
+        [
+          57.1,
+          59.4
+        ],
+        [
+          58.0,
+          64.4
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-26",
+      "type": "zombie",
+      "position": [
+        27.1,
+        0,
+        69.7
+      ],
+      "patrolPath": [
+        [
+          24.2,
+          67.2
+        ],
+        [
+          24.2,
+          67.4
+        ],
+        [
+          28.2,
+          70.1
+        ],
+        [
+          29.7,
+          68.8
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-27",
+      "type": "zombie",
+      "position": [
+        35.1,
+        0,
+        70.4
+      ],
+      "patrolPath": [
+        [
+          36.0,
+          71.1
+        ],
+        [
+          37.7,
+          69.3
+        ],
+        [
+          33.4,
+          70.2
+        ],
+        [
+          38.0,
+          72.7
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-28",
+      "type": "zombie",
+      "position": [
+        42.7,
+        0,
+        71.4
+      ],
+      "patrolPath": [
+        [
+          43.8,
+          74.0
+        ],
+        [
+          42.1,
+          74.1
+        ],
+        [
+          41.9,
+          72.9
+        ],
+        [
+          42.4,
+          68.6
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-29",
+      "type": "zombie",
+      "position": [
+        50.8,
+        0,
+        69.2
+      ],
+      "patrolPath": [
+        [
+          53.5,
+          71.0
+        ],
+        [
+          48.5,
+          70.8
+        ],
+        [
+          49.7,
+          71.6
+        ],
+        [
+          51.0,
+          68.2
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
+      "score": 50,
+      "dropRate": 0.3,
+      "dropHeal": 30
+    },
+    {
+      "id": "zm-30",
+      "type": "zombie",
+      "position": [
+        58.2,
+        0,
+        70.9
+      ],
+      "patrolPath": [
+        [
+          55.9,
+          71.6
+        ],
+        [
+          56.0,
+          68.6
+        ],
+        [
+          57.4,
+          71.8
+        ],
+        [
+          59.2,
+          68.1
+        ]
+      ],
+      "reactive": false,
+      "hp": 40,
+      "speed": 1.5,
+      "viewDist": 22,
+      "attackDist": 2.0,
+      "attackDamage": 10,
+      "attackCooldown": 2.0,
+      "staggerRecoverTime": 0.6,
       "score": 50,
       "dropRate": 0.3,
       "dropHeal": 30
     }
   ],
-
   "terrain": {
-    "pond": { "cx": 0, "cz": 50, "rx": 4.5, "rz": 6, "depth": 5 },
-    "river": { "zc": -60, "amp": 8, "period": 30, "hwBase": 6.25, "hwVar": 1.25, "hwPeriod": 20, "hwPhase": 1.5, "depth": 5 },
-    "hill": { "cx": 40, "cz": -30, "height": 4, "radius": 8 },
-    "basin": { "cx": 48, "cz": -25, "depth": 3, "radius": 5 }
+    "pond": {
+      "cx": 0,
+      "cz": 50,
+      "rx": 4.5,
+      "rz": 6,
+      "depth": 5
+    },
+    "river": {
+      "zc": -60,
+      "amp": 8,
+      "period": 30,
+      "hwBase": 6.25,
+      "hwVar": 1.25,
+      "hwPeriod": 20,
+      "hwPhase": 1.5,
+      "depth": 5
+    },
+    "hill": {
+      "cx": 40,
+      "cz": -30,
+      "height": 4,
+      "radius": 8
+    },
+    "basin": {
+      "cx": 48,
+      "cz": -25,
+      "depth": 3,
+      "radius": 5
+    }
   },
   "terrainTypes": {
     "default": "grass",
-    "riverBank": { "bankWidth": 5, "type": "mud" },
-    "pondEdge": { "bankWidth": 3, "type": "mud" },
-    "hillTop": { "radius": 4, "type": "sand" },
-    "basin": { "radius": 3, "type": "sand" },
-    "bridgeSurface": { "type": "asphalt" }
+    "riverBank": {
+      "bankWidth": 5,
+      "type": "mud"
+    },
+    "pondEdge": {
+      "bankWidth": 3,
+      "type": "mud"
+    },
+    "hillTop": {
+      "radius": 4,
+      "type": "sand"
+    },
+    "basin": {
+      "radius": 3,
+      "type": "sand"
+    },
+    "bridgeSurface": {
+      "type": "asphalt"
+    }
   },
   "waters": {
-    "pond": { "waterLevel": -1 },
-    "river": { "waterLevel": -1 }
+    "pond": {
+      "waterLevel": -1
+    },
+    "river": {
+      "waterLevel": -1
+    }
   },
-  "bridges": [{ "cx": 0, "halfW": 4, "deckH": 0.35 }],
-  "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 }
+  "bridges": [
+    {
+      "cx": 0,
+      "halfW": 4,
+      "deckH": 0.35
+    }
+  ],
+  "obstacles": {
+    "count": 350,
+    "minDist": 6,
+    "safeRadius": 10,
+    "spawnRadius": 98
+  }
 }

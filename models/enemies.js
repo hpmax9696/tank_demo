@@ -199,42 +199,42 @@
   dc.width = dc.height = SZ;
   const dctx = dc.getContext('2d');
 
-  // ① 灰绿基底
-  dctx.fillStyle = '#6B7B5E';
+  // ① 灰绿基底（浅色化）
+  dctx.fillStyle = '#8B9B7E';
   dctx.fillRect(0, 0, SZ, SZ);
 
   // ② 纹理噪点
   for (let i = 0; i < 300; i++) {
-    const g = 0x6B + Math.floor(Math.random() * 0x20);
-    const v = 0x7B - Math.floor(Math.random() * 0x20);
-    dctx.fillStyle = `rgb(${g},${v},${0x5E})`;
+    const g = 0x8B + Math.floor(Math.random() * 0x20);
+    const v = 0x9B - Math.floor(Math.random() * 0x20);
+    dctx.fillStyle = `rgb(${g},${v},${0x7E})`;
     dctx.fillRect(Math.random() * SZ, Math.random() * SZ, 1 + Math.random() * 3, 1 + Math.random() * 3);
   }
 
-  // ③ 暗红血渍（径向渐变）
+  // ③ 暗红血渍（径向渐变，浅色化）
   for (let i = 0; i < 8; i++) {
     const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 10 + Math.random() * 25;
     const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, '#3a0000');
-    g.addColorStop(0.4, '#5a0505');
+    g.addColorStop(0, '#5a1515');
+    g.addColorStop(0.4, '#7a2525');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     dctx.fillStyle = g;
     dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
 
-  // ④ 黄绿溃烂斑
+  // ④ 黄绿溃烂斑（浅色化）
   for (let i = 0; i < 5; i++) {
     const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 6 + Math.random() * 18;
     const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, '#8a8a2a');
-    g.addColorStop(0.6, '#7a6a1a');
+    g.addColorStop(0, '#aaaa4a');
+    g.addColorStop(0.6, '#9a9a3a');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     dctx.fillStyle = g;
     dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
 
-  // ⑤ 污垢线条
-  dctx.strokeStyle = '#3a3a2a';
+  // ⑤ 污垢线条（浅色化）
+  dctx.strokeStyle = '#5a5a4a';
   dctx.lineWidth = 2;
   for (let i = 0; i < 15; i++) {
     dctx.globalAlpha = 0.3 + Math.random() * 0.4;
@@ -478,34 +478,32 @@
   // === ② 材质字典 ===
   
   function getMat(id) {
-        if (_zombieMatCache[id]) return _zombieMatCache[id];
-    if (!matDict[id]) {
-      const DEFS = {
-        skin_rot:   { color: 0x6b5d4f, roughness: 0.85, metalness: 0.0 },
-        cloth_torn: { color: 0x4a4a3a, roughness: 0.85, metalness: 0.0 },
-        eye_glow:   { color: 0x000000, roughness: 0.0, metalness: 0.0, emissive: 0xff2200, emissiveIntensity: 3 },
-      };
-      const d = DEFS[id] || { color: 0x888888, roughness: 0.75, metalness: 0.05 };
-      const cfg = {
-        color: d.color,
-        roughness: d.roughness,
-        metalness: d.metalness,
-      };
-      // 非发光材质使用程序化贴图
-      if (id !== 'eye_glow') {
-        cfg.map = tex.diffuse;
-        cfg.roughnessMap = tex.roughness;
-      }
-      if (d.emissive !== undefined) {
-        cfg.emissive = d.emissive;
-        cfg.emissiveIntensity = d.emissiveIntensity;
-      }
-      _zombieMatCache[id] = new THREE.MeshStandardMaterial(cfg);
+    if (_zombieMatCache[id]) return _zombieMatCache[id];
+    const DEFS = {
+      skin_rot:   { color: 0x8b7d6f, roughness: 0.85, metalness: 0.0 },
+      cloth_torn: { color: 0x6a5a4a, roughness: 0.85, metalness: 0.0 },
+      eye_glow:   { color: 0x000000, roughness: 0.0, metalness: 0.0, emissive: 0xff2200, emissiveIntensity: 3 },
+    };
+    const d = DEFS[id] || { color: 0x888888, roughness: 0.75, metalness: 0.05 };
+    const cfg = {
+      color: d.color,
+      roughness: d.roughness,
+      metalness: d.metalness,
+    };
+    // 非发光材质使用程序化贴图
+    if (id !== 'eye_glow') {
+      cfg.map = tex.diffuse;
+      cfg.roughnessMap = tex.roughness;
     }
+    if (d.emissive !== undefined) {
+      cfg.emissive = d.emissive;
+      cfg.emissiveIntensity = d.emissiveIntensity;
+    }
+    _zombieMatCache[id] = new THREE.MeshStandardMaterial(cfg);
     return _zombieMatCache[id];
   }
   // 血迹材质
-  if (!_zombieBloodMat) _zombieBloodMat = new THREE.MeshStandardMaterial({ color: '#7a0a0a', roughness: 0.2, metalness: 0.1 });
+  if (!_zombieBloodMat) _zombieBloodMat = new THREE.MeshStandardMaterial({ color: '#9a2a2a', roughness: 0.2, metalness: 0.1 });
   const bloodMat = _zombieBloodMat;
 
   // === ③ 几何工厂 ===
@@ -584,6 +582,8 @@
 
   // === ⑤ 构建主骨架 ===
   buildNode(config, parent);
+  // 开启阴影
+  parent.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
 
   // === ⑥ 自动插入部件（发光眼睛 + 血迹）===
   function findPivot(name) {
@@ -642,7 +642,7 @@
 }
 
 
-    // 2.5 AnimationSystem — 手动插值动画引擎
+    // 2.5 AnimationSystem — 手动插值动画引擎（v0.28.0 支持分帧LOD）
     class AnimationSystem {
   constructor(root) {
     this.root = root;
@@ -652,6 +652,9 @@
     this.playing = false;
     this.loop = true;
     this.clampWhenFinished = false;
+    // LOD 分帧：skipInterval=0 每帧更新，值越大跳帧越多
+    this.skipInterval = 0;   // 秒（0=每帧，0.064=15fps，999=冻结）
+    this.skipAccum = 0;
   }
 
   // 注册动画定义
@@ -685,6 +688,13 @@
 
   update(dt) {
     if (!this.playing || !this.current) return;
+    // LOD 分帧：累积时间，不够间隔则跳过
+    this.skipAccum += dt;
+    if (this.skipInterval > 0) {
+      if (this.skipAccum < this.skipInterval) return;
+      dt = this.skipAccum;  // 一次性消耗累积的时间
+      this.skipAccum = 0;
+    }
     const anim = this.anims[this.current];
     if (!anim) return;
 
@@ -804,11 +814,7 @@
   // Phase 1 (0~0.333): 前扑触地 Impact
   // Phase 2 (0.333~1.0): 触地松弛 + 四肢外展 Splay
   // 时间归一化: user 的 0.5s/1.5=0.333, 1.0s/1.5=0.667, 1.5s/1.5=1.0
-  // 路径校验
-  // console.log('Die 骨骼路径: l_upper_arm =',
-    (P.l_upper_arm && P.l_upper_arm.name),
-    '| r_upper_arm =',
-    (P.r_upper_arm && P.r_upper_arm.name));
+  // 路径校验: l_upper_arm / r_upper_arm 均已通过 pivot 系统正确引用
 
   asys.define('Die', 1.5, [
     // root 前旋 + 下沉
@@ -827,12 +833,27 @@
 }
 
 
-    // 2.7 createZombie() — 游戏实例工厂（含动画系统）
+    // 2.7 createZombie() — 游戏实例工厂（含动画系统，目标高度1.0m）
+    // v0.28.0 模板克隆：首次构建骨架→深拷贝复用，几何体共享
+    let _zombieTemplate = null;
+    let _zombieTemplateScale = 1.0;
+    let _zombieTemplateBaseY = 0;
     function createZombie() {
         // 预热贴图缓存
         if (!_zombieTexCache) createZombieMaterials();
-        const root = new THREE.Group();
-        buildZombieFromConfig(ZOMBIE_CONFIG, root, false);
+        if (!_zombieTemplate) {
+            _zombieTemplate = new THREE.Group();
+            buildZombieFromConfig(ZOMBIE_CONFIG, _zombieTemplate, false);
+            const bbox = new THREE.Box3().setFromObject(_zombieTemplate);
+            const currentH = bbox.max.y - bbox.min.y;
+            if (currentH > 0) {
+                _zombieTemplateScale = 1.0 / currentH;
+                _zombieTemplateBaseY = -bbox.min.y * _zombieTemplateScale;
+            }
+        }
+        const root = _zombieTemplate.clone(true);
+        root.scale.setScalar(_zombieTemplateScale);
+        root.position.y = _zombieTemplateBaseY;
         const asys = createAnimationSystem(root);
         root.userData._animSystem = asys;
         root.userData.enemyType = 'zombie';
@@ -840,10 +861,10 @@
         return root;
     }
 
-    // 2.8 makeZombie() — 预览工厂（1.5x缩放适配ModelRegistry）
+    // 2.8 makeZombie() — 预览工厂（createZombie已缩至1m，预览保持原尺寸）
     function makeZombie() {
         const g = createZombie();
-        g.scale.setScalar(1.5);
+        // createZombie 已通过包围盒缩放到1.0m，预览直接返回
         return g;
     }
 
