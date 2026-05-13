@@ -232,8 +232,14 @@ fireSmokeParticles.js:
 
 ## 完整版本历史
 
-### v0.27.0 — 程序化丧尸模型原型：ZOMBIE_CONFIG + 关节pivot + 程序化贴图 + AnimationSystem（2026-05-13）
+### v0.27.0 — 新程序化丧尸集成：GLB系统清理 + enemies.js重写 + 04a部署5只（2026-05-13）
+- **GLB丧尸系统清理**：移除约300行 GLB加载/缓存/蒙皮克隆/动画控制器代码
+- **enemies.js重写**：从 zombie_prototype.html 移植 ZOMBIE_CONFIG + buildZombieFromConfig + AnimationSystem（6动作），替换旧300行丧尸代码
+- **index.html适配**：简化createEnemies丧尸创建→直接调用createZombie()，动画驱动从zombieMixer→AnimationSystem
+- **地图更新**：04a新增 zm-03/zm-04/zm-05，总计5只丧尸
+- **代码清理**：注销 tank.js 的 green/desert 注册，删除GLB丧尸模型预览菜单条目
 
+### v0.27.0-原型 — 程序化丧尸模型原型：ZOMBIE_CONFIG + 关节pivot + 程序化贴图 + AnimationSystem（2026-05-13）
 - **`zombie_prototype.html`** 独立原型文件（~900行），包含完整工具链
 - **ZOMBIE_CONFIG** 层级树配置：24个节点（含11个关节pivot），458 tris
 - **buildZombieFromConfig()** 递归构建函数：Box/Sphere/Cylinder + 关节pivot补偿算法
@@ -780,27 +786,25 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.27.0 | 程序化丧尸模型原型 | zombie_prototype.html 独立运行`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.27.0 | 新程序化丧尸集成+GLB清理+04a×5只 | zombie_prototype.html`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
 ### 代码规模（截至 v0.27.0）
-- `index.html`：约 5450 行（HTML+CSS+JS，含GLB丧尸加载系统+模型预览+combat模式）
-- `zombie_prototype.html`：约 900 行（独立原型：程序化丧尸模型+AnimationSystem 6动作）
-- `combat/enemyAI.js`：约 400 行（AI状态机 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
+- `index.html`：约 5200 行（HTML+CSS+JS，GLB丧尸系统已清理，新程序化丧尸集成）
+- `models/enemies.js`：约 864 行（装甲突击车+新程序化丧尸：ZOMBIE_CONFIG+AnimationSystem 6动作）
+- `zombie_prototype.html`：约 980 行（丧尸原型独立预览，含lil-gui调试面板）
+- `combat/enemyAI.js`：约 530 行（AI状态机 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
-- `models/pickups.js`：约 214 行（战利品拾取模型+GLB优先加载+程序化回退）
-- `models/enemies.js`：约 483 行（装甲突击车+旧丧尸程序化模型，待替换为新丧尸）
-- `models/terrainTextures.js`：约 130 行（6种FBM程序化地形纹理）
+- `models/pickups.js`：约 214 行（战利品拾取模型）
 - `fireSmokeParticles.js`：约 390 行（粒子系统模块）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
 - `models/buildings.js`：约 220 行（平房/别墅/公寓精细化）
 - `models/windmill.js`：约 59 行（风车磨坊已修复）
-- `zombie_prototype.html`：约 900 行（程序化丧尸模型原型+AnimationSystem 6动作）
-- `grass.js`：程序化草丛生成（~210 行）
-- 其他模型文件：约 211 行（tank / trees / modelRegistry）
+- `grass.js`：约 210 行（程序化草丛生成）
+- 其他模型文件：约 211 行（tank / trees / modelRegistry / terrainTextures）
 - `maps/`：5个地图配置文件（test_map_01a / 01b / 02a / 03a / 04a）
-- **总计约 6900 行**
+- **总计约 6500 行**
 
 ---
 

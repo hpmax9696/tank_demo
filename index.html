@@ -368,9 +368,9 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🧟 v0.27.0 新增 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+lil-gui调试面板+zombie_prototype.html</div>
-            <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复(Armature.scale→1消除压缩+boneInverses重算)+双倍掉落修复+纹理恢复</div>
-            <div class="cl-title">🩻 v0.26.13 修复 — GLB包围盒世界矩阵修复+MG击杀安全网</div>
+            <div class="cl-title">🧟 v0.27.0 集成 — 新程序化丧尸(enemies.js骨架+AnimationSystem)+清理GLB丧尸系统(~300行)+04a地图5只丧尸</div>
+            <div class="cl-title">🧟 v0.27.0 原型 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+zombie_prototype.html</div>
+            <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复+双倍掉落修复+纹理恢复</div>
             <div class="cl-title">🩻 v0.26.12 修复 — SkinnedMesh骨骼绑定修复(cloneWithSkinnedMesh)</div>
             <div class="cl-title">🧟 v0.26.11 改进 — 分图(03a装甲车/04a丧尸)+GLB预加载+丧尸死亡倒地动画+丧尸禁用地形俯仰</div>
         </div>
@@ -1945,367 +1945,6 @@
             yellow: { key: 'yellow', path: 'models/glb/t34-85_textured_yellow.glb', cache: {}, pending: [] }
         };
 
-        // ==================== 丧尸 GLB 缓存系统 ====================
-        // 首次加载→缓存 gltf.scene 和 AnimationClip，后续 clone(true) 复用
-        let _zombieGlbCache = { baseScene: null, baseScale: 1.0, bboxMinY: 0, clips: [], loaded: false, pending: [] };
-        let _zombieGlbLoading = false;
-        const ZOMBIE_GLB_DEBUG = false; // v0.26.14: 尺寸修复完成，关闭诊断，恢复原始纹理
-
-        function createPlayerTank(player) {
-            const group = new THREE.Group();
-            group.rotation.order = 'YXZ'; // 先偏航再俯仰，确保坡度俯仰跟随坦克朝向
-            group.position.set(player.state.x, 0, player.state.z);
-            group.rotation.y = player.state.yaw;
-            player.group = group;
-            player.hull = group; // GLB 无独立 hull，整体 pitch 用 group 代替
-            player.leftWheels = [];
-            player.rightWheels = [];
-            scene.add(group);
-
-            // 1P 绿色，2P 黄色
-            const is1P = (player === player1);
-            const bag = is1P ? _glbCaches.green : _glbCaches.yellow;
-            const label = bag.key;
-
-            // file:// 协议下浏览器禁止跨源加载外部文件，直接回退程序化模型
-            if (document.location.protocol === 'file:') {
-                console.log('📄 file:// 协议，跳过 GLB 加载，使用程序化模型');
-                fallbackProgrammatic(player, group);
-                return;
-            }
-
-            // 已缓存 → 直接克隆
-            if (bag.cache.model) {
-                spawnFromCache(player, group, bag);
-                return;
-            }
-
-            // 正在加载中 → 加入等待队列
-            bag.pending.push({ player, group });
-
-            // 首次加载（通过 pending.length === 1 防重复触发）
-            if (bag.pending.length === 1) {
-                const loader = new THREE.GLTFLoader();
-                loader.load(bag.path,
-                    (gltf) => {
-                        bag.cache.model = gltf.scene;
-                        bag.cache.bbox = new THREE.Box3().setFromObject(gltf.scene);
-                        const sz = new THREE.Vector3();
-                        bag.cache.bbox.getSize(sz);
-                        bag.cache.center = new THREE.Vector3();
-                        bag.cache.bbox.getCenter(bag.cache.center);
-
-                        // 目标：模型长度(Z) = HULL_L 1.70（与碰撞体系一致）
-                        const targetLen = 1.70;
-                        bag.cache.baseScale = targetLen / sz.z;
-                        console.log('✅ GLB(' + label + ') 加载成功 | 原始:',
-                            sz.x.toFixed(3), '×', sz.y.toFixed(3), '×', sz.z.toFixed(3),
-                            '| 缩放: ×' + bag.cache.baseScale.toFixed(4),
-                            '| TANK_HALF_W=' + TANK_HALF_W.toFixed(2));
-
-                        bag.pending.forEach(p => spawnFromCache(p.player, p.group, bag));
-                        bag.pending.length = 0;
-                    },
-                    (p) => { /* 进度回调已屏蔽，减少控制台输出 */ },
-                    (err) => {
-                        console.warn('⚠️ GLB(' + label + ') 加载失败，回退程序化:', err.message);
-                        bag.pending.forEach(p => fallbackProgrammatic(p.player, p.group));
-                        bag.pending.length = 0;
-                    }
-                );
-            }
-        }
-
-        function spawnFromCache(player, group, bag) {
-            const model = bag.cache.model.clone(true);
-            const s = bag.cache.baseScale;
-
-            // 缩放 + 居中 + 阴影
-            model.scale.setScalar(s);
-            model.position.set(
-                -bag.cache.center.x * s,
-                -bag.cache.bbox.min.y * s,
-                -bag.cache.center.z * s
-            );
-
-            // 遍历所有网格：开启阴影投射与接收
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                }
-            });
-
-            group.add(model);
-
-            if (player === player1) {
-                tankGroup = player1.group;
-                tankHull = player1.hull;
-                leftWheels = player1.leftWheels;
-                rightWheels = player1.rightWheels;
-            }
-        }
-
-        function fallbackProgrammatic(player, group) {
-            const camo = player.camoColor === 'desert' ? 't34-85-desert' : 't34-85-green';
-            const tankGroup = window.ModelRegistry.getModel('tanks', camo)({
-                camoColor: player.camoColor,
-                position: { x: player.state.x, y: 0, z: player.state.z },
-                yaw: player.state.yaw
-            });
-            while (tankGroup.children.length > 0) {
-                group.add(tankGroup.children[0]);
-            }
-            player.hull = tankGroup.userData.hull || group;
-            player.leftWheels = tankGroup.userData.leftWheels || [];
-            player.rightWheels = tankGroup.userData.rightWheels || [];
-            group.position.copy(tankGroup.position);
-            group.rotation.copy(tankGroup.rotation);
-            if (tankGroup.userData.hull) {
-                player.hull = tankGroup.userData.hull;
-            }
-            console.log('🔄 已回退到程序化 T-34/85 模型');
-        }
-
-        // ==================== 丧尸 GLB 加载 ====================
-        const ZOMBIE_GLB_ENABLED = true; // v0.26.15fix: 修复 cloneWithSkinnedMesh 后重新启用GLB
-        function loadZombieGlb() {
-            if (!ZOMBIE_GLB_ENABLED) {
-                console.log('💀 GLB已禁用，使用程序化丧尸模型');
-                return;
-            }
-            if (_zombieGlbCache.loaded || _zombieGlbLoading) return;
-            if (document.location.protocol === 'file:') {
-                console.log('📄 file:// 协议，跳过丧尸 GLB 加载');
-                return;
-            }
-            _zombieGlbLoading = true;
-            const loader = new THREE.GLTFLoader();
-            loader.load('models/glb/丧尸多动作.glb',
-                (gltf) => {
-                    _zombieGlbCache.baseScene = gltf.scene;
-                    _zombieGlbCache.clips = gltf.animations || [];
-                    console.log('🎬 GLB动画剪辑名 (' + _zombieGlbCache.clips.length + '个):',
-                        _zombieGlbCache.clips.map(c => c.name).join(', '));
-                    // v0.26.13fix: 直接读取 SkinnedMesh geometry 包围盒，不依赖 matrixWorld
-                    // 原因：matrixWorld 对 detached 层级的 SkinnedMesh 可能计算不准
-                    let rawBB = null, skinMeshName = '';
-                    gltf.scene.traverse(c => {
-                        if (c.isSkinnedMesh && c.geometry && !rawBB) {
-                            c.geometry.computeBoundingBox();
-                            rawBB = c.geometry.boundingBox;
-                            skinMeshName = c.name || '(unnamed)';
-                        }
-                    });
-                    // 检测 Armature 自身的 scale（Blender导出常为 0.01）
-                    let armatureScale = 1.0;
-                    gltf.scene.traverse(c => {
-                        if ((c.name === 'Armature' || c.name === 'armature') && c.scale) {
-                            armatureScale = c.scale.y;
-                        }
-                    });
-                    // 直接计算：几何体原始尺寸 × Armature缩放 = 有效渲染尺寸
-                    const rawH = rawBB ? (rawBB.max.y - rawBB.min.y) : 1.9;
-                    const effectiveH = rawH * armatureScale;
-                    const targetH = 1.8;
-                    _zombieGlbCache.baseScale = (effectiveH > 0.0001) ? (targetH / effectiveH) : 1.0;
-                    // bboxMinY/center 用于 position 补偿（需要Armature缩放后的世界坐标）
-                    const rawMinY = rawBB ? rawBB.min.y : -0.95;
-                    const rawCx = rawBB ? (rawBB.max.x + rawBB.min.x) / 2 : 0;
-                    const rawCz = rawBB ? (rawBB.max.z + rawBB.min.z) / 2 : 0;
-                    _zombieGlbCache.bboxMinY = rawMinY;
-                    _zombieGlbCache.center = new THREE.Vector3(rawCx * armatureScale, 0, rawCz * armatureScale);
-                    _zombieGlbCache.loaded = true;
-                    _zombieGlbLoading = false;
-                    // 强制输出关键值（不受 DEBUG 控制）
-                    console.log('📏 丧尸GLB尺寸诊断 | rawH:', rawH.toFixed(3), '| armatureScale:', armatureScale,
-                        '| effectiveH:', effectiveH.toFixed(4), '| baseScale:', _zombieGlbCache.baseScale.toFixed(2),
-                        '| rawMinY:', rawMinY.toFixed(3), '| worldMinY:', _zombieGlbCache.bboxMinY.toFixed(4),
-                        '| 几何体:', skinMeshName,
-                        '| 动画数:', _zombieGlbCache.clips.length);
-                    // 升级所有挂起的丧尸：清除程序化模型子节点 → 替换为 GLB 模型 + 动画
-                    if (_zombieGlbCache.pending.length > 0) {
-                        console.log('🔄 升级 ' + _zombieGlbCache.pending.length + ' 只丧尸: 程序化 → GLB');
-                        for (const group of _zombieGlbCache.pending) {
-                            // 清除程序化子节点
-                            while (group.children.length > 0) {
-                                const child = group.children[0];
-                                group.remove(child);
-                                if (child.traverse) child.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                            }
-                            // 添加 GLB 模型
-                            spawnZombieFromGlb(group);
-                            // 如果已有 anim 控制器，从新 mixer 重建
-                            if (group.userData.zombieMixer) {
-                                initZombieAnimController(group);
-                                // 立即播放 idle 动画
-                                if (group.userData.anim && group.userData.anim.actions.idle) {
-                                    group.userData.anim.play('idle', 0.5);
-                                }
-                            }
-                        }
-                        _zombieGlbCache.pending = [];
-                    }
-                },
-                undefined,
-                (err) => {
-                    console.warn('⚠️ 丧尸GLB加载失败:', err.message);
-                    _zombieGlbLoading = false;
-                }
-            );
-        }
-
-        // 完全匹配 THREE.SkeletonUtils.clone (r146) — 解决克隆后蒙皮不驱动的问题
-        function cloneWithSkinnedMesh(source) {
-            const sourceLookup = new Map(); // cloned → source
-            const cloneLookup  = new Map(); // source → cloned
-            const clone = source.clone();
-            (function _para(a, b) {
-                sourceLookup.set(b, a);
-                cloneLookup.set(a, b);
-                const len = Math.min(a.children.length, b.children.length);
-                for (let i = 0; i < len; i++) _para(a.children[i], b.children[i]);
-            })(source, clone);
-            clone.traverse(function (node) {
-                if (!node.isSkinnedMesh) return;
-                const srcMesh = sourceLookup.get(node);
-                if (!srcMesh || !srcMesh.skeleton) return;
-                // 用克隆后的骨骼创建新 Skeleton，再 bind
-                const clonedSkeleton = new THREE.Skeleton(
-                    srcMesh.skeleton.bones.map(function (b) { return cloneLookup.get(b); })
-                );
-                node.bind(clonedSkeleton, node.bindMatrix);
-                console.log('🩻 SkeletonUtils.clone →', srcMesh.name || '(unnamed)',
-                    '| bones:', clonedSkeleton.bones.length);
-            });
-            return clone;
-        }
-
-        function spawnZombieFromGlb(group) {
-            if (!_zombieGlbCache.baseScene) return null;
-            const model = cloneWithSkinnedMesh(_zombieGlbCache.baseScene);
-
-            // v0.26.15fix: 不修改 Armature 缩放，用缓存baseScale
-            const baseScale = _zombieGlbCache.baseScale || 94.76;
-            model.scale.setScalar(baseScale);
-            const rawMinY = _zombieGlbCache.bboxMinY || -0.012;
-            // 先设 position，再 updateMatrixWorld，确保骨骼 matrixWorld 正确
-            model.position.set(0, -rawMinY * baseScale, 0);
-            model.updateMatrixWorld(true);
-            console.log('>> GLB克隆方案 | baseScale:', baseScale.toFixed(3), '| posY:', model.position.y.toFixed(4));
-
-            const skinnedMeshes = [];
-            model.traverse(c => {
-                if (c.isMesh) {
-                    c.castShadow = true;
-                    c.receiveShadow = true;
-                    c.frustumCulled = false;
-                    c.visible = true;
-                    if (c.isSkinnedMesh) {
-                        skinnedMeshes.push(c);
-                        if (c.skeleton && typeof c.skeleton.update === 'function') c.skeleton.update();
-                        // 强制开启 skinning
-                        if (Array.isArray(c.material)) {
-                            c.material.forEach(m => { m.skinning = true; m.needsUpdate = true; });
-                        } else if (c.material) {
-                            c.material.skinning = true;
-                            c.material.needsUpdate = true;
-                        }
-                    }
-                    if (c.material && !c.isSkinnedMesh) {
-                        const mats = Array.isArray(c.material) ? c.material : [c.material];
-                        mats.forEach(mat => {
-                            mat.visible = true;
-                            if (typeof mat.opacity === 'number' && mat.opacity <= 0) mat.opacity = 1;
-                            mat.needsUpdate = true;
-                        });
-                    }
-                    if (c.geometry) {
-                        c.geometry.computeBoundingBox();
-                        c.geometry.computeBoundingSphere();
-                    }
-                }
-            });
-            group.add(model);
-            group.userData.zombieGlbRoot = model;
-
-            // 创建动画控制器
-            if (_zombieGlbCache.clips.length > 0) {
-                const mixer = new THREE.AnimationMixer(model);
-                const clipMap = {};
-                const KNOWN_MAP = { idle: ['20aff4d1'], walk: ['97951ef0'], run: ['adfdbf68'],
-                    attack: ['31d8bc8b'], hit: ['38bab115'], death: ['6981c077'] };
-                for (const [key, names] of Object.entries(KNOWN_MAP)) {
-                    const clip = _zombieGlbCache.clips.find(c => names.some(n => c.name.toLowerCase().includes(n)));
-                    if (clip) {
-                        const action = mixer.clipAction(clip);
-                        clipMap[key] = action;
-                    }
-                }
-                console.log('>> 丧尸动画匹配:', Object.keys(clipMap).join(', '), '| 未匹配:',
-                    Object.keys(KNOWN_MAP).filter(k => !clipMap[k]).join(', ') || '无');
-                group.userData.zombieMixer = mixer;
-                group.userData.zombieClips = clipMap;
-                group.userData.zombieCurrent = null;
-                if (clipMap.idle) { clipMap.idle.reset().play(); group.userData.zombieCurrent = 'idle'; }
-                return true;
-            }
-            return false;
-        }        function zombieFallbackModel(group) {
-            if (!window.EnemyModels || !window.EnemyModels.createZombie) {
-                console.warn('zombieFallbackModel: createZombie 不可用');
-                return false;
-            }
-            const prog = window.EnemyModels.createZombie();
-            // 缩放到 1.8m
-            const bbox = new THREE.Box3().setFromObject(prog);
-            const sz = new THREE.Vector3(); bbox.getSize(sz);
-            if (sz.y > 0.001) {
-                const s = 1.8 / sz.y;
-                prog.scale.setScalar(s);
-                prog.position.set(0, -bbox.min.y * s, 0);
-            }
-            while (prog.children.length > 0) group.add(prog.children[0]);
-            return true;
-        }
-
-        // ─── 丧尸动画控制器（驱动 enemy.userData.anim） ───
-        function initZombieAnimController(enemy) {
-            const mixer = enemy.userData.zombieMixer;
-            const clips = enemy.userData.zombieClips;
-            if (!mixer || !clips) return;
-            console.log('🎬 丧尸动画控制器初始化 | 当前动作:', enemy.userData.zombieCurrent, 
-                '| 可用动作:', Object.keys(clips).join(','));
-            const anim = {
-                mixer,
-                actions: clips,
-                current: enemy.userData.zombieCurrent || 'idle',
-                atkAnimStart: 0,
-                atkHitApplied: false,
-                deathAnimDone: false,
-                play(name, crossfadeSec) {
-                    crossfadeSec = crossfadeSec || 0.15;
-                    const fromAction = clips[this.current];
-                    const toAction = clips[name];
-                    if (!toAction || !fromAction) {
-                        if (toAction && !fromAction) { toAction.reset().play(); this.current = name; }
-                        return;
-                    }
-                    if (this.current === name) return;
-                    // crossFade 切换
-                    fromAction.fadeOut(crossfadeSec);
-                    toAction.reset().fadeIn(crossfadeSec).play();
-                    this.current = name;
-                },
-                update(dt) {
-                    if (mixer) mixer.update(dt);
-                },
-                dispose() {
-                    if (mixer) mixer.stopAllAction();
-                }
-            };
-            enemy.userData.anim = anim;
-        }
 
         function createBarsForPlayer(player) {
             // 装填条（右方悬浮）——透明通道+高渲染序，确保在水面之上
@@ -3571,19 +3210,17 @@
                     if (isDead && !isZombie) continue;
                     // 已死亡的丧尸只做动画处理（不执行AI/物理/伤害）
                     if (isDead && isZombie) {
-                        if (enemy.userData.anim) {
-                            const anim = enemy.userData.anim;
-                            if (anim.mixer) anim.update(dt);
-                            if (!enemy.ai.deathAnimStarted && anim.actions.death) {
+                        const asys = enemy.userData._animSystem;
+                        if (asys) {
+                            asys.update(dt);
+                            if (!enemy.ai.deathAnimStarted) {
                                 enemy.ai.deathAnimStarted = true;
-                                anim.play('death', 0.3);
-                                anim.deathDoneTimer = 0;
+                                asys.play('Die', false);
+                                enemy.ai.deathDoneTimer = 0;
                             }
-                            if (enemy.ai.deathAnimStarted && anim.current === 'death') {
-                                const clip = anim.actions.death && anim.actions.death.getClip();
-                                const clipDur = clip ? clip.duration : 2.0;
-                                anim.deathDoneTimer = (anim.deathDoneTimer || 0) + dt;
-                                if (anim.deathDoneTimer >= clipDur && !enemy.ai.deathAnimDone) {
+                            if (enemy.ai.deathAnimStarted) {
+                                enemy.ai.deathDoneTimer = (enemy.ai.deathDoneTimer || 0) + dt;
+                                if (enemy.ai.deathDoneTimer >= 1.5 && !enemy.ai.deathAnimDone) {
                                     // 倒地动画结束 → 直接移除实例，无爆炸（v0.26.13fix: +deathAnimDone防重复）
                                     enemy.ai.deathAnimDone = true;
                                     enemy.visible = false;
@@ -3593,7 +3230,7 @@
                                     setTimeout(() => {
                                         if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
                                         deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                        if (deadEnemy.userData.anim && deadEnemy.userData.anim.mixer) deadEnemy.userData.anim.mixer.stopAllAction();
+                                        // v0.27.0: animSystem 无需手动清理（纯JS对象）
                                         const idx = enemies.indexOf(deadEnemy);
                                         if (idx >= 0) enemies.splice(idx, 1);
                                     }, 300);
@@ -3608,8 +3245,7 @@
                                 }
                             }
                         } else {
-                            // 程序化丧尸（无 GLB 动画，兜底）：直接移除，无爆炸
-                            enemy.visible = false;
+                                enemy.visible = false;
                             if (combatData) combatData.score += (enemy.cfg.score || 50);
                             spawnPickup(enemy);
                             const deadEnemy = enemy;
@@ -3728,12 +3364,12 @@
                     }
 
                     // ── 丧尸专用更新：动画 + STUNNED + 攻击命中 + 死亡动画 ──
-                    if (enemy.cfg && enemy.cfg.type === 'zombie' && enemy.userData.anim) {
-                        const anim = enemy.userData.anim;
+                    if (enemy.cfg && enemy.cfg.type === 'zombie') {
+                        const asys = enemy.userData._animSystem;
                         const ai = enemy.ai;
 
                         // 1. 更新动画混合器
-                        if (anim.mixer) anim.update(dt);
+                        if (asys) asys.update(dt);
 
                         // 1.5. 全局安全网：不论状态，hp≤0 立即转 dead（v0.26.13fix）
                         if (enemy.hp <= 0 && ai.state !== 'dead') {
@@ -3758,11 +3394,8 @@
 
                         // 3. 攻击命中检测（挥击播放到 ~60% 时扣血）
                         if (ai.animRequest === 'attack' && ai.animAtkStart > 0 && !ai.animHitApplied) {
-                            const elapsed = (Date.now() / 1000) - ai.animAtkStart;
-                            const clip = anim.actions.attack && anim.actions.attack.getClip();
-                            const clipDur = clip ? clip.duration : 1.0;
-                            const hitTime = clipDur * 0.6;
-                            if (elapsed >= hitTime) {
+                            const t = asys ? asys.currentTime : 0;
+                            if (t >= 0.30 && t <= 0.45) {
                                 ai.animHitApplied = true;
                                 if (player1 && !player1.dead) {
                                     const pDist = enemy.position.distanceTo(player1.group.position);
@@ -3802,42 +3435,28 @@
 
                         // 4. 攻击动画播完→进入冷却
                         if (ai.animRequest === 'attack' && ai.animAtkStart > 0) {
-                            const elapsed = (Date.now() / 1000) - ai.animAtkStart;
-                            const clip = anim.actions.attack && anim.actions.attack.getClip();
-                            const clipDur = clip ? clip.duration : 1.0;
-                            const cd = enemy.cfg.attackCooldown || 2.0;
-                            if (elapsed >= clipDur + cd) {
+                            if (asys && !asys.playing) {
                                 ai.atkReady = true;
                                 ai.animRequest = 'walk';
                             }
                         }
 
-                        // 5. 播放 AI 状态请求的动画
-                        if (ai.state !== 'stunned') {
-                            if (ai.animRequest === 'attack' && anim.current !== 'attack') {
-                                if (anim.actions.attack) {
-                                    anim.play('attack', 0.15);
-                                    ai.animAtkStart = Date.now() / 1000;
-                                    ai.animHitApplied = false;
-                                }
-                            } else if (ai.animRequest && ai.animRequest !== anim.current && ai.animRequest !== 'attack') {
-                                anim.play(ai.animRequest, 0.2);
-                            }
-                        } else {
-                            // STUNNED：播放受击动画（循环）
-                            if (anim.current !== 'hit' && anim.actions.hit) {
-                                anim.actions.hit.reset().play();
-                                anim.current = 'hit';
+                        // 5. 播放 AI 状态请求的动画（AnimationSystem）
+                        if (ai.animRequest && asys) {
+                            const nameMap = { idle:'Idle', walk:'Walk', run:'Run', attack:'Attack', hit:'Hit', death:'Die' };
+                            const mapped = nameMap[ai.animRequest] || ai.animRequest;
+                            const needLoop = ai.state === 'stunned' ? false : !['Hit','Die'].includes(mapped);
+                            if (asys.current !== mapped || !asys.playing) {
+                                asys.play(mapped, needLoop);
+                                if (mapped === 'Attack') { ai.animHitApplied = false; }
                             }
                         }
 
                         // 6. 死亡动画启动（播完/清理由顶部跳过逻辑处理）
                         if (enemy.hp <= 0 && ai.state === 'dead' && !ai.deathAnimStarted) {
                             ai.deathAnimStarted = true;
-                            if (anim.actions.death) {
-                                anim.play('death', 0.3);
-                                anim.deathDoneTimer = 0;
-                            }
+                            ai.animRequest = 'death';
+                            if (asys) asys.play('Die', false);
                         }
                     }
                 }
@@ -4469,15 +4088,7 @@
                     }
                     model = window.EnemyModels.createAssaultVehicle();
                 } else if (ecfg.type === 'zombie') {
-                    model = new THREE.Group();
-                    // 尝试 GLB 缓存 + 动画控制器
-                    const useGlb = loadOrQueueZombieGlb(model);
-                    if (!useGlb) {
-                        if (!zombieFallbackModel(model)) {
-                            console.warn('createEnemies: 丧尸 GLB 不可用且程序化回退失败');
-                            continue;
-                        }
-                    }
+                    model = window.EnemyModels.createZombie();
                 } else {
                     console.warn('createEnemies: 未知敌人类型 ' + ecfg.type);
                     continue;
@@ -4541,9 +4152,9 @@
                     prevState: 'patrol',
                     deathAnimStarted: false,
                 };
-                // 初始化丧尸动画控制器（GLB 已加载时）
-                if (ecfg.type === 'zombie' && model.userData.zombieMixer) {
-                    initZombieAnimController(model);
+                // 绑定丧尸动画系统
+                if (ecfg.type === 'zombie' && model.userData._animSystem) {
+                    model.userData.animSystem = model.userData._animSystem;
                 }
                 // 初始化炮塔朝前（仅车辆）
                 if (ecfg.type !== 'zombie' && model.userData.turretPivot) {
@@ -4556,12 +4167,6 @@
                 // 火焰喷射视觉（仅车辆）
                 if (ecfg.type !== 'zombie') {
                     createEnemyFlameVFX(model);
-                } else if (model.userData.zombieMixer) {
-                    // 如果有 GLB 动画，启动 idle
-                    model.userData.anim = model.userData.anim || {};
-                    if (model.userData.zombieClips && model.userData.zombieClips.idle) {
-                        // 已在 initZombieAnimController 中处理
-                    }
                 }
                 scene.add(model);
                 enemies.push(model);
@@ -4569,16 +4174,6 @@
             }
         }
 
-        // ── 丧尸 GLB 按需加载（未加载时回退程序化） ──
-        function loadOrQueueZombieGlb(group) {
-            if (_zombieGlbCache.loaded) {
-                return spawnZombieFromGlb(group);
-            }
-            // GLB 尚未就绪：加入挂起队列，等加载完成后升级模型
-            _zombieGlbCache.pending.push(group);
-            loadZombieGlb();
-            return false; // 先用程序化回退，稍后升级
-        }
 
         function createEnemyHpBar(enemy) {
             const barW = 1.5, barH = 0.08, barD = 0.02;
@@ -4881,18 +4476,14 @@
                 if (enemy.userData.flameEffect) {
                     enemy.userData.flameEffect.dispose();
                 }
-                if (enemy.userData.zombieMixer) {
-                    enemy.userData.zombieMixer.stopAllAction();
-                }
-                if (enemy.userData.anim && enemy.userData.anim.mixer) {
-                    enemy.userData.anim.mixer.stopAllAction();
-                }
+
+                // v0.27.0: animSystem 无需手动清理
                 if (enemy.parent) enemy.parent.remove(enemy);
                 enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             }
             enemies = [];
             // 清除丧尸 GLB 挂起队列（这些 group 已被 remove，不应再升级）
-            _zombieGlbCache.pending = [];
+
         }
 
         function respawnPlayer() {
@@ -5392,8 +4983,6 @@
             // GLB 模型
             catMap.glb.models.push({ cat: 'glb', name: 't34-green', label: 'T-34/85 绿色 (1P)', value: 'glb/t34-green' });
             catMap.glb.models.push({ cat: 'glb', name: 't34-yellow', label: 'T-34/85 黄色 (2P)', value: 'glb/t34-yellow' });
-            catMap.glb.models.push({ cat: 'glb', name: 'zombie', label: '丧尸 (高精)', value: 'glb/zombie' });
-            catMap.glb.models.push({ cat: 'glb', name: 'zombie-multi', label: '丧尸 (多动作)', value: 'glb/zombie-multi' });
             catMap.glb.models.push({ cat: 'glb', name: 'toolbox-red', label: '维修工具箱 (红色)', value: 'glb/toolbox-red' });
 
             // 过滤空分类，构建分类数据
@@ -5468,8 +5057,6 @@
                 const GLB_PATH_MAP = {
                     't34-green': 'models/glb/t34-85_textured.glb',
                     't34-yellow': 'models/glb/t34-85_textured_yellow.glb',
-                    'zombie': 'models/glb/zombie.glb',
-                    'zombie-multi': 'models/glb/丧尸多动作.glb',
                     'toolbox-red': 'models/glb/红色维修工具箱减面.glb'
                 };
                 const glbPath = GLB_PATH_MAP[m.name];
@@ -5658,10 +5245,9 @@
 
         // ==================== 初始化 ====================
         loadMapConfig('test_map_01a'); // 默认加载单人地图
-        // 预加载丧尸 GLB（异步，确保进入战斗地图前已就绪）
-        loadZombieGlb();
+        // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.27.0 | 程序化丧尸模型原型+AnimationSystem(6动作) | zombie_prototype.html');
+        console.log('🎮 坦克运动demo v0.27.0 | 新程序化丧尸集成+GLB清理+enemies.js重写(864行) | 04a×5只丧尸');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

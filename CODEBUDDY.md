@@ -259,10 +259,10 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 | # | 问题 | 优先级 | 详情 |
 |---|------|--------|------|
-| 1 | GLB丧尸模型系统待清理 | 🔴 待执行 | 约300行GLB加载/缓存/cloneWithSkinnedMesh代码，新程序化模型就绪后移除 |
-| 2 | 丧尸程序化模型集成到主项目 enemies.js | 🔴 待执行 | 原型在 zombie_prototype.html，含 ZOMBIE_CONFIG + buildZombieFromConfig + AnimationSystem |
+| 1 | GLB丧尸模型系统 | ✅ v0.27.0 | 已完成清理（~300行GLB代码已移除） |
+| 2 | 丧尸程序化模型集成 | ✅ v0.27.0 | ZOMBIE_CONFIG+AnimationSystem已集成到enemies.js |
 | 3 | ZombieAIController 8状态机实现 | 🔴 待执行 | 新建类含 IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD，空间网格优化 |
-| 4 | 04a地图部署5只新程序化丧尸 | 🔴 待执行 | 替换现有2只GLB丧尸，含独立巡逻路径+行为参数 |
+| 4 | 04a地图部署5只新程序化丧尸 | ✅ v0.27.0 | zm-01~zm-05 已部署，含独立巡逻路径 |
 
 ---
 

@@ -80,7 +80,5 @@
         return group;
     }
 
-    // 注册到模型注册表
-    window.ModelRegistry.register('tanks', 'green', (opts) => createTank({ ...opts, camoColor: 'green' }));
-    window.ModelRegistry.register('tanks', 'desert', (opts) => createTank({ ...opts, camoColor: 'desert' }));
+    // v0.26.15: 原始坦克已废弃，注册条目已移除（保留文件供参考）
 })();

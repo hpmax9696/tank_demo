@@ -178,320 +178,687 @@
         return g;
     }
 
-    // ─── ② 丧尸（近战杂兵·步行单位）───
-    // 参考图：低多边形风格，破旧青绿色夹克，背部/前胸肋骨外露，
-    // 灰色长裤带血迹，灰白皮肤，头部低垂，双臂前伸蹒跚行走
+
+    // ═══════════════════════════════════════════════════════
+    // ─── ② 新程序化丧尸（骨架层级 + 手动插值动画）───
+    // v0.26.15: 移植自 zombie_prototype.html，替代GLB丧尸
+    // ═══════════════════════════════════════════════════════
+
+    // 2.0 全局贴图/材质缓存（所有丧尸实例共享）
+    let _zombieTexCache = null;
+    let _zombieMatCache = {};
+    let _zombieBloodMat = null;
+
+    // 2.1 createZombieMaterials() — 程序化贴图生成（Canvas 2D，首次调用后缓存）
+    function createZombieMaterials() {
+        if (_zombieTexCache) return _zombieTexCache;
+  const SZ = 256;
+
+  // ---- Diffuse Map ----
+  const dc = document.createElement('canvas');
+  dc.width = dc.height = SZ;
+  const dctx = dc.getContext('2d');
+
+  // ① 灰绿基底
+  dctx.fillStyle = '#6B7B5E';
+  dctx.fillRect(0, 0, SZ, SZ);
+
+  // ② 纹理噪点
+  for (let i = 0; i < 300; i++) {
+    const g = 0x6B + Math.floor(Math.random() * 0x20);
+    const v = 0x7B - Math.floor(Math.random() * 0x20);
+    dctx.fillStyle = `rgb(${g},${v},${0x5E})`;
+    dctx.fillRect(Math.random() * SZ, Math.random() * SZ, 1 + Math.random() * 3, 1 + Math.random() * 3);
+  }
+
+  // ③ 暗红血渍（径向渐变）
+  for (let i = 0; i < 8; i++) {
+    const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 10 + Math.random() * 25;
+    const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, '#3a0000');
+    g.addColorStop(0.4, '#5a0505');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = g;
+    dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // ④ 黄绿溃烂斑
+  for (let i = 0; i < 5; i++) {
+    const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 6 + Math.random() * 18;
+    const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, '#8a8a2a');
+    g.addColorStop(0.6, '#7a6a1a');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = g;
+    dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // ⑤ 污垢线条
+  dctx.strokeStyle = '#3a3a2a';
+  dctx.lineWidth = 2;
+  for (let i = 0; i < 15; i++) {
+    dctx.globalAlpha = 0.3 + Math.random() * 0.4;
+    dctx.beginPath();
+    dctx.moveTo(Math.random() * SZ, Math.random() * SZ);
+    dctx.lineTo(Math.random() * SZ, Math.random() * SZ);
+    dctx.stroke();
+  }
+  dctx.globalAlpha = 1;
+
+  // ---- Roughness Map ----
+  const rc = document.createElement('canvas');
+  rc.width = rc.height = SZ;
+  const rctx = rc.getContext('2d');
+
+  // 基底 0.5 灰
+  rctx.fillStyle = '#808080';
+  rctx.fillRect(0, 0, SZ, SZ);
+
+  // 溃烂区 → 白（粗糙）
+  for (let i = 0; i < 5; i++) {
+    const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 6 + Math.random() * 18;
+    const g = rctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.6, '#c0c0c0');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    rctx.fillStyle = g;
+    rctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // 血渍区 → 暗（光滑/湿润）
+  for (let i = 0; i < 8; i++) {
+    const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 10 + Math.random() * 25;
+    const g = rctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, '#222222');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    rctx.fillStyle = g;
+    rctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // 包装为 CanvasTexture
+  const diffuse = new THREE.CanvasTexture(dc);
+  diffuse.wrapS = diffuse.wrapT = THREE.RepeatWrapping;
+  diffuse.repeat.set(2, 2);
+  diffuse.anisotropy = 4;
+
+  const roughness = new THREE.CanvasTexture(rc);
+  roughness.wrapS = roughness.wrapT = THREE.RepeatWrapping;
+  roughness.repeat.set(2, 2);
+
+  return { diffuse, roughness };
+}
+
+
+    // 2.2 ZOMBIE_CONFIG — 24节点层级树配置（11个关节pivot）
+    const ZOMBIE_CONFIG = {
+  name: 'root',
+  type: 'Group',
+  position: [-0.08, 0.75, 0],  // 抬高使脚底贴地
+  rotation: [0, 0, 0],
+  scale: [1, 1, 1],
+  children: [{
+    name: 'pelvis',
+    type: 'Box',
+    size: [0.50, 0.35, 0.40],
+    position: [0, 0.375, 0],
+    rotation: [0, 0, 0],
+    materialId: 'cloth_torn',
+    children: [
+      // ============ 躯干 ============
+      {
+        name: 'torso',
+        type: 'Box',
+        size: [0.60, 0.75, 0.38],
+        position: [0, 0.54, 0.04],
+        rotation: [0.25, 0, 0],     // 驼背前倾 +0.25 rad
+        pivot: [0, -0.375, 0],      // 腰关节在盒体底
+        materialId: 'cloth_torn',
+        children: [
+          // --- 脖子（头部父节点：带动头部运动）---
+          {
+            name: 'neck',
+            type: 'Cylinder',
+            size: [0.12, 0.15, 0.12],
+            position: [0, 0.46, 0.02],
+            rotation: [0.27, 0, 0],     // 脖子前倾 +0.27 rad
+            pivot: [0, -0.075, 0],      // 底部连接躯干
+            materialId: 'skin_rot',
+            children: [
+              // --- 头部 ---
+              {
+                name: 'head',
+                type: 'Sphere',
+                size: [0.20],
+                position: [0, 0.215, 0.02],
+                rotation: [0.02, 0, 0.20],  // 几乎平视 +0.02 · 右歪 +0.15
+                pivot: [0, -0.20, 0],       // 颈关节在球底
+                materialId: 'skin_rot',
+                segments: [5, 4],
+                children: [
+                  {
+                    name: 'l_eye_glow',
+                    type: 'Sphere',
+                    size: [0.04],
+                    position: [-0.03, 0.02, 0.16],
+                    materialId: 'eye_glow',
+                    segments: [4, 3]
+                  },
+                  {
+                    name: 'r_eye_glow',
+                    type: 'Sphere',
+                    size: [0.04],
+                    position: [0.12, 0, 0.13],
+                    materialId: 'eye_glow',
+                    segments: [4, 3]
+                  }
+                ]
+              }
+            ]
+          },
+          // --- 左上臂 + 左前臂 ---
+          {
+            name: 'l_upper_arm',
+            type: 'Cylinder',
+            size: [0.10, 0.45, 0.10],
+            position: [-0.38, 0.20, -0.08],
+            rotation: [-0.40, 0, 0],     // 左臂下垂 -0.9 rad
+            pivot: [0, 0.225, 0],        // 肩关节在柱体顶
+            materialId: 'skin_rot',
+            children: [{
+              name: 'l_forearm',
+              type: 'Cylinder',
+              size: [0.08, 0.42, 0.08],
+              position: [0, -0.435, 0],
+              rotation: [-1.67, 0, 0],    // 左前臂前伸
+              pivot: [0, 0.21, 0],        // 肘关节在柱体顶
+              materialId: 'skin_rot'
+            }]
+          },
+          // --- 右上臂 + 右前臂 ---
+          {
+            name: 'r_upper_arm',
+            type: 'Cylinder',
+            size: [0.10, 0.45, 0.10],
+            position: [0.38, 0.115, -0.13],
+            rotation: [-1.10, -0.71, 0],      // 右臂前探抓取
+            pivot: [0, 0.225, 0],             // 肩关节在柱体顶
+            materialId: 'skin_rot',
+            children: [{
+              name: 'r_forearm',
+              type: 'Cylinder',
+              size: [0.08, 0.42, 0.08],
+              position: [0, -0.435, 0],
+              rotation: [-1.29, 0, 0],
+              pivot: [0, 0.21, 0],        // 肘关节在柱体顶
+              materialId: 'skin_rot'
+            }]
+          },
+          // --- 胸部伤口（子弹孔/撕裂）---
+          {
+            name: 'chest_wound',
+            type: 'Cylinder',
+            size: [0.06, 0.02, 0.06],
+            position: [0.12, 0.05, 0.20],
+            materialId: 'cloth_torn'
+          },
+          // --- 破损衣片 ---
+          {
+            name: 'torn_shirt',
+            type: 'Box',
+            size: [0.18, 0.10, 0.02],
+            position: [-0.10, -0.28, 0.20],
+            rotation: [0.20, 0.10, 0],
+            materialId: 'cloth_torn'
+          }
+        ]
+      },
+      // ============ 左腿 ============
+      {
+        name: 'l_upper_leg',
+        type: 'Cylinder',
+        size: [0.12, 0.45, 0.12],
+        position: [-0.15, -0.40, 0],
+        rotation: [0.05, 0, 0],
+        pivot: [0, 0.225, 0],
+        materialId: 'cloth_torn',
+        children: [{
+          name: 'l_lower_leg',
+          type: 'Cylinder',
+          size: [0.10, 0.42, 0.10],
+          position: [0.01, -0.435, 0],
+          pivot: [0, 0.21, 0],
+          materialId: 'cloth_torn',
+          children: [{
+            name: 'l_foot',
+            type: 'Box',
+            size: [0.18, 0.10, 0.28],
+            position: [0.02, -0.26, 0.07],
+            pivot: [0, 0.05, 0],
+            materialId: 'cloth_torn'
+          }]
+        }]
+      },
+      // ============ 右腿 ============
+      {
+        name: 'r_upper_leg',
+        type: 'Cylinder',
+        size: [0.12, 0.45, 0.12],
+        position: [0.15, -0.40, 0],
+        rotation: [0.35, 0, 0],
+        pivot: [0, 0.225, 0],
+        materialId: 'cloth_torn',
+        children: [{
+          name: 'r_lower_leg',
+          type: 'Cylinder',
+          size: [0.10, 0.42, 0.10],
+          position: [-0.01, -0.435, 0],
+          pivot: [0, 0.21, 0],
+          materialId: 'cloth_torn',
+          children: [{
+            name: 'r_foot',
+            type: 'Box',
+            size: [0.18, 0.10, 0.28],
+            position: [-0.02, -0.26, 0.07],
+            pivot: [0, 0.05, 0],
+            materialId: 'cloth_torn'
+          }]
+        }]
+      }
+    ]
+  }]
+};
+
+    // 2.3 buildZombieFromConfig() — 递归构建函数 + pivot补偿算法
+    function buildZombieFromConfig(config, parent, showHelpers = false) {
+  const helpers = [];
+
+  // === ① 生成程序化贴图 ===
+  const tex = _zombieTexCache || createZombieMaterials();
+
+  // === ② 材质字典 ===
+  
+  function getMat(id) {
+        if (_zombieMatCache[id]) return _zombieMatCache[id];
+    if (!matDict[id]) {
+      const DEFS = {
+        skin_rot:   { color: 0x6b5d4f, roughness: 0.85, metalness: 0.0 },
+        cloth_torn: { color: 0x4a4a3a, roughness: 0.85, metalness: 0.0 },
+        eye_glow:   { color: 0x000000, roughness: 0.0, metalness: 0.0, emissive: 0xff2200, emissiveIntensity: 3 },
+      };
+      const d = DEFS[id] || { color: 0x888888, roughness: 0.75, metalness: 0.05 };
+      const cfg = {
+        color: d.color,
+        roughness: d.roughness,
+        metalness: d.metalness,
+      };
+      // 非发光材质使用程序化贴图
+      if (id !== 'eye_glow') {
+        cfg.map = tex.diffuse;
+        cfg.roughnessMap = tex.roughness;
+      }
+      if (d.emissive !== undefined) {
+        cfg.emissive = d.emissive;
+        cfg.emissiveIntensity = d.emissiveIntensity;
+      }
+      _zombieMatCache[id] = new THREE.MeshStandardMaterial(cfg);
+    }
+    return _zombieMatCache[id];
+  }
+  // 血迹材质
+  if (!_zombieBloodMat) _zombieBloodMat = new THREE.MeshStandardMaterial({ color: '#7a0a0a', roughness: 0.2, metalness: 0.1 });
+  const bloodMat = _zombieBloodMat;
+
+  // === ③ 几何工厂 ===
+  function createGeometry(node) {
+    switch (node.type) {
+      case 'Box': { const [w, h, d] = node.size; return new THREE.BoxGeometry(w, h, d); }
+      case 'Cylinder': { const [rT, h, rB] = node.size; return new THREE.CylinderGeometry(rT, rB, h, 6); }
+      case 'Sphere': { const [r] = node.size; const s = node.segments || [6, 4]; return new THREE.SphereGeometry(r, s[0], s[1]); }
+      default: return null;
+    }
+  }
+
+  // === ④ 递归构建 ===
+  function buildNode(node, parentObj, pivotComp = [0, 0, 0]) {
+    if (node.type === 'Group') {
+      const g = new THREE.Group();
+      g.name = node.name;
+      if (node.position) g.position.set(...node.position);
+      if (node.rotation) g.rotation.set(...node.rotation);
+      if (node.scale) g.scale.set(...node.scale);
+      parentObj.add(g);
+      if (node.children) for (const c of node.children) buildNode(c, g);
+      return;
+    }
+
+    const geo = createGeometry(node);
+    geo.center();
+    const mat = node.materialId ? getMat(node.materialId) : new THREE.MeshStandardMaterial({ color: node.color || '#888888', roughness: 0.75, metalness: 0.05 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = node.name + '_mesh';
+
+    const pos = node.position
+      ? [node.position[0] + pivotComp[0], node.position[1] + pivotComp[1], node.position[2] + pivotComp[2]]
+      : pivotComp;
+
+    const group = new THREE.Group();
+    group.name = node.name;
+    group.position.set(pos[0], pos[1], pos[2]);
+    if (node.scale) group.scale.set(...node.scale);
+    parentObj.add(group);
+
+    let rotTarget = group;
+    if (node.pivot) {
+      const pivot = new THREE.Group();
+      pivot.name = node.name + '_pivot';
+      pivot.position.set(node.pivot[0], node.pivot[1], node.pivot[2]);
+      group.add(pivot);
+      mesh.position.set(-node.pivot[0], -node.pivot[1], -node.pivot[2]);
+      pivot.add(mesh);
+      rotTarget = pivot;
+      group.userData.pivot = pivot;
+    } else {
+      group.add(mesh);
+    }
+
+    if (node.rotation) rotTarget.rotation.set(...node.rotation);
+
+    if (showHelpers) {
+      const helper = new THREE.BoxHelper(mesh, getHelperColor(node.name));
+      helper.update();
+      helpers.push(helper);
+    }
+
+    const childComp = node.pivot
+      ? [-node.pivot[0], -node.pivot[1], -node.pivot[2]]
+      : [0, 0, 0];
+    group.userData.appliedComp = pivotComp;
+    group.userData.childComp = childComp;
+
+    if (node.children) {
+      for (const child of node.children) {
+        buildNode(child, rotTarget, childComp);
+      }
+    }
+  }
+
+  // === ⑤ 构建主骨架 ===
+  buildNode(config, parent);
+
+  // === ⑥ 自动插入部件（发光眼睛 + 血迹）===
+  function findPivot(name) {
+    const g = parent.getObjectByName(name);
+    return g ? (g.userData.pivot || g) : null;
+  }
+
+  // 6a. 血迹滴落（torso × 3, head × 1）
+  const torsoPivot = findPivot('torso');
+  if (torsoPivot) {
+    const positions = [
+      [0.15, 0.275, 0.22], [-0.12, 0.525, 0.22], [0.08, 0.125, 0.20]
+    ];  // 已加 childComp [0,0.375,0]
+    positions.forEach((p, i) => {
+      const r = 0.03 + (i * 0.01);
+      const geo = new THREE.CylinderGeometry(r, r, 0.02, 6);
+      geo.center();
+      const drip = new THREE.Mesh(geo, bloodMat);
+      drip.position.set(p[0], p[1], p[2]);
+      drip.name = 'blood_drip_' + i;
+      torsoPivot.add(drip);
+    });
+  }
+
+  const headPivot2 = findPivot('head');
+  if (headPivot2) {
+    const geo2 = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 6);
+    geo2.center();
+    const drip = new THREE.Mesh(geo2, bloodMat);
+    drip.position.set(-0.08, 0.25, 0.22);  // 已加 pivot 补偿 [0,0.20,0]
+    drip.name = 'blood_drip_head';
+    headPivot2.add(drip);
+  }
+
+  // === ⑦ 收尾 ===
+  for (const h of helpers) parent.add(h);
+  parent.userData.helpers = helpers;
+  return parent;
+}
+
+
+    // 2.4 统计面数
+    function countTriangles(obj) {
+  let count = 0;
+  obj.traverse(child => {
+    if (child.isMesh && child.geometry) {
+      const geo = child.geometry;
+      if (geo.index) {
+        count += geo.index.count / 3;
+      } else {
+        count += geo.attributes.position.count / 3;
+      }
+    }
+  });
+  return Math.round(count);
+}
+
+
+    // 2.5 AnimationSystem — 手动插值动画引擎
+    class AnimationSystem {
+  constructor(root) {
+    this.root = root;
+    this.anims = {};
+    this.current = null;     // 当前动画名
+    this.currentTime = 0;    // 归一化时间 0~1
+    this.playing = false;
+    this.loop = true;
+    this.clampWhenFinished = false;
+  }
+
+  // 注册动画定义
+  define(name, duration, trackDefs) {
+    // trackDefs = [{ target:obj, prop:'rotation', axis:'x', keys:[{t,v}] }, ...]
+    this.anims[name] = { duration, trackDefs };
+  }
+
+  // 查找 pivot (用于旋转) / outer (用于位移)
+  findPivot(nodeName) {
+    const g = this.root.getObjectByName(nodeName);
+    return g ? (g.userData.pivot || g) : null;
+  }
+  find(nodeName) {
+    return this.root.getObjectByName(nodeName);
+  }
+
+  play(name, loop = true) {
+    this.current = name;
+    this.currentTime = 0;
+    this.playing = true;
+    this.loop = loop;
+    this.clampWhenFinished = !loop;
+  }
+
+  stop() {
+    this.playing = false;
+    this.current = null;
+    this.currentTime = 0;
+  }
+
+  update(dt) {
+    if (!this.playing || !this.current) return;
+    const anim = this.anims[this.current];
+    if (!anim) return;
+
+    this.currentTime += dt / anim.duration;
+
+    if (this.loop) {
+      // 循环
+      this.currentTime = this.currentTime % 1.0;
+    } else if (this.currentTime >= 1.0) {
+      this.currentTime = 1.0;
+      if (this.clampWhenFinished) {
+        this.playing = false; // 播完停止（停留在最后一帧）
+      }
+    }
+
+    const t = this.currentTime;
+    for (const td of anim.trackDefs) {
+      const { target, prop, axis, keys } = td;
+      if (!target) continue;
+
+      // 线性插值查 key
+      let val;
+      if (t <= keys[0].t) {
+        val = keys[0].v;
+      } else if (t >= keys[keys.length - 1].t) {
+        val = keys[keys.length - 1].v;
+      } else {
+        for (let i = 1; i < keys.length; i++) {
+          if (t <= keys[i].t) {
+            const k0 = keys[i - 1], k1 = keys[i];
+            const frac = (t - k0.t) / (k1.t - k0.t);
+            val = k0.v + (k1.v - k0.v) * frac;
+            break;
+          }
+        }
+      }
+      if (val !== undefined) {
+        if (axis) {
+          target[prop][axis] = val;
+        } else {
+          target[prop] = val;
+        }
+      }
+    }
+  }
+}
+
+
+    // 2.6 createAnimationSystem() — 注册6种动画（Idle/Hit/Attack/Walk/Run/Die）
+    function createAnimationSystem(root) {
+  const P = {}; // rotation targets (pivots)
+  const O = {}; // position targets (outer)
+  const names = ['torso', 'head', 'neck', 'l_upper_arm', 'l_forearm',
+    'r_upper_arm', 'r_forearm', 'l_upper_leg', 'l_lower_leg',
+    'r_upper_leg', 'r_lower_leg', 'pelvis'];
+  names.forEach(n => {
+    P[n] = root.getObjectByName(n + '_pivot');
+    O[n] = root.getObjectByName(n);
+  });
+  // root Group 和 feet
+  O.root = root.getObjectByName('root');   // config root Group
+  P.root = O.root;                         // root 无 pivot，直接旋转
+  O.l_foot = root.getObjectByName('l_foot');
+  O.r_foot = root.getObjectByName('r_foot');
+  // 调试
+  if (!P.torso) console.warn('Animation: pivots not found - ensure buildZombieFromConfig completed');
+
+  const asys = new AnimationSystem(root);
+
+  // -------- A. Idle  2.0s --------
+  asys.define('Idle', 2.0, [
+    { target: P.torso, prop: 'rotation', axis: 'z', keys: [{ t: 0, v: 0 }, { t: 0.25, v: 0.03 }, { t: 0.75, v: -0.03 }, { t: 1, v: 0 }] },
+    { target: O.pelvis, prop: 'position', axis: 'y', keys: [{ t: 0, v: 0 }, { t: 0.5, v: 0.02 }, { t: 1, v: 0 }] },
+    { target: P.head, prop: 'rotation', axis: 'z', keys: [{ t: 0, v: 0.2 }, { t: 0.3, v: 0.25 }, { t: 0.7, v: 0.15 }, { t: 1, v: 0.2 }] },
+  ]);
+
+  // -------- B. Hit  0.5s --------
+  asys.define('Hit', 0.5, [
+    { target: P.torso, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.25 }, { t: 0.2, v: -0.2 }, { t: 1, v: 0.25 }] },
+    { target: P.head, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.02 }, { t: 0.15, v: -0.4 }, { t: 1, v: 0.02 }] },
+  ]);
+
+  // -------- C. Attack (收臂→前伸→复位)  1.0s --------
+  asys.define('Attack', 1.0, [
+    // 上臂：回收(-0.5)→前刺(-1.8)→复位(-1.1)
+    { target: P.r_upper_arm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -0.5 }, { t: 0.35, v: -1.8 }, { t: 1, v: -1.1 }] },
+    // 前臂：收拢(-1.8)→伸直(-0.2)→复位(-1.29)
+    { target: P.r_forearm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -1.8 }, { t: 0.35, v: -0.2 }, { t: 1, v: -1.29 }] },
+    { target: P.torso, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.25 }, { t: 0.3, v: 0.5 }, { t: 1, v: 0.25 }] },
+    { target: P.head, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.02 }, { t: 0.3, v: 0.22 }, { t: 1, v: 0.02 }] },
+  ]);
+
+  // -------- D. Walk  1.5s --------
+  asys.define('Walk', 1.5, [
+    { target: O.pelvis, prop: 'position', axis: 'y', keys: [{ t: 0, v: 0 }, { t: 0.5, v: 0.05 }, { t: 1, v: 0 }] },
+    { target: P.l_upper_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -0.1 }, { t: 0.25, v: -0.4 }, { t: 0.5, v: 0.1 }, { t: 0.75, v: 0.5 }, { t: 1, v: -0.1 }] },
+    { target: P.r_upper_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.35 }, { t: 0.25, v: 0.7 }, { t: 0.5, v: 0.35 }, { t: 0.75, v: -0.1 }, { t: 1, v: 0.35 }] },
+    { target: P.l_lower_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0 }, { t: 0.5, v: -0.3 }, { t: 1, v: 0 }] },
+    { target: P.r_lower_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0 }, { t: 0.5, v: -0.3 }, { t: 1, v: 0 }] },
+    { target: P.l_upper_arm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -0.4 }, { t: 0.5, v: -0.6 }, { t: 1, v: -0.4 }] },
+    { target: P.r_upper_arm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -1.1 }, { t: 0.5, v: -0.9 }, { t: 1, v: -1.1 }] },
+  ]);
+
+  // -------- E. Run  0.8s --------
+  asys.define('Run', 0.8, [
+    { target: P.torso, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.25 }, { t: 1, v: 0.55 }] },
+    { target: O.pelvis, prop: 'position', axis: 'y', keys: [{ t: 0, v: 0 }, { t: 0.5, v: 0.08 }, { t: 1, v: 0 }] },
+    { target: P.l_upper_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -0.1 }, { t: 0.25, v: -0.6 }, { t: 0.5, v: 0.1 }, { t: 0.75, v: 0.7 }, { t: 1, v: -0.1 }] },
+    { target: P.r_upper_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0.35 }, { t: 0.25, v: 0.85 }, { t: 0.5, v: 0.35 }, { t: 0.75, v: -0.25 }, { t: 1, v: 0.35 }] },
+    { target: P.l_lower_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0 }, { t: 0.5, v: -0.4 }, { t: 1, v: 0 }] },
+    { target: P.r_lower_leg, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: 0 }, { t: 0.5, v: -0.4 }, { t: 1, v: 0 }] },
+    { target: P.l_upper_arm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -0.4 }, { t: 0.5, v: -0.9 }, { t: 1, v: -0.4 }] },
+    { target: P.r_upper_arm, prop: 'rotation', axis: 'x', keys: [{ t: 0, v: -1.1 }, { t: 0.5, v: -0.7 }, { t: 1, v: -1.1 }] },
+  ]);
+
+  // -------- F. Die (分阶段瘫软倒地)  1.5s --------
+  // Phase 1 (0~0.333): 前扑触地 Impact
+  // Phase 2 (0.333~1.0): 触地松弛 + 四肢外展 Splay
+  // 时间归一化: user 的 0.5s/1.5=0.333, 1.0s/1.5=0.667, 1.5s/1.5=1.0
+  // 路径校验
+  // console.log('Die 骨骼路径: l_upper_arm =',
+    (P.l_upper_arm && P.l_upper_arm.name),
+    '| r_upper_arm =',
+    (P.r_upper_arm && P.r_upper_arm.name));
+
+  asys.define('Die', 1.5, [
+    // root 前旋 + 下沉
+    { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0, v:0}, {t:0.333, v:Math.PI*0.48}, {t:1, v:Math.PI*0.5}] },
+    { target: O.root, prop: 'position', axis: 'y', keys: [{t:0, v:0.75}, {t:0.333, v:0.60}, {t:0.667, v:0.30}, {t:1, v:0.30}] },
+    // 躯干：驼背(0.25)→触地缓冲(0.05)→瘫软反弓(-0.15)
+    { target: P.torso, prop: 'rotation', axis: 'x', keys: [{t:0, v:0.25}, {t:0.333, v:0.05}, {t:0.6, v:-0.1}, {t:1, v:-0.15}] },
+    // 双臂：强制向外摊开（正=左臂外展, 负=右臂外展）
+    { target: P.l_upper_arm, prop: 'rotation', axis: 'z', keys: [{t:0, v:-0.15}, {t:0.333, v:-0.05}, {t:0.667, v:-0.7}, {t:1, v:-0.9}] },
+    { target: P.r_upper_arm, prop: 'rotation', axis: 'z', keys: [{t:0, v:0.15}, {t:0.333, v:0.05}, {t:0.667, v:0.7}, {t:1, v:0.9}] },
+    // 骨盆：微歪瘫软
+    { target: O.pelvis, prop: 'rotation', axis: 'z', keys: [{t:0, v:0}, {t:0.4, v:0.12}, {t:1, v:0.18}] },
+  ]);
+
+  return asys;
+}
+
+
+    // 2.7 createZombie() — 游戏实例工厂（含动画系统）
+    function createZombie() {
+        // 预热贴图缓存
+        if (!_zombieTexCache) createZombieMaterials();
+        const root = new THREE.Group();
+        buildZombieFromConfig(ZOMBIE_CONFIG, root, false);
+        const asys = createAnimationSystem(root);
+        root.userData._animSystem = asys;
+        root.userData.enemyType = 'zombie';
+        asys.play('Idle', true);
+        return root;
+    }
+
+    // 2.8 makeZombie() — 预览工厂（1.5x缩放适配ModelRegistry）
     function makeZombie() {
-        const group = new THREE.Group();
-
-        // 材质
-        const skinMat   = new THREE.MeshStandardMaterial({ color: 0xbcb8a8, roughness: 0.9 });
-        const jacketMat = new THREE.MeshStandardMaterial({ color: 0x4a7a6a, roughness: 0.85 }); // 青绿色夹克
-        const pantsMat  = new THREE.MeshStandardMaterial({ color: 0x60686e, roughness: 0.95 }); // 灰裤
-        const boneMat   = new THREE.MeshStandardMaterial({ color: 0xd0c4b0, roughness: 0.8 });
-        const bloodMat  = new THREE.MeshStandardMaterial({ color: 0x7a1a1a, roughness: 0.9 });
-        const darkMat   = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
-        const eyeMat    = new THREE.MeshStandardMaterial({ color: 0x8a2a2a, roughness: 0.3, emissive: 0x4a0000, emissiveIntensity: 0.3 });
-        const toothMat  = new THREE.MeshStandardMaterial({ color: 0xddd8cc, roughness: 0.6 });
-
-        // ── 腿（灰裤+赤脚）──
-        // 左腿
-        const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 6), pantsMat);
-        legL.position.set(-0.07, 0.14, 0);
-        legL.castShadow = true;
-        group.add(legL);
-        // 左膝血迹
-        const bloodKneeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.01), bloodMat);
-        bloodKneeL.position.set(-0.05, 0.12, 0.06);
-        group.add(bloodKneeL);
-        // 左脚
-        const footL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.10), skinMat);
-        footL.position.set(-0.07, 0.015, 0.04);
-        footL.castShadow = true;
-        group.add(footL);
-
-        // 右腿
-        const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.22, 6), pantsMat);
-        legR.position.set(0.07, 0.14, 0);
-        legR.castShadow = true;
-        group.add(legR);
-        // 右小腿血迹
-        const bloodShinR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.01), bloodMat);
-        bloodShinR.position.set(0.09, 0.06, 0.05);
-        group.add(bloodShinR);
-        // 右脚
-        const footR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.10), skinMat);
-        footR.position.set(0.07, 0.015, 0.04);
-        footR.castShadow = true;
-        group.add(footR);
-
-        // ── 臀部/骨盆（过渡躯干与腿）──
-        const hip = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.10, 6), pantsMat);
-        hip.position.set(0, 0.28, 0);
-        hip.castShadow = true;
-        group.add(hip);
-
-        // ── 腹部（裸露皮肤，低多边形）──
-        const belly = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.09), skinMat);
-        belly.position.set(0, 0.42, 0.02);
-        belly.castShadow = true;
-        group.add(belly);
-
-        // ── 夹克衫 ──
-        // 设计：敞开式夹克，前胸大面积裂开露出肋骨，背后也有破洞
-        //
-        // 夹克后片（完整背部，中间有破洞）
-        const jacketBack = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.05), jacketMat);
-        jacketBack.position.set(0, 0.60, -0.08);
-        jacketBack.castShadow = true;
-        group.add(jacketBack);
-        // 背部破洞内衬（露出肋骨区域）
-        const backHole = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.14, 0.01), skinMat);
-        backHole.position.set(0, 0.60, -0.055);
-        group.add(backHole);
-
-        // 夹克左前片（敞开，露出左侧肋骨）
-        const jacketLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.05), jacketMat);
-        jacketLeft.position.set(-0.14, 0.60, 0.02);
-        jacketLeft.rotation.z = 0.06;
-        jacketLeft.castShadow = true;
-        group.add(jacketLeft);
-
-        // 夹克右前片（敞开）
-        const jacketRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.05), jacketMat);
-        jacketRight.position.set(0.14, 0.60, 0.02);
-        jacketRight.rotation.z = -0.06;
-        jacketRight.castShadow = true;
-        group.add(jacketRight);
-
-        // 夹克前片破边（下摆撕裂状，左）
-        const tearL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.04), jacketMat);
-        tearL.position.set(-0.08, 0.44, 0.08);
-        tearL.rotation.x = -0.4;
-        group.add(tearL);
-
-        // 夹克前片破边（右）
-        const tearR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 0.04), jacketMat);
-        tearR.position.set(0.06, 0.46, 0.08);
-        tearR.rotation.x = 0.3;
-        group.add(tearR);
-
-        // 夹克左袖（残破）
-        const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.14, 6), jacketMat);
-        sleeveL.position.set(-0.18, 0.68, 0.06);
-        sleeveL.rotation.z = 0.3;
-        sleeveL.rotation.x = -0.2;
-        sleeveL.castShadow = true;
-        group.add(sleeveL);
-
-        // 夹克右袖
-        const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.14, 6), jacketMat);
-        sleeveR.position.set(0.18, 0.68, 0.06);
-        sleeveR.rotation.z = -0.3;
-        sleeveR.rotation.x = -0.2;
-        sleeveR.castShadow = true;
-        group.add(sleeveR);
-
-        // 夹克上血迹（前胸）
-        const bloodJacket1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.01), bloodMat);
-        bloodJacket1.position.set(-0.10, 0.66, 0.07);
-        group.add(bloodJacket1);
-        const bloodJacket2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 0.01), bloodMat);
-        bloodJacket2.position.set(0.12, 0.64, 0.07);
-        group.add(bloodJacket2);
-
-        // ── 肋骨（从夹克破洞中露出）──
-        // 正面左侧肋骨
-        const ribGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.10, 5);
-        for (let i = 0; i < 3; i++) {
-            const rib = new THREE.Mesh(ribGeo, boneMat);
-            rib.position.set(-0.09, 0.64 - i * 0.06, 0.07);
-            rib.rotation.z = 0.2;
-            group.add(rib);
-        }
-        // 正面右侧肋骨
-        for (let i = 0; i < 3; i++) {
-            const rib = new THREE.Mesh(ribGeo, boneMat);
-            rib.position.set(0.09, 0.64 - i * 0.06, 0.07);
-            rib.rotation.z = -0.2;
-            group.add(rib);
-        }
-
-        // ── 脊椎/锁骨（从背部破洞露出）──
-        // 脊柱凸起（背部中间一排）
-        const spineGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.06, 4);
-        for (let i = 0; i < 4; i++) {
-            const spine = new THREE.Mesh(spineGeo, boneMat);
-            spine.position.set(0, 0.70 - i * 0.05, -0.055);
-            spine.rotation.x = 0.1;
-            group.add(spine);
-        }
-
-        // ── 肩部（锁骨凸起）──
-        const shoulderL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.03), boneMat);
-        shoulderL.position.set(-0.14, 0.78, 0);
-        shoulderL.rotation.z = -0.25;
-        group.add(shoulderL);
-        const shoulderR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.03), boneMat);
-        shoulderR.position.set(0.14, 0.78, 0);
-        shoulderR.rotation.z = 0.25;
-        group.add(shoulderR);
-
-        // ── 脖子（短粗）──
-        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.04, 6), skinMat);
-        neck.position.set(0, 0.84, 0);
-        neck.castShadow = true;
-        group.add(neck);
-
-        // ── 头部（低垂，前倾）──
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.10, 10, 9), skinMat);
-        head.position.set(0, 0.91, -0.01);
-        head.scale.set(0.95, 1.05, 0.95);
-        head.rotation.x = 0.25; // 低垂
-        head.castShadow = true;
-        group.add(head);
-
-        // 下颌（突出，嘴张开）
-        const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.05), skinMat);
-        jaw.position.set(0, 0.87, -0.08);
-        jaw.rotation.x = 0.15;
-        jaw.castShadow = true;
-        group.add(jaw);
-
-        // 上牙
-        const teethUpper = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.02), toothMat);
-        teethUpper.position.set(0, 0.88, -0.09);
-        group.add(teethUpper);
-        // 下牙
-        const teethLower = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.008, 0.02), toothMat);
-        teethLower.position.set(0, 0.86, -0.09);
-        group.add(teethLower);
-
-        // 太阳穴凹陷（用深色圆片）
-        const templeGeo = new THREE.RingGeometry(0.015, 0.025, 6);
-        const templeL = new THREE.Mesh(templeGeo, darkMat);
-        templeL.position.set(-0.09, 0.93, -0.03);
-        templeL.rotation.y = Math.PI / 2;
-        group.add(templeL);
-        const templeR = new THREE.Mesh(templeGeo, darkMat);
-        templeR.position.set(0.09, 0.93, -0.03);
-        templeR.rotation.y = Math.PI / 2;
-        group.add(templeR);
-
-        // 眼眶（深陷）
-        const socketGeo = new THREE.RingGeometry(0.01, 0.03, 6);
-        const socketL = new THREE.Mesh(socketGeo, darkMat);
-        socketL.position.set(-0.04, 0.93, -0.08);
-        socketL.rotation.y = Math.PI;
-        group.add(socketL);
-        const socketR = new THREE.Mesh(socketGeo, darkMat);
-        socketR.position.set(0.04, 0.93, -0.08);
-        socketR.rotation.y = Math.PI;
-        group.add(socketR);
-
-        // 眼球（发红微光）
-        const eyeGeo = new THREE.SphereGeometry(0.018, 6, 5);
-        const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-        eyeL.position.set(-0.04, 0.925, -0.06);
-        group.add(eyeL);
-        const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-        eyeR.position.set(0.04, 0.925, -0.06);
-        group.add(eyeR);
-
-        // 头部血迹（从嘴巴延伸）
-        const mouthBlood = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.01), bloodMat);
-        mouthBlood.position.set(0.03, 0.865, -0.08);
-        mouthBlood.rotation.z = 0.2;
-        group.add(mouthBlood);
-        const mouthBlood2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.01), bloodMat);
-        mouthBlood2.position.set(-0.025, 0.87, -0.08);
-        mouthBlood2.rotation.z = -0.15;
-        group.add(mouthBlood2);
-
-        // ── 手臂（前伸，蹒跚姿态）──
-        const armGeo = new THREE.CylinderGeometry(0.022, 0.028, 0.32, 6);
-        // 左上臂（袖子遮盖部分）
-        const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 0.10, 6), jacketMat);
-        upperArmL.position.set(-0.20, 0.72, 0.08);
-        upperArmL.rotation.z = 0.35;
-        upperArmL.rotation.x = -0.3;
-        upperArmL.castShadow = true;
-        group.add(upperArmL);
-        // 左前臂（裸露）
-        const forearmL = new THREE.Mesh(armGeo, skinMat);
-        forearmL.position.set(-0.30, 0.56, 0.20);
-        forearmL.rotation.z = 0.25;
-        forearmL.rotation.x = -0.8;
-        forearmL.castShadow = true;
-        group.add(forearmL);
-        // 左手
-        const handL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), skinMat);
-        handL.position.set(-0.38, 0.44, 0.32);
-        handL.rotation.x = -0.2;
-        group.add(handL);
-        // 左手指（3爪）
-        for (let fi = 0; fi < 3; fi++) {
-            const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), skinMat);
-            finger.position.set(-0.38 + (fi - 1) * 0.018, 0.43, 0.37);
-            group.add(finger);
-        }
-
-        // 右上臂（袖子遮盖）
-        const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 0.10, 6), jacketMat);
-        upperArmR.position.set(0.20, 0.72, 0.08);
-        upperArmR.rotation.z = -0.35;
-        upperArmR.rotation.x = -0.3;
-        upperArmR.castShadow = true;
-        group.add(upperArmR);
-        // 右前臂
-        const forearmR = new THREE.Mesh(armGeo, skinMat);
-        forearmR.position.set(0.30, 0.56, 0.20);
-        forearmR.rotation.z = -0.25;
-        forearmR.rotation.x = -0.8;
-        forearmR.castShadow = true;
-        group.add(forearmR);
-        // 右手
-        const handR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.06), skinMat);
-        handR.position.set(0.38, 0.44, 0.32);
-        handR.rotation.x = -0.2;
-        group.add(handR);
-        // 右手指（3爪）
-        for (let fi = 0; fi < 3; fi++) {
-            const finger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.015, 0.04), skinMat);
-            finger.position.set(0.38 + (fi - 1) * 0.018, 0.43, 0.37);
-            group.add(finger);
-        }
-
-        // 手臂血迹（从袖子延伸）
-        const armBloodL = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.03, 0.015), bloodMat);
-        armBloodL.position.set(-0.26, 0.62, 0.22);
-        group.add(armBloodL);
-        const armBloodR = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.025, 0.015), bloodMat);
-        armBloodR.position.set(0.26, 0.63, 0.22);
-        group.add(armBloodR);
-
-        // 元数据
-        group.userData = {
-            enemyType: 'zombie',
-            hp: 40,
-            speed: 2.5,
-            damage: 10,
-            score: 50
-        };
-
-        return group;
+        const g = createZombie();
+        g.scale.setScalar(1.5);
+        return g;
     }
 
     // ─── 暴露到全局 ───
     window.EnemyModels = {
         createAssaultVehicle,
-        createZombie: makeZombie,
+        createZombie,
+        createZombieMaterials,
+        AnimationSystem,
     };
 
     // ─── 注册到 ModelRegistry（模型预览） ───
     window.ModelRegistry.register('enemies', '装甲突击车', makeAssaultVehicle);
     window.ModelRegistry.register('enemies', '丧尸', makeZombie);
 
-    console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 丧尸');
+    console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 程序化丧尸(骨架动画)');
 
 })();
