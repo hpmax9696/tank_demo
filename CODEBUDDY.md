@@ -456,62 +456,40 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务（Zombie 程序化模型 v0.27.0 原型）
+## 🔄 下一对话起手任务 — 地图编辑器（v0.29.0 计划）
 
-当前进度：**丧尸程序化模型原型已完成**（`zombie_prototype.html`），待集成到主项目 `enemies.js`。
+> **计划日期**: 2026-05-14 | **版本**: plan ready | **状态**: 计划已就绪，待执行
 
-### ✅ 已完成
+### 📋 计划概述
 
-1. **程序化丧尸骨架**（`zombie_prototype.html` ~900 行完整原型）
-   - `ZOMBIE_CONFIG` 层级树配置（根→骨盆→躯干→头/颈/双臂/双腿/足，24 个节点）
-   - `buildZombieFromConfig()` 递归构建函数，支持 `Box/Sphere/Cylinder/Group`
-   - **关节 pivot 系统**：每个转动的部位有独立的 pivot Group（如 `l_upper_arm_pivot`），旋转围绕关节端而非几何中心
-   - **pivot 补偿算法**：子节点位置自动补偿父节点 pivot 偏移，不累计
-   - **程序化贴图**：`createZombieMaterials()` 使用 Canvas 2D 生成 256×256 diffuse + roughness 贴图（灰绿基底 + 血渍 + 溃烂斑 + 污垢线条）
-   - **材质字典**：`skin_rot` / `cloth_torn` / `eye_glow` 三种材质，同 materialId 共享 MeshStandardMaterial 实例
-   - **自动插入部件**：发光眼睛（emissive #ff2200 × 2）+ 血迹滴落 × 4
-   - **lil-gui 调试面板**：18 个部件独立滑杆控制 position/rotation + 固化 JSON 输出
-   - **总面数**: ~458 tris
+创建独立的地图编辑器网页 `map_editor.html`，与主游戏 `index.html` 并行运行。提供完整的 3D 地图制作工具链：地形高度编辑、纹理涂抹、实体放置、交通设施生成、敌人行为配置。
 
-2. **AnimationSystem**（自定义动画系统，不依赖 THREE.AnimationMixer）
-   - `AnimationSystem` 类：直接对象引用 + 线性插值 + 循环/单次模式
-   - 6 种动画 Clip：
-     | 动作 | 时长 | 关键特征 |
-     |------|------|---------|
-     | Idle | 2.0s | 躯干左右摇摆 + 呼吸起伏 + 头晃动 |
-     | Hit | 0.5s | 躯干/头快速后仰→恢复，短促有力 |
-     | Attack | 1.0s | 曲臂回收→前臂前伸刺击→复位，躯干前倾配合 |
-     | Walk | 1.5s | 双腿交替摆动 + 膝盖微曲 + 骨盆起伏 + 手臂晃动 |
-     | Run | 0.8s | Walk 加速版 + 躯干前倾 0.55 + 摆臂加大 |
-     | Die | 1.5s | **分阶段协同**：Phase1 前扑触地(0~0.5s) + Phase2 瘫软松弛四肢外展(0.5~1.5s) |
+### 🗺️ 功能清单（6 阶段）
 
-3. **已知问题已修复**
-   - ✅ 关节旋转轴心（pivot 系统解决）
-   - ✅ headPivot 引用错误
-   - ✅ childComp vs appliedComp 混淆
-   - ✅ SyntaxError (console.log 在数组字面量内)
-   - ✅ Die 手臂向外摊开方向
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| **Phase 1** | 基础架构：HTML布局(工具栏/侧面板/2D+3D视口)、Three.js地形预览(256段PlaneGeometry+正交相机)、高度图Canvas灰度显示 | 📋 待开始 |
+| **Phase 2** | 高度编辑(提升/下陷/平滑笔刷)+SplatMap涂抹(6种纹理)+实时地面贴图合成 | 📋 待开始 |
+| **Phase 3** | 实体放置：出生点(旗帜+朝向)、障碍物(树/建筑)、敌人(突击车/丧尸+属性面板)、巡逻路径(连线+拖拽点) | 📋 待开始 |
+| **Phase 4** | 地图JSON管理：MapSerializer(内存↔JSON)、CRUD(localStorage蓝图)、导出下载+导入上传、ParameterFitter(高度图→参数化地形拟合) | 📋 待开始 |
+| **Phase 5** | 桥梁放置(跨河自动计算)+敌人行为配置(主动索敌/被动反击/不反击+战斗参数+批量编辑) | 📋 待开始 |
+| **Phase 6** | 撤销重做(UndoManager 50步)、编辑器↔主游戏兼容性验证、性能优化(30fps/增量更新) | 📋 待开始 |
 
-### 🔴 待完成任务
+### 🔑 核心设计决策
 
-| # | 任务 | 优先级 | 详情 |
-|---|------|--------|------|
-| 1 | **集成到主项目** | P0 | 将 `ZOMBIE_CONFIG` + `buildZombieFromConfig` + `createMaterial` + `AnimationSystem` 移植到 `models/enemies.js` 和 `index.html` |
-| 2 | **丧尸 AI 播放动画** | P0 | 在 `enemyAI.js` 状态机中调用 `AnimationSystem.play()`，PATROL→Walk、CHASE→Run、ENGAGE→Attack、HIT→Hit、DEAD→Die |
-| 3 | **3D 预览菜单** | P1 | 将原型 lil-gui 替换为菜单系统模型预览（敌方单位→丧尸） |
+| 决策 | 说明 |
+|------|------|
+| **独立页面** | `map_editor.html` 独立文件，不耦合主游戏 5000+ 行代码 |
+| **离散高度图** | 256×256 Float32Array 中间表示，导出时反向拟合为参数化地形(椭圆/正弦/高斯) |
+| **localStorage** | 编辑器暂存蓝图，导出 `.map.json` 下载到本地后手动放入 `maps/` |
+| **Three.js复用** | r146 同版本，地面纹理 Canvas 2D 合成(1024×1024 预览贴图) |
+| **无框架** | 纯原生 DOM + CSS Grid/Flexbox，零外部 UI 依赖 |
 
-### 📊 原型参数表
+### 🎯 需要开始执行时的关键文件
 
-| 参数 | 值 |
-|------|-----|
-| 总节点数 | 24（含 11 个 pivot） |
-| 总面数 | ~458 tris |
-| Diffuse/Roughness | 256×256 Canvas 程序化 |
-| 材质类型 | skin_rot, cloth_torn, eye_glow |
-| 发光眼睛 | emissive #ff2200, intensity 3 |
-| 动画系统 | 自定义 AnimationSystem（6 clips） |
-| 调试工具 | lil-gui 面板 + 固化 JSON 输出 |
-| Three.js 版本 | r160 (CDN)
+- **新建**: `map_editor.html`（~2500 行，单文件）
+- **微调**: `index.html`（+5~10 行，增加编辑器地图加载入口）
+- **不修改**: `maps/`（编辑器导出 JSON 手动放入此目录）
 
 ### ✅ v0.26.4 已修复
 
