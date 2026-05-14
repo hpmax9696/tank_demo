@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.28.0</title>
+    <title>坦克运动demo v0.28.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.28.0</div>
+        <div class="menu-version">v0.28.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧰 v0.28.1 优化 — 丧尸3层LOD(远近开关)+贴图提亮+机枪射速10发/秒+引擎音量减半+程序化修理箱重制(倒角+图标)</div>
             <div class="cl-title">🧠 v0.28.0 丧尸AI — 8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)</div>
             <div class="cl-title">🧟 v0.27.0 集成 — 新程序化丧尸(enemies.js骨架+AnimationSystem)+清理GLB丧尸系统(~300行)+04a地图5只丧尸</div>
             <div class="cl-title">🧟 v0.27.0 原型 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+zombie_prototype.html</div>
             <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复+双倍掉落修复+纹理恢复</div>
-            <div class="cl-title">🩻 v0.26.12 修复 — SkinnedMesh骨骼绑定修复(cloneWithSkinnedMesh)</div>
         </div>
     </div>
 
@@ -1037,14 +1037,14 @@
         function updateEngineSound(speed) {
             if (!engineNodes) return;
             const absSpeed = Math.abs(speed);
-            const vol = Math.min(0.1, absSpeed * 0.025);
+            const vol = Math.min(0.05, absSpeed * 0.0125);
             engineNodes.gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
             const freq = 30 + absSpeed * 6;
             engineNodes.osc1.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
             engineNodes.osc2.frequency.setTargetAtTime(freq * 2, audioCtx.currentTime, 0.1);
             // 履带声
             engineNodes.noiseGain.gain.setTargetAtTime(
-                Math.min(0.06, absSpeed * 0.015), audioCtx.currentTime, 0.08);
+                Math.min(0.03, absSpeed * 0.0075), audioCtx.currentTime, 0.08);
             engineNodes.bpFilter.frequency.setTargetAtTime(
                 400 + absSpeed * 80, audioCtx.currentTime, 0.08);
         }
@@ -1406,9 +1406,9 @@
         const MG_DETECT_RANGE = 35;      // 自动检测范围
         const MG_RANGE = 25;             // 有效射程
         const MG_DAMAGE = 2;             // 单发伤害
-        const MG_FIRE_RATE = 5;          // 射速 发/秒
+        const MG_FIRE_RATE = 10;         // 射速 发/秒
         const MG_FIRE_INTERVAL = 1 / MG_FIRE_RATE;
-        const MG_OVERHEAT_TIME = 4.0;    // 连续射击过热时间
+        const MG_OVERHEAT_TIME = 6.0;    // 连续射击过热时间
         const MG_COOLDOWN_TIME = 2.0;    // 过热冷却时间
         const MG_BULLET_SPEED = 250;     // 子弹飞行速度 单位/秒
         const MG_BULLET_LIFE = 0.12;     // 子弹存活时间
@@ -3742,16 +3742,28 @@
                         const asys = enemy.userData._animSystem;
                         const ai = enemy.ai;
 
-                        // 1. 动画LOD：按距离分帧（0~30m每帧/30~55m~15fps/>55m冻结）
+                        // 1. 3层LOD + 5m滞后带（防边界抖动）
+                        //    near(<30m): 骨架可见+全帧动画 | medium(30~70m): 骨架可见+冻结动画 | far(>70m): 圆柱占位+冻结动画
                         if (asys) {
                             const pDist = player1 ? enemy.position.distanceTo(player1.group.position) : 999;
-                            if (pDist > 55) {
-                                asys.skipInterval = 999;  // 冻结动画
-                            } else if (pDist > 30) {
-                                asys.skipInterval = 0.064; // ~15fps
+                            const prevLayer = enemy.userData._lodLayer || 'near';
+                            let layer;
+                            if (prevLayer === 'near') {
+                                layer = pDist > 35 ? (pDist > 75 ? 'far' : 'medium') : 'near';
+                            } else if (prevLayer === 'medium') {
+                                layer = pDist < 30 ? 'near' : (pDist > 75 ? 'far' : 'medium');
                             } else {
-                                asys.skipInterval = 0;
+                                layer = pDist < 70 ? (pDist < 30 ? 'near' : 'medium') : 'far';
                             }
+                            enemy.userData._lodLayer = layer;
+                            // 切换可见性
+                            const isFar = (layer === 'far');
+                            const skel = enemy.userData._skeletonGroup;
+                            const cyl = enemy.userData._lodCylinder;
+                            if (skel) skel.visible = !isFar;
+                            if (cyl) cyl.visible = isFar;
+                            // 动画分帧
+                            asys.skipInterval = (layer === 'near') ? 0 : 999;
                             asys.update(dt);
                         }
 
@@ -5220,7 +5232,7 @@
             }
 
             el.textContent =
-                'v0.28.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.28.1  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5633,7 +5645,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.28.0 | 丧尸8状态AI+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)');
+        console.log('🎮 坦克运动demo v0.28.1 | 丧尸3层LOD+贴图提亮+机枪10发/秒+引擎音量减半+程序化修理箱重制');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

@@ -162,9 +162,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 天空 | 已移除（v0.24.5，陡视角不可见） | — |
 | 地面 | 300×300 | `createGround()` 地形 + 纹理混合 |
 | 丧尸模型 | ZOMBIE_CONFIG 24节点 ~458 tris | `models/enemies.js` buildZombieFromConfig |
-| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值，v0.28.0 支持分帧LOD |
+| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值，v0.28.1 支持3层LOD |
+| 丧尸LOD | near<30m全帧/medium30~70m冻结骨架/far>70m圆柱占位 | index.html 5m滞后带 |
 | 丧尸身高 | 1.0m | Box3 包围盒自动缩放 |
 | 丧尸AI | 8状态机 (IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD) | `combat/enemyAI.js` ZS 枚举 |
+| 近防机枪 | 射速10发/秒 伤害2 射程25m 过热6s | `index.html` MG_* 常量 |
+| 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
 | 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
 
@@ -264,6 +267,10 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 2 | 丧尸程序化模型集成 | ✅ v0.27.0 | ZOMBIE_CONFIG+AnimationSystem已集成到enemies.js |
 | 3 | ZombieAIController 8状态机实现 | ✅ v0.28.0 | IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD 完成 |
 | 4 | 04a地图部署5只新程序化丧尸 | ✅ v0.27.0 | zm-01~zm-05 已部署，v0.28.0 扩展至30只 |
+| 5 | GLB修理箱172K tris过重 | ✅ v0.28.1 | 程序化倒角箱取代（~2.5K tris），pickups.js GLB代码已移除 |
+| 6 | 丧尸贴图颜色过深 | ✅ v0.28.1 | 基底#8B9B7E→#A9B89E，全部层提亮 |
+| 7 | 玩家机枪DPS太低（2×5=10） | ✅ v0.28.1 | 射速5→10发/秒，DPS 10→20，过热4→6s |
+| 8 | 大量丧尸draw call压力 | ✅ v0.28.1 | 3层LOD: near全骨架/medium冻结/far圆柱占位，远区-62% draw calls |
 
 ---
 

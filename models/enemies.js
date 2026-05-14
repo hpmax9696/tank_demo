@@ -199,42 +199,43 @@
   dc.width = dc.height = SZ;
   const dctx = dc.getContext('2d');
 
-  // ① 灰绿基底（浅色化）
-  dctx.fillStyle = '#8B9B7E';
+  // ① 灰绿基底（提亮，匹配圆柱占位 #556633）
+  dctx.fillStyle = '#A9B89E';
   dctx.fillRect(0, 0, SZ, SZ);
 
-  // ② 纹理噪点
+  // ② 纹理噪点（提亮范围）
   for (let i = 0; i < 300; i++) {
-    const g = 0x8B + Math.floor(Math.random() * 0x20);
-    const v = 0x9B - Math.floor(Math.random() * 0x20);
-    dctx.fillStyle = `rgb(${g},${v},${0x7E})`;
+    const r = 0xA5 + Math.floor(Math.random() * 0x25);  // 165-201
+    const g_ = 0x9D + Math.floor(Math.random() * 0x25);  // 157-193
+    const b = 0x8E + Math.floor(Math.random() * 0x25);   // 142-178
+    dctx.fillStyle = `rgb(${r},${g_},${b})`;
     dctx.fillRect(Math.random() * SZ, Math.random() * SZ, 1 + Math.random() * 3, 1 + Math.random() * 3);
   }
 
-  // ③ 暗红血渍（径向渐变，浅色化）
+  // ③ 暗红血渍（径向渐变，提亮化）
   for (let i = 0; i < 8; i++) {
     const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 10 + Math.random() * 25;
     const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, '#5a1515');
-    g.addColorStop(0.4, '#7a2525');
+    g.addColorStop(0, '#8a3030');
+    g.addColorStop(0.4, '#aa4545');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     dctx.fillStyle = g;
     dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
 
-  // ④ 黄绿溃烂斑（浅色化）
+  // ④ 黄绿溃烂斑（提亮化）
   for (let i = 0; i < 5; i++) {
     const cx = Math.random() * SZ, cy = Math.random() * SZ, r = 6 + Math.random() * 18;
     const g = dctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    g.addColorStop(0, '#aaaa4a');
-    g.addColorStop(0.6, '#9a9a3a');
+    g.addColorStop(0, '#c8c868');
+    g.addColorStop(0.6, '#b8b858');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     dctx.fillStyle = g;
     dctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
 
-  // ⑤ 污垢线条（浅色化）
-  dctx.strokeStyle = '#5a5a4a';
+  // ⑤ 污垢线条（提亮化）
+  dctx.strokeStyle = '#8a8a78';
   dctx.lineWidth = 2;
   for (let i = 0; i < 15; i++) {
     dctx.globalAlpha = 0.3 + Math.random() * 0.4;
@@ -854,6 +855,21 @@
         const root = _zombieTemplate.clone(true);
         root.scale.setScalar(_zombieTemplateScale);
         root.position.y = _zombieTemplateBaseY;
+        // LOD: 将骨架节点打包到子Group，便于远距离整体隐藏
+        const skeletonGroup = new THREE.Group();
+        skeletonGroup.name = '_skeleton';
+        while (root.children.length > 0) skeletonGroup.add(root.children[0]);
+        root.add(skeletonGroup);
+        // LOD远距离占位圆柱（灰绿，高1m，半径0.25m）
+        const cylGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.0, 6);
+        const cylMat = new THREE.MeshBasicMaterial({ color: 0x556633 });
+        const cylMesh = new THREE.Mesh(cylGeo, cylMat);
+        cylMesh.position.y = 0.5;
+        cylMesh.visible = false;
+        cylMesh.name = '_lodCylinder';
+        root.add(cylMesh);
+        root.userData._skeletonGroup = skeletonGroup;
+        root.userData._lodCylinder = cylMesh;
         const asys = createAnimationSystem(root);
         root.userData._animSystem = asys;
         root.userData.enemyType = 'zombie';

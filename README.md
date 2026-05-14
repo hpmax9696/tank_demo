@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.28.0** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.28.1** | 基于 Three.js 的多模块 3D 浏览器游戏
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,14 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.28.1 — 丧尸3层LOD + 贴图提亮 + 机枪强化 + 修理箱程序化重制（2026-05-14）
+- **丧尸3层LOD**：near(<30m)全帧动画→medium(30~70m)冻结骨架→far(>70m)圆柱占位，5m滞后带防抖动
+- **丧尸贴图提亮**：基底#8B9B7E→#A9B89E，血渍/溃烂/污垢全面提亮，缩小与LOD圆柱的色差
+- **机枪强化**：射速5→10发/秒，过热时间4→6秒，DPS 10→20
+- **引擎音量减半**：engine gain 0.1→0.05，track noise 0.06→0.03
+- **程序化修理箱重制**：ExtrudeGeometry倒角红箱(0.30×0.25×0.10)+黑Torus提手+扳手螺丝刀PNG图标+底部金属边条+发光环，取代旧GLB(172K tris)
+- **清理**：移除pickups.js中GLB预加载代码(~50行)
 
 ### v0.28.0 — 丧尸AI重写：8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化（2026-05-13）
 - **丧尸8状态AI**：IDLE→PATROL→ALERT→PURSUIT→SEARCH→ATTACK→STAGGER→DEAD，~180行独立状态机
@@ -804,9 +812,10 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.27.0）
-- `index.html`：约 5200 行（HTML+CSS+JS，GLB丧尸系统已清理，新程序化丧尸集成）
-- `models/enemies.js`：约 864 行（装甲突击车+新程序化丧尸：ZOMBIE_CONFIG+AnimationSystem 6动作）
+### 代码规模（截至 v0.28.1）
+- `index.html`：约 5300 行（丧尸3层LOD+贴图提亮+机枪强化+引擎音量减半+程序化修理箱）
+- `models/enemies.js`：约 920 行（装甲突击车+新程序化丧尸：ZOMBIE_CONFIG+AnimationSystem 6动作+createZombie含LOD圆柱）
+- `models/pickups.js`：约 190 行（程序化倒角红箱+黑Torus提手+PNG扳手图标+发光环）
 - `zombie_prototype.html`：约 980 行（丧尸原型独立预览，含lil-gui调试面板）
 - `combat/enemyAI.js`：约 530 行（AI状态机 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
 - `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
