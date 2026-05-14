@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.28.1** | 基于 Three.js 的多模块 3D 浏览器游戏
+> **当前版本：v0.29.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.29.0 — 地图编辑器 Phase 1-5 完成（2026-05-14）
+- **Phase 1-5 地图编辑器**：独立 `map_editor.html`（~1400行），300×300世界+200×200空气墙
+- **编辑工具**：高度笔刷5种+SplatMap纹理6种+实体放置5类+水体+桥梁+巡逻路径
+- **多选编组**：Ctrl/Shift多选、双击选同类、Alt+双击选同大类、编组管理、批量巡逻复制
+- **蓝图系统**：localStorage暂存/恢复草稿、文件导入/导出、参数化地形拟合
+- **3D功能**：透视相机+选中高亮环+拖拽连续放置+实体地形联动
 
 ### v0.28.1 — 丧尸3层LOD + 贴图提亮 + 机枪强化 + 修理箱程序化重制（2026-05-14）
 - **丧尸3层LOD**：near(<30m)全帧动画→medium(30~70m)冻结骨架→far(>70m)圆柱占位，5m滞后带防抖动
@@ -814,29 +821,30 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 📋 下一版本规划（v0.29.0 — 地图编辑器）
 
-> **计划日期**: 2026-05-14 | **状态**: 计划已就绪
+> **计划日期**: 2026-05-14 | **状态**: Phase 1-5 ✅ 已完成
 
 创建独立的地图编辑器网页 `map_editor.html`：
-- **6 阶段实施**：基础架构→地形编辑/纹理涂抹→实体放置→JSON管理→桥梁/行为配置→撤销/集成
-- **核心能力**：高度图笔刷(256×256)、SplatMap涂抹(6种纹理)、实体放置(出生点/障碍物/敌人)、桥梁+铁路生成、敌人行为配置(主动/被动/不反击)
-- **技术栈**：纯原生 HTML/CSS/JS 单文件(~2500行)、Three.js r146 3D预览、localStorage + 导出/导入 JSON
+- **Phase 1 ✅**：基础架构 — Grid布局+3D视口+高度图面板、Three.js地形预览、手动相机控制
+- **Phase 2 ✅**：笔刷编辑 — 5种工具(提升/下陷/平滑/纹理)、SplatMap驱动6种纹理合成、增量纹理更新
+- **Phase 3 ✅**：实体放置 — 5类实体+3D标记+侧栏列表+选中高亮+类型修改+巡逻路径连线+多选+编组+拖拽连续放置+双击选同类
+- **Phase 4 ✅**：JSON管理 — localStorage蓝图CRUD、文件导入导出、ParameterFitter参数化地形拟合
+- **Phase 5 ✅**：水体+桥梁 — 🟦水体笔刷(单击池塘/拖拽河流+自动下陷)、🌉桥梁(两次点击+自动桥面支柱)
+- **Phase 6 📋**：撤销/重做(UndoManager)、编辑器↔主游戏兼容性验证
+- **核心能力**：高度图笔刷(256×256)、SplatMap涂抹(6种纹理)、实体放置(出生点/障碍物/敌人)、水体+桥梁生成、敌人行为配置(主动/被动/不反击)
+- **技术栈**：纯原生 HTML/CSS/JS 单文件(~1400行)、Three.js r160 3D预览、localStorage
 
-### 代码规模（截至 v0.28.1）
-- `index.html`：约 5300 行（丧尸3层LOD+贴图提亮+机枪强化+引擎音量减半+程序化修理箱）
-- `models/enemies.js`：约 920 行（装甲突击车+新程序化丧尸：ZOMBIE_CONFIG+AnimationSystem 6动作+createZombie含LOD圆柱）
-- `models/pickups.js`：约 190 行（程序化倒角红箱+黑Torus提手+PNG扳手图标+发光环）
-- `zombie_prototype.html`：约 980 行（丧尸原型独立预览，含lil-gui调试面板）
-- `combat/enemyAI.js`：约 530 行（AI状态机 PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
-- `combat/scoreSystem.js`：约 80 行（积分系统 localStorage 持久化）
-- `models/pickups.js`：约 214 行（战利品拾取模型）
-- `fireSmokeParticles.js`：约 390 行（粒子系统模块）
-- `models/t34-85.js`：约 640 行（T-34/85 程序化模型，GLB 回退方案）
-- `models/buildings.js`：约 220 行（平房/别墅/公寓精细化）
-- `models/windmill.js`：约 59 行（风车磨坊已修复）
-- `grass.js`：约 210 行（程序化草丛生成）
-- 其他模型文件：约 211 行（tank / trees / modelRegistry / terrainTextures）
-- `maps/`：5个地图配置文件（test_map_01a / 01b / 02a / 03a / 04a）
-- **总计约 6500 行**
+### 代码规模（截至 v0.29.0）
+- `index.html`：约 5300 行（主游戏引擎）
+- `map_editor.html`：约 1400 行（地图编辑器 Phase 5：水体+桥梁+蓝图+参数化）
+- `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
+- `models/pickups.js`：约 190 行（程序化倒角红箱）
+- `zombie_prototype.html`：约 980 行（丧尸原型独立预览）
+- `combat/enemyAI.js`：约 530 行（AI状态机）
+- `combat/scoreSystem.js`：约 80 行（积分系统）
+- `fireSmokeParticles.js`：约 390 行（粒子系统）
+- `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
+- `models/buildings.js`：约 220 行（建筑模型）
+- **总计约 7300 行**
 
 ---
 
