@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.28.1</title>
+    <title>坦克运动demo v0.29.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.28.1</div>
+        <div class="menu-version">v0.29.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🗺️ v0.29.0 编辑器 — 地图编辑器 Phase 5+6 完成：敌人配置面板+UndoManager撤销重做+主游戏集成+30fps性能优化</div>
             <div class="cl-title">🧰 v0.28.1 优化 — 丧尸3层LOD(远近开关)+贴图提亮+机枪射速10发/秒+引擎音量减半+程序化修理箱重制(倒角+图标)</div>
             <div class="cl-title">🧠 v0.28.0 丧尸AI — 8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)</div>
             <div class="cl-title">🧟 v0.27.0 集成 — 新程序化丧尸(enemies.js骨架+AnimationSystem)+清理GLB丧尸系统(~300行)+04a地图5只丧尸</div>
             <div class="cl-title">🧟 v0.27.0 原型 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+zombie_prototype.html</div>
-            <div class="cl-title">🩻 v0.26.14 修复 — 丧尸GLB尺寸修复+双倍掉落修复+纹理恢复</div>
         </div>
     </div>
 
@@ -804,11 +804,60 @@
         const TERRAIN_TYPE_INDEX = { grass: 0, mud: 1, sand: 2, concrete: 3, asphalt: 4, brick: 5 };
 
         function loadMapConfig(mapId) {
+            // 编辑器地图：从 localStorage 读取
+            if (mapId.startsWith('editor_')) {
+                const bpName = mapId.slice(7); // 去掉 'editor_' 前缀
+                try {
+                    const bps = JSON.parse(localStorage.getItem('tank_map_editor_blueprints') || '[]');
+                    const bp = bps.find(b => b.name === bpName);
+                    if (bp) {
+                        currentMapData = convertBlueprintToMapConfig(bp);
+                        isVersusMap = false;
+                        return true;
+                    }
+                } catch(e) { console.warn('编辑器地图读取失败:', e); }
+                return false;
+            }
             currentMapData = MAP_CONFIGS[mapId];
             if (!currentMapData) return false;
             // 根据地图类型设置全局标志
             isVersusMap = (currentMapData.type === 'versus' || currentMapData.flat);
             return true;
+        }
+
+        // 编辑器蓝图→地图配置转换
+        function convertBlueprintToMapConfig(bp) {
+            const spawnEnt = (bp.entities||[]).find(e => e.type === 'spawn');
+            const spawn = spawnEnt ? [spawnEnt.position.x, spawnEnt.position.y, spawnEnt.position.z] : [0, 0, 0];
+            const enemies = (bp.entities||[]).filter(e => e.type === 'enemy').map(e => ({
+                id: e.id,
+                type: e.enemyType === 'zombie' ? 'zombie' : 'assault-vehicle',
+                position: [e.position.x, e.position.y, e.position.z],
+                patrolPath: (e.patrol||[]).map(wp => [wp.x, wp.z]),
+                hp: (e.cfg||{}).hp || 60,
+                speed: (e.cfg||{}).speed || 5,
+                viewDist: (e.cfg||{}).viewDist || 50,
+                attackDamage: (e.cfg||{}).attackDamage || 15,
+                attackCooldown: (e.cfg||{}).attackCooldown || 3,
+                dropRate: (e.cfg||{}).dropRate || 0.25,
+                dropHeal: (e.cfg||{}).dropHeal || 30,
+                reactive: (e.cfg||{}).reactive !== false,
+                aggressive: !!(e.cfg||{}).aggressive,
+                score: (e.cfg||{}).score || 100,
+            }));
+            return {
+                version: '1.0',
+                name: '📝编辑器:' + bp.name,
+                size: 200,
+                type: 'single',
+                mode: 'combat',
+                desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
+                spawnPoints: { p1: spawn },
+                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5 },
+                enemies,
+                players: { lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5, mgDamage: 2, mgFireRate: 10 },
+                obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
+            };
         }
 
         // 简单 FBM 噪声（用于生成自然地形斑块）
@@ -1462,6 +1511,26 @@
 
         function getTerrainHeight(x, z) {
             if (isVersusMap) return 0;
+            // 离散高度图模式（编辑器地图）
+            if (currentMapData && currentMapData.terrain && currentMapData.terrain.heightmap) {
+                const hm = currentMapData.terrain.heightmap;
+                const _w = currentMapData.terrain.width || 256;
+                const s = currentMapData.terrain.rangeMin || -5;
+                const r = (currentMapData.terrain.rangeMax || 5) - s;
+                const half = (currentMapData.size || 200) / 2;
+                const u = (x + half) / (half * 2);
+                const v = (z + half) / (half * 2);
+                if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+                // 双线性插值
+                const fx = u * (_w - 1), fz = v * (_w - 1);
+                const ix = Math.floor(fx), iz = Math.floor(fz);
+                const tx = fx - ix, tz = fz - iz;
+                const ix1 = Math.min(ix + 1, _w - 1), iz1 = Math.min(iz + 1, _w - 1);
+                const a = hm[iz * _w + ix], b = hm[iz * _w + ix1];
+                const c = hm[iz1 * _w + ix], d = hm[iz1 * _w + ix1];
+                return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
+                // 高度图直接存储实际高度值（米），无需 r/s 映射
+            }
             let y = 0;
             // ── 池塘 ──
             const pond = _getPond();
@@ -5111,6 +5180,35 @@
                     mapList.appendChild(item);
                 }
             });
+            // 追加编辑器地图
+            try {
+                const bps = JSON.parse(localStorage.getItem('tank_map_editor_blueprints') || '[]');
+                if (bps.length > 0) {
+                    const sep = document.createElement('div');
+                    sep.className = 'map-item';
+                    sep.style.cssText = 'font-size:11px;color:#888;cursor:default;padding:4px 12px;';
+                    sep.textContent = '── 📝 编辑器地图 ──';
+                    mapList.appendChild(sep);
+                    bps.forEach(bp => {
+                        const editorId = 'editor_' + bp.name;
+                        // 动态注入 MAP_CONFIGS
+                        if (!MAP_CONFIGS[editorId]) {
+                            MAP_CONFIGS[editorId] = convertBlueprintToMapConfig(bp);
+                        }
+                        const item = document.createElement('div');
+                        item.className = 'map-item' + (editorId === selectedMapId ? ' selected' : '');
+                        item.dataset.mapId = editorId;
+                        const ecount = (bp.entities||[]).filter(e => e.type === 'enemy').length;
+                        item.innerHTML = `<div class="map-name">📝 ${bp.name}</div><div class="map-desc">${ecount}个敌人 | ${new Date(bp.savedAt).toLocaleDateString('zh-CN')}</div>`;
+                        item.addEventListener('click', () => {
+                            mapList.querySelectorAll('.map-item').forEach(m => m.classList.remove('selected'));
+                            item.classList.add('selected');
+                            selectedMapId = editorId;
+                        });
+                        mapList.appendChild(item);
+                    });
+                }
+            } catch(e) { /* localStorage 不可用 */ }
             // 如果没有单人地图可选，默认选中第一个
             if (!mapList.querySelector('.selected') && mapList.firstChild) {
                 mapList.firstChild.classList.add('selected');
@@ -5232,7 +5330,7 @@
             }
 
             el.textContent =
-                'v0.28.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.29.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5645,7 +5743,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.28.1 | 丧尸3层LOD+贴图提亮+机枪10发/秒+引擎音量减半+程序化修理箱重制');
+        console.log('🎮 坦克运动demo v0.29.0 | 地图编辑器完成+撤销重做+敌人配置面板+主游戏集成+30fps优化');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

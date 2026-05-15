@@ -170,6 +170,14 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
 | 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
+| 地图编辑器 | `map_editor.html` ~2700行 | 6阶段完成：地形+纹理+实体+JSON+水体+撤销+主游戏集成 |
+| 编辑器世界 | 300×300 (空气墙200×200) | `map_editor.html` WORLD_SIZE/PLAY_SIZE |
+| 高度图精度 | 256×256 Float32Array | HM_RES |
+| 纹理预览 | 2048×2048 Canvas2D | TEX_RES |
+| UndoManager | 50步快照栈，~320KB/步 | `pushSnapshot()`/`undo()`/`redo()` |
+| 编辑器限帧 | 30fps | `animate()` FRAME_MS=1000/30 |
+| 蓝图存储 | localStorage `tank_map_editor_blueprints` | CRUD + 导入/导出 JSON |
+| 编辑器→主游戏 | `convertBlueprintToMapConfig()` | 离散高度图双线性插值 + `loadMapConfig()` 动态注入 |
 
 ## 常见修复模式
 
@@ -456,40 +464,27 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## 🔄 下一对话起手任务 — 地图编辑器（v0.29.0 计划）
+## ✅ 地图编辑器 v0.29.0 — 全部完成
 
-> **计划日期**: 2026-05-14 | **版本**: v0.29.0-dev | **状态**: Phase 1 已完成
+> **完成日期**: 2026-05-15 | **版本**: v0.29.0 | **状态**: Phase 1-6 ✅ 全部完成
 
-### 📋 计划概述
-
-创建独立的地图编辑器网页 `map_editor.html`，与主游戏 `index.html` 并行运行。提供完整的 3D 地图制作工具链：地形高度编辑、纹理涂抹、实体放置、交通设施生成、敌人行为配置。
-
-### 🗺️ 功能清单（6 阶段）
+### 🗺️ 功能清单（6 阶段 — 全部完成）
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| **Phase 1** | 基础架构：HTML布局(工具栏/侧面板/2D+3D视口)、Three.js地形预览(256段PlaneGeometry+正交相机)、高度图Canvas灰度显示 | ✅ 完成 (v0.29.0-dev) |
-| **Phase 2** | 高度编辑(提升/下陷/平滑笔刷)+SplatMap涂抹(6种纹理)+实时地面贴图合成 | ✅ 完成 (v0.29.0-dev) |
-| **Phase 3** | 实体放置：出生点(旗帜+朝向)、障碍物(树/建筑)、敌人(突击车/丧尸+属性面板)、巡逻路径(连线+拖拽点) | ✅ 完成 (v0.3.0) |
-| **Phase 4** | 地图JSON管理：MapSerializer(内存↔JSON)、CRUD(localStorage蓝图)、导出下载+导入上传、ParameterFitter(高度图→参数化地形拟合) | ✅ 完成 (v0.4.0) |
-| **Phase 5** | 桥梁放置(跨河自动计算)+敌人行为配置(主动索敌/被动反击/不反击+战斗参数+批量编辑) | ✅ 完成 (v0.5.0) 水体+桥梁, 行为配置📋待续 |
-| **Phase 6** | 撤销重做(UndoManager 50步)、编辑器↔主游戏兼容性验证、性能优化(30fps/增量更新) | 📋 待开始 |
+| **Phase 1** | 基础架构：HTML布局(工具栏/侧面板/2D+3D视口)、Three.js地形预览(256段+透视相机)、高度图Canvas灰度显示 | ✅ 完成 |
+| **Phase 2** | 高度编辑(提升/下陷/平滑笔刷)+SplatMap涂抹(6种纹理)+实时地面贴图合成(2048×2048 Canvas2D) | ✅ 完成 |
+| **Phase 3** | 实体放置：出生点(旗帜+朝向)、障碍物(树/建筑各有3种)、敌人(突击车/丧尸+属性面板)、巡逻路径(连线+拖拽点) | ✅ 完成 |
+| **Phase 4** | 地图JSON管理：MapSerializer(内存↔JSON)、CRUD(localStorage蓝图)、导出下载+导入上传、ParameterFitter(高度图→参数化地形拟合) | ✅ 完成 |
+| **Phase 5** | 水体+桥梁放置、敌人行为配置面板(HP/速度/视野/攻击/行为模式/巡逻预览)、批量编辑(巡逻复制/清空) | ✅ 完成 |
+| **Phase 6** | 撤销重做(UndoManager 50步+Ctrl+Z/Y)、主游戏集成(localStorage→地图列表)、离散高度图双线性插值、性能优化(30fps+笔刷批处理) | ✅ 完成 |
 
-### 🔑 核心设计决策
+### 🔑 核心能力
 
-| 决策 | 说明 |
-|------|------|
-| **独立页面** | `map_editor.html` 独立文件，不耦合主游戏 5000+ 行代码 |
-| **离散高度图** | 256×256 Float32Array 中间表示，导出时反向拟合为参数化地形(椭圆/正弦/高斯) |
-| **localStorage** | 编辑器暂存蓝图，导出 `.map.json` 下载到本地后手动放入 `maps/` |
-| **Three.js复用** | r160 同版本，地面纹理 Canvas 2D 合成(2048×2048 预览贴图) |
-| **无框架** | 纯原生 DOM + CSS Grid/Flexbox，零外部 UI 依赖 |
-
-### 🎯 需要开始执行时的关键文件
-
-- **新建**: `map_editor.html`（Phase 1: ~420 行，预计全6阶段 ~2500 行）
-- **微调**: `index.html`（+5~10 行，增加编辑器地图加载入口）
-- **不修改**: `maps/`（编辑器导出 JSON 手动放入此目录）
+- **map_editor.html**：~2700行独立文件，工具栏+侧面板+3D视口+高度图面板四区布局
+- **数据流**：编辑器内存 → localStorage暂存 → 导出JSON → 放入maps/或主游戏直接加载(含离散高度图双线性插值)
+- **主游戏入口**：地图选择列表自动显示 📝编辑地图，无需手动复制JSON
+- **撤销栈内存**：50步 × ~320KB/步 ≈ 16MB，现代浏览器可接受
 
 ### ✅ v0.26.4 已修复
 

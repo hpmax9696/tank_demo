@@ -273,6 +273,27 @@
             color: #555;
         }
 
+        /* ===== 敌人配置面板 ===== */
+        .enemy-cfg { display:none; }
+        .enemy-cfg.visible { display:flex; flex-direction:column; gap:4px; }
+        .enemy-cfg .cfg-row { display:flex; align-items:center; gap:6px; font-size:11px; }
+        .enemy-cfg .cfg-row label { flex:0 0 70px; color:#888; font-size:10px; }
+        .enemy-cfg .cfg-row input, .enemy-cfg .cfg-row select {
+            background:#1a1a2e; color:#ccc; border:1px solid #4a4a65; border-radius:3px;
+            padding:3px 5px; font-size:11px; font-family:inherit; width:80px;
+        }
+        .enemy-cfg .cfg-row input:focus, .enemy-cfg .cfg-row select:focus { border-color:#f5954a; outline:none; }
+        .enemy-cfg .cfg-mode-bar { display:flex; gap:4px; }
+        .enemy-cfg .cfg-mode-btn {
+            flex:1; background:#333350; color:#888; border:1px solid #4a4a65; border-radius:3px;
+            padding:4px 6px; font-size:10px; cursor:pointer; text-align:center;
+        }
+        .enemy-cfg .cfg-mode-btn:hover { background:#404060; color:#ccc; }
+        .enemy-cfg .cfg-mode-btn.active { background:#f5954a; color:#1a1a2e; border-color:#f5954a; }
+        .enemy-cfg .cfg-patrol-preview { font-size:10px; color:#777; max-height:120px; overflow-y:auto; }
+        .enemy-cfg .cfg-patrol-preview .wp-line { padding:1px 4px; }
+        .enemy-cfg .cfg-patrol-preview .wp-line:hover { background:#2a2a45; }
+
         /* ===== 底部状态栏 ===== */
         .statusbar {
             grid-area: statusbar;
@@ -365,6 +386,9 @@
     <button id="btn-import-json">📥 导入</button>
     <input type="file" id="file-import" accept=".json" style="display:none;">
     <span class="sep"></span>
+    <button id="btn-undo" title="撤销 Ctrl+Z" disabled>↩️</button>
+    <button id="btn-redo" title="重做 Ctrl+Y" disabled>↪️</button>
+    <span class="sep"></span>
     <label title="网格显示"><input type="checkbox" id="chk-grid" checked> 网格</label>
     <label title="线框模式"><input type="checkbox" id="chk-wireframe"> 线框</label>
     <span class="sep"></span>
@@ -395,6 +419,25 @@
     <div class="section">
         <div class="section-title">📦 编组列表</div>
         <div class="empty-msg" id="group-list">暂无编组</div>
+    </div>
+    <div class="section enemy-cfg" id="enemy-cfg-panel">
+        <div class="section-title">⚙️ 敌人属性</div>
+        <div class="cfg-row"><label>HP</label><input type="number" id="cfg-hp" min="1" max="999" step="1"></div>
+        <div class="cfg-row"><label>速度</label><input type="number" id="cfg-speed" min="0.1" max="20" step="0.1"></div>
+        <div class="cfg-row"><label>视野(m)</label><input type="number" id="cfg-view" min="5" max="200" step="1"></div>
+        <div class="cfg-row"><label>攻击伤害</label><input type="number" id="cfg-atkdmg" min="1" max="100" step="1"></div>
+        <div class="cfg-row"><label>攻击冷却(s)</label><input type="number" id="cfg-atkcd" min="0.5" max="30" step="0.1"></div>
+        <div class="cfg-row"><label>掉落概率</label><input type="number" id="cfg-drop" min="0" max="1" step="0.05"></div>
+        <div class="cfg-row"><label>回血量</label><input type="number" id="cfg-heal" min="0" max="100" step="1"></div>
+        <div class="cfg-row"><label>击杀得分</label><input type="number" id="cfg-score" min="0" max="9999" step="1"></div>
+        <div class="cfg-row"><label>行为模式</label>
+            <div class="cfg-mode-bar" id="cfg-mode-bar">
+                <button class="cfg-mode-btn active" data-mode="reactive" title="受击后反击">被动</button>
+                <button class="cfg-mode-btn" data-mode="aggressive" title="主动索敌追击">主动</button>
+                <button class="cfg-mode-btn" data-mode="none" title="不反击">不反击</button>
+            </div>
+        </div>
+        <div class="cfg-patrol-preview" id="cfg-patrol-preview"></div>
     </div>
     <div class="section">
         <div class="section-title">🌍 地形图层</div>
@@ -429,7 +472,7 @@
 
 <!-- 状态栏 -->
 <div class="statusbar">
-    <span>地图编辑器 v0.5.0</span>
+    <span>地图编辑器 v0.29.0</span>
     <span>|</span>
     <span>相机: <span id="status-cam">顶视图</span></span>
     <span>|</span>
@@ -455,7 +498,7 @@
 //  版本: v0.1.0 | 日期: 2026-05-14
 // ============================================================
 
-console.log('🗺️ 地图编辑器 v0.5.0 — Phase 5 水体+桥梁');
+console.log('🗺️ 地图编辑器 v0.29.0 — Phase 6 完成：撤销重做+敌人配置面板+性能优化');
 
 // ----- 常量 -----
 const WORLD_SIZE = 300;          // 地图世界尺寸（含外围缓冲区）
@@ -484,6 +527,24 @@ const hmMaxVal = document.getElementById('hm-maxval');
 const brushInd = document.getElementById('brush-indicator');
 const sldR = document.getElementById('brush-radius');
 const sldS = document.getElementById('brush-strength');
+// ----- 敌人配置面板 DOM -----
+const cfgPanel = document.getElementById('enemy-cfg-panel');
+const cfgHp = document.getElementById('cfg-hp');
+const cfgSpeed = document.getElementById('cfg-speed');
+const cfgView = document.getElementById('cfg-view');
+const cfgAtkDmg = document.getElementById('cfg-atkdmg');
+const cfgAtkCd = document.getElementById('cfg-atkcd');
+const cfgDrop = document.getElementById('cfg-drop');
+const cfgHeal = document.getElementById('cfg-heal');
+const cfgScore = document.getElementById('cfg-score');
+const cfgModeBar = document.getElementById('cfg-mode-bar');
+const cfgPatrolPrev = document.getElementById('cfg-patrol-preview');
+
+// ----- 敌人默认配置（按类型）-----
+function defaultEnemyCfg(etype) {
+    if (etype === 'zombie') return { hp:40, speed:2.5, viewDist:35, attackDamage:10, attackCooldown:1.5, dropRate:0.3, dropHeal:20, reactive:true, aggressive:false, score:50 };
+    return { hp:60, speed:5.0, viewDist:50, attackDamage:15, attackCooldown:3.0, dropRate:0.25, dropHeal:30, reactive:true, aggressive:false, score:100 };
+}
 
 // ----- 地图数据模型 -----
 const mapData = {
@@ -525,6 +586,124 @@ const patrolLines = {};
 const highlightRings = {};
 const waterMeshes = {};   // waterId → THREE.Mesh
 const bridgeMeshes = {};  // bridgeId → THREE.Group
+
+// ========== UndoManager (50步快照栈) ==========
+const undoManager = {
+    stack: [],
+    index: -1,
+    maxSteps: 50,
+    _inUndoRedo: false,  // 防止撤消/重做时再次推快照
+};
+function pushSnapshot() {
+    if (undoManager._inUndoRedo) return;
+    // 截断回退栈（新操作废弃之后的redo历史）
+    if (undoManager.index < undoManager.stack.length - 1) {
+        undoManager.stack.length = undoManager.index + 1;
+    }
+    // 深拷贝快照
+    const snap = {
+        heightmap: new Float32Array(mapData.heightmap),
+        splatMap: new Uint8Array(mapData.splatMap),
+        entities: deepClone(mapData.entities),
+        waters: deepClone(mapData.waters),
+        bridges: deepClone(mapData.bridges),
+        groups: deepClone(mapData.groups),
+    };
+    undoManager.stack.push(snap);
+    if (undoManager.stack.length > undoManager.maxSteps) undoManager.stack.shift();
+    else undoManager.index++;
+    updateUndoButtons();
+}
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function undo() {
+    if (undoManager.index < 0) return;
+    const snap = undoManager.stack[undoManager.index];
+    undoManager.index--;
+    restoreSnapshot(snap);
+    updateUndoButtons();
+    overlayInfo.textContent = '↩️ 已撤销 (第'+(undoManager.index+2)+'步)';
+}
+function redo() {
+    if (undoManager.index >= undoManager.stack.length - 1) return;
+    undoManager.index++;
+    const snap = undoManager.stack[undoManager.index];
+    restoreSnapshot(snap);
+    updateUndoButtons();
+    overlayInfo.textContent = '↪️ 已重做 (第'+(undoManager.index+1)+'步)';
+}
+function restoreSnapshot(snap) {
+    undoManager._inUndoRedo = true;
+    // 恢复高度图
+    for (let i = 0; i < Math.min(snap.heightmap.length, mapData.heightmap.length); i++) {
+        mapData.heightmap[i] = snap.heightmap[i];
+        mapData.splatMap[i] = snap.splatMap[i];
+    }
+    // 清空当前场景标记
+    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
+    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
+    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
+    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
+    Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
+    Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
+    Object.values(waterMeshes).forEach(m => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+    Object.keys(waterMeshes).forEach(k => delete waterMeshes[k]);
+    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
+    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
+    // 恢复实体/水体/桥梁
+    mapData.entities = deepClone(snap.entities);
+    mapData.waters = deepClone(snap.waters);
+    mapData.bridges = deepClone(snap.bridges);
+    mapData.groups = deepClone(snap.groups);
+    selectedEntityIds.clear();
+    // 重建3D标记
+    mapData.entities.forEach(ent => {
+        let marker;
+        switch (ent.type) {
+            case 'spawn': marker = createSpawnMarker(ent.position.x, ent.position.y, ent.position.z, ent.yaw||0); break;
+            case 'tree': marker = createTreeMarker(ent.position.x, ent.position.y, ent.position.z, ent.subType||'cone'); break;
+            case 'building': marker = createBuildingMarker(ent.position.x, ent.position.y, ent.position.z, ent.subType||'bungalow'); break;
+            case 'enemy':
+                marker = createEnemyMarker(ent.position.x, ent.position.y, ent.position.z, ent.enemyType||'assault');
+                if (ent.patrol) ent.patrol.forEach((wp, j) => {
+                    const mk = createWaypointMarker(wp.x, wp.y, wp.z, j);
+                    entityMarkers[ent.id + '_wp' + j] = mk; scene.add(mk);
+                });
+                refreshPatrolLines(ent.id);
+                break;
+        }
+        if (marker) { scene.add(marker); entityMarkers[ent.id] = marker; }
+    });
+    // 重建水体/桥梁网格
+    mapData.waters.forEach(w => { const m = createWaterMesh(w); scene.add(m); waterMeshes[w.id] = m; });
+    mapData.bridges.forEach(b => { const m = createBridgeMesh(b); scene.add(m); bridgeMeshes[b.id] = m; });
+    // 重建地面+UI
+    if (groundPlane) { groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
+    createGround();
+    renderHeightmapCanvas();
+    refreshEntityList();
+    refreshWaterList();
+    refreshGroupList();
+    undoManager._inUndoRedo = false;
+}
+function updateUndoButtons() {
+    document.getElementById('btn-undo').disabled = undoManager.index < 0;
+    document.getElementById('btn-redo').disabled = undoManager.index >= undoManager.stack.length - 1;
+}
+function clearUndoStack() {
+    undoManager.stack = [];
+    undoManager.index = -1;
+    updateUndoButtons();
+}
+
+// 按钮事件
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+// 键盘快捷键
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey||e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    if ((e.ctrlKey||e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+});
 
 // 实体 3D 标记创建
 function createSpawnMarker(x, y, z, yaw) {
@@ -624,7 +803,7 @@ function addEntity(type, x, y, z, etype) {
     const ent = { id, type, position: { x, y, z }, yaw: 0 };
     if (type === 'tree') ent.subType = etype || treeType;
     if (type === 'building') ent.subType = etype || bldgType;
-    if (type === 'enemy') { ent.enemyType = etype || entityType; ent.patrol = []; }
+    if (type === 'enemy') { ent.enemyType = etype || entityType; ent.patrol = []; ent.cfg = defaultEnemyCfg(ent.enemyType); }
     mapData.entities.push(ent);
 
     let marker;
@@ -658,6 +837,7 @@ function changeEntityType(eid, newSubType) {
 }
 
 function deleteEntity(id) {
+    if (!undoManager._inUndoRedo) pushSnapshot();
     const idx = mapData.entities.findIndex(e => e.id === id);
     if (idx < 0) return;
     mapData.entities.splice(idx, 1);
@@ -709,6 +889,7 @@ function createRiverGeometry(points, center, width) {
 }
 
 function addWater(type, center, height, radiusOrPoints) {
+    if (!undoManager._inUndoRedo) pushSnapshot();
     const id = 'w' + Date.now();
     const w = { id, type, center, height, radius: type === 'pond' ? radiusOrPoints : 6, points: type === 'river' ? radiusOrPoints : null };
     mapData.waters.push(w);
@@ -719,6 +900,7 @@ function addWater(type, center, height, radiusOrPoints) {
 }
 
 function deleteWater(id) {
+    if (!undoManager._inUndoRedo) pushSnapshot();
     mapData.waters = mapData.waters.filter(w => w.id !== id);
     if (waterMeshes[id]) { scene.remove(waterMeshes[id]); waterMeshes[id].geometry.dispose(); waterMeshes[id].material.dispose(); delete waterMeshes[id]; }
     refreshWaterList();
@@ -765,6 +947,7 @@ function createBridgeMesh(b) {
 }
 
 function addBridge(from, to) {
+    if (!undoManager._inUndoRedo) pushSnapshot();
     const id = 'b' + Date.now();
     const b = { id, from, to, width: 4 };
     mapData.bridges.push(b);
@@ -855,6 +1038,67 @@ function syncHighlightRings() {
         }
     });
 }
+
+// ========== 敌人行为配置面板 ==========
+function syncEnemyConfigPanel() {
+    const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
+    if (!selEnt || selEnt.type !== 'enemy') { hideEnemyConfigPanel(); return; }
+    if (!selEnt.cfg) selEnt.cfg = defaultEnemyCfg(selEnt.enemyType || 'assault');
+    cfgPanel.classList.add('visible');
+    cfgHp.value = selEnt.cfg.hp || 60;
+    cfgSpeed.value = selEnt.cfg.speed || 5;
+    cfgView.value = selEnt.cfg.viewDist || 50;
+    cfgAtkDmg.value = selEnt.cfg.attackDamage || 15;
+    cfgAtkCd.value = selEnt.cfg.attackCooldown || 3;
+    cfgDrop.value = selEnt.cfg.dropRate || 0.25;
+    cfgHeal.value = selEnt.cfg.dropHeal || 30;
+    cfgScore.value = selEnt.cfg.score || 100;
+    // 行为模式按钮高亮
+    cfgModeBar.querySelectorAll('.cfg-mode-btn').forEach(b => {
+        const mode = b.dataset.mode;
+        if (mode === 'reactive') b.classList.toggle('active', selEnt.cfg.reactive === true && selEnt.cfg.aggressive !== true);
+        else if (mode === 'aggressive') b.classList.toggle('active', selEnt.cfg.aggressive === true);
+        else if (mode === 'none') b.classList.toggle('active', selEnt.cfg.reactive === false && selEnt.cfg.aggressive !== true);
+    });
+    // 巡逻点预览
+    const wpCount = (selEnt.patrol||[]).length;
+    if (wpCount > 0) {
+        cfgPatrolPrev.innerHTML = '<div style="color:#f5954a;margin-top:2px;">📍 巡逻点 ('+wpCount+'):</div>' +
+            selEnt.patrol.map((wp,i) => `<div class="wp-line">${i+1}. X:${wp.x.toFixed(1)} Z:${wp.z.toFixed(1)}</div>`).join('');
+    } else {
+        cfgPatrolPrev.innerHTML = '<div style="color:#555;">暂无巡逻点</div>';
+    }
+}
+function hideEnemyConfigPanel() {
+    cfgPanel.classList.remove('visible');
+}
+
+// 配置字段 change 事件绑定
+[cfgHp,cfgSpeed,cfgView,cfgAtkDmg,cfgAtkCd,cfgDrop,cfgHeal,cfgScore].forEach(el => {
+    el.addEventListener('input', () => {
+        const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
+        if (!selEnt || !selEnt.cfg) return;
+        selEnt.cfg.hp = parseFloat(cfgHp.value) || 60;
+        selEnt.cfg.speed = parseFloat(cfgSpeed.value) || 5;
+        selEnt.cfg.viewDist = parseInt(cfgView.value) || 50;
+        selEnt.cfg.attackDamage = parseInt(cfgAtkDmg.value) || 15;
+        selEnt.cfg.attackCooldown = parseFloat(cfgAtkCd.value) || 3;
+        selEnt.cfg.dropRate = parseFloat(cfgDrop.value);
+        selEnt.cfg.dropHeal = parseInt(cfgHeal.value) || 30;
+        selEnt.cfg.score = parseInt(cfgScore.value) || 100;
+    });
+});
+cfgModeBar.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.cfg-mode-btn');
+    if (!btn) return;
+    const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
+    if (!selEnt || !selEnt.cfg) return;
+    const mode = btn.dataset.mode;
+    if (mode === 'reactive') { selEnt.cfg.reactive = true; selEnt.cfg.aggressive = false; }
+    else if (mode === 'aggressive') { selEnt.cfg.reactive = false; selEnt.cfg.aggressive = true; }
+    else { selEnt.cfg.reactive = false; selEnt.cfg.aggressive = false; }
+    syncEnemyConfigPanel();
+});
 
 function refreshEntityList() {
     const el = document.getElementById('entity-list');
@@ -984,9 +1228,10 @@ function refreshEntityList() {
         });
     });
 
-    // 编组 + 高亮
+    // 编组 + 高亮 + 配置面板
     refreshGroupList();
     syncHighlightRings();
+    syncEnemyConfigPanel();
 }
 
 // ---------- 编组 ----------
@@ -1028,6 +1273,7 @@ function createGroup() {
 
 // ---------- 批量巡逻操作 ----------
 function batchCopyPatrol() {
+    pushSnapshot();
     const selEnemies = [...selectedEntityIds].filter(id => (mapData.entities.find(e=>e.id===id)||{}).type==='enemy');
     if (selEnemies.length < 2) { alert('需要至少选中2个敌人'); return; }
     const src = mapData.entities.find(e => e.id === selEnemies[0]);
@@ -1051,6 +1297,7 @@ function batchCopyPatrol() {
 }
 
 function batchClearPatrol() {
+    pushSnapshot();
     const selEnemies = [...selectedEntityIds].filter(id => (mapData.entities.find(e=>e.id===id)||{}).type==='enemy');
     selEnemies.forEach(eid => {
         const ent = mapData.entities.find(e => e.id === eid);
@@ -1069,7 +1316,10 @@ document.getElementById('batch-bar').addEventListener('click', (ev) => {
     if (!btn) return;
     const op = btn.dataset.batch;
     if (op === 'del-sel') {
+        pushSnapshot();
+        undoManager._inUndoRedo = true;  // 批量删除只推一次快照
         [...selectedEntityIds].forEach(id => deleteEntity(id));
+        undoManager._inUndoRedo = false;
     }
     if (op === 'group') createGroup();
 });
@@ -1501,6 +1751,7 @@ viewport3D.addEventListener('mousedown', (e) => {
             if (d < bestDist) { bestDist = d; bestId = ent.id; }
         });
         if (bestId) {
+            pushSnapshot();  // 拖拽移动前保存状态
             selectedEntityIds.clear();
             selectedEntityIds.add(bestId);
             refreshEntityList();
@@ -1515,6 +1766,7 @@ viewport3D.addEventListener('mousedown', (e) => {
 
     // 实体放置模式
     if (entityMode && entityMode !== 'select' && e.button === 0 && !e.shiftKey) {
+        pushSnapshot();
         const pt = getWorldPos(e);
         // 实体/巡逻点仅允许放置在空气墙内
         if (Math.abs(pt.x) > PLAY_HALF || Math.abs(pt.z) > PLAY_HALF) {
@@ -1561,16 +1813,11 @@ viewport3D.addEventListener('mousedown', (e) => {
     }
 
     if (brushMode !== 'cursor' && e.button === 0 && !e.shiftKey) {
+        pushSnapshot();  // 首次按下时记录快照
         isPainting = true;
         const pt = getWorldPos(e);
         applyBrush(pt.x, pt.z);
-        renderHeightmapCanvas();
-        if (dirtyTex) {
-            for (const k of affectedBlocks) { const [sx, sy] = k.split(',').map(Number); patchTexBlock(sx, sy); }
-            groundPlane.material.map.needsUpdate = true;
-            updateTerrainStats();
-            dirtyTex = false; affectedBlocks.clear();
-        }
+        needsHmRender = true;  // 延迟到帧末刷新
         e.preventDefault();
     } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
         isPanning = true;
@@ -1651,13 +1898,7 @@ window.addEventListener('mousemove', (e) => {
     } else if (isPainting) {
         const pt = getWorldPos(e);
         applyBrush(pt.x, pt.z);
-        renderHeightmapCanvas();
-        if (dirtyTex) {
-            for (const k of affectedBlocks) { const [sx, sy] = k.split(',').map(Number); patchTexBlock(sx, sy); }
-            groundPlane.material.map.needsUpdate = true;
-            updateTerrainStats();
-            dirtyTex = false; affectedBlocks.clear();
-        }
+        needsHmRender = true;  // 延迟到帧末刷新
         dragStart = { x: e.clientX, y: e.clientY };
     } else if (isDragging && (entityMode === 'select' || !entityMode) && selectedEntityIds.size > 0) {
         // 实体拖拽已在上方处理，跳过相机旋转
@@ -1826,6 +2067,7 @@ function exportMapJson() {
             if (e.enemyType) ent.enemyType = e.enemyType;
             if (e.patrol && e.patrol.length > 0) ent.patrolPath = e.patrol.map(wp => [wp.x, wp.z]);
             if (e.yaw) ent.yaw = e.yaw;
+            if (e.cfg) ent.cfg = e.cfg;  // 敌人行为配置
             return ent;
         }),
     };
@@ -1871,6 +2113,7 @@ function importMapJson(file) {
                     if (e.enemyType) ent.enemyType = e.enemyType;
                     if (e.patrolPath) ent.patrol = e.patrolPath.map(wp => ({ x: wp[0], y: smpHeight(wp[0], wp[1]), z: wp[1] }));
                     if (e.patrol && !e.patrolPath) ent.patrol = e.patrol;
+                    if (e.cfg) ent.cfg = e.cfg; else if (e.type === 'enemy') ent.cfg = defaultEnemyCfg(ent.enemyType || 'assault');
                     mapData.entities.push(ent);
                     // 创建3D标记
                     let marker;
@@ -1898,6 +2141,7 @@ function importMapJson(file) {
             mapNameLabel.textContent = (json.name || 'imported') + '.map.json';
             setBrushMode('cursor'); entityMode = null;
             refreshEntityList();
+            clearUndoStack(); pushSnapshot();  // 重置撤销栈
             overlayInfo.textContent = '📥 已导入: ' + json.name + ' (' + json.entities.length + '个实体)';
         } catch (err) {
             alert('导入失败: ' + err.message);
@@ -2013,6 +2257,7 @@ function loadBlueprint(name) {
     mapNameLabel.textContent = bp.name + '.map.json';
     setBrushMode('cursor'); entityMode = null;
     refreshEntityList();
+    clearUndoStack(); pushSnapshot();  // 重置撤销栈
     overlayInfo.textContent = '📂 已恢复草稿: ' + bp.name;
 }
 
@@ -2136,6 +2381,8 @@ btnNewMap.addEventListener('click', () => {
     mapNameLabel.textContent = name + '.map.json';
     setBrushMode('cursor'); entityMode = null;
     refreshEntityList();
+    clearUndoStack();  // 新地图清空历史，推初始快照
+    pushSnapshot();
     overlayInfo.textContent = '地图已重置';
 });
 
@@ -2148,8 +2395,35 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-// 渲染循环
-function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+// 渲染循环（30fps限帧 + 脏矩形批处理）
+let lastFrameTime = 0;
+const FRAME_MS = 1000 / 30;  // 30fps
+let needsHmRender = false;   // 高度图画布延迟刷新
+function animate(now) {
+    requestAnimationFrame(animate);
+    if (now - lastFrameTime < FRAME_MS) return;
+    lastFrameTime = now;
+
+    // 批量纹理patch（笔刷编辑延迟到帧末）
+    if (dirtyTex) {
+        for (const k of affectedBlocks) {
+            const [sx, sy] = k.split(',').map(Number);
+            patchTexBlock(sx, sy);
+        }
+        if (groundPlane && groundPlane.material.map) groundPlane.material.map.needsUpdate = true;
+        updateTerrainStats();
+        dirtyTex = false;
+        affectedBlocks.clear();
+    }
+
+    // 延迟高度图刷新
+    if (needsHmRender) {
+        renderHeightmapCanvas();
+        needsHmRender = false;
+    }
+
+    renderer.render(scene, camera);
+}
 
 // 初始化
 function init() {
@@ -2159,9 +2433,9 @@ function init() {
     document.getElementById('info-size').textContent = WORLD_SIZE + '×' + WORLD_SIZE + ' (空气墙' + PLAY_SIZE + '×' + PLAY_SIZE + ')';
     document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
     document.getElementById('status-tool').textContent = '选择';
-    console.log('✅ 地图编辑器 Phase 5 初始化完成');
+    console.log('✅ 地图编辑器 v0.29.0 Phase 6 初始化完成');
 }
-init(); animate();
+init(); pushSnapshot(); animate(performance.now());
 </script>
 </body>
 </html>
