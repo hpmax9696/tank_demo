@@ -13,7 +13,7 @@
             height: 100vh;
             display: grid;
             grid-template-rows: 44px 1fr 24px;
-            grid-template-columns: 240px 1fr 280px;
+            grid-template-columns: 220px 1fr 320px;
             grid-template-areas:
                 "toolbar toolbar toolbar"
                 "sidebar view3d heightmap"
@@ -118,6 +118,18 @@
         .entity-swatch { width:18px; height:18px; border-radius:3px; border:1px solid #555; cursor:pointer; }
         .entity-swatch:hover { transform:scale(1.2); }
         .entity-swatch.active { border-color:#f5954a; box-shadow:0 0 6px #f5954a; }
+        /* 道路选择器 */
+        .road-sel { display:none; align-items:center; gap:4px; }
+        .road-sel.visible { display:flex; }
+        .road-swatch { width:18px; height:18px; border-radius:3px; border:1px solid #555; cursor:pointer; }
+        .road-swatch:hover { transform:scale(1.2); }
+        .road-swatch.active { border-color:#f5954a; box-shadow:0 0 6px #f5954a; }
+        .road-width-btn {
+            background:#333350; color:#888; border:1px solid #4a4a65; border-radius:3px;
+            padding:2px 6px; font-size:10px; cursor:pointer; font-family:inherit;
+        }
+        .road-width-btn:hover { background:#404060; color:#ccc; }
+        .road-width-btn.active { background:#f5954a; color:#1a1a2e; border-color:#f5954a; }
 
         /* ===== 侧边栏 ===== */
         .sidebar {
@@ -183,6 +195,13 @@
         .modal-dialog .bp-row .bp-btn.danger { color:#f66;border-color:#844; }
         .modal-close { float:right;background:none;border:none;color:#888;font-size:18px;cursor:pointer; }
         .modal-close:hover { color:#f5954a; }
+        /* 随机生成参数 */
+        .modal-dialog .cfg-section { margin:6px 0;padding:6px 8px;background:#1a1a2e;border-radius:4px; }
+        .modal-dialog .cfg-sec-title { font-size:12px;color:#f5954a;margin-bottom:4px;font-weight:bold; }
+        .modal-dialog .cfg-row { display:flex;align-items:center;gap:6px;padding:2px 0;font-size:11px;color:#aaa; }
+        .modal-dialog .cfg-row label { width:95px;flex-shrink:0;text-align:right; }
+        .modal-dialog .cfg-row input[type=range] { flex:1;accent-color:#f5954a; }
+        .modal-dialog .cfg-row .rg-val { width:32px;text-align:left;color:#ccc;font-size:10px; }
         .sidebar .entity-row .dot {
             width: 8px;
             height: 8px;
@@ -234,7 +253,7 @@
             box-shadow: 0 0 8px rgba(245,149,74,0.3);
         }
 
-        /* ===== 高度图面板 ===== */
+        /* ===== 高度图面板（右侧面板）===== */
         .heightmap-panel {
             grid-area: heightmap;
             background: #1e1e35;
@@ -243,7 +262,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            overflow: hidden;
+            overflow-y: auto;
         }
         .heightmap-panel .panel-title {
             font-size: 11px;
@@ -254,11 +273,12 @@
         }
         .heightmap-panel .hm-container {
             position: relative;
-            flex: 1;
+            flex: 0 0 auto;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            height: 160px;
         }
         .heightmap-panel canvas {
             border: 1px solid #3a3a55;
@@ -271,6 +291,43 @@
             justify-content: space-between;
             font-size: 10px;
             color: #555;
+        }
+        .heightmap-panel .section {
+            border-bottom: 1px solid #2a2a45;
+            padding-bottom: 6px;
+        }
+        .heightmap-panel .section-title {
+            font-size: 11px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 4px;
+        }
+        .heightmap-panel .info-row {
+            font-size: 11px;
+            color: #777;
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 0;
+        }
+        .heightmap-panel .entity-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .heightmap-panel .entity-row:hover { background: #2a2a45; }
+        .heightmap-panel .entity-row .btn-del { margin-left:auto; background:none; border:none; color:#844; cursor:pointer; font-size:14px; padding:0 4px; }
+        .heightmap-panel .entity-row .btn-del:hover { color:#f44; }
+        .heightmap-panel .empty-msg {
+            color: #555;
+            font-size: 11px;
+            font-style: italic;
+            padding: 4px 6px;
         }
 
         /* ===== 敌人配置面板 ===== */
@@ -330,6 +387,7 @@
         <button id="btn-smooth" class="brush-btn" title="平滑地形">🌀</button>
         <button id="btn-paint" class="brush-btn" title="涂抹纹理">🎨</button>
         <button id="btn-water" class="brush-btn" title="水体(池塘/河流)">🟦</button>
+        <button id="btn-road" class="brush-btn" title="道路绘制(拖拽画路)">🛣️</button>
     </div>
     <span class="sep"></span>
     <!-- 纹理选择器（画纹理时显示） -->
@@ -341,6 +399,18 @@
         <div class="terrain-swatch" data-type="3" style="background:#8a8a80;" title="水泥"></div>
         <div class="terrain-swatch" data-type="4" style="background:#3a3a3e;" title="柏油"></div>
         <div class="terrain-swatch" data-type="5" style="background:#8b5e4a;" title="地砖"></div>
+    </div>
+    <!-- 道路类型选择器（画道路时显示） -->
+    <div class="road-sel" id="road-sel">
+        <span style="font-size:10px;color:#888;">道路:</span>
+        <div class="road-swatch active" data-rtype="4" style="background:#3a3a3e;" title="柏油路"></div>
+        <div class="road-swatch" data-rtype="3" style="background:#8a8a80;" title="水泥路"></div>
+        <div class="road-swatch" data-rtype="5" style="background:#8b5e4a;" title="地砖路"></div>
+        <span style="font-size:10px;color:#888;margin-left:6px;">宽:</span>
+        <button class="road-width-btn active" data-rw="3">村路</button>
+        <button class="road-width-btn" data-rw="6">双车道</button>
+        <button class="road-width-btn" data-rw="12">四车道</button>
+        <button class="road-width-btn" data-rw="18">六车道</button>
     </div>
     <span class="sep"></span>
     <!-- 实体放置 -->
@@ -375,11 +445,12 @@
     </div>
     <span class="sep"></span>
     <!-- 笔刷参数 -->
-    <label title="笔刷半径(m)">半径 <input type="range" id="brush-radius" min="2" max="60" value="15" step="1"></label>
-    <label title="笔刷强度">强度 <input type="range" id="brush-strength" min="1" max="30" value="8" step="1"></label>
+    <label id="lbl-radius" title="笔刷半径(m)">半径 <input type="range" id="brush-radius" min="2" max="60" value="15" step="1"></label>
+    <label id="lbl-strength" title="笔刷强度">强度 <input type="range" id="brush-strength" min="1" max="50" value="8" step="1"></label>
     <span class="sep"></span>
     <!-- 文件操作 -->
     <button id="btn-new-map">📄 新建</button>
+    <button id="btn-random-gen">🎲 随机生成</button>
     <button id="btn-save-bp">💾 暂存</button>
     <button id="btn-load-bp">📂 恢复</button>
     <button id="btn-export-json">📤 导出</button>
@@ -412,14 +483,6 @@
             <button class="batch-btn" data-batch="group">📦编组</button>
         </div>
     </div>
-    <div class="section">
-        <div class="section-title">💧 水体列表</div>
-        <div class="empty-msg" id="water-list">暂无水体</div>
-    </div>
-    <div class="section">
-        <div class="section-title">📦 编组列表</div>
-        <div class="empty-msg" id="group-list">暂无编组</div>
-    </div>
     <div class="section enemy-cfg" id="enemy-cfg-panel">
         <div class="section-title">⚙️ 敌人属性</div>
         <div class="cfg-row"><label>HP</label><input type="number" id="cfg-hp" min="1" max="999" step="1"></div>
@@ -439,15 +502,6 @@
         </div>
         <div class="cfg-patrol-preview" id="cfg-patrol-preview"></div>
     </div>
-    <div class="section">
-        <div class="section-title">🌍 地形图层</div>
-        <div class="info-row"><span style="color:#4a6b3a;">●</span><span>草地</span><span id="pct-grass">100%</span></div>
-        <div class="info-row"><span style="color:#6b5a3a;">●</span><span>泥地</span><span id="pct-mud">0%</span></div>
-        <div class="info-row"><span style="color:#c4b47a;">●</span><span>沙地</span><span id="pct-sand">0%</span></div>
-        <div class="info-row"><span style="color:#8a8a80;">●</span><span>水泥</span><span id="pct-concrete">0%</span></div>
-        <div class="info-row"><span style="color:#3a3a3e;">●</span><span>柏油</span><span id="pct-asphalt">0%</span></div>
-        <div class="info-row"><span style="color:#8b5e4a;">●</span><span>地砖</span><span id="pct-brick">0%</span></div>
-    </div>
 </div>
 
 <!-- 3D 视口 -->
@@ -456,7 +510,7 @@
     <div class="brush-indicator" id="brush-indicator"></div>
 </div>
 
-<!-- 高度图面板 -->
+<!-- 高度图面板（右侧） -->
 <div class="heightmap-panel">
     <div class="panel-title">⛰️ 高度图 (256×256)</div>
     <div class="hm-container">
@@ -467,6 +521,23 @@
         <span id="hm-minval">0.0</span>
         <span id="hm-maxval">0.0</span>
         <span>▲ 高</span>
+    </div>
+    <div class="section">
+        <div class="section-title">🌍 地形图层</div>
+        <div class="info-row"><span style="color:#4a6b3a;">●</span><span>草地</span><span id="pct-grass">100%</span></div>
+        <div class="info-row"><span style="color:#6b5a3a;">●</span><span>泥地</span><span id="pct-mud">0%</span></div>
+        <div class="info-row"><span style="color:#c4b47a;">●</span><span>沙地</span><span id="pct-sand">0%</span></div>
+        <div class="info-row"><span style="color:#8a8a80;">●</span><span>水泥</span><span id="pct-concrete">0%</span></div>
+        <div class="info-row"><span style="color:#3a3a3e;">●</span><span>柏油</span><span id="pct-asphalt">0%</span></div>
+        <div class="info-row"><span style="color:#8b5e4a;">●</span><span>地砖</span><span id="pct-brick">0%</span></div>
+    </div>
+    <div class="section">
+        <div class="section-title">💧 水体列表</div>
+        <div class="empty-msg" id="water-list">暂无水体</div>
+    </div>
+    <div class="section">
+        <div class="section-title">📦 编组列表</div>
+        <div class="empty-msg" id="group-list">暂无编组</div>
     </div>
 </div>
 
@@ -491,6 +562,48 @@
     </div>
 </div>
 
+<!-- 随机生成弹窗 -->
+<div class="modal-overlay" id="random-modal">
+    <div class="modal-dialog" style="max-width:540px;">
+        <button class="modal-close" id="random-modal-close">×</button>
+        <h3>🎲 随机生成</h3>
+        <div class="cfg-section" style="border-left:3px solid #4a9b3a;">
+            <div class="cfg-sec-title" style="color:#4a9b3a;">🌍 地形与地貌</div>
+            <div class="cfg-row"><label>起伏幅度(m)</label><input type="range" id="rg-maxh" min="2" max="20" value="8" step="0.5"><span class="rg-val" id="rg-maxh-v">8</span></div>
+            <div class="cfg-row"><label>斑块尺度</label><input type="range" id="rg-ptch" min="15" max="80" value="35" step="5"><span class="rg-val" id="rg-ptch-v">35</span></div>
+            <div class="cfg-row"><label>山丘数量</label><input type="range" id="rg-hills" min="0" max="10" value="3" step="1"><span class="rg-val" id="rg-hills-v">3</span></div>
+            <div class="cfg-row"><label>噪声细节</label><input type="range" id="rg-octaves" min="1" max="8" value="4" step="1"><span class="rg-val" id="rg-octaves-v">4</span></div>
+            <div class="cfg-row" style="color:#888;font-size:10px;">地貌基于高程×湿度双噪声分区</div>
+            <div class="cfg-row"><label>湿度倾向</label><input type="range" id="rg-moist" min="0" max="100" value="50" step="5"><span class="rg-val" id="rg-moist-v">50</span></div>
+            <div class="cfg-row"><label>沙地海拔阈值(%)</label><input type="range" id="rg-sandlvl" min="20" max="80" value="55" step="5"><span class="rg-val" id="rg-sandlvl-v">55</span></div>
+            <div class="cfg-row"><label>泥地湿度阈值(%)</label><input type="range" id="rg-mudlvl" min="30" max="90" value="60" step="5"><span class="rg-val" id="rg-mudlvl-v">60</span></div>
+            <div class="cfg-row"><label>池塘数量</label><input type="range" id="rg-ponds" min="0" max="6" value="1" step="1"><span class="rg-val" id="rg-ponds-v">1</span></div>
+            <div class="cfg-row"><label>最大半径(m)</label><input type="range" id="rg-pondr" min="4" max="25" value="10" step="1"><span class="rg-val" id="rg-pondr-v">10</span></div>
+            <div class="cfg-row"><label>最大深度</label><input type="range" id="rg-pondd" min="1" max="8" value="3" step="0.5"><span class="rg-val" id="rg-pondd-v">3</span></div>
+            <div style="text-align:right;padding-top:4px;">
+                <button id="btn-rg-terrain" style="background:#4a9b3a;color:#fff;border:none;padding:5px 16px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;">🌍 生成地形</button>
+            </div>
+        </div>
+        <div class="cfg-section" style="border-left:3px solid #f5954a;margin-top:10px;">
+            <div class="cfg-sec-title" style="color:#f5954a;">🏘️ 村落与障碍物</div>
+            <div class="cfg-row" style="color:#888;font-size:10px;">需先生成地形，再生成村落（否则会清空已有人造纹理）</div>
+            <div class="cfg-row"><label>障碍物总数</label><input type="range" id="rg-obst" min="0" max="500" value="200" step="10"><span class="rg-val" id="rg-obst-v">200</span></div>
+            <div class="cfg-row"><label>建筑聚落</label><input type="range" id="rg-village" min="0" max="5" value="2" step="1"><span class="rg-val" id="rg-village-v">2</span></div>
+            <div class="cfg-row"><label>最小间距(m)</label><input type="range" id="rg-obsdist" min="3" max="16" value="8" step="1"><span class="rg-val" id="rg-obsdist-v">8</span></div>
+            <div class="cfg-row"><label>出生点安全半径(m)</label><input type="range" id="rg-safe" min="5" max="40" value="15" step="1"><span class="rg-val" id="rg-safe-v">15</span></div>
+            <div class="cfg-row"><label>主干道宽度(m)</label><input type="range" id="rg-roadw" min="2" max="10" value="5" step="1"><span class="rg-val" id="rg-roadw-v">5</span></div>
+            <div class="cfg-row"><label>广场半径(m)</label><input type="range" id="rg-plazar" min="3" max="15" value="7" step="1"><span class="rg-val" id="rg-plazar-v">7</span></div>
+            <div class="cfg-row"><label>绿化带宽度(m)</label><input type="range" id="rg-greenb" min="2" max="15" value="8" step="1"><span class="rg-val" id="rg-greenb-v">8</span></div>
+            <div style="text-align:right;padding-top:4px;">
+                <button id="btn-rg-village" style="background:#f5954a;color:#111;border:none;padding:5px 16px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;">🏘️ 生成村落</button>
+            </div>
+        </div>
+        <div style="text-align:right;padding-top:6px;">
+            <button id="btn-rg-cancel" style="background:#333350;color:#ccc;border:1px solid #4a4a65;padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;">取消</button>
+        </div>
+    </div>
+</div>
+
 <script src="three.min.js"></script>
 <script>
 // ============================================================
@@ -498,7 +611,7 @@
 //  版本: v0.1.0 | 日期: 2026-05-14
 // ============================================================
 
-console.log('🗺️ 地图编辑器 v0.29.0 — Phase 6 完成：撤销重做+敌人配置面板+性能优化');
+console.log('🗺️ 地图编辑器 v0.30.0 — 水体重制：vertexColors+顶点去重+笔刷驱动');
 
 // ----- 常量 -----
 const WORLD_SIZE = 300;          // 地图世界尺寸（含外围缓冲区）
@@ -555,6 +668,7 @@ const mapData = {
     groups: [],
     waters: [],      // { id, type:'pond'|'river', center:{x,z}, radius, height, points:[{x,z}] }
     bridges: [],     // { id, from:{x,z}, to:{x,z}, width, height }
+    editedVerticesPaint: new Set(),  // "sx,sy" — 水体笔刷已编辑顶点（去重）
 };
 
 // 初始化默认 SplatMap (全草地)
@@ -567,9 +681,6 @@ let isPainting = false;
 let isSprayPlacing = false;  // 拖拽连续放置实体
 let lastSprayPos = { x: 0, z: 0 };
 const SPRAY_SPACING = 8;
-let isWaterDragging = false; // 画河流拖拽中
-let waterDragStart = { x: 0, z: 0 };
-let waterDragPoints = [];
 let bridgePt1 = null;       // 桥梁起点
 let bridgePtMarker = null;
 let dirtyTex = false;
@@ -584,8 +695,15 @@ let entityIdCounter = 1;
 const entityMarkers = {};
 const patrolLines = {};
 const highlightRings = {};
-const waterMeshes = {};   // waterId → THREE.Mesh
 const bridgeMeshes = {};  // bridgeId → THREE.Group
+// 水体拖拽状态
+let isWaterPainting = false;   // 水体笔刷拖拽中
+let waterDragPoints = [];      // 拖拽轨迹点 [{x,z},...]
+let isRoadPainting = false;    // 道路绘制拖拽中
+let roadDragPoints = [];       // 道路轨迹点 [{x,z},...]
+let roadType = 4;              // 道路纹理类型 (3=水泥 4=柏油 5=地砖)
+let roadWidth = 6;             // 道路宽度(米) 默认双车道
+const roadTypeNames = {3:'水泥路',4:'柏油路',5:'地砖路'};
 
 // ========== UndoManager (50步快照栈) ==========
 const undoManager = {
@@ -608,6 +726,7 @@ function pushSnapshot() {
         waters: deepClone(mapData.waters),
         bridges: deepClone(mapData.bridges),
         groups: deepClone(mapData.groups),
+        editedVerticesPaint: [...mapData.editedVerticesPaint],
     };
     undoManager.stack.push(snap);
     if (undoManager.stack.length > undoManager.maxSteps) undoManager.stack.shift();
@@ -646,8 +765,6 @@ function restoreSnapshot(snap) {
     Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
     Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
     Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
-    Object.values(waterMeshes).forEach(m => { scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
-    Object.keys(waterMeshes).forEach(k => delete waterMeshes[k]);
     Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
     Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
     // 恢复实体/水体/桥梁
@@ -655,6 +772,7 @@ function restoreSnapshot(snap) {
     mapData.waters = deepClone(snap.waters);
     mapData.bridges = deepClone(snap.bridges);
     mapData.groups = deepClone(snap.groups);
+    mapData.editedVerticesPaint = new Set(snap.editedVerticesPaint || []);
     selectedEntityIds.clear();
     // 重建3D标记
     mapData.entities.forEach(ent => {
@@ -674,8 +792,7 @@ function restoreSnapshot(snap) {
         }
         if (marker) { scene.add(marker); entityMarkers[ent.id] = marker; }
     });
-    // 重建水体/桥梁网格
-    mapData.waters.forEach(w => { const m = createWaterMesh(w); scene.add(m); waterMeshes[w.id] = m; });
+    // 重建桥梁网格（水体由 vertexColors 呈现，无需独立 mesh）
     mapData.bridges.forEach(b => { const m = createBridgeMesh(b); scene.add(m); bridgeMeshes[b.id] = m; });
     // 重建地面+UI
     if (groundPlane) { groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
@@ -854,47 +971,14 @@ function disposeGroup(grp) {
     grp.traverse(child => { if (child.geometry) child.geometry.dispose(); if (child.material) { if (child.material.map) child.material.map.dispose(); child.material.dispose(); } });
 }
 
-// ----- 水体 3D/管理 -----
-function createWaterMesh(w) {
-    const geo = w.type === 'pond'
-        ? new THREE.CircleGeometry(w.radius, 32)
-        : createRiverGeometry(w.points, w.center, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x3388cc, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(w.center.x, w.height + 0.15, w.center.z);
-    mesh.renderOrder = 1;
-    return mesh;
-}
+// ----- 水体系统（v0.30.0: vertexColors + 高度图去重） -----
+// 水体笔刷的核心：修改 applyBrush() 中的 'water' 分支
+// 视觉通过 vertexColors（蓝色）呈现在地形模型上
 
-function createRiverGeometry(points, center, width) {
-    if (points.length < 2) return new THREE.PlaneGeometry(1, 1);
-    const w2 = width / 2;
-    const left = [], right = [];
-    for (let i = 0; i < points.length; i++) {
-        let dx, dz, len;
-        if (i < points.length - 1) {
-            dx = points[i+1].x - points[i].x; dz = points[i+1].z - points[i].z;
-        } else {
-            dx = points[i].x - points[i-1].x; dz = points[i].z - points[i-1].z;
-        }
-        len = Math.hypot(dx, dz) || 1;
-        const nx = -dz / len * w2, nz = dx / len * w2;
-        // 相对中心坐标
-        left.push(new THREE.Vector2(points[i].x - center.x + nx, points[i].z - center.z + nz));
-        right.unshift(new THREE.Vector2(points[i].x - center.x - nx, points[i].z - center.z - nz));
-    }
-    const shape = new THREE.Shape(left.concat(right));
-    return new THREE.ShapeGeometry(shape);
-}
-
-function addWater(type, center, height, radiusOrPoints) {
-    if (!undoManager._inUndoRedo) pushSnapshot();
+function addWaterRecord(type, center, radius, points) {
     const id = 'w' + Date.now();
-    const w = { id, type, center, height, radius: type === 'pond' ? radiusOrPoints : 6, points: type === 'river' ? radiusOrPoints : null };
+    const w = { id, type, center, radius: type === 'pond' ? radius : null, points: type === 'river' ? points : null };
     mapData.waters.push(w);
-    const mesh = createWaterMesh(w);
-    scene.add(mesh); waterMeshes[id] = mesh;
     refreshWaterList();
     return w;
 }
@@ -902,7 +986,7 @@ function addWater(type, center, height, radiusOrPoints) {
 function deleteWater(id) {
     if (!undoManager._inUndoRedo) pushSnapshot();
     mapData.waters = mapData.waters.filter(w => w.id !== id);
-    if (waterMeshes[id]) { scene.remove(waterMeshes[id]); waterMeshes[id].geometry.dispose(); waterMeshes[id].material.dispose(); delete waterMeshes[id]; }
+    // 注意：删除水体记录不会恢复高度图或 editedVerticesPaint
     refreshWaterList();
 }
 
@@ -911,7 +995,7 @@ function refreshWaterList() {
     if (mapData.waters.length === 0) { el.innerHTML = '<div class="empty-msg">暂无水体</div>'; return; }
     el.innerHTML = mapData.waters.map((w, i) =>
         `<div class="entity-row" style="font-size:11px;">
-            ${w.type==='pond'?'🟦池塘':'🏞️河流'} #${i+1} (H:${w.height.toFixed(1)})
+            ${w.type==='pond'?'🟦池塘':'🏞️河流'} #${i+1} (r:${(w.radius||0).toFixed(0)}m)
             <button class="btn-del" data-wdel="${w.id}">×</button>
         </div>`
     ).join('');
@@ -931,7 +1015,8 @@ function createBridgeMesh(b) {
 
     // 桥面
     const deck = new THREE.Mesh(new THREE.BoxGeometry(len, 0.3, b.width || 4), new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.6 }));
-    deck.position.set(cx, h + 1.5, cz); deck.rotation.y = angle;
+    deck.position.set(cx, h + 1.5, cz);
+    deck.rotation.y = -angle;  // Three.js Y旋转正方向=逆时针，取负使正X端对齐to点
     grp.add(deck);
 
     // 支柱
@@ -953,52 +1038,7 @@ function addBridge(from, to) {
     mapData.bridges.push(b);
     const mesh = createBridgeMesh(b);
     scene.add(mesh); bridgeMeshes[id] = mesh;
-    refreshBridgeSummary();
     return b;
-}
-
-function refreshBridgeSummary() {}
-
-// 水体预览
-let waterPreviewMesh = null;
-function updateWaterPreview(pt) {
-    if (waterDragPoints.length < 2) return;
-    if (waterPreviewMesh) { scene.remove(waterPreviewMesh); waterPreviewMesh.geometry.dispose(); waterPreviewMesh.material.dispose(); }
-    const allPts = [...waterDragPoints, { x: pt.x, z: pt.z }];
-    // 用第一个点做中心（预览用，不影响最终放置）
-    const center = allPts[0];
-    const geo = createRiverGeometry(allPts, center, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x3388cc, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false });
-    waterPreviewMesh = new THREE.Mesh(geo, mat);
-    waterPreviewMesh.rotation.x = -Math.PI / 2;
-    const h = smpHeight(center.x, center.z);
-    waterPreviewMesh.position.set(center.x, h + 0.15, center.z);
-    waterPreviewMesh.renderOrder = 1;
-    scene.add(waterPreviewMesh);
-}
-function clearWaterPreview() {
-    if (waterPreviewMesh) { scene.remove(waterPreviewMesh); waterPreviewMesh.geometry.dispose(); waterPreviewMesh.material.dispose(); waterPreviewMesh = null; }
-}
-
-// 高效下陷（直接改高度图，仅一次几何重建）
-function lowerHeightmapCircle(wx, wz, radius, amount) {
-    const rPx = radius / WORLD_SIZE * HM_RES;
-    const { sx: cx, sy: cy } = world2sm(wx, wz);
-    const rPxI = Math.ceil(rPx), r2 = rPx * rPx;
-    for (let dy = -rPxI; dy <= rPxI; dy++) {
-        for (let dx = -rPxI; dx <= rPxI; dx++) {
-            if (dx*dx + dy*dy > r2) continue;
-            const sx = cx + dx, sy = cy + dy;
-            if (sx >= 0 && sx < HM_RES && sy >= 0 && sy < HM_RES) {
-                const t = 1 - Math.sqrt(dx*dx + dy*dy) / rPx;
-                mapData.heightmap[sy * HM_RES + sx] -= amount * 0.1 * t * t;
-            }
-        }
-    }
-}
-
-function lowerRiverHeightmap(points, radius, amount) {
-    points.forEach(p => lowerHeightmapCircle(p.x, p.z, radius, amount));
 }
 
 // ----- 选中高亮环 -----
@@ -1328,6 +1368,8 @@ const TNAMES = ['grass','mud','sand','concrete','asphalt','brick'];
 let groundTexCanvas = null; // 复合纹理 Canvas（铺满整个地面）
 
 function hash(x,y){let h=x*374761393+y*668265263+1274126177;h=((h>>13)^h)*0x5bd1e995;return(h^(h>>15))&0xffff;}
+function noise2D(x,z,s){const n=Math.sin(x*12.9898+z*78.233+s)*43758.5453;return n-Math.floor(n);}
+function smoothNoise(x,z,s){const ix=Math.floor(x),iz=Math.floor(z);const fx=x-ix,fz=z-iz;const sx=fx*fx*(3-2*fx),sz=fz*fz*(3-2*fz);const a=noise2D(ix,iz,s)+(noise2D(ix+1,iz,s)-noise2D(ix,iz,s))*sx;const b=noise2D(ix,iz+1,s)+(noise2D(ix+1,iz+1,s)-noise2D(ix,iz+1,s))*sx;return a+(b-a)*sz;}
 
 function recompositeFullTexture(){
     if(!groundTexCanvas)return;
@@ -1421,8 +1463,33 @@ function createGround() {
     geo.rotateX(-Math.PI / 2);
     updGeoHeights(geo);
 
+    // vertexColors: 只在确实凹陷的顶点着色蓝色（平滑过渡带消锯齿）
+    if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0) {
+        const p = geo.attributes.position;
+        const colorAttr = new Float32Array(p.count * 3);
+        colorAttr.fill(1.0);
+        for (let i = 0; i < p.count; i++) {
+            const x = p.getX(i), z = p.getZ(i);
+            const { sx, sy } = world2sm(x, z);
+            if (mapData.editedVerticesPaint.has(sx + ',' + sy)) {
+                const idx = w2i(x, z);
+                const h = idx >= 0 ? mapData.heightmap[idx] : 0;
+                // 平滑过渡带: h<-0.12 全蓝 → -0.12<h<-0.04 渐变到白 → h>-0.04 白色
+                const blend = h < -0.12 ? 1.0 : h < -0.04 ? (-0.04 - h) / 0.08 : 0;
+                if (blend > 0.01) {
+                    const depth = Math.min(1, Math.max(0, (-h) / (brushStrength * 0.2 + 0.5)));
+                    colorAttr[i * 3] = 0.10 + (1 - blend) * 0.90;
+                    colorAttr[i * 3 + 1] = (0.40 + depth * 0.15) * blend + (1 - blend);
+                    colorAttr[i * 3 + 2] = (0.65 + depth * 0.25) * blend + (1 - blend);
+                }
+            }
+        }
+        geo.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
+    }
+
     const tex = freshTex(); // SplatMap 驱动纹理
-    groundPlane = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05 }));
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05, vertexColors: mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0 });
+    groundPlane = new THREE.Mesh(geo, mat);
     groundPlane.receiveShadow = true;
     scene.add(groundPlane);
 
@@ -1442,14 +1509,27 @@ function updGeoHeights(geo) {
 
 function updGeoHeightsPartial(geo, minSx, minSy, maxSx, maxSy) {
     const p = geo.attributes.position, step = WORLD_SIZE / (HM_RES - 1);
+    const hasColors = geo.attributes.color;
     for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), z = p.getZ(i);
         const sx = Math.round((x + WORLD_HALF) / step), sy = Math.round((z + WORLD_HALF) / step);
         if (sx >= minSx && sx <= maxSx && sy >= minSy && sy <= maxSy) {
             const idx = w2i(x, z); if (idx >= 0) p.setY(i, mapData.heightmap[idx]);
+            // 同步水体 vertexColor（平滑过渡带）
+            if (hasColors && mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(sx + ',' + sy)) {
+                const h = mapData.heightmap[idx >= 0 ? idx : 0];
+                const blend = h < -0.12 ? 1.0 : h < -0.04 ? (-0.04 - h) / 0.08 : 0;
+                const depth = Math.min(1, Math.max(0, (-h) / (brushStrength * 0.2 + 0.5)));
+                hasColors.setXYZ(i,
+                    0.10 + (1 - blend) * 0.90,
+                    (0.40 + depth * 0.15) * blend + (1 - blend),
+                    (0.65 + depth * 0.25) * blend + (1 - blend)
+                );
+            }
         }
     }
-    p.needsUpdate = true; geo.computeVertexNormals();
+    p.needsUpdate = true; if (hasColors) hasColors.needsUpdate = true;
+    geo.computeVertexNormals();
 }
 
 // ----- 网格 / 边界线 -----
@@ -1515,16 +1595,24 @@ function renderHeightmapCanvas() {
             const h = mapData.heightmap[idx];
             const t = (h - minH) / range;  // 归一化 [0,1]
 
-            // 地形着色：低处暗绿 → 中间灰绿 → 高处土黄
-            const r = Math.round(30 + t * 180);
-            const g = Math.round(60 + t * 100);
-            const b = Math.round(20 + t * 40);
-
             const pi = idx * 4;
-            imgData.data[pi] = r;
-            imgData.data[pi + 1] = g;
-            imgData.data[pi + 2] = b;
-            imgData.data[pi + 3] = 255;
+            if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(x + ',' + y)) {
+                // 水体区域：蓝色调，越深越蓝
+                const depth = Math.min(1, Math.max(0, (-h) / (brushStrength * 0.2 + 0.5)));
+                imgData.data[pi] = Math.round(20 + depth * 15);       // R
+                imgData.data[pi + 1] = Math.round(80 + depth * 40);   // G
+                imgData.data[pi + 2] = Math.round(150 + depth * 70);  // B
+                imgData.data[pi + 3] = 255;
+            } else {
+                // 地形着色：低处暗绿 → 中间灰绿 → 高处土黄
+                const r = Math.round(30 + t * 180);
+                const g = Math.round(60 + t * 100);
+                const b = Math.round(20 + t * 40);
+                imgData.data[pi] = r;
+                imgData.data[pi + 1] = g;
+                imgData.data[pi + 2] = b;
+                imgData.data[pi + 3] = 255;
+            }
         }
     }
     ctx.putImageData(imgData, 0, 0);
@@ -1602,12 +1690,22 @@ function setBrushMode(mode) {
     document.getElementById('entity-sel-enemy').classList.remove('visible');
     document.getElementById('entity-sel-tree').classList.remove('visible');
     document.getElementById('entity-sel-building').classList.remove('visible');
-    ['cursor','raise','lower','smooth','paint','water'].forEach(k => { const b = document.getElementById('btn-'+k); if(b) b.classList.toggle('active', k===mode); });
+    ['cursor','raise','lower','smooth','paint','water','road'].forEach(k => { const b = document.getElementById('btn-'+k); if(b) b.classList.toggle('active', k===mode); });
     document.getElementById('terrain-sel').classList.toggle('visible', mode==='paint');
-    document.getElementById('status-tool').textContent = {cursor:'选择',raise:'提升',lower:'下陷',smooth:'平滑',paint:'纹理',water:'水体'}[mode]||mode;
+    document.getElementById('road-sel').classList.toggle('visible', mode==='road');
+    document.getElementById('status-tool').textContent = {cursor:'选择',raise:'提升',lower:'下陷',smooth:'平滑',paint:'纹理',water:'水体',road:'道路'}[mode]||mode;
     vp.classList.toggle('painting', mode!=='cursor');
     if (mode==='cursor') { brushInd.style.display='none'; overlayInfo.textContent='🖱️选择模式 — 拖拽旋转 | Shift平移 | 滚轮缩放'; }
+    else if (mode==='water') { overlayInfo.textContent='🟦 水体模式 — 单击生成池塘 | 拖拽画河流 | 宽度='+brushRadius+'m 深度='+brushStrength; }
+    else if (mode==='road') { overlayInfo.textContent='🛣️ 道路模式 — 拖拽画路 | CatmullRom平滑 | '+roadTypeNames[roadType]+' '+roadWidth+'m'; }
     else { overlayInfo.textContent='🖌️笔刷模式 — 单击/拖拽编辑 | 右键平移 | 滚轮缩放'; }
+    const lblR = document.getElementById('lbl-radius'), lblS = document.getElementById('lbl-strength');
+    if (lblR) {
+        lblR.childNodes[0].textContent = mode==='water' ? '宽度 ' : '半径 ';
+        lblR.title = mode==='water' ? '水体宽度(米)' : '笔刷半径(米)';
+        lblR.style.display = mode==='road' ? 'none' : '';  // 道路模式隐藏整个半径滑块
+    }
+    if (lblS) { lblS.style.display = mode==='road' ? 'none' : ''; }
 }
 
 function updBrushIndicator(e) {
@@ -1625,6 +1723,54 @@ function world2sm(wx, wz) {
     const sx = Math.round((wx + WORLD_HALF) / WORLD_SIZE * (HM_RES - 1));
     const sy = Math.round((wz + WORLD_HALF) / WORLD_SIZE * (HM_RES - 1));
     return { sx: Math.max(0, Math.min(HM_RES - 1, sx)), sy: Math.max(0, Math.min(HM_RES - 1, sy)) };
+}
+
+// ----- CatmullRom 曲线插值（河流轨迹平滑）-----
+function catmullRomInterpolate(p0, p1, p2, p3, t) {
+    const t2 = t * t, t3 = t2 * t;
+    return {
+        x: 0.5 * ((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        z: 0.5 * ((2*p1.z) + (-p0.z+p2.z)*t + (2*p0.z-5*p1.z+4*p2.z-p3.z)*t2 + (-p0.z+3*p1.z-3*p2.z+p3.z)*t3)
+    };
+}
+
+// 沿轨迹做 CatmullRom 平滑采样，间距 ~2 世界单位
+function samplePathSmooth(points) {
+    if (points.length < 2) return points;
+    const samples = [points[0]];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+        const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+        const steps = Math.max(1, Math.round(segLen / 2)); // 每 ~2m 一个采样点
+        for (let j = 1; j < steps; j++) {
+            samples.push(catmullRomInterpolate(p0, p1, p2, p3, j / steps));
+        }
+        samples.push(p2);
+    }
+    return samples;
+}
+
+// 高密度 CatmullRom 采样（道路平滑，间距可调）
+function samplePathSmoothDense(points, spacing) {
+    if (points.length < 2) return points;
+    const sp = spacing || 1.0;
+    const samples = [points[0]];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+        const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+        const steps = Math.max(1, Math.round(segLen / sp));
+        for (let j = 1; j < steps; j++) {
+            samples.push(catmullRomInterpolate(p0, p1, p2, p3, j / steps));
+        }
+        samples.push(p2);
+    }
+    return samples;
 }
 
 function applyBrush(wx, wz) {
@@ -1659,12 +1805,26 @@ function applyBrush(wx, wz) {
                 case 'paint':
                     if (falloff > 0.3) { mapData.splatMap[idx] = paintType; affectedBlocks.add(sx + ',' + sy); dirtyTex = true; }
                     break;
+                case 'water':
+                    // 顶点去重 + 硬边平滑：已编辑顶点降低强度（25%）避免硬边
+                    if (!mapData.editedVerticesPaint) mapData.editedVerticesPaint = new Set();
+                    const isEdited = mapData.editedVerticesPaint.has(sx + ',' + sy);
+                    const soften = isEdited ? 0.25 : 1.0;
+                    mapData.heightmap[idx] -= brushStrength * 0.1 * falloff * soften;
+                    // 泥地范围 > 水面范围，形成自然河岸（阈值 0.08，水色阈值 h<-0.08）
+                    if (falloff > 0.08) {
+                        mapData.splatMap[idx] = 1;
+                        affectedBlocks.add(sx + ',' + sy);
+                        dirtyTex = true;
+                    }
+                    if (!isEdited) mapData.editedVerticesPaint.add(sx + ',' + sy);
+                    break;
             }
         }
     }
 
-    // 更新 3D 几何
-    if (brushMode !== 'paint') {
+    // 更新 3D 几何（水体拖拽期间跳过，mouseup 一次性重建）
+    if (brushMode !== 'paint' && !isWaterPainting) {
         updGeoHeightsPartial(groundPlane.geometry, Math.max(minSx-1,0), Math.max(minSy-1,0), Math.min(maxSx+1,HM_RES-1), Math.min(maxSy+1,HM_RES-1));
         groundWireframe.geometry.dispose();
         groundWireframe.geometry = new THREE.WireframeGeometry(groundPlane.geometry, 1);
@@ -1706,6 +1866,12 @@ function getWorldPos(e) {
     mNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mNDC, camera);
+    // 优先使用实际地形网格交点（顶视图/3D视角均准确）
+    if (groundPlane) {
+        const hits = raycaster.intersectObject(groundPlane);
+        if (hits.length > 0) return hits[0].point;
+    }
+    // 兜底：与 y=0 平面相交（初始化早期无地面时）
     const pt = new THREE.Vector3();
     raycaster.ray.intersectPlane(gPlane3, pt);
     return pt;
@@ -1731,14 +1897,38 @@ viewport3D.addEventListener('mousedown', (e) => {
         e.preventDefault(); return;
     }
 
-    // 水体笔刷
+    // 水体笔刷 — 统一使用 isPainting 流程（vertexColors + 顶点去重）
     if (brushMode === 'water' && e.button === 0 && !e.shiftKey) {
+        pushSnapshot();  // 操作前保存快照
+        isPainting = true;
+        isWaterPainting = true;
         const pt = getWorldPos(e);
-        const h = smpHeight(pt.x, pt.z);
-        waterDragStart = { x: pt.x, z: pt.z };
         waterDragPoints = [{ x: pt.x, z: pt.z }];
-        isWaterDragging = true;
-        overlayInfo.textContent = '🟦 拖拽画河流，单击放池塘';
+        applyBrush(pt.x, pt.z);
+        // 首次水体编辑需要启用 vertexColors
+        if (!groundPlane.material.vertexColors) {
+            if (!groundPlane.geometry.attributes.color) {
+                const colorAttr = new Float32Array(groundPlane.geometry.attributes.position.count * 3);
+                colorAttr.fill(1.0);
+                groundPlane.geometry.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
+            }
+            groundPlane.material.vertexColors = true;
+            groundPlane.material.needsUpdate = true;
+        }
+        needsHmRender = true;
+        overlayInfo.textContent = '🟦 水体笔刷 — 单击生成池塘 | 拖拽画河流 (r:'+brushRadius+' 深度:'+brushStrength+')';
+        e.preventDefault(); return;
+    }
+
+    // 道路绘制 — CatmullRom平滑拖拽
+    if (brushMode === 'road' && e.button === 0 && !e.shiftKey) {
+        pushSnapshot();
+        isPainting = true;
+        isRoadPainting = true;
+        const pt = getWorldPos(e);
+        roadDragPoints = [{ x: pt.x, z: pt.z }];
+        needsHmRender = true;
+        overlayInfo.textContent = '🛣️ 道路绘制中... '+roadTypeNames[roadType]+' '+roadWidth+'m | 松手完成';
         e.preventDefault(); return;
     }
 
@@ -1831,13 +2021,42 @@ viewport3D.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
     const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
 
-    // 水体拖拽（画河流）
-    if (isWaterDragging) {
+    // 水体拖拽（画河流）— CatmullRom 平滑轨迹采样
+    if (isWaterPainting) {
         const pt = getWorldPos(e);
         const last = waterDragPoints[waterDragPoints.length - 1];
-        if (Math.hypot(pt.x - last.x, pt.z - last.z) > 5) {
-            waterDragPoints.push({ x: pt.x, z: pt.z });
-            updateWaterPreview(pt);
+        const dist = last ? Math.hypot(pt.x - last.x, pt.z - last.z) : Infinity;
+        if ((last && dist > 3) || !last) {
+            if (!last) {
+                // 首个点直接应用
+                waterDragPoints.push({ x: pt.x, z: pt.z });
+                applyBrush(pt.x, pt.z);
+            } else {
+                // CatmullRom 平滑采样：对最近一段做曲线插值
+                const n = waterDragPoints.length;
+                const p0 = waterDragPoints[Math.max(0, n - 2)];         // 前前点
+                const p1 = waterDragPoints[n - 1];                       // 前点
+                const p2 = { x: pt.x, z: pt.z };                         // 当前点
+                const p3 = p2;                                            // 端点外推
+                const steps = Math.max(1, Math.round(dist / 2));          // ~2m 间距
+                for (let j = 1; j < steps; j++) {
+                    const s = catmullRomInterpolate(p0, p1, p2, p3, j / steps);
+                    applyBrush(s.x, s.z);
+                }
+                applyBrush(pt.x, pt.z);
+                waterDragPoints.push({ x: pt.x, z: pt.z });
+            }
+            needsHmRender = true;
+        }
+    }
+
+    // 道路拖拽 — 采样轨迹点
+    if (isRoadPainting) {
+        const pt = getWorldPos(e);
+        const last = roadDragPoints[roadDragPoints.length - 1];
+        if (last && Math.hypot(pt.x - last.x, pt.z - last.z) > 4) {
+            roadDragPoints.push({ x: pt.x, z: pt.z });
+            needsHmRender = true;
         }
     }
 
@@ -1895,7 +2114,7 @@ window.addEventListener('mousemove', (e) => {
             refreshEntityList();
         }
         dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isPainting) {
+    } else if (isPainting && !isWaterPainting && !isRoadPainting) {
         const pt = getWorldPos(e);
         applyBrush(pt.x, pt.z);
         needsHmRender = true;  // 延迟到帧末刷新
@@ -1920,35 +2139,55 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => { isDragging = false; isPanning = false; isPainting = false;
     if (isSprayPlacing) { isSprayPlacing = false; overlayInfo.textContent = '🖱️选择模式 — 拖拽旋转 | Shift平移 | 滚轮缩放'; }
-    if (isWaterDragging) {
-        isWaterDragging = false;
-        clearWaterPreview();
+    if (isWaterPainting) {
+        isWaterPainting = false;
+        // 记录水体元数据（池塘 vs 河流）
         if (waterDragPoints.length >= 3) {
-            // 河流：直接修改高度图（绕过applyBrush的逐次几何重建）
-            lowerRiverHeightmap(waterDragPoints, 10, 3);
-            updGeoHeights(groundPlane.geometry);
-            groundWireframe.geometry.dispose();
-            groundWireframe.geometry = new THREE.WireframeGeometry(groundPlane.geometry, 1);
-            renderHeightmapCanvas();
             const center = waterDragPoints[Math.floor(waterDragPoints.length / 2)];
-            const avgH = waterDragPoints.reduce((s, p) => s + smpHeight(p.x, p.z), 0) / waterDragPoints.length;
-            addWater('river', { x: center.x, z: center.z }, avgH, waterDragPoints);
-            refreshWaterList();
-            overlayInfo.textContent = '✅ 河流已创建 (' + waterDragPoints.length + '段)';
+            addWaterRecord('river', { x: center.x, z: center.z }, null, waterDragPoints);
+            overlayInfo.textContent = '✅ 河流已创建 (' + waterDragPoints.length + '段 | 宽度:'+brushRadius+'m | 深度:'+brushStrength+')';
         } else {
-            // 池塘：单次下陷
-            const p = waterDragStart;
-            lowerHeightmapCircle(p.x, p.z, 14, 4);
-            updGeoHeights(groundPlane.geometry);
-            groundWireframe.geometry.dispose();
-            groundWireframe.geometry = new THREE.WireframeGeometry(groundPlane.geometry, 1);
-            renderHeightmapCanvas();
-            const h = smpHeight(p.x, p.z);
-            addWater('pond', p, h, 8);
-            refreshWaterList();
-            overlayInfo.textContent = '✅ 池塘已创建';
+            // 湖泊：额外加深中心区域，模拟碗形渐变深度
+            const p = waterDragPoints[0] || { x: 0, z: 0 };
+            const halfR = brushRadius * 0.5;
+            const saveR = brushRadius, saveS = brushStrength;
+            brushRadius = halfR; brushStrength = Math.min(saveS * 0.6, 18);
+            applyBrush(p.x, p.z);  // 中心加深
+            brushRadius = saveR; brushStrength = saveS;
+            addWaterRecord('pond', { x: p.x, z: p.z }, saveR, null);
+            overlayInfo.textContent = '✅ 池塘已创建 (半径:'+saveR+'m | 最大深度:'+saveS+')';
         }
+        // 清除水体范围内的建筑和树木（在清空之前保存副本）
+        const savedWaterPts = [...waterDragPoints];
         waterDragPoints = [];
+        if (savedWaterPts.length > 0) {
+            const wpts = samplePathSmooth(savedWaterPts);
+            clearObstaclesOnPath(wpts, brushRadius);
+        }
+        // 一次性重建整个地面
+        createGround();
+        renderHeightmapCanvas();
+        refreshEntityList();
+    }
+    if (isRoadPainting) {
+        isRoadPainting = false;
+        if (roadDragPoints.length >= 2) {
+            // 提高CatmullRom采样密度（每1m一个采样点，消除折线段锯齿）
+            const saveDist = 2; // 临时覆盖samplePathSmooth里的2m间距
+            const smoothPts = samplePathSmoothDense(roadDragPoints, 1.0);
+            for (let i = 1; i < smoothPts.length; i++) {
+                drawRoadLine(smoothPts[i-1].x, smoothPts[i-1].z, smoothPts[i].x, smoothPts[i].z, roadWidth, roadType);
+            }
+            detectAndBuildBridges(smoothPts);
+            clearObstaclesOnPath(smoothPts, roadWidth);
+            createGround();
+            renderHeightmapCanvas();
+            refreshEntityList();
+            overlayInfo.textContent = '🛣️ 道路已绘制 — '+smoothPts.length+'点 | '+roadTypeNames[roadType]+' '+roadWidth+'m';
+        } else {
+            overlayInfo.textContent = '⚠️ 至少需拖拽2个点才能画路';
+        }
+        roadDragPoints = [];
     }
 });
 
@@ -2053,7 +2292,7 @@ function exportMapJson() {
         type: 'single',
         desc: '地图编辑器创建',
         spawnPoints: { p1: [spawnPt[0], spawnPt[1], spawnPt[2]] },
-        terrain: features ? { features } : { heightmap: Array.from(mapData.heightmap) },
+        terrain: features ? { features } : { heightmap: Array.from(mapData.heightmap), editedVerticesPaint: [...mapData.editedVerticesPaint] },
         terrainTypes: {
             default: 'grass', riverBank: { bankWidth: 5, type: 'mud' },
             pondEdge: { bankWidth: 3, type: 'mud' }, hillTop: { radius: 4, type: 'sand' },
@@ -2096,12 +2335,15 @@ function importMapJson(file) {
             Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
             Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
             mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
+            mapData.waters = []; mapData.bridges = [];
 
             // 加载高度图
             if (json.terrain && json.terrain.heightmap) {
                 const arr = json.terrain.heightmap;
                 for (let i = 0; i < Math.min(arr.length, HM_RES * HM_RES); i++) mapData.heightmap[i] = arr[i];
             }
+            // 加载已编辑水体顶点
+            mapData.editedVerticesPaint = new Set(json.terrain && json.terrain.editedVerticesPaint || []);
 
             // 加载实体
             if (json.entities) {
@@ -2171,6 +2413,9 @@ function saveBlueprint() {
         splatMap: Array.from(mapData.splatMap),
         entities: mapData.entities.map(e => ({...e})),
         groups: mapData.groups.map(g => ({...g})),
+        waters: mapData.waters.map(w => ({...w})),
+        bridges: mapData.bridges.map(b => ({...b})),
+        editedVerticesPaint: [...mapData.editedVerticesPaint],
     };
     const bps = getBlueprints();
     const idx = bps.findIndex(b => b.name === name);
@@ -2234,6 +2479,8 @@ function loadBlueprint(name) {
     for (let i = 0; i < Math.min(bp.heightmap.length, HM_RES * HM_RES); i++) mapData.heightmap[i] = bp.heightmap[i];
     for (let i = 0; i < Math.min(bp.splatMap.length, HM_RES * HM_RES); i++) mapData.splatMap[i] = bp.splatMap[i];
     mapData.entities = []; mapData.groups = bp.groups || []; selectedEntityIds.clear(); entityIdCounter = 1;
+    mapData.waters = bp.waters || []; mapData.bridges = bp.bridges || [];
+    mapData.editedVerticesPaint = new Set(bp.editedVerticesPaint || []);
     if (bp.entities) {
         bp.entities.forEach(e => {
             ent = { ...e, id: 'e' + (entityIdCounter++) };
@@ -2254,9 +2501,12 @@ function loadBlueprint(name) {
     }
     groundPlane.geometry.dispose();
     createGround(); renderHeightmapCanvas();
+    // 重建桥梁网格
+    mapData.bridges.forEach(b => { const m = createBridgeMesh(b); scene.add(m); bridgeMeshes[b.id] = m; });
     mapNameLabel.textContent = bp.name + '.map.json';
     setBrushMode('cursor'); entityMode = null;
     refreshEntityList();
+    refreshWaterList();
     clearUndoStack(); pushSnapshot();  // 重置撤销栈
     overlayInfo.textContent = '📂 已恢复草稿: ' + bp.name;
 }
@@ -2328,8 +2578,100 @@ document.getElementById('btn-entity-enemy').addEventListener('click', () => setE
 document.getElementById('btn-entity-waypoint').addEventListener('click', () => setEntityMode('waypoint'));
 document.getElementById('btn-entity-bridge').addEventListener('click', () => { setEntityMode('bridge'); bridgePt1 = null; });
 
-// 水体笔刷按钮
+// ----- 道路绘制辅助：水体检测 + 自动桥梁 -----
+function detectAndBuildBridges(smoothPts) {
+    const waters = mapData.waters.filter(w => w.type === 'pond');
+    if (waters.length === 0) return;
+    for (const w of waters) {
+        const r = w.radius || 8;
+        const cx = w.center.x || 0, cz = w.center.z || 0;
+        // 扫描全路径，找到跨越该水体的起止点
+        let entryIdx = -1, exitIdx = -1;
+        for (let i = 0; i < smoothPts.length; i++) {
+            const dist = Math.hypot(smoothPts[i].x - cx, smoothPts[i].z - cz);
+            if (dist < r + 1) {
+                if (entryIdx < 0) entryIdx = i;
+                exitIdx = i;
+            }
+        }
+        if (entryIdx >= 0 && exitIdx > entryIdx) {
+            const from = smoothPts[Math.max(0, entryIdx - 1)]; // 水边前一点
+            const to = smoothPts[Math.min(smoothPts.length - 1, exitIdx + 1)]; // 水边后一点
+            addBridge({ x: from.x, z: from.z }, { x: to.x, z: to.z });
+        }
+    }
+}
+
+// 清除道路路径上的建筑和树木（保留敌人、出生点、巡逻点）
+function clearObstaclesOnPath(smoothPts, width) {
+    const hw = width / 2;
+    const toRemove = [];
+    mapData.entities.forEach(ent => {
+        if (ent.type !== 'tree' && ent.type !== 'building') return;
+        for (let i = 1; i < smoothPts.length; i++) {
+            const a = smoothPts[i-1], b = smoothPts[i];
+            const dx = b.x - a.x, dz = b.z - a.z;
+            const len2 = dx*dx + dz*dz;
+            if (len2 === 0) continue;
+            let t = ((ent.position.x - a.x)*dx + (ent.position.z - a.z)*dz) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const px = a.x + t*dx, pz = a.z + t*dz;
+            const dist = Math.hypot(ent.position.x - px, ent.position.z - pz);
+            if (dist < hw + 2) { toRemove.push(ent.id); break; }
+        }
+    });
+    toRemove.forEach(id => {
+        if (entityMarkers[id]) { scene.remove(entityMarkers[id]); disposeGroup(entityMarkers[id]); delete entityMarkers[id]; }
+        if (patrolLines[id]) { scene.remove(patrolLines[id]); patrolLines[id].geometry.dispose(); patrolLines[id].material.dispose(); delete patrolLines[id]; }
+    });
+    mapData.entities = mapData.entities.filter(e => !toRemove.includes(e.id));
+    mapData.groups.forEach(g => { g.entityIds = g.entityIds.filter(eid => !toRemove.includes(eid)); });
+    selectedEntityIds.forEach(id => { if (toRemove.includes(id)) selectedEntityIds.delete(id); });
+    return toRemove.length;
+}
+
+// 清除道路 splatMap 上的建筑和树木（用于随机生成后）
+function clearEntitiesOnRoadSplat() {
+    const toRemove = [];
+    mapData.entities.forEach(ent => {
+        if (ent.type !== 'tree' && ent.type !== 'building') return;
+        const idx = w2i(ent.position.x, ent.position.z);
+        if (idx >= 0) {
+            const tp = mapData.splatMap[idx];
+            if (tp === 3 || tp === 4 || tp === 5) toRemove.push(ent.id); // 在水泥/柏油/地砖上
+        }
+    });
+    toRemove.forEach(id => {
+        if (entityMarkers[id]) { scene.remove(entityMarkers[id]); disposeGroup(entityMarkers[id]); delete entityMarkers[id]; }
+    });
+    mapData.entities = mapData.entities.filter(e => !toRemove.includes(e.id));
+    mapData.groups.forEach(g => { g.entityIds = g.entityIds.filter(eid => !toRemove.includes(eid)); });
+    selectedEntityIds.forEach(id => { if (toRemove.includes(id)) selectedEntityIds.delete(id); });
+    return toRemove.length;
+}
+
+// 水体/道路笔刷按钮
 document.getElementById('btn-water').addEventListener('click', () => setBrushMode('water'));
+document.getElementById('btn-road').addEventListener('click', () => setBrushMode('road'));
+
+// 道路类型选择
+document.querySelectorAll('#road-sel .road-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+        roadType = parseInt(sw.dataset.rtype);
+        document.querySelectorAll('#road-sel .road-swatch').forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        overlayInfo.textContent = '🛣️ 道路模式 — '+roadTypeNames[roadType]+' '+roadWidth+'m';
+    });
+});
+// 道路宽度预设
+document.querySelectorAll('#road-sel .road-width-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        roadWidth = parseInt(btn.dataset.rw);
+        document.querySelectorAll('#road-sel .road-width-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        overlayInfo.textContent = '🛣️ 道路模式 — '+roadTypeNames[roadType]+' '+roadWidth+'m';
+    });
+});
 
 // 敌人类型选择
 document.querySelectorAll('#entity-sel-enemy .entity-swatch').forEach(sw => {
@@ -2376,7 +2718,11 @@ btnNewMap.addEventListener('click', () => {
     Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
     Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
     Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
+    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
+    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
     mapData.entities = []; selectedEntityIds.clear(); mapData.groups = []; entityIdCounter = 1;
+    mapData.waters = []; mapData.bridges = [];
+    mapData.editedVerticesPaint = new Set();
     if (groundPlane) { groundPlane.geometry.dispose(); createGround(); renderHeightmapCanvas(); }
     mapNameLabel.textContent = name + '.map.json';
     setBrushMode('cursor'); entityMode = null;
@@ -2433,9 +2779,781 @@ function init() {
     document.getElementById('info-size').textContent = WORLD_SIZE + '×' + WORLD_SIZE + ' (空气墙' + PLAY_SIZE + '×' + PLAY_SIZE + ')';
     document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
     document.getElementById('status-tool').textContent = '选择';
-    console.log('✅ 地图编辑器 v0.29.0 Phase 6 初始化完成');
+    refreshWaterList();
+    console.log('✅ 地图编辑器 v0.30.0 水体重制 初始化完成');
 }
 init(); pushSnapshot(); animate(performance.now());
+
+// ==================== 随机生成系统 ====================
+// --- 滑块值与显示同步 ---
+['maxh','ptch','hills','octaves','moist','sandlvl','mudlvl','obst','village','obsdist','safe','ponds','pondr','pondd','roadw','plazar','greenb'].forEach(id => {
+    const sl = document.getElementById('rg-'+id), sp = document.getElementById('rg-'+id+'-v');
+    if (sl && sp) { sl.addEventListener('input', () => { sp.textContent = sl.value; }); }
+});
+
+// FBM噪声生成器（归一化 0~1）
+function fbm(x, z, seed, octaves, scale) {
+    let val = 0, amp = 1, freq = 1, maxAmp = 0;
+    for (let o = 0; o < octaves; o++) {
+        val += smoothNoise(x / scale * freq, z / scale * freq, seed + o * 137) * amp;
+        maxAmp += amp;
+        amp *= 0.5; freq *= 2.0;
+    }
+    return val / maxAmp;
+}
+
+// ----- 道路/广场 splatMap 绘制工具 -----
+// 在 splatMap 上画圆形贴图（用于广场、绿化带等）
+function drawCircleSplat(wx, wz, radius, texType) {
+    const rPxW = radius / WORLD_SIZE * HM_RES;
+    const { sx: sxC, sy: syC } = world2sm(wx, wz);
+    const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
+    for (let dy = -rPx; dy <= rPx; dy++) {
+        for (let dx = -rPx; dx <= rPx; dx++) {
+            if (dx * dx + dy * dy > r2) continue;
+            const sx2 = sxC + dx, sy2 = syC + dy;
+            if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+            if (!mapData.editedVerticesPaint.has(sx2 + ',' + sy2)) {
+                mapData.splatMap[sy2 * HM_RES + sx2] = texType;
+            }
+        }
+    }
+}
+
+// 在 splatMap 上画粗道路线（默认柏油=4），smoothstep 边缘羽化
+function drawRoadLine(x1, z1, x2, z2, width, texType) {
+    const tt = texType != null ? texType : 4;
+    const hw = width / 2;
+    const rPx = hw / WORLD_SIZE * HM_RES;
+    const { sx: sx1, sy: sy1 } = world2sm(x1, z1);
+    const { sx: sx2, sy: sy2 } = world2sm(x2, z2);
+    const dx = sx2 - sx1, dy = sy2 - sy1;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const ux = dx / len, uy = dy / len;
+    const rPxI = Math.ceil(rPx), r2 = rPx * rPx;
+    const minSx = Math.max(0, Math.floor(Math.min(sx1, sx2) - rPxI - 1));
+    const maxSx = Math.min(HM_RES - 1, Math.ceil(Math.max(sx1, sx2) + rPxI + 1));
+    const minSy = Math.max(0, Math.floor(Math.min(sy1, sy2) - rPxI - 1));
+    const maxSy = Math.min(HM_RES - 1, Math.ceil(Math.max(sy1, sy2) + rPxI + 1));
+    for (let sy = minSy; sy <= maxSy; sy++) {
+        for (let sx = minSx; sx <= maxSx; sx++) {
+            if (mapData.editedVerticesPaint.has(sx + ',' + sy)) continue;
+            const vx = sx - sx1, vy = sy - sy1;
+            let proj = vx * ux + vy * uy;
+            proj = Math.max(0, Math.min(len, proj));
+            const cx = sx1 + ux * proj, cy = sy1 + uy * proj;
+            const dist2 = (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy);
+            if (dist2 < r2) {
+                const dist = Math.sqrt(dist2) / rPx;
+                // smoothstep羽化：0~0.65纯色，0.65~1.0渐变过渡（无随机噪声）
+                if (dist < 0.65) {
+                    mapData.splatMap[sy * HM_RES + sx] = tt;
+                } else if (dist < 1.0) {
+                    const t = (1.0 - dist) / 0.35;
+                    mapData.splatMap[sy * HM_RES + sx] = tt;
+                }
+            }
+        }
+    }
+}
+
+// --- 地形生成（清空全部，重建地貌+池塘）---
+function randomGenerateTerrain() {
+    const cfg = {
+        maxH: parseFloat(document.getElementById('rg-maxh').value),
+        ptch: parseFloat(document.getElementById('rg-ptch').value),
+        hills: parseInt(document.getElementById('rg-hills').value),
+        octaves: parseInt(document.getElementById('rg-octaves').value),
+        moist: parseInt(document.getElementById('rg-moist').value) / 100,
+        sandLvl: parseInt(document.getElementById('rg-sandlvl').value) / 100,
+        mudLvl: parseInt(document.getElementById('rg-mudlvl').value) / 100,
+        ponds: parseInt(document.getElementById('rg-ponds').value),
+        pondMaxR: parseFloat(document.getElementById('rg-pondr').value),
+        pondMaxD: parseFloat(document.getElementById('rg-pondd').value),
+    };
+    
+    // 清空全部
+    mapData.heightmap.fill(0); mapData.splatMap.fill(0);
+    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
+    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
+    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
+    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
+    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
+    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
+    mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
+    mapData.waters = []; mapData.bridges = [];
+    mapData.editedVerticesPaint = new Set();
+    
+    const baseSeed = Math.random() * 10000;
+    const seedE = baseSeed, seedM = baseSeed + 2718;
+    
+    // 阶段1-2: FBM高程 + 湿度
+    const elevRaw = new Float32Array(HM_RES * HM_RES);
+    const moistRaw = new Float32Array(HM_RES * HM_RES);
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const wx = (sx / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            const wz = (sy / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            elevRaw[sy * HM_RES + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
+            moistRaw[sy * HM_RES + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
+        }
+    }
+    for (let i = 0; i < elevRaw.length; i++) {
+        elevRaw[i] = Math.pow(Math.max(0, elevRaw[i]), 1.8);
+        moistRaw[i] = Math.max(0, Math.min(1, moistRaw[i] * 1.2 - 0.1 + cfg.moist));
+    }
+    
+    // 高程→高度图
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const e = elevRaw[sy * HM_RES + sx];
+            mapData.heightmap[sy * HM_RES + sx] = (e - 0.45) * cfg.maxH;
+        }
+    }
+    
+    // 山丘
+    for (let i = 0; i < cfg.hills; i++) {
+        const cx = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const cz = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const rx = 6 + Math.random() * 14, rz = 6 + Math.random() * 14;
+        const peak = cfg.maxH * (0.25 + Math.random() * 0.55);
+        const rPxW = Math.max(rx, rz) / WORLD_SIZE * HM_RES;
+        const { sx: sxC, sy: syC } = world2sm(cx, cz);
+        const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
+        for (let dy = -rPx; dy <= rPx; dy++) {
+            for (let dx = -rPx; dx <= rPx; dx++) {
+                const sx2 = sxC + dx, sy2 = syC + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const d2 = ((wx2 - cx) / rx) ** 2 + ((wz2 - cz) / rz) ** 2;
+                if (d2 < 4) mapData.heightmap[sy2 * HM_RES + sx2] += peak * Math.exp(-d2);
+            }
+        }
+    }
+    
+    // Biome分区
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const idx = sy * HM_RES + sx;
+            const e = elevRaw[idx], m = moistRaw[idx];
+            if (m > cfg.mudLvl && e < cfg.sandLvl) mapData.splatMap[idx] = 1;
+            else if (m < 0.35 && e > cfg.sandLvl) mapData.splatMap[idx] = 2;
+            else mapData.splatMap[idx] = 0;
+        }
+    }
+    
+    // 池塘
+    const pondCenters = [];
+    for (let i = 0; i < cfg.ponds; i++) {
+        let px, pz, valid = false;
+        for (let attempt = 0; attempt < 25; attempt++) {
+            px = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            pz = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            if (Math.abs(px) < 25 && Math.abs(pz) < 25) continue;
+            let tooClose = false;
+            for (const pc of pondCenters) {
+                if (Math.hypot(px - pc.x, pz - pc.z) < cfg.pondMaxR * 2.5) { tooClose = true; break; }
+            }
+            if (!tooClose) { valid = true; break; }
+        }
+        if (!valid) continue;
+        const r = 4 + Math.random() * (cfg.pondMaxR - 4);
+        const depth = 0.5 + Math.random() * (cfg.pondMaxD - 0.5);
+        pondCenters.push({ x: px, z: pz, r, depth });
+        const brPx = r / WORLD_SIZE * HM_RES;
+        const { sx: cx, sy: cy } = world2sm(px, pz);
+        const rPx2 = Math.ceil(brPx), rr2 = brPx * brPx;
+        for (let dy = -rPx2; dy <= rPx2; dy++) {
+            for (let dx = -rPx2; dx <= rPx2; dx++) {
+                if (dx * dx + dy * dy > rr2) continue;
+                const sx2 = cx + dx, sy2 = cy + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const t = 1 - Math.sqrt(dx * dx + dy * dy) / brPx;
+                const falloff = t * t * (3 - 2 * t);
+                const idx = sy2 * HM_RES + sx2;
+                mapData.heightmap[idx] -= depth * falloff;
+                if (falloff > 0.08) mapData.splatMap[idx] = 1;
+                mapData.editedVerticesPaint.add(sx2 + ',' + sy2);
+            }
+        }
+        mapData.waters.push({ id: 'wr' + i, type: 'pond', center: { x: px, z: pz }, radius: r });
+    }
+    
+    createGround();
+    renderHeightmapCanvas();
+    refreshWaterList();
+    clearUndoStack(); pushSnapshot();
+    
+    const cnt = [0,0,0,0,0,0];
+    for (let i = 0; i < HM_RES * HM_RES; i++) cnt[mapData.splatMap[i]]++;
+    const total = HM_RES * HM_RES;
+    overlayInfo.textContent = '🌍 地形已生成 — 草地'+(cnt[0]/total*100).toFixed(0)+'% 泥地'+(cnt[1]/total*100).toFixed(0)+'% 沙地'+(cnt[2]/total*100).toFixed(0)+'% 池塘'+pondCenters.length;
+}
+
+// --- 村落生成（清空障碍物建筑，保留地形+水体，生成村落道路）---
+function randomGenerateVillage() {
+    const cfg = {
+        obstCount: parseInt(document.getElementById('rg-obst').value),
+        village: parseInt(document.getElementById('rg-village').value),
+        obsDist: parseFloat(document.getElementById('rg-obsdist').value),
+        safeR: parseFloat(document.getElementById('rg-safe').value),
+        roadW: parseFloat(document.getElementById('rg-roadw').value),
+        plazaR: parseFloat(document.getElementById('rg-plazar').value),
+        greenB: parseFloat(document.getElementById('rg-greenb').value),
+        maxH: parseFloat(document.getElementById('rg-maxh').value),
+        ptch: parseFloat(document.getElementById('rg-ptch').value),
+        octaves: parseInt(document.getElementById('rg-octaves').value),
+    };
+    
+    // 仅清空障碍物实体，保留地形高度/纹理/水体
+    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
+    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
+    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
+    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
+    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
+    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
+    mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
+    mapData.bridges = [];
+    
+    // 恢复人造纹理(3水泥/4柏油/5地砖)为草地
+    for (let i = 0; i < HM_RES * HM_RES; i++) {
+        if (mapData.splatMap[i] >= 3) mapData.splatMap[i] = 0;
+    }
+    
+    const baseSeed = Math.random() * 10000;
+    const seedD = baseSeed + 3141;
+    const pondCenters = mapData.waters.filter(w => w.type === 'pond').map(w => ({
+        x: w.center.x, z: w.center.z, r: w.radius || 8
+    }));
+    
+    // 阶段5: 障碍物
+    const bldgClusters = [];
+    const clustCount = Math.floor(cfg.village * 2.5);
+    for (let i = 0; i < clustCount; i++) {
+        bldgClusters.push({
+            cx: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
+            cz: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
+            r: 8 + Math.random() * 18
+        });
+    }
+    
+    function getLocalDensity(wx, wz) {
+        let d = fbm(wx, wz, seedD, 3, cfg.ptch * 0.6);
+        for (const cl of bldgClusters) {
+            const dist = Math.hypot(wx - cl.cx, wz - cl.cz);
+            if (dist < cl.r) d += (1 - dist / cl.r) * cfg.village * 0.25;
+        }
+        return Math.min(1, d);
+    }
+    
+    const obsts = [];
+    for (let attempt = 0; attempt < cfg.obstCount * 4 && obsts.length < cfg.obstCount; attempt++) {
+        const ox = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        const oz = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        if (Math.abs(ox) > PLAY_HALF - 2 || Math.abs(oz) > PLAY_HALF - 2) continue;
+        const density = getLocalDensity(ox, oz);
+        if (Math.random() > density * 1.3) continue;
+        const localDist = cfg.obsDist - density * (cfg.obsDist * 0.4);
+        let tooClose = false;
+        for (const o of obsts) {
+            if (Math.hypot(ox - o.x, oz - o.z) < localDist) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+        if (Math.hypot(ox, oz) < cfg.safeR) continue;
+        let inPond = false;
+        for (const pc of pondCenters) {
+            if (Math.hypot(ox - pc.x, oz - pc.z) < pc.r + 4) { inPond = true; break; }
+        }
+        if (inPond) continue;
+        const oh = smpHeight(ox, oz);
+        if (oh < -cfg.maxH * 0.35) continue;
+        obsts.push({ x: ox, z: oz, density });
+    }
+    
+    const treeTypes = ['cone', 'sphere', 'oak'];
+    const bldgTypes = ['bungalow', 'villa', 'apartment'];
+    obsts.forEach(o => {
+        const isBldg = (o.density > 0.5 && Math.random() < o.density * 0.8);
+        if (isBldg) {
+            const bt = bldgTypes[Math.floor(Math.random() * bldgTypes.length)];
+            addEntity('building', o.x, smpHeight(o.x, o.z), o.z, bt);
+        } else {
+            const tt = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+            addEntity('tree', o.x, smpHeight(o.x, o.z), o.z, tt);
+        }
+    });
+    
+    // 阶段5b: 建筑归属
+    bldgClusters.forEach(cl => { cl.buildings = []; });
+    mapData.entities.filter(e => e.type === 'building').forEach(ent => {
+        let bestCl = null, bestDist = Infinity;
+        for (const cl of bldgClusters) {
+            const d = Math.hypot(ent.position.x - cl.cx, ent.position.z - cl.cz);
+            if (d < bestDist) { bestDist = d; bestCl = cl; }
+        }
+        if (bestCl && bestDist < bestCl.r * 1.8) bestCl.buildings.push(ent);
+    });
+    
+    // 阶段5c: 广场
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        drawCircleSplat(cl.cx, cl.cz, cfg.plazaR * 0.6, 5);
+    }
+    
+    // 阶段5d: 主干道（延伸至地图边界）
+    const activeClusters = bldgClusters.filter(c => c.buildings.length >= 2);
+    if (activeClusters.length >= 2) {
+        let clA = activeClusters[0], clB = activeClusters[1], maxD = 0;
+        for (let i = 0; i < activeClusters.length; i++) {
+            for (let j = i + 1; j < activeClusters.length; j++) {
+                const d = Math.hypot(activeClusters[i].cx - activeClusters[j].cx, activeClusters[i].cz - activeClusters[j].cz);
+                if (d > maxD) { maxD = d; clA = activeClusters[i]; clB = activeClusters[j]; }
+            }
+        }
+        const dx = clB.cx - clA.cx, dz = clB.cz - clA.cz;
+        const dirLen = Math.hypot(dx, dz) || 1;
+        const ux = dx / dirLen, uz = dz / dirLen;
+        const ext = WORLD_SIZE;
+        drawRoadLine(clA.cx - ux * ext, clA.cz - uz * ext, clB.cx + ux * ext, clB.cz + uz * ext, cfg.roadW * 1.5, 4);
+    }
+    
+    // 阶段5e: 接入道路
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        let bestPt = { x: 0, z: 0 }, bestDist = Math.hypot(cl.cx, cl.cz);
+        for (const ocl of activeClusters) {
+            if (ocl === cl) continue;
+            const d = Math.hypot(cl.cx - ocl.cx, cl.cz - ocl.cz);
+            if (d < bestDist) { bestDist = d; bestPt = { x: ocl.cx, z: ocl.cz }; }
+        }
+        if (bestDist < WORLD_SIZE * 0.5) {
+            drawRoadLine(cl.cx, cl.cz, bestPt.x, bestPt.z, cfg.roadW * 0.8, 4);
+        }
+    }
+    
+    // 阶段5f: 村内街道
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        for (const bld of cl.buildings) {
+            const bx = bld.position.x, bz = bld.position.z;
+            const dist2c = Math.hypot(bx - cl.cx, bz - cl.cz);
+            if (dist2c > 3 && dist2c < cl.r) {
+                drawRoadLine(bx, bz, cl.cx, cl.cz, 3, 3);
+            }
+        }
+    }
+    
+    // 阶段5g: 绿化带
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        const innerR = cfg.plazaR + 1;
+        const outerR = cfg.plazaR + cfg.greenB;
+        const rPxW = outerR / WORLD_SIZE * HM_RES;
+        const { sx: sxC, sy: syC } = world2sm(cl.cx, cl.cz);
+        const rPx = Math.ceil(rPxW);
+        for (let dy = -rPx; dy <= rPx; dy++) {
+            for (let dx = -rPx; dx <= rPx; dx++) {
+                const d2 = dx * dx + dy * dy;
+                if (d2 > rPxW * rPxW) continue;
+                const sx2 = sxC + dx, sy2 = syC + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const dist = Math.sqrt(d2) / (HM_RES / WORLD_SIZE);
+                if (dist > innerR && dist < outerR) {
+                    const tp = mapData.splatMap[sy2 * HM_RES + sx2];
+                    if (!mapData.editedVerticesPaint.has(sx2 + ',' + sy2) && tp < 3) {
+                        mapData.splatMap[sy2 * HM_RES + sx2] = 0;
+                    }
+                }
+            }
+        }
+    }
+    // 阶段5h: 清除道路上+远离道路的建筑和树木
+    const clearedOnRoad = clearEntitiesOnRoadSplat();
+    // 额外：删除距离道路>12m的建筑（确保建筑沿路聚集）
+    const farBldgs = [];
+    mapData.entities.forEach(ent => {
+        if (ent.type !== 'building') return;
+        const idx = w2i(ent.position.x, ent.position.z);
+        if (idx < 0) return;
+        const { sx, sy } = world2sm(ent.position.x, ent.position.z);
+        let nearRoad = false;
+        for (let dy = -16; dy <= 16 && !nearRoad; dy++) {
+            for (let dx = -16; dx <= 16 && !nearRoad; dx++) {
+                const sx2 = sx + dx, sy2 = sy + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const tp = mapData.splatMap[sy2 * HM_RES + sx2];
+                if (tp === 3 || tp === 4 || tp === 5) nearRoad = true;
+            }
+        }
+        if (!nearRoad) farBldgs.push(ent.id);
+    });
+    farBldgs.forEach(id => {
+        if (entityMarkers[id]) { scene.remove(entityMarkers[id]); disposeGroup(entityMarkers[id]); delete entityMarkers[id]; }
+    });
+    mapData.entities = mapData.entities.filter(e => !farBldgs.includes(e.id));
+    mapData.groups.forEach(g => { g.entityIds = g.entityIds.filter(eid => !farBldgs.includes(eid)); });
+    if (farBldgs.length > 0) console.log('🏘️ 移除了'+farBldgs.length+'个远离道路的建筑');
+    
+    // 阶段5i: 干道路径跨越水体自动生成桥梁
+    if (activeClusters.length >= 2) {
+        let clA2 = activeClusters[0], clB2 = activeClusters[1], maxD2 = 0;
+        for (let i = 0; i < activeClusters.length; i++) {
+            for (let j = i + 1; j < activeClusters.length; j++) {
+                const d = Math.hypot(activeClusters[i].cx - activeClusters[j].cx, activeClusters[i].cz - activeClusters[j].cz);
+                if (d > maxD2) { maxD2 = d; clA2 = activeClusters[i]; clB2 = activeClusters[j]; }
+            }
+        }
+        const rdx = clB2.cx - clA2.cx, rdz = clB2.cz - clA2.cz;
+        const rlen = Math.hypot(rdx, rdz) || 1;
+        const rux = rdx / rlen, ruz = rdz / rlen;
+        const trunkPath = [];
+        for (let t = -cfg.roadW * 1.5; t < rlen + cfg.roadW * 1.5; t += 2) {
+            trunkPath.push({ x: clA2.cx + rux * t, z: clA2.cz + ruz * t });
+        }
+        detectAndBuildBridges(trunkPath);
+    }
+    
+    addEntity('spawn', 0, smpHeight(0, 0), 0, null);
+    
+    createGround();
+    renderHeightmapCanvas();
+    refreshEntityList();
+    refreshWaterList();
+    clearUndoStack(); pushSnapshot();
+    
+    const totalBldgs = mapData.entities.filter(e => e.type === 'building').length;
+    overlayInfo.textContent = '🏘️ 村落已生成 — '+activeClusters.length+'聚落 '+totalBldgs+'建筑 '+obsts.length+'障碍物'+((clearedOnRoad+farBldgs.length)>0?' (清'+clearedOnRoad+'路障'+farBldgs.length+'远建)':'');
+}
+
+// --- 弹窗控制 ---
+document.getElementById('btn-random-gen').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.add('show');
+});
+document.getElementById('random-modal-close').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('btn-rg-cancel').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('random-modal').addEventListener('click', (ev) => {
+    if (ev.target === ev.currentTarget) document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('btn-rg-terrain').addEventListener('click', randomGenerateTerrain);
+document.getElementById('btn-rg-village').addEventListener('click', randomGenerateVillage);
+</script>
+</body>
+</html>
+DUMMY_END
+    mapData.heightmap.fill(0); mapData.splatMap.fill(0);
+    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
+    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
+    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
+    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
+    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
+    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
+    mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
+    mapData.waters = []; mapData.bridges = [];
+    mapData.editedVerticesPaint = new Set();
+
+    const baseSeed = Math.random() * 10000;
+    const seedE = baseSeed;           // 高程噪声种子
+    const seedM = baseSeed + 2718;    // 湿度噪声种子（独立）
+    const seedD = baseSeed + 3141;    // 密度噪声种子（独立）
+
+    // === 阶段1: 高程图 + 湿度图（双噪声） ===
+    const elevRaw = new Float32Array(HM_RES * HM_RES);
+    const moistRaw = new Float32Array(HM_RES * HM_RES);
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const wx = (sx / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            const wz = (sy / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            elevRaw[sy * HM_RES + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
+            moistRaw[sy * HM_RES + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
+        }
+    }
+
+    // 幂函数重塑高程（压低山谷、突出山峰）
+    for (let i = 0; i < elevRaw.length; i++) {
+        elevRaw[i] = Math.pow(Math.max(0, elevRaw[i]), 1.8);
+        moistRaw[i] = Math.max(0, Math.min(1, moistRaw[i] * 1.2 - 0.1 + cfg.moist));
+    }
+
+    // === 阶段2: 高程→高度图 + 山丘 ===
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const e = elevRaw[sy * HM_RES + sx];
+            const idx = sy * HM_RES + sx;
+            mapData.heightmap[idx] = (e - 0.45) * cfg.maxH;
+        }
+    }
+    // 叠加椭圆山丘
+    for (let i = 0; i < cfg.hills; i++) {
+        const cx = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const cz = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const rx = 6 + Math.random() * 14, rz = 6 + Math.random() * 14;
+        const peak = cfg.maxH * (0.25 + Math.random() * 0.55);
+        const rPxW = Math.max(rx, rz) / WORLD_SIZE * HM_RES;
+        const { sx: sxC, sy: syC } = world2sm(cx, cz);
+        const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
+        for (let dy = -rPx; dy <= rPx; dy++) {
+            for (let dx = -rPx; dx <= rPx; dx++) {
+                const sx2 = sxC + dx, sy2 = syC + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const d2 = ((wx2 - cx) / rx) ** 2 + ((wz2 - cz) / rz) ** 2;
+                if (d2 < 4) mapData.heightmap[sy2 * HM_RES + sx2] += peak * Math.exp(-d2);
+            }
+        }
+    }
+
+    // === 阶段3: 双噪声→Biome分区（splatMap） ===
+    // 泥地 = 高湿度 ∩ 低海拔； 沙地 = 低湿度 ∩ 高海拔； 其余=草地
+    for (let sy = 0; sy < HM_RES; sy++) {
+        for (let sx = 0; sx < HM_RES; sx++) {
+            const idx = sy * HM_RES + sx;
+            const e = elevRaw[idx], m = moistRaw[idx];
+            if (m > cfg.mudLvl && e < cfg.sandLvl) {
+                mapData.splatMap[idx] = 1; // 泥地
+            } else if (m < 0.35 && e > cfg.sandLvl) {
+                mapData.splatMap[idx] = 2; // 沙地
+            } else {
+                mapData.splatMap[idx] = 0; // 草地
+            }
+        }
+    }
+
+    // === 阶段4: 随机池塘 ===
+    const pondCenters = [];
+    for (let i = 0; i < cfg.ponds; i++) {
+        let px, pz, valid = false;
+        for (let attempt = 0; attempt < 25; attempt++) {
+            px = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            pz = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            if (Math.abs(px) < 25 && Math.abs(pz) < 25) continue;
+            let tooClose = false;
+            for (const pc of pondCenters) {
+                if (Math.hypot(px - pc.x, pz - pc.z) < cfg.pondMaxR * 2.5) { tooClose = true; break; }
+            }
+            if (!tooClose) { valid = true; break; }
+        }
+        if (!valid) continue;
+        const r = 4 + Math.random() * (cfg.pondMaxR - 4);
+        const depth = 0.5 + Math.random() * (cfg.pondMaxD - 0.5);
+        pondCenters.push({ x: px, z: pz, r, depth });
+        const brPx = r / WORLD_SIZE * HM_RES;
+        const { sx: cx, sy: cy } = world2sm(px, pz);
+        const rPx = Math.ceil(brPx), r2 = brPx * brPx;
+        for (let dy = -rPx; dy <= rPx; dy++) {
+            for (let dx = -rPx; dx <= rPx; dx++) {
+                if (dx * dx + dy * dy > r2) continue;
+                const sx2 = cx + dx, sy2 = cy + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const t = 1 - Math.sqrt(dx * dx + dy * dy) / brPx;
+                const falloff = t * t * (3 - 2 * t);
+                const idx = sy2 * HM_RES + sx2;
+                mapData.heightmap[idx] -= depth * falloff;
+                if (falloff > 0.08) mapData.splatMap[idx] = 1;
+                mapData.editedVerticesPaint.add(sx2 + ',' + sy2);
+            }
+        }
+        mapData.waters.push({ id: 'wr' + i, type: 'pond', center: { x: px, z: pz }, radius: r });
+    }
+
+    // === 阶段5: 密度图驱动障碍物（树木散落 + 建筑聚落） ===
+    const obsts = [];
+    const bldgClusters = []; // 建筑聚落中心
+    const clustCount = Math.floor(cfg.village * 2.5);
+    for (let i = 0; i < clustCount; i++) {
+        bldgClusters.push({
+            cx: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
+            cz: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
+            r: 8 + Math.random() * 18
+        });
+    }
+
+    function getLocalDensity(wx, wz) {
+        let d = fbm(wx, wz, seedD, 3, cfg.ptch * 0.6);
+        // 建筑聚落加成
+        for (const cl of bldgClusters) {
+            const dist = Math.hypot(wx - cl.cx, wz - cl.cz);
+            if (dist < cl.r) d += (1 - dist / cl.r) * cfg.village * 0.25;
+        }
+        return Math.min(1, d);
+    }
+
+    for (let attempt = 0; attempt < cfg.obstCount * 4 && obsts.length < cfg.obstCount; attempt++) {
+        const ox = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        const oz = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        if (Math.abs(ox) > PLAY_HALF - 2 || Math.abs(oz) > PLAY_HALF - 2) continue;
+        // 密度筛选：高密度区域更容易通过
+        const density = getLocalDensity(ox, oz);
+        if (Math.random() > density * 1.3) continue;
+        // 距离检查（聚落内间距更小）
+        const localDist = cfg.obsDist - density * (cfg.obsDist * 0.4);
+        let tooClose = false;
+        for (const o of obsts) {
+            if (Math.hypot(ox - o.x, oz - o.z) < localDist) { tooClose = true; break; }
+        }
+        if (tooClose) continue;
+        if (Math.hypot(ox, oz) < cfg.safeR) continue;
+        let inPond = false;
+        for (const pc of pondCenters) {
+            if (Math.hypot(ox - pc.x, oz - pc.z) < pc.r + 2) { inPond = true; break; }
+        }
+        if (inPond) continue;
+        const oh = smpHeight(ox, oz);
+        if (oh < -cfg.maxH * 0.35) continue;
+        obsts.push({ x: ox, z: oz, density });
+    }
+
+    const treeTypes = ['cone', 'sphere', 'oak'];
+    const bldgTypes = ['bungalow', 'villa', 'apartment'];
+    obsts.forEach(o => {
+        // 高密度+平坦区域偏向建筑，低密度偏向树木
+        const isBldg = (o.density > 0.5 && Math.random() < o.density * 0.8);
+        if (isBldg) {
+            const bt = bldgTypes[Math.floor(Math.random() * bldgTypes.length)];
+            addEntity('building', o.x, smpHeight(o.x, o.z), o.z, bt);
+        } else {
+            const tt = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+            addEntity('tree', o.x, smpHeight(o.x, o.z), o.z, tt);
+        }
+    });
+
+    // === 阶段5b: 建筑归属聚落 ===
+    // 将每个建筑实体归入最近的聚落中心
+    bldgClusters.forEach(cl => { cl.buildings = []; });
+    mapData.entities.filter(e => e.type === 'building').forEach(ent => {
+        let bestCl = null, bestDist = Infinity;
+        for (const cl of bldgClusters) {
+            const d = Math.hypot(ent.position.x - cl.cx, ent.position.z - cl.cz);
+            if (d < bestDist) { bestDist = d; bestCl = cl; }
+        }
+        if (bestCl && bestDist < bestCl.r * 1.8) bestCl.buildings.push(ent);
+    });
+
+    // === 阶段5c: 聚落中心地砖广场 ===
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue; // 跳过无建筑的空聚落
+        drawCircleSplat(cl.cx, cl.cz, cfg.plazaR * 0.6, 5);  // 中心地砖广场
+    }
+
+    // === 阶段5d: 主干道（柏油，宽1.5×roadW）===
+    // 连接最远两个有建筑的聚落，途经出生点附近
+    const activeClusters = bldgClusters.filter(c => c.buildings.length >= 2);
+    if (activeClusters.length >= 2) {
+        // 找最远两个聚落作为干线端点
+        let clA = activeClusters[0], clB = activeClusters[1], maxD = 0;
+        for (let i = 0; i < activeClusters.length; i++) {
+            for (let j = i + 1; j < activeClusters.length; j++) {
+                const d = Math.hypot(activeClusters[i].cx - activeClusters[j].cx, activeClusters[i].cz - activeClusters[j].cz);
+                if (d > maxD) { maxD = d; clA = activeClusters[i]; clB = activeClusters[j]; }
+            }
+        }
+        // 干线途经出生点（如出生点在两端之间）
+        const spawnToA = Math.hypot(clA.cx, clA.cz);
+        const spawnToB = Math.hypot(clB.cx, clB.cz);
+        const distCutoff = WORLD_SIZE * 0.6;
+        if (spawnToA < distCutoff && spawnToB < distCutoff) {
+            drawRoadLine(0, 0, clA.cx, clA.cz, cfg.roadW * 1.5);
+            drawRoadLine(0, 0, clB.cx, clB.cz, cfg.roadW * 1.5);
+        } else {
+            drawRoadLine(clA.cx, clA.cz, clB.cx, clB.cz, cfg.roadW * 1.5);
+        }
+    }
+
+    // === 阶段5e: 聚落接入道路（柏油，宽0.8×roadW）===
+    // 每个有建筑聚落 → 最近干线或出生点
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        // 找最近接入点（干线端点 or 出生点）
+        let bestPt = { x: 0, z: 0 }, bestDist = Math.hypot(cl.cx, cl.cz);
+        for (const ocl of activeClusters) {
+            if (ocl === cl) continue;
+            const d = Math.hypot(cl.cx - ocl.cx, cl.cz - ocl.cz);
+            if (d < bestDist) { bestDist = d; bestPt = { x: ocl.cx, z: ocl.cz }; }
+        }
+        if (bestDist < WORLD_SIZE * 0.5) {
+            drawRoadLine(cl.cx, cl.cz, bestPt.x, bestPt.z, cfg.roadW * 0.8);
+        }
+    }
+
+    // === 阶段5f: 村内街道（每栋建筑门前铺水泥=3通向聚落中心）===
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        for (const bld of cl.buildings) {
+            const bx = bld.position.x, bz = bld.position.z;
+            const dist2c = Math.hypot(bx - cl.cx, bz - cl.cz);
+            if (dist2c > 3 && dist2c < cl.r) {
+                drawRoadLine(bx, bz, cl.cx, cl.cz, 3, 3);  // 水泥路，宽3m
+            }
+        }
+    }
+
+    // === 阶段5g: 聚落绿化带（广场外→聚落边缘草地过渡）===
+    for (const cl of bldgClusters) {
+        if (cl.buildings.length < 2) continue;
+        const innerR = cfg.plazaR + 1;
+        const outerR = cfg.plazaR + cfg.greenB;
+        const rPxW = outerR / WORLD_SIZE * HM_RES;
+        const { sx: sxC, sy: syC } = world2sm(cl.cx, cl.cz);
+        const rPx = Math.ceil(rPxW);
+        for (let dy = -rPx; dy <= rPx; dy++) {
+            for (let dx = -rPx; dx <= rPx; dx++) {
+                const d2 = dx * dx + dy * dy;
+                if (d2 > rPxW * rPxW) continue;
+                const sx2 = sxC + dx, sy2 = syC + dy;
+                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                const dist = Math.sqrt(d2) / (HM_RES / WORLD_SIZE);
+                if (dist > innerR && dist < outerR) {
+                    if (!mapData.editedVerticesPaint.has(sx2 + ',' + sy2) && mapData.splatMap[sy2 * HM_RES + sx2] !== 3 && mapData.splatMap[sy2 * HM_RES + sx2] !== 4 && mapData.splatMap[sy2 * HM_RES + sx2] !== 5) {
+                        mapData.splatMap[sy2 * HM_RES + sx2] = 0; // 草地
+                    }
+                }
+            }
+        }
+    }
+
+    // === 阶段6: 出生点 ===
+    addEntity('spawn', 0, smpHeight(0, 0), 0, null);
+
+    // === 阶段7: 重建 ===
+    if (groundPlane) {
+        groundPlane.geometry.dispose();
+        if (groundPlane.material.map) groundPlane.material.map.dispose();
+        groundPlane.material.dispose();
+    }
+    createGround();
+    renderHeightmapCanvas();
+    refreshEntityList();
+    refreshWaterList();
+    clearUndoStack(); pushSnapshot();
+
+    document.getElementById('random-modal').classList.remove('show');
+    const cnt = [0,0,0,0,0,0];
+    for (let i = 0; i < HM_RES * HM_RES; i++) cnt[mapData.splatMap[i]]++;
+    const total = HM_RES * HM_RES;
+    overlayInfo.textContent = '🎲 随机地图 — 草地'+(cnt[0]/total*100).toFixed(0)+'% 泥地'+(cnt[1]/total*100).toFixed(0)+'% 沙地'+(cnt[2]/total*100).toFixed(0)+'% 水泥'+(cnt[3]/total*100).toFixed(0)+'% 柏油'+(cnt[4]/total*100).toFixed(0)+'% '+obsts.length+'障碍物';
+}
+
+// --- 弹窗控制 ---
+document.getElementById('btn-random-gen').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.add('show');
+});
+document.getElementById('random-modal-close').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('btn-rg-cancel').addEventListener('click', () => {
+    document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('random-modal').addEventListener('click', (ev) => {
+    if (ev.target === ev.currentTarget) document.getElementById('random-modal').classList.remove('show');
+});
+document.getElementById('btn-rg-terrain').addEventListener('click', randomGenerateTerrain);
+document.getElementById('btn-rg-village').addEventListener('click', randomGenerateVillage);
 </script>
 </body>
 </html>

@@ -845,6 +845,33 @@
                 aggressive: !!(e.cfg||{}).aggressive,
                 score: (e.cfg||{}).score || 100,
             }));
+            // 编辑器水体 → 主游戏 waters 格式
+            const editorWaters = bp.waters || [];
+            const pondW = editorWaters.find(w => w.type === 'pond');
+            const riverW = editorWaters.find(w => w.type === 'river');
+            const watersCfg = {};
+            const terrainExtra = {};
+            if (pondW || riverW) {
+                watersCfg.pond = { waterLevel: -1 };
+                watersCfg.river = { waterLevel: -1 };
+            }
+            if (pondW && pondW.center) {
+                terrainExtra.pond = {
+                    cx: pondW.center.x || 0, cz: pondW.center.z || 0,
+                    rx: (pondW.radius || 8), rz: (pondW.radius || 8), depth: 5
+                };
+            }
+            if (riverW && riverW.points && riverW.points.length >= 2) {
+                // 保存轨迹点用于河流水面渲染
+                terrainExtra.riverPoints = riverW.points.map(p => ({ x: p.x, z: p.z }));
+            }
+            // 桥梁
+            const editorBridges = bp.bridges || [];
+            const bridgesCfg = editorBridges.map(b => ({
+                cx: (b.from.x + b.to.x) / 2,
+                halfW: 4,
+                deckH: 0.35,
+            }));
             return {
                 version: '1.0',
                 name: '📝编辑器:' + bp.name,
@@ -853,7 +880,9 @@
                 mode: 'combat',
                 desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
                 spawnPoints: { p1: spawn },
-                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5 },
+                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5, ...terrainExtra },
+                waters: Object.keys(watersCfg).length > 0 ? watersCfg : undefined,
+                bridges: bridgesCfg.length > 0 ? bridgesCfg : undefined,
                 enemies,
                 players: { lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5, mgDamage: 2, mgFireRate: 10 },
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
@@ -2127,10 +2156,54 @@
         // ==================== 河流（蛇形水面+桥梁） ====================
         let riverWater = null, bridgeGroup = null;
         function createRiverWater() {
-            if (!_getRiver()) return;  // 地图没有河流则不创建
+            const river = _getRiver();
+            const rvPts = currentMapData && currentMapData.terrain ? currentMapData.terrain.riverPoints : null;
+
+            if (!river && !rvPts) return;  // 无河流数据
+
+            if (rvPts && rvPts.length >= 2) {
+                // 编辑器河流：沿轨迹点创建带状水面
+                const pts = rvPts;
+                const hw = 4;  // 半宽 4m（匹配编辑器桥梁宽度）
+                const verts = [];
+                const indices = [];
+                for (let i = 0; i < pts.length; i++) {
+                    const p = pts[i];
+                    let dx, dz;
+                    if (i < pts.length - 1) {
+                        dx = pts[i+1].x - p.x; dz = pts[i+1].z - p.z;
+                    } else {
+                        dx = p.x - pts[i-1].x; dz = p.z - pts[i-1].z;
+                    }
+                    const len = Math.hypot(dx, dz) || 1;
+                    const nx = -dz / len * hw, nz = dx / len * hw;
+                    verts.push(p.x + nx, RIVER_WATER_LEVEL, p.z + nz);
+                    verts.push(p.x - nx, RIVER_WATER_LEVEL, p.z - nz);
+                }
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+                    indices.push(a, c, b, b, c, d);
+                }
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                const mat = new THREE.MeshStandardMaterial({
+                    color: '#3388bb', roughness: 0.12, metalness: 0.05,
+                    transparent: true, opacity: 0.6, depthWrite: false,
+                });
+                riverWater = new THREE.Mesh(geo, mat);
+                riverWater.name = 'riverWater';
+                riverWater.receiveShadow = true;
+                scene.add(riverWater);
+                return;
+            }
+
+            if (!river) return;
+
+            // 参数化河流（01a 等地图）
             const segs = 200;
             const is02a = (selectedMapId === 'test_map_02a');
-            // 河流长度与地面一致：02a=200m, 其他=300m（防止在空气墙处被硬截断）
             const len = is02a ? (currentMapData ? currentMapData.size : WORLD_HALF * 2) : 300;
             const half = len / 2;
             const verts = [];
@@ -2162,12 +2235,44 @@
         let riverColliders = [];
 
         function createBridge() {
-            if (!_getRiver()) return;
-            const b = _getBridge();
-            const r = _getRiver();
-            const bCX = b.cx, bHW = b.halfW;
+            const editorBridges = currentMapData && currentMapData.bridges && currentMapData.bridges.length > 0 ? currentMapData.bridges : null;
+            const paramRiver = _getRiver();
+
+            if (!paramRiver && !editorBridges) return;
+
             bridgeGroup = new THREE.Group();
-            riverColliders = []; // 每次创建桥时重置碰撞体
+            riverColliders = [];
+
+            if (editorBridges) {
+                // 编辑器桥梁：直接从 bridges 数据渲染
+                editorBridges.forEach(b => {
+                    const bCX = b.cx, bHW = b.halfW || 4;
+                    const spanZ = 10;  // 跨越宽度
+                    // 用桥中心高度（来自离散高度图）
+                    const gh = getTerrainHeight(bCX, 0, currentMapData);
+                    const bz = 0; // 简化：桥在 z=0 附近
+                    const matDeck = new THREE.MeshStandardMaterial({ color: '#8B7355', roughness: 0.7, metalness: 0.1 });
+                    const matRail = new THREE.MeshStandardMaterial({ color: '#6B5340', roughness: 0.6, metalness: 0.2 });
+                    const deck = new THREE.Mesh(new THREE.BoxGeometry(bHW * 2, BRIDGE_DECK_H, spanZ), matDeck);
+                    deck.position.set(bCX, 0, bz);
+                    deck.receiveShadow = true; deck.castShadow = true;
+                    bridgeGroup.add(deck);
+                    for (const side of [-1, 1]) {
+                        const rx = bCX + side * (bHW - 0.25);
+                        const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, spanZ - 0.6), matRail);
+                        railTop.position.set(rx, BRIDGE_SURFACE_Y + 0.525, bz);
+                        railTop.receiveShadow = true; railTop.castShadow = true;
+                        bridgeGroup.add(railTop);
+                    }
+                });
+                scene.add(bridgeGroup);
+                return;
+            }
+
+            // 参数化桥梁（01a 等地图）
+            const b = _getBridge();
+            const r = paramRiver;
+            const bCX = b.cx, bHW = b.halfW;
             const bz = riverCenterZ(bCX);
             const bhw = riverHalfWidth(bCX);
             const spanZ = (bhw + 0.8) * 2;
