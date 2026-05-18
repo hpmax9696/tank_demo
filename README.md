@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.29.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.30.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,14 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.30.0 — 树状道路+村落系统（2026-05-18）
+- **道路+村落树状生成**：index.html 和 map_editor.html 双端实现，主路→村路→广场→建筑集群+连接小路
+- **index.html 道路系统**：generateRoadVillageSystem 生成主路(1-2条)+垂直村路分支(2-4条)+村落，泊松采样排除道路区域
+- **map_editor.html 村落生成重写**：randomGenerateVillage 全流程重制，首先生成主路再分支再到广场和建筑，不再事后清除"远建"
+- **modelRegistry 扩展**：新增 randomBuildingMaker() 建筑专用随机选择
+- **控制台调试日志**：详细输出生成阶段、村庄数量、建筑数量、树木数量
+- **Bug 修复**：spawns is not iterable（spawnPoints 非数组安全保护）
 
 ### v0.29.0 — 地图编辑器 Phase 1-6 完成（2026-05-15）
 - **Phase 1-5 地图编辑器**：独立 `map_editor.html`（~2700行），300×300世界+200×200空气墙
@@ -833,8 +841,8 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. **顶点去重**：维护 `editedWaterVerts` Set，同一顶点只编辑一次
 4. **预览适配**：`updateWaterPreview()` 宽度用 `brushRadius` 替代硬编码6
 
-### 代码规模（截至 v0.29.0）
-- `index.html`：约 5450 行（主游戏引擎 + 编辑器地图加载入口 + 离散高度图模式）
+### 代码规模（截至 v0.30.0）
+- `index.html`：约 6200 行（主游戏引擎 + 道路村落系统 + 编辑器地图加载入口 + 离散高度图模式）
 - `map_editor.html`：约 2700 行（地图编辑器 Phase 6：撤销重做 + 敌人配置面板 + 性能优化）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
 - `models/pickups.js`：约 190 行（程序化倒角红箱）
@@ -848,7 +856,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 当前版本关键参数（v0.27.0）
+## 当前版本关键参数（v0.30.0）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|

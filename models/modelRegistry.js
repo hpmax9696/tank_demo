@@ -63,6 +63,26 @@
         return registry.obstacleMakers[0].createFn;
     }
 
+    // 按权重随机选择建筑（仅 buildings 分类，用于村落生成）
+    function randomBuildingMaker() {
+        const buildingMakers = [];
+        const buildingWeights = [];
+        for (let i = 0; i < registry.obstacleMakers.length; i++) {
+            if (registry.obstacleMakers[i].category === 'buildings') {
+                buildingMakers.push(registry.obstacleMakers[i]);
+                buildingWeights.push(registry.obstacleWeights[i]);
+            }
+        }
+        if (buildingMakers.length === 0) return null;
+        const totalW = buildingWeights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * totalW;
+        for (let i = 0; i < buildingMakers.length; i++) {
+            r -= buildingWeights[i];
+            if (r <= 0) return buildingMakers[i].createFn;
+        }
+        return buildingMakers[0].createFn;
+    }
+
     // 暴露到全局
-    window.ModelRegistry = { register, getModel, getAllModels, randomObstacleMaker };
+    window.ModelRegistry = { register, getModel, getAllModels, randomObstacleMaker, randomBuildingMaker };
 })();

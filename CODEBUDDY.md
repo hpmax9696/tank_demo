@@ -282,12 +282,12 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 📋 待完成任务（截至 v0.29.0 移交时）
+## 📋 待完成任务（截至 v0.30.0 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | 水体生成修复 | 🟡 中期 | v0.30.0 | map_editor.html 4处硬编码参数→brushRadius/brushStrength |
+| 2 | 水体生成修复 | 🟡 中期 | v0.31.0 | map_editor.html 4处硬编码参数→brushRadius/brushStrength |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 | 5 | 战利品掉落扩展：弹药箱/经验值 | 🔵 远期 | 未分配 | 丰富战利品种类 |
@@ -476,9 +476,9 @@ ScoreSystem.clearAllScores();
 
 ---
 
-## ✅ 地图编辑器 v0.29.0 — 全部完成
+## ✅ 地图编辑器 v0.30.0 — 树状村落+水体重制
 
-> **完成日期**: 2026-05-15 | **版本**: v0.29.0 | **状态**: Phase 1-6 ✅ 全部完成
+> **完成日期**: 2026-05-18 | **版本**: v0.30.0 | **状态**: 树状道路+村落系统 ✅ 完成
 
 ### 🗺️ 功能清单（6 阶段 — 全部完成）
 
@@ -490,6 +490,38 @@ ScoreSystem.clearAllScores();
 | **Phase 4** | 地图JSON管理：MapSerializer(内存↔JSON)、CRUD(localStorage蓝图)、导出下载+导入上传、ParameterFitter(高度图→参数化地形拟合) | ✅ 完成 |
 | **Phase 5** | 水体+桥梁放置、敌人行为配置面板(HP/速度/视野/攻击/行为模式/巡逻预览)、批量编辑(巡逻复制/清空) | ✅ 完成 |
 | **Phase 6** | 撤销重做(UndoManager 50步+Ctrl+Z/Y)、主游戏集成(localStorage→地图列表)、离散高度图双线性插值、性能优化(30fps+笔刷批处理) | ✅ 完成 |
+| **Phase 7** | 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（index.html+map_editor.html双端） | ✅ v0.30.0 |
+
+### 🏘️ 道路+村落树状生成系统（v0.30.0 新增）
+
+**双端实现**：
+- `index.html`：运行时 `generateRoadVillageSystem()` → `createObstacles()` 集成
+- `map_editor.html`：编辑器 `randomGenerateVillage()` 全流程重制
+
+**生成顺序**：
+1. 主路（横穿地图，柏油路，宽8.5m）
+2. 垂直分支村路（2-4条，柏油路，宽4.5m）
+3. 村路尽头 → 广场（地砖圆盘，半径可配置）
+4. 广场周围 → 建筑集群（预计算位置，紧密聚集）
+5. 建筑 → 广场连接小路（水泥路，宽1.5m）
+6. 泊松采样填充树木（排除道路区域）
+7. 绿化带（广场外圈恢复草地）
+
+**关键函数**（index.html）：
+- `generateRoadVillageSystem(spawnRadius)` — 返回 roadSegments + villages + roadAreas
+- `isOnRoad(px, pz, roadAreas)` — OBB碰撞检测
+- `createRoadMeshes(roadSegments, villages, scene)` — 渲染道路+广场+连接路
+- `cleanupRoadMeshes()` — 清理道路网格
+
+**关键函数**（map_editor.html）：
+- `randomGenerateVillage()` — 全流程重制，使用 splatMap 绘制道路
+- `drawRoadLine(x1,z1,x2,z2,width,texType)` — splatMap 道路绘制
+- `drawCircleSplat(x,y,radius,texType)` — splatMap 圆形广场绘制
+
+**新增模型注册函数**：
+- `window.ModelRegistry.randomBuildingMaker()` — 仅从 buildings 分类选取（排除树木）
+
+**调试支持**：两端均输出详细 console.log 生成日志（主路数量/村路数量/村庄数量/建筑数量/树木数量）
 
 ### 🔑 核心能力
 

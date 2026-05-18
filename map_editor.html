@@ -611,7 +611,7 @@
 //  版本: v0.1.0 | 日期: 2026-05-14
 // ============================================================
 
-console.log('🗺️ 地图编辑器 v0.30.0 — 水体重制：vertexColors+顶点去重+笔刷驱动');
+console.log('🗺️ 地图编辑器 v0.30.0 — 水体重制+树状村落：主路→村路→广场→建筑集群+连接小路');
 
 // ----- 常量 -----
 const WORLD_SIZE = 300;          // 地图世界尺寸（含外围缓冲区）
@@ -2780,7 +2780,7 @@ function init() {
     document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
     document.getElementById('status-tool').textContent = '选择';
     refreshWaterList();
-    console.log('✅ 地图编辑器 v0.30.0 水体重制 初始化完成');
+    console.log('✅ 地图编辑器 v0.30.0 水体重制+树状村落 初始化完成');
 }
 init(); pushSnapshot(); animate(performance.now());
 
@@ -2992,8 +2992,9 @@ function randomGenerateTerrain() {
     overlayInfo.textContent = '🌍 地形已生成 — 草地'+(cnt[0]/total*100).toFixed(0)+'% 泥地'+(cnt[1]/total*100).toFixed(0)+'% 沙地'+(cnt[2]/total*100).toFixed(0)+'% 池塘'+pondCenters.length;
 }
 
-// --- 村落生成（清空障碍物建筑，保留地形+水体，生成村落道路）---
+// --- 村落生成（树状结构：主路→村路→广场→建筑+连接小路）---
 function randomGenerateVillage() {
+    console.log('🏘️ [村落生成] === 开始树状结构生成 ===');
     const cfg = {
         obstCount: parseInt(document.getElementById('rg-obst').value),
         village: parseInt(document.getElementById('rg-village').value),
@@ -3003,8 +3004,6 @@ function randomGenerateVillage() {
         plazaR: parseFloat(document.getElementById('rg-plazar').value),
         greenB: parseFloat(document.getElementById('rg-greenb').value),
         maxH: parseFloat(document.getElementById('rg-maxh').value),
-        ptch: parseFloat(document.getElementById('rg-ptch').value),
-        octaves: parseInt(document.getElementById('rg-octaves').value),
     };
     
     // 仅清空障碍物实体，保留地形高度/纹理/水体
@@ -3017,141 +3016,95 @@ function randomGenerateVillage() {
     mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
     mapData.bridges = [];
     
-    // 恢复人造纹理(3水泥/4柏油/5地砖)为草地
+    // 恢复人造纹理为草地
     for (let i = 0; i < HM_RES * HM_RES; i++) {
         if (mapData.splatMap[i] >= 3) mapData.splatMap[i] = 0;
     }
     
-    const baseSeed = Math.random() * 10000;
-    const seedD = baseSeed + 3141;
     const pondCenters = mapData.waters.filter(w => w.type === 'pond').map(w => ({
         x: w.center.x, z: w.center.z, r: w.radius || 8
     }));
-    
-    // 阶段5: 障碍物
-    const bldgClusters = [];
-    const clustCount = Math.floor(cfg.village * 2.5);
-    for (let i = 0; i < clustCount; i++) {
-        bldgClusters.push({
-            cx: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
-            cz: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
-            r: 8 + Math.random() * 18
-        });
-    }
-    
-    function getLocalDensity(wx, wz) {
-        let d = fbm(wx, wz, seedD, 3, cfg.ptch * 0.6);
-        for (const cl of bldgClusters) {
-            const dist = Math.hypot(wx - cl.cx, wz - cl.cz);
-            if (dist < cl.r) d += (1 - dist / cl.r) * cfg.village * 0.25;
-        }
-        return Math.min(1, d);
-    }
-    
-    const obsts = [];
-    for (let attempt = 0; attempt < cfg.obstCount * 4 && obsts.length < cfg.obstCount; attempt++) {
-        const ox = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
-        const oz = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
-        if (Math.abs(ox) > PLAY_HALF - 2 || Math.abs(oz) > PLAY_HALF - 2) continue;
-        const density = getLocalDensity(ox, oz);
-        if (Math.random() > density * 1.3) continue;
-        const localDist = cfg.obsDist - density * (cfg.obsDist * 0.4);
-        let tooClose = false;
-        for (const o of obsts) {
-            if (Math.hypot(ox - o.x, oz - o.z) < localDist) { tooClose = true; break; }
-        }
-        if (tooClose) continue;
-        if (Math.hypot(ox, oz) < cfg.safeR) continue;
-        let inPond = false;
-        for (const pc of pondCenters) {
-            if (Math.hypot(ox - pc.x, oz - pc.z) < pc.r + 4) { inPond = true; break; }
-        }
-        if (inPond) continue;
-        const oh = smpHeight(ox, oz);
-        if (oh < -cfg.maxH * 0.35) continue;
-        obsts.push({ x: ox, z: oz, density });
-    }
-    
-    const treeTypes = ['cone', 'sphere', 'oak'];
-    const bldgTypes = ['bungalow', 'villa', 'apartment'];
-    obsts.forEach(o => {
-        const isBldg = (o.density > 0.5 && Math.random() < o.density * 0.8);
-        if (isBldg) {
-            const bt = bldgTypes[Math.floor(Math.random() * bldgTypes.length)];
-            addEntity('building', o.x, smpHeight(o.x, o.z), o.z, bt);
-        } else {
-            const tt = treeTypes[Math.floor(Math.random() * treeTypes.length)];
-            addEntity('tree', o.x, smpHeight(o.x, o.z), o.z, tt);
-        }
-    });
-    
-    // 阶段5b: 建筑归属
-    bldgClusters.forEach(cl => { cl.buildings = []; });
-    mapData.entities.filter(e => e.type === 'building').forEach(ent => {
-        let bestCl = null, bestDist = Infinity;
-        for (const cl of bldgClusters) {
-            const d = Math.hypot(ent.position.x - cl.cx, ent.position.z - cl.cz);
-            if (d < bestDist) { bestDist = d; bestCl = cl; }
-        }
-        if (bestCl && bestDist < bestCl.r * 1.8) bestCl.buildings.push(ent);
-    });
-    
-    // 阶段5c: 广场
-    for (const cl of bldgClusters) {
-        if (cl.buildings.length < 2) continue;
-        drawCircleSplat(cl.cx, cl.cz, cfg.plazaR * 0.6, 5);
-    }
-    
-    // 阶段5d: 主干道（延伸至地图边界）
-    const activeClusters = bldgClusters.filter(c => c.buildings.length >= 2);
-    if (activeClusters.length >= 2) {
-        let clA = activeClusters[0], clB = activeClusters[1], maxD = 0;
-        for (let i = 0; i < activeClusters.length; i++) {
-            for (let j = i + 1; j < activeClusters.length; j++) {
-                const d = Math.hypot(activeClusters[i].cx - activeClusters[j].cx, activeClusters[i].cz - activeClusters[j].cz);
-                if (d > maxD) { maxD = d; clA = activeClusters[i]; clB = activeClusters[j]; }
+    const riverLines = mapData.waters.filter(w => w.type === 'river').map(w => ({
+        points: w.points || []
+    }));
+
+    const R = PLAY_HALF * 0.88;
+    const branchCount = Math.max(2, Math.floor(cfg.village * 1.8));
+    let totalBuildings = 0;
+
+    // ===== 阶段1：生成主路（横穿地图） =====
+    console.log(`  📍 阶段1: 生成主路 (1条)`);
+    const mainOffZ = (Math.random() - 0.5) * 24;
+    const mainSX = -R, mainSZ = mainOffZ;
+    const mainEX = R, mainEZ = mainOffZ + (Math.random() - 0.5) * 16;
+    const mainAngle = Math.atan2(mainEZ - mainSZ, mainEX - mainSX);
+    drawRoadLine(mainSX, mainSZ, mainEX, mainEZ, cfg.roadW * 1.5, 4); // 柏油主干道
+
+    // ===== 阶段2：生成分支村路 =====
+    console.log(`  📍 阶段2: 生成分支村路 (${branchCount}条)`);
+    const villages = [];
+    for (let bi = 0; bi < branchCount; bi++) {
+        const t = 0.1 + (bi / (branchCount - 1 || 1)) * 0.8 + (Math.random() - 0.5) * 0.1;
+        const bx = mainSX + (mainEX - mainSX) * t;
+        const bz = mainSZ + (mainEZ - mainSZ) * t;
+        const side = (Math.random() < 0.5 ? 1 : -1);
+        const branchAngle = mainAngle + Math.PI / 2 * side + (Math.random() - 0.5) * 0.08;
+        const branchLen = 20 + Math.random() * 28;
+        const endX = bx + Math.cos(branchAngle) * branchLen;
+        const endZ = bz + Math.sin(branchAngle) * branchLen;
+
+        if (Math.abs(endX) > PLAY_HALF * 0.9 || Math.abs(endZ) > PLAY_HALF * 0.9) continue;
+        drawRoadLine(bx, bz, endX, endZ, cfg.roadW, 4); // 柏油村路
+
+        // ===== 阶段3：广场 =====
+        drawCircleSplat(endX, endZ, cfg.plazaR, 5); // 地砖广场
+
+        // ===== 阶段4：预计算建筑位置 =====
+        const bldCount = 3 + Math.floor(Math.random() * 7);
+        const blds = [];
+        for (let bi2 = 0; bi2 < bldCount; bi2++) {
+            const angleStep = (Math.PI * 2) / bldCount;
+            const bAngle = (branchAngle + Math.PI) + (bi2 - bldCount / 2) * angleStep + (Math.random() - 0.5) * 0.25;
+            const bDist = cfg.plazaR + 1.5 + Math.random() * 6;
+            const bx2 = endX + Math.cos(bAngle) * bDist;
+            const bz2 = endZ + Math.sin(bAngle) * bDist;
+
+            if (Math.abs(bx2) > PLAY_HALF - 2 || Math.abs(bz2) > PLAY_HALF - 2) continue;
+            let ok = true;
+            for (const pc of pondCenters) {
+                if (Math.hypot(bx2 - pc.x, bz2 - pc.z) < pc.r + 5) { ok = false; break; }
             }
+            if (!ok) continue;
+            if (Math.hypot(bx2, bz2) < cfg.safeR) continue;
+
+            // 连接小路（建筑→广场边缘）
+            const plazaEdgeX = endX + Math.cos(bAngle) * cfg.plazaR;
+            const plazaEdgeZ = endZ + Math.sin(bAngle) * cfg.plazaR;
+            drawRoadLine(plazaEdgeX, plazaEdgeZ, bx2, bz2, 1.5, 3); // 水泥小路
+
+            blds.push({ x: bx2, z: bz2, angle: bAngle });
         }
-        const dx = clB.cx - clA.cx, dz = clB.cz - clA.cz;
-        const dirLen = Math.hypot(dx, dz) || 1;
-        const ux = dx / dirLen, uz = dz / dirLen;
-        const ext = WORLD_SIZE;
-        drawRoadLine(clA.cx - ux * ext, clA.cz - uz * ext, clB.cx + ux * ext, clB.cz + uz * ext, cfg.roadW * 1.5, 4);
+
+        addEntity('building', endX, smpHeight(endX, endZ), endZ, ['bungalow','villa','apartment'][Math.floor(Math.random()*3)]);
+        for (const b of blds) {
+            addEntity('building', b.x, smpHeight(b.x, b.z), b.z,
+                ['bungalow','villa','apartment'][Math.floor(Math.random()*3)]);
+        }
+
+        villages.push({ plazaX: endX, plazaZ: endZ, bldCount: blds.length + 1 });
+        totalBuildings += blds.length + 1;
+        console.log(`      ├─ 村庄${villages.length}: 广场(r=${cfg.plazaR.toFixed(1)}m) + ${blds.length + 1}栋建筑`);
     }
-    
-    // 阶段5e: 接入道路
-    for (const cl of bldgClusters) {
-        if (cl.buildings.length < 2) continue;
-        let bestPt = { x: 0, z: 0 }, bestDist = Math.hypot(cl.cx, cl.cz);
-        for (const ocl of activeClusters) {
-            if (ocl === cl) continue;
-            const d = Math.hypot(cl.cx - ocl.cx, cl.cz - ocl.cz);
-            if (d < bestDist) { bestDist = d; bestPt = { x: ocl.cx, z: ocl.cz }; }
-        }
-        if (bestDist < WORLD_SIZE * 0.5) {
-            drawRoadLine(cl.cx, cl.cz, bestPt.x, bestPt.z, cfg.roadW * 0.8, 4);
-        }
-    }
-    
-    // 阶段5f: 村内街道
-    for (const cl of bldgClusters) {
-        if (cl.buildings.length < 2) continue;
-        for (const bld of cl.buildings) {
-            const bx = bld.position.x, bz = bld.position.z;
-            const dist2c = Math.hypot(bx - cl.cx, bz - cl.cz);
-            if (dist2c > 3 && dist2c < cl.r) {
-                drawRoadLine(bx, bz, cl.cx, cl.cz, 3, 3);
-            }
-        }
-    }
-    
-    // 阶段5g: 绿化带
-    for (const cl of bldgClusters) {
-        if (cl.buildings.length < 2) continue;
-        const innerR = cfg.plazaR + 1;
+
+    console.log(`  ✅ 阶段2-4完成: ${villages.length}个村庄, ${totalBuildings}栋建筑`);
+
+    // ===== 阶段5：绿化带 =====
+    console.log(`  📍 阶段5: 绿化带`);
+    for (const vil of villages) {
+        const innerR = cfg.plazaR + 0.5;
         const outerR = cfg.plazaR + cfg.greenB;
         const rPxW = outerR / WORLD_SIZE * HM_RES;
-        const { sx: sxC, sy: syC } = world2sm(cl.cx, cl.cz);
+        const { sx: sxC, sy: syC } = world2sm(vil.plazaX, vil.plazaZ);
         const rPx = Math.ceil(rPxW);
         for (let dy = -rPx; dy <= rPx; dy++) {
             for (let dx = -rPx; dx <= rPx; dx++) {
@@ -3169,52 +3122,44 @@ function randomGenerateVillage() {
             }
         }
     }
-    // 阶段5h: 清除道路上+远离道路的建筑和树木
-    const clearedOnRoad = clearEntitiesOnRoadSplat();
-    // 额外：删除距离道路>12m的建筑（确保建筑沿路聚集）
-    const farBldgs = [];
-    mapData.entities.forEach(ent => {
-        if (ent.type !== 'building') return;
-        const idx = w2i(ent.position.x, ent.position.z);
-        if (idx < 0) return;
-        const { sx, sy } = world2sm(ent.position.x, ent.position.z);
-        let nearRoad = false;
-        for (let dy = -16; dy <= 16 && !nearRoad; dy++) {
-            for (let dx = -16; dx <= 16 && !nearRoad; dx++) {
-                const sx2 = sx + dx, sy2 = sy + dy;
-                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
-                const tp = mapData.splatMap[sy2 * HM_RES + sx2];
-                if (tp === 3 || tp === 4 || tp === 5) nearRoad = true;
-            }
+
+    // ===== 阶段6：障碍物/树木 =====
+    console.log(`  📍 阶段6: 填充树木 (${cfg.obstCount}棵)`);
+    const obsts = [];
+    for (let attempt = 0; attempt < cfg.obstCount * 4 && obsts.length < cfg.obstCount; attempt++) {
+        const ox = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        const oz = (Math.random() - 0.5) * WORLD_SIZE * 0.88;
+        if (Math.abs(ox) > PLAY_HALF - 2 || Math.abs(oz) > PLAY_HALF - 2) continue;
+        
+        // 排除道路上
+        const idx = w2i(ox, oz);
+        if (idx >= 0) {
+            const tp = mapData.splatMap[idx];
+            if (tp >= 3 && tp <= 5) continue; // 跳过道路纹理
         }
-        if (!nearRoad) farBldgs.push(ent.id);
-    });
-    farBldgs.forEach(id => {
-        if (entityMarkers[id]) { scene.remove(entityMarkers[id]); disposeGroup(entityMarkers[id]); delete entityMarkers[id]; }
-    });
-    mapData.entities = mapData.entities.filter(e => !farBldgs.includes(e.id));
-    mapData.groups.forEach(g => { g.entityIds = g.entityIds.filter(eid => !farBldgs.includes(eid)); });
-    if (farBldgs.length > 0) console.log('🏘️ 移除了'+farBldgs.length+'个远离道路的建筑');
-    
-    // 阶段5i: 干道路径跨越水体自动生成桥梁
-    if (activeClusters.length >= 2) {
-        let clA2 = activeClusters[0], clB2 = activeClusters[1], maxD2 = 0;
-        for (let i = 0; i < activeClusters.length; i++) {
-            for (let j = i + 1; j < activeClusters.length; j++) {
-                const d = Math.hypot(activeClusters[i].cx - activeClusters[j].cx, activeClusters[i].cz - activeClusters[j].cz);
-                if (d > maxD2) { maxD2 = d; clA2 = activeClusters[i]; clB2 = activeClusters[j]; }
-            }
+        if (Math.hypot(ox, oz) < cfg.safeR) continue;
+        
+        let tooClose = false;
+        for (const o of obsts) {
+            if (Math.hypot(ox - o.x, oz - o.z) < cfg.obsDist * 0.5) { tooClose = true; break; }
         }
-        const rdx = clB2.cx - clA2.cx, rdz = clB2.cz - clA2.cz;
-        const rlen = Math.hypot(rdx, rdz) || 1;
-        const rux = rdx / rlen, ruz = rdz / rlen;
-        const trunkPath = [];
-        for (let t = -cfg.roadW * 1.5; t < rlen + cfg.roadW * 1.5; t += 2) {
-            trunkPath.push({ x: clA2.cx + rux * t, z: clA2.cz + ruz * t });
+        if (tooClose) continue;
+        let inPond = false;
+        for (const pc of pondCenters) {
+            if (Math.hypot(ox - pc.x, oz - pc.z) < pc.r + 4) { inPond = true; break; }
         }
-        detectAndBuildBridges(trunkPath);
+        if (inPond) continue;
+        const oh = smpHeight(ox, oz);
+        if (oh < -cfg.maxH * 0.35) continue;
+        obsts.push({ x: ox, z: oz });
     }
     
+    const treeTypes = ['cone', 'sphere', 'oak'];
+    obsts.forEach(o => {
+        addEntity('tree', o.x, smpHeight(o.x, o.z), o.z, treeTypes[Math.floor(Math.random() * 3)]);
+    });
+
+    // ===== 添加出生点 =====
     addEntity('spawn', 0, smpHeight(0, 0), 0, null);
     
     createGround();
@@ -3223,8 +3168,9 @@ function randomGenerateVillage() {
     refreshWaterList();
     clearUndoStack(); pushSnapshot();
     
-    const totalBldgs = mapData.entities.filter(e => e.type === 'building').length;
-    overlayInfo.textContent = '🏘️ 村落已生成 — '+activeClusters.length+'聚落 '+totalBldgs+'建筑 '+obsts.length+'障碍物'+((clearedOnRoad+farBldgs.length)>0?' (清'+clearedOnRoad+'路障'+farBldgs.length+'远建)':'');
+    const finalBldgs = mapData.entities.filter(e => e.type === 'building').length;
+    console.log(`✅ [村落生成] 完成: 1条主路 + ${villages.length}个村庄(${finalBldgs}栋建筑) + ${obsts.length}棵树木`);
+    overlayInfo.textContent = `🏘️ 树状村落已生成 — ${villages.length}村庄 ${finalBldgs}建筑 ${obsts.length}树木`;
 }
 
 // --- 弹窗控制 ---

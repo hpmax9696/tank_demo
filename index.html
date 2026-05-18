@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.29.0</title>
+    <title>坦克运动demo v0.30.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.29.0</div>
+        <div class="menu-version">v0.30.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🏘️ v0.30.0 村落 — 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（demo+编辑器双端）</div>
             <div class="cl-title">🗺️ v0.29.0 编辑器 — 地图编辑器 Phase 5+6 完成：敌人配置面板+UndoManager撤销重做+主游戏集成+30fps性能优化</div>
             <div class="cl-title">🧰 v0.28.1 优化 — 丧尸3层LOD(远近开关)+贴图提亮+机枪射速10发/秒+引擎音量减半+程序化修理箱重制(倒角+图标)</div>
             <div class="cl-title">🧠 v0.28.0 丧尸AI — 8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)</div>
             <div class="cl-title">🧟 v0.27.0 集成 — 新程序化丧尸(enemies.js骨架+AnimationSystem)+清理GLB丧尸系统(~300行)+04a地图5只丧尸</div>
-            <div class="cl-title">🧟 v0.27.0 原型 — 程序化丧尸模型原型(24节点+pivot)+AnimationSystem(6动作)+zombie_prototype.html</div>
         </div>
     </div>
 
@@ -1439,6 +1439,8 @@
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
         let obstacleMeshes = [], obstacleData = [];
+        let _roadMeshes = [];  // 道路可视化网格
+        let _villageSystem = null;  // 当前地图的道路+村落生成数据
         let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
         let occludedObstacles = [];  // 当前被半透明的障碍物列表
         let hiddenTreeInstances = [];  // 树木遮挡隐藏列表：[{imTrunk,imCrown,index,matrixTrunk,matrixCrown}]
@@ -2673,6 +2675,197 @@
             return group;
         }
 
+        // ==================== 道路+村落生成系统 ====================
+
+        // 判断点是否在道路区域内（坐标系：局部OBB检查）
+        function isOnRoad(px, pz, roadAreas) {
+            if (!roadAreas) return false;
+            for (const a of roadAreas) {
+                const dx = px - a.cx, dz = pz - a.cz;
+                const cosA = Math.cos(-a.angle), sinA = Math.sin(-a.angle);
+                const rx = dx * cosA - dz * sinA;
+                const rz = dx * sinA + dz * cosA;
+                if (Math.abs(rx) < a.rx && Math.abs(rz) < a.rz) return true;
+            }
+            return false;
+        }
+
+        // 主程序：生成道路网络+村落配置（树状结构）
+        function generateRoadVillageSystem(spawnRadius) {
+            console.log('🏗️ [道路村落] === 开始程序化生成 ===');
+            const roadSegments = [];  // {x1,z1,x2,z2,width,type}
+            const villages = [];       // {plazaX,plazaZ,plazaRadius,angle,buildings:[{x,z,angle}],connectors:[{x1,z1,x2,z2}]}
+            const roadAreas = [];      // {cx,cz,rx,rz,angle} 用于快速碰撞检测
+
+            function addRoad(x1, z1, x2, z2, width, type) {
+                roadSegments.push({ x1, z1, x2, z2, width, type });
+                const len = Math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2);
+                const angle = Math.atan2(z2 - z1, x2 - x1);
+                roadAreas.push({ cx: (x1 + x2) / 2, cz: (z1 + z2) / 2, rx: len / 2 + 1, rz: width / 2 + 1.5, angle });
+            }
+
+            // --- 阶段1：生成主路 ---
+            const mainCount = 1 + (Math.random() < 0.55 ? 1 : 0);
+            const R = spawnRadius * 0.88;
+            console.log(`  📍 阶段1: 生成主路 (${mainCount}条)`);
+
+            for (let mi = 0; mi < mainCount; mi++) {
+                const offX = (mi === 0) ? (Math.random() - 0.5) * 24 : (Math.random() - 0.5) * 30;
+                const offZ = (mi === 0) ? (Math.random() - 0.5) * 20 : (Math.random() - 0.5) * 36;
+                const sx = -R + offX * 0.3, sz = offZ;
+                const ex = R + offX * 0.3, ez = offZ + (Math.random() - 0.5) * 14;
+                addRoad(sx, sz, ex, ez, 8.5, 'main');
+                const mainAngle = Math.atan2(ez - sz, ex - sx);
+
+                // --- 阶段2：从主路垂直分支村路 ---
+                const branchCount = 2 + Math.floor(Math.random() * 4);
+                console.log(`  📍 阶段2: 生成分支村路 (${branchCount}条)`);
+
+                let villageCount = 0, totalBuildings = 0;
+                for (let bi = 0; bi < branchCount; bi++) {
+                    const t = 0.12 + Math.random() * 0.76;
+                    const bx = sx + (ex - sx) * t;
+                    const bz = sz + (ez - sz) * t;
+                    const side = (Math.random() < 0.5 ? 1 : -1);
+                    const branchAngle = mainAngle + Math.PI / 2 * side + (Math.random() - 0.5) * 0.08;
+                    const branchLen = 18 + Math.random() * 24;
+                    const endX = bx + Math.cos(branchAngle) * branchLen;
+                    const endZ = bz + Math.sin(branchAngle) * branchLen;
+
+                    if (Math.abs(endX) > R * 0.92 || Math.abs(endZ) > R * 0.92) continue;
+                    let tooClose = false;
+                    for (const a of roadAreas) {
+                        if (isOnRoad(endX, endZ, [a])) { tooClose = true; break; }
+                    }
+                    if (tooClose) continue;
+
+                    addRoad(bx, bz, endX, endZ, 4.5, 'village');
+                    villageCount++;
+
+                    // --- 阶段3：在村路尽头生成村庄（含广场+建筑+连接路） ---
+                    const plazR = 2.5 + Math.random() * 1.5;  // 广场半径 2.5~4m
+                    const bldCount = 4 + Math.floor(Math.random() * 7);
+                    totalBuildings += bldCount;
+
+                    // 预计算建筑位置：围绕广场均匀分布，距离广场边缘 1~4m
+                    const blds = [];
+                    const conns = [];
+                    for (let bi2 = 0; bi2 < bldCount; bi2++) {
+                        const angleStep = (Math.PI * 2) / bldCount;
+                        // 建筑角度：从路反方向开始均匀分布
+                        const bAngle = (branchAngle + Math.PI) + (bi2 - bldCount / 2) * angleStep + (Math.random() - 0.5) * 0.3;
+                        const bDist = plazR + 1.5 + Math.random() * 3.5; // 从广场边缘外 1.5~5m
+                        const bx2 = endX + Math.cos(bAngle) * bDist;
+                        const bz2 = endZ + Math.sin(bAngle) * bDist;
+
+                        if (Math.abs(bx2) > R * 0.92 || Math.abs(bz2) > R * 0.92) continue;
+
+                        // 计算建筑朝向（面朝广场）
+                        const bldAngle = Math.atan2(endZ - bz2, endX - bx2);
+
+                        blds.push({ x: bx2, z: bz2, angle: bldAngle });
+
+                        // 连接小路：从广场边缘到建筑
+                        const plazaEdgeX = endX + Math.cos(bAngle) * plazR;
+                        const plazaEdgeZ = endZ + Math.sin(bAngle) * plazR;
+                        conns.push({ x1: plazaEdgeX, z1: plazaEdgeZ, x2: bx2, z2: bz2, width: 1.2 });
+                    }
+
+                    villages.push({
+                        plazaX: endX, plazaZ: endZ,
+                        plazaRadius: plazR,
+                        angle: branchAngle,
+                        roadEndX: endX, roadEndZ: endZ,
+                        buildings: blds,
+                        connectors: conns
+                    });
+
+                    console.log(`      ├─ 村庄${villageCount}: 广场(r=${plazR.toFixed(1)}m) + ${blds.length}栋建筑 + ${conns.length}条小路`);
+                }
+                console.log(`  ✅ 阶段2/3完成: ${villageCount}个村庄, ${totalBuildings}栋建筑`);
+            }
+
+            // 可选交叉主路
+            if (Math.random() < 0.30 && mainCount === 1) {
+                const cxX = (Math.random() - 0.5) * 28;
+                addRoad(cxX, -R, cxX + (Math.random() - 0.5) * 10, R, 6.5, 'main');
+                console.log('  📍 额外: 生成交叉主路 (1条)');
+            }
+
+            console.log(`  📍 阶段4: 泊松采样填充树木（待执行）`);
+            return { roadSegments, villages, roadAreas };
+        }
+
+        // 道路可视化：主路+村路+广场+连接小路
+        let _roadMat = null, _pathMat = null, _plazaGeo = null;
+        function createRoadMeshes(roadSegments, villages, targetScene) {
+            cleanupRoadMeshes();
+            if (!_roadMat) _roadMat = new THREE.MeshStandardMaterial({ color: '#7B6B5A', roughness: 0.95, metalness: 0.0 });
+            if (!_pathMat) _pathMat = new THREE.MeshStandardMaterial({ color: '#A09080', roughness: 0.9, metalness: 0.0 });
+
+            // 主路和村路
+            for (const seg of roadSegments) {
+                const dx = seg.x2 - seg.x1, dz = seg.z2 - seg.z1;
+                const len = Math.sqrt(dx * dx + dz * dz);
+                const angle = Math.atan2(dz, dx);
+                const geo = new THREE.PlaneGeometry(len, seg.width, 2, 1);
+                const midX = (seg.x1 + seg.x2) / 2, midZ = (seg.z1 + seg.z2) / 2;
+                const roadY = getTerrainHeight(midX, midZ) + 0.04;
+                const mesh = new THREE.Mesh(geo, _roadMat);
+                mesh.rotation.x = -Math.PI / 2;
+                mesh.rotation.z = angle;
+                mesh.position.set(midX, roadY, midZ);
+                mesh.receiveShadow = true;
+                mesh.userData.isRoad = true;
+                targetScene.add(mesh);
+                _roadMeshes.push(mesh);
+            }
+
+            // 村庄广场 + 连接小路
+            if (villages && villages.length > 0) {
+                if (!_plazaGeo) { _plazaGeo = new THREE.CircleGeometry(1, 12); _plazaGeo._sharedCloned = true; }
+                for (const vil of villages) {
+                    // --- 广场 ---
+                    const py = getTerrainHeight(vil.plazaX, vil.plazaZ) + 0.05;
+                    const plaza = new THREE.Mesh(_plazaGeo, _roadMat);
+                    plaza.rotation.x = -Math.PI / 2;
+                    plaza.scale.setScalar(vil.plazaRadius);
+                    plaza.position.set(vil.plazaX, py, vil.plazaZ);
+                    plaza.receiveShadow = true;
+                    plaza.userData.isRoad = true;
+                    targetScene.add(plaza);
+                    _roadMeshes.push(plaza);
+
+                    // --- 建筑到广场的连接小路 ---
+                    for (const conn of (vil.connectors || [])) {
+                        const dx = conn.x2 - conn.x1, dz = conn.z2 - conn.z1;
+                        const cLen = Math.sqrt(dx * dx + dz * dz);
+                        if (cLen < 0.1) continue;
+                        const cAngle = Math.atan2(dz, dx);
+                        const cGeo = new THREE.PlaneGeometry(cLen, conn.width || 1.2, 2, 1);
+                        const cMidX = (conn.x1 + conn.x2) / 2, cMidZ = (conn.z1 + conn.z2) / 2;
+                        const cy = getTerrainHeight(cMidX, cMidZ) + 0.06;
+                        const cMesh = new THREE.Mesh(cGeo, _pathMat);
+                        cMesh.rotation.x = -Math.PI / 2;
+                        cMesh.rotation.z = cAngle;
+                        cMesh.position.set(cMidX, cy, cMidZ);
+                        cMesh.receiveShadow = true;
+                        cMesh.userData.isRoad = true;
+                        targetScene.add(cMesh);
+                        _roadMeshes.push(cMesh);
+                    }
+                }
+            }
+        }
+
+        function cleanupRoadMeshes() {
+            for (const m of _roadMeshes) {
+                if (m.parent) m.parent.remove(m);
+                if (m.geometry && !m.geometry._sharedCloned) m.geometry.dispose();
+            }
+            _roadMeshes = [];
+        }
+
         function createObstacles(targetScene = scene) {
             // --- 清理旧的 InstancedMesh 树木 ---
             if (window._treeIMs) {
@@ -2702,12 +2895,33 @@
             }
             transparentMatPool.clear();
 
-            // --- 阶段1：泊松采样 + 分类收集 ---
+            // --- 清理旧的道路网格 ---
+            cleanupRoadMeshes();
+            _villageSystem = null;
+
+            // --- 阶段0：道路+村落系统生成 ---
             const is02a = (selectedMapId === 'test_map_02a');
             const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
-            const points = poissonDiskSampling(0, 0, obsCfg.spawnRadius || SPAWN_RADIUS, obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS, obsCfg.count || OBSTACLE_COUNT);
+            const spawnR = obsCfg.spawnRadius || SPAWN_RADIUS;
 
-            const conePts = [], spherePts = [], oakPts = [], buildPts = [];
+            // 仅在非对战地图生成道路和村落
+            if (!isVersusMap && !(currentMapData && currentMapData.obstacles && currentMapData.obstacles.disableRoads)) {
+                _villageSystem = generateRoadVillageSystem(spawnR);
+                createRoadMeshes(_villageSystem.roadSegments, _villageSystem.villages, targetScene);
+            } else {
+                _villageSystem = null;
+            }
+
+            // --- 阶段1：泊松采样（排除道路区域，仅分配树木） ---
+            const roadExcludeFn = _villageSystem
+                ? ((px, pz) => isOnRoad(px, pz, _villageSystem.roadAreas))
+                : null;
+
+            const points = poissonDiskSampling(0, 0, spawnR,
+                obsCfg.minDist || POISSON_MIN_DIST, obsCfg.safeRadius || SAFE_ZONE_RADIUS,
+                obsCfg.count || OBSTACLE_COUNT, roadExcludeFn);
+
+            const conePts = [], spherePts = [], oakPts = [];
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
                 if (!isVersusMap) {
@@ -2718,16 +2932,17 @@
                         if (Math.sqrt((pxPond*pxPond)/(pondClear*pondClear) + (pzPond*pzPond)/(pondClearZ*pondClearZ)) < 1.0) continue;
                     }
                     if (isInRiver(p.x, p.z)) continue;
+                    // 额外排除道路区域
+                    if (_villageSystem && isOnRoad(p.x, p.z, _villageSystem.roadAreas)) continue;
                 }
-                // 权重分配：锥形树30%、球形树25%、橡树20%、建筑25%
+                // 纯树木分配：锥形树35%、球形树30%、橡树35%
                 const r = Math.random();
-                if (r < 0.30) { conePts.push(p); }
-                else if (r < 0.55) { spherePts.push(p); }
-                else if (r < 0.75) { oakPts.push(p); }
-                else { buildPts.push(p); }
+                if (r < 0.35) { conePts.push(p); }
+                else if (r < 0.65) { spherePts.push(p); }
+                else { oakPts.push(p); }
             }
 
-            // --- 阶段2：批量创建 InstancedMesh（树木）+ 独立 Group（建筑） ---
+            // --- 阶段2：批量创建 InstancedMesh（树木） ---
             window._treeIMs = [];
             const dummy = new THREE.Object3D();
 
@@ -2848,25 +3063,54 @@
                 window._treeIMs.push(trunkIM, crownIM);
             }
 
-            // 建筑（保持原有 Group 方式）
-            for (let i = 0; i < buildPts.length; i++) {
-                const p = buildPts[i];
-                const makeFn = window.ModelRegistry.randomObstacleMaker();
-                const group = makeFn();
-                const ud = group.userData;
-                const baseHeightM = ud.height * METERS_PER_UNIT;
-                const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
-                const s = targetHeightM / baseHeightM;
-                group.scale.setScalar(s);
-                const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
-                group.position.set(p.x, obsY, p.z);
-                group.rotation.y = Math.random() * Math.PI * 2;
-                group.visible = false;
-                group.name = `obs-${i}`;
-                targetScene.add(group);
-                obstacleMeshes.push(group);
-                obstacleData.push({ x: p.x, z: p.z, radius: ud.radius * s, height: ud.height * s, color: ud.color, blades: ud.blades || null, type: 'building', groupRef: group });
+            // --- 阶段3：村落建筑放置（使用预计算位置） ---
+            let bldIdx = 0;
+            if (_villageSystem && _villageSystem.villages.length > 0) {
+                console.log('  📍 阶段4: 放置村落建筑（预计算位置）');
+                for (const vil of _villageSystem.villages) {
+                    for (const bld of (vil.buildings || [])) {
+                        // 简单边界/障碍物重检查
+                        if (Math.abs(bld.x) > spawnR * 0.92 || Math.abs(bld.z) > spawnR * 0.92) continue;
+                        if (!isVersusMap) {
+                            if (isInRiver(bld.x, bld.z)) continue;
+                            const pond = _getPond();
+                            if (pond) {
+                                const pxPond = bld.x - pond.cx, pzPond = bld.z - pond.cz;
+                                if (Math.sqrt((pxPond * pxPond) / ((pond.rx + 3) ** 2) + (pzPond * pzPond) / ((pond.rz + 3) ** 2)) < 1.0) continue;
+                            }
+                        }
+                        let tooCloseToSpawn = false;
+                        const spawns = (currentMapData && Array.isArray(currentMapData.spawnPoints)) ? currentMapData.spawnPoints : [];
+                        for (const sp of spawns) {
+                            if ((bld.x - sp.x) ** 2 + (bld.z - sp.z) ** 2 < SAFE_ZONE_RADIUS ** 2) { tooCloseToSpawn = true; break; }
+                        }
+                        if (!spawns.length && (bld.x * bld.x + bld.z * bld.z < SAFE_ZONE_RADIUS ** 2)) tooCloseToSpawn = true;
+                        if (tooCloseToSpawn) continue;
+
+                        const makeFn = window.ModelRegistry.randomBuildingMaker();
+                        const group = makeFn();
+                        const ud = group.userData;
+                        const baseHeightM = ud.height * METERS_PER_UNIT;
+                        const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
+                        const s = targetHeightM / baseHeightM;
+                        group.scale.setScalar(s);
+                        const obsY = getTerrainHeight(bld.x, bld.z);
+                        group.position.set(bld.x, obsY, bld.z);
+                        group.rotation.y = bld.angle + (Math.random() - 0.5) * 0.2;
+                        group.visible = false;
+                        group.name = `vil-bld-${bldIdx++}`;
+                        targetScene.add(group);
+                        obstacleMeshes.push(group);
+                        obstacleData.push({
+                            x: bld.x, z: bld.z, radius: ud.radius * s, height: ud.height * s,
+                            color: ud.color, blades: ud.blades || null,
+                            type: 'building', groupRef: group
+                        });
+                    }
+                }
+                console.log(`  ✅ 阶段4完成: 共放置 ${bldIdx} 栋建筑`);
             }
+            console.log(`✅ [道路村落] 生成完成: ${_villageSystem ? _villageSystem.roadSegments.length : 0}条路 + ${_villageSystem ? _villageSystem.villages.length : 0}个村庄(${bldIdx}栋建筑) + ${conePts.length + spherePts.length + oakPts.length}棵树木`);
 
             updateObstacleVisibility();
             updateGrassVisibility();
@@ -5435,7 +5679,7 @@
             }
 
             el.textContent =
-                'v0.29.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.30.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5848,7 +6092,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.29.0 | 地图编辑器完成+撤销重做+敌人配置面板+主游戏集成+30fps优化');
+        console.log('🎮 坦克运动demo v0.30.0 | 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
