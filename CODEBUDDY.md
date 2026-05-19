@@ -279,19 +279,18 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 6 | 丧尸贴图颜色过深 | ✅ v0.28.1 | 基底#8B9B7E→#A9B89E，全部层提亮 |
 | 7 | 玩家机枪DPS太低（2×5=10） | ✅ v0.28.1 | 射速5→10发/秒，DPS 10→20，过热4→6s |
 | 8 | 大量丧尸draw call压力 | ✅ v0.28.1 | 3层LOD: near全骨架/medium冻结/far圆柱占位，远区-62% draw calls |
-| 9 | 建筑/树木生成到河流中，道路横跨河流无桥梁 | ✅ v0.31.0 | isPointInWater()统一池塘+河流碰撞，detectAndBuildBridges()支持河流折线 |
+| 9 | 河流生成功能性能灾难+河床不下陷+水面扭曲 | ✅ v0.32.0 | 性能优化(跳过几何体更新)+河床下切逻辑修复(targetH=原始地形-下切深度)+水面扭曲消除(矩形条带法) |
 
 ---
 
-## 📋 待完成任务（截至 v0.31.0 移交时）
+## 📋 待完成任务（截至 v0.32.0 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | 水体生成修复（硬编码参数→笔刷参数） | 🟡 中期 | v0.31.1 | map_editor.html 4处硬编码参数→brushRadius/brushStrength（河流碰撞部分已修复） |
-| 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
-| 5 | 战利品掉落扩展：弹药箱/经验值 | 🔵 远期 | 未分配 | 丰富战利品种类 |
+| 2 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 3 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 4 | 战利品掉落扩展：弹药箱/经验值 | 🔵 远期 | 未分配 | 丰富战利品种类 |
 
 ---
 
@@ -521,8 +520,6 @@ ScoreSystem.clearAllScores();
 
 **新增模型注册函数**：
 - `window.ModelRegistry.randomBuildingMaker()` — 仅从 buildings 分类选取（排除树木）
-
-**调试支持**：两端均输出详细 console.log 生成日志（主路数量/村路数量/村庄数量/建筑数量/树木数量）
 
 ### 🔑 核心能力
 

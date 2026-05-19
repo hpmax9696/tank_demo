@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.31.0</title>
+    <title>坦克运动demo v0.32.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.31.0</div>
+        <div class="menu-version">v0.32.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌊 v0.32.0 河流生成修复 — 性能优化(跳过几何体更新)+河床下切逻辑修复+水面扭曲消除(矩形条带法)</div>
             <div class="cl-title">🌊 v0.31.0 水体修复 — 河流碰撞检测+自动桥梁：建筑/树木不再生成到河流中，道路跨越河流自动生成桥梁</div>
             <div class="cl-title">🏘️ v0.30.0 村落 — 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（demo+编辑器双端）</div>
             <div class="cl-title">🗺️ v0.29.0 编辑器 — 地图编辑器 Phase 5+6 完成：敌人配置面板+UndoManager撤销重做+主游戏集成+30fps性能优化</div>
             <div class="cl-title">🧰 v0.28.1 优化 — 丧尸3层LOD(远近开关)+贴图提亮+机枪射速10发/秒+引擎音量减半+程序化修理箱重制(倒角+图标)</div>
-            <div class="cl-title">🧠 v0.28.0 丧尸AI — 8状态机+30只集群+2层仇恨连锁+巡逻随机化+碾压系统+性能优化(模板克隆/动画LOD/空间网格)</div>
         </div>
     </div>
 
@@ -2817,7 +2817,7 @@
                 }
                 createRoadMeshes(roadSystem.roadSegments, roadSystem.villages || [], targetScene);
                 _villageSystem = { roadSegments: roadSystem.roadSegments, villages: roadSystem.villages || [], roadAreas: _roadAreas };
-                console.log(`✅ [道路] 从地图配置加载: ${roadSystem.roadSegments.length}个路段 + ${(roadSystem.villages||[]).length}个广场`);
+
             } else {
                 _villageSystem = null;
             }
@@ -2982,7 +2982,6 @@
             const allBlds = cfgBuildings.length > 0 ? cfgBuildings : villageBlds;
             
             if (allBlds.length > 0) {
-                console.log(`  📍 阶段4: 放置建筑（${allBlds.length}栋，来源:${cfgBuildings.length > 0 ? '编辑器配置' : '地图预计算'}）`);
                 for (const bld of allBlds) {
                     // 简单边界/障碍物重检查
                     if (Math.abs(bld.x) > spawnR * 0.92 || Math.abs(bld.z) > spawnR * 0.92) continue;
@@ -3022,10 +3021,8 @@
                         type: 'building', groupRef: group
                     });
                 }
-                console.log(`  ✅ 阶段4完成: 共放置 ${bldIdx} 栋建筑`);
             }
             const totalTrees = conePts.length + spherePts.length + oakPts.length;
-            console.log(`✅ [道路村落] 生成完成: ${_villageSystem ? _villageSystem.roadSegments.length : 0}条路 + ${_villageSystem ? _villageSystem.villages.length : 0}个广场(${bldIdx}栋建筑) + ${totalTrees}棵树木`);
 
             updateObstacleVisibility();
             updateGrassVisibility();
@@ -5594,7 +5591,7 @@
             }
 
             el.textContent =
-                'v0.31.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.32.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -6007,7 +6004,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.31.0 | 河流碰撞检测+自动桥梁：建筑树木避开河流，道路过河生成桥梁');
+        console.log('🎮 坦克运动demo v0.32.0 | 河流生成修复：性能优化+河床下切逻辑修复+水面扭曲消除');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
