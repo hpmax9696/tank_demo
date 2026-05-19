@@ -170,7 +170,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
 | 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
-| 地图编辑器 | `map_editor.html` ~2700行 | 6阶段完成：地形+纹理+实体+JSON+水体+撤销+主游戏集成 |
+| 地图编辑器 | `map_editor.html` ~2750行 | 6阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成 |
 | 编辑器世界 | 300×300 (空气墙200×200) | `map_editor.html` WORLD_SIZE/PLAY_SIZE |
 | 高度图精度 | 256×256 Float32Array | HM_RES |
 | 纹理预览 | 2048×2048 Canvas2D | TEX_RES |
@@ -279,15 +279,16 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 6 | 丧尸贴图颜色过深 | ✅ v0.28.1 | 基底#8B9B7E→#A9B89E，全部层提亮 |
 | 7 | 玩家机枪DPS太低（2×5=10） | ✅ v0.28.1 | 射速5→10发/秒，DPS 10→20，过热4→6s |
 | 8 | 大量丧尸draw call压力 | ✅ v0.28.1 | 3层LOD: near全骨架/medium冻结/far圆柱占位，远区-62% draw calls |
+| 9 | 建筑/树木生成到河流中，道路横跨河流无桥梁 | ✅ v0.31.0 | isPointInWater()统一池塘+河流碰撞，detectAndBuildBridges()支持河流折线 |
 
 ---
 
-## 📋 待完成任务（截至 v0.30.0 移交时）
+## 📋 待完成任务（截至 v0.31.0 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | 水体生成修复 | 🟡 中期 | v0.31.0 | map_editor.html 4处硬编码参数→brushRadius/brushStrength |
+| 2 | 水体生成修复（硬编码参数→笔刷参数） | 🟡 中期 | v0.31.1 | map_editor.html 4处硬编码参数→brushRadius/brushStrength（河流碰撞部分已修复） |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 | 5 | 战利品掉落扩展：弹药箱/经验值 | 🔵 远期 | 未分配 | 丰富战利品种类 |

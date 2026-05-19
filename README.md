@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.30.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.31.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.31.0 — 河流碰撞检测+自动桥梁（2026-05-19）
+- **河流碰撞检测**：`isPointInWater()` 统一检测池塘+河流，建筑/树木不再生成到河流中
+- **自动桥梁**：`detectAndBuildBridges()` 支持河流折线检测，道路跨越河流自动生成桥梁
+- **isPtInPond 增强**：自动同时检查 `mapData.waters` 中的河流水体
+- **randomGenerateTerrain**：障碍物放置使用 `isPointInWater()` 替换旧池塘检测
+- 修复范围：`map_editor.html` 4处关键函数（~60行新增/修改）
 
 ### v0.30.0 — 树状道路+村落系统（2026-05-18）
 - **道路+村落树状生成**：index.html 和 map_editor.html 双端实现，主路→村路→广场→建筑集群+连接小路
@@ -831,9 +838,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 📋 下一版本规划（v0.30.0 — 水体生成修复）
+### 📋 下一版本规划（v0.31.1 — 水体生成修复）
 
-> **计划日期**: 2026-05-15 | **状态**: 📋 待开始
+> **计划日期**: 2026-05-19 | **状态**: 📋 待开始
 
 修复 `map_editor.html` 水体生成系统：
 1. **单击池塘**：边界用 `brushRadius` 替代硬编码14，深度用 `brushStrength` 替代硬编码4
@@ -841,9 +848,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. **顶点去重**：维护 `editedWaterVerts` Set，同一顶点只编辑一次
 4. **预览适配**：`updateWaterPreview()` 宽度用 `brushRadius` 替代硬编码6
 
-### 代码规模（截至 v0.30.0）
+### 代码规模（截至 v0.31.0）
 - `index.html`：约 6200 行（主游戏引擎 + 道路村落系统 + 编辑器地图加载入口 + 离散高度图模式）
-- `map_editor.html`：约 2700 行（地图编辑器 Phase 6：撤销重做 + 敌人配置面板 + 性能优化）
+- `map_editor.html`：约 2750 行（地图编辑器 Phase 6：水体碰撞检测+自动桥梁+撤销重做+性能优化）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
 - `models/pickups.js`：约 190 行（程序化倒角红箱）
 - `zombie_prototype.html`：约 980 行（丧尸原型独立预览）
@@ -852,11 +859,11 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 - `fireSmokeParticles.js`：约 390 行（粒子系统）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
 - `models/buildings.js`：约 220 行（建筑模型）
-- **总计约 7300 行**
+- **总计约 7350 行**
 
 ---
 
-## 当前版本关键参数（v0.30.0）
+## 当前版本关键参数（v0.31.0）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
