@@ -142,7 +142,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数
+## 关键参数（v0.33.1 — 地图编辑器）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -178,6 +178,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 编辑器限帧 | 30fps | `animate()` FRAME_MS=1000/30 |
 | 蓝图存储 | localStorage `tank_map_editor_blueprints` | CRUD + 导入/导出 JSON |
 | 编辑器→主游戏 | `convertBlueprintToMapConfig()` | 离散高度图双线性插值 + `loadMapConfig()` 动态注入 |
+| 水体走廊法 | 河床/湖底走廊法雕刻 + ease-out falloff | `carveRiverCorridor` / `carvePondBasin` (mouseup中) |
+| 分段水面剖面 | 每段水面 = min(前段, 本地形-strength×0.3)，单调不增 | `segWaterLevels[]` + `waterLevels` 记录 |
+| 网格单元水面 | 河流+湖泊统一用高度图网格四边形构建平坦水面 | `createWaterLayer()` cellSet → 每个单元格独立 surfaceLevel |
+| 端点削波 | 路径起点/终点 hw 范围内深度线性归零 | `taper = min(startTaper, endTaper)` |
+| 桥梁引道 | 桥两端 5m 范围地形渐变到桥面高度（挖方/填方） | `carveApproach()` 在 `addBridge()` 中 |
+| 斜坡桥面 → 水平桥面 | 改回水平 BoxGeometry，引道用 BufferGeometry 斜坡面板 | `createBridgeMesh()` |
 
 ## 常见修复模式
 
@@ -281,10 +287,13 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 8 | 大量丧尸draw call压力 | ✅ v0.28.1 | 3层LOD: near全骨架/medium冻结/far圆柱占位，远区-62% draw calls |
 | 9 | 河流生成功能性能灾难+河床不下陷+水面扭曲 | ✅ v0.32.0 | 性能优化(跳过几何体更新)+河床下切逻辑修复(targetH=原始地形-下切深度)+水面扭曲消除(矩形条带法) |
 | 10 | 河流水面不可见/浮在河床上方/锐角折叠 | ✅ v0.32.1 | 法线绕序修正+水面水位公式(地表-下切×60%)+贝塞尔预平滑(subdivideSharpCorners)+5项编辑器bug修复 |
+| 11 | 编辑器水体弯道重叠+河岸悬崖+端点深坑 | ✅ v0.32.2~v0.32.6 | 统一网格单元水面(无重叠)→走廊法(一致性)→ease-out falloff(宽缓河岸)→端点削波(渐变归零) |
+| 12 | 起伏地形河流水面溢出河岸 | ✅ v0.33.0 | 分段水面剖面(单调不增, 每段≤本地形) |
+| 13 | 桥梁倾斜/悬浮/撞悬崖 | ✅ v0.33.1 | 水平桥面+引道地形修整(挖方/填方) |
 
 ---
 
-## 📋 待完成任务（截至 v0.32.1 移交时）
+## 📋 待完成任务（截至 v0.33.1 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
