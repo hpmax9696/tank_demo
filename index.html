@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.32.0</title>
+    <title>坦克运动demo v0.32.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -353,7 +353,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.32.0</div>
+        <div class="menu-version">v0.32.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -368,11 +368,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🐛 v0.32.1 河流修复 — 水面可见(法线朝上)+沉入河床凹槽+锐角折弯贝塞尔预平滑+5项编辑器bug修复</div>
             <div class="cl-title">🌊 v0.32.0 河流生成修复 — 性能优化(跳过几何体更新)+河床下切逻辑修复+水面扭曲消除(矩形条带法)</div>
             <div class="cl-title">🌊 v0.31.0 水体修复 — 河流碰撞检测+自动桥梁：建筑/树木不再生成到河流中，道路跨越河流自动生成桥梁</div>
             <div class="cl-title">🏘️ v0.30.0 村落 — 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（demo+编辑器双端）</div>
             <div class="cl-title">🗺️ v0.29.0 编辑器 — 地图编辑器 Phase 5+6 完成：敌人配置面板+UndoManager撤销重做+主游戏集成+30fps性能优化</div>
-            <div class="cl-title">🧰 v0.28.1 优化 — 丧尸3层LOD(远近开关)+贴图提亮+机枪射速10发/秒+引擎音量减半+程序化修理箱重制(倒角+图标)</div>
         </div>
     </div>
 
@@ -2164,6 +2164,31 @@
         }
 
         // ==================== 河流（蛇形水面+桥梁） ====================
+        // 贝塞尔预平滑：在折角 > maxAngle° 处插入插值点
+        function subdivideSharpCorners(pts, maxAngle = 45) {
+            if (pts.length < 3) return [...pts];
+            const result = [pts[0]];
+            for (let i = 1; i < pts.length - 1; i++) {
+                const dxIn = pts[i].x - pts[i-1].x, dzIn = pts[i].z - pts[i-1].z;
+                const dxOut = pts[i+1].x - pts[i].x, dzOut = pts[i+1].z - pts[i].z;
+                const lenIn = Math.hypot(dxIn, dzIn) || 1;
+                const lenOut = Math.hypot(dxOut, dzOut) || 1;
+                const dot = (dxIn*dxOut + dzIn*dzOut) / (lenIn*lenOut);
+                const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+                if (angle > maxAngle) {
+                    const n = Math.ceil(angle / 20);
+                    for (let j = 1; j <= n; j++) {
+                        const t = j / (n + 1);
+                        const bx = (1-t)*(1-t)*pts[i-1].x + 2*(1-t)*t*pts[i].x + t*t*pts[i+1].x;
+                        const bz = (1-t)*(1-t)*pts[i-1].z + 2*(1-t)*t*pts[i].z + t*t*pts[i+1].z;
+                        result.push({ x: bx, z: bz });
+                    }
+                }
+                result.push(pts[i]);
+            }
+            result.push(pts[pts.length - 1]);
+            return result;
+        }
         let riverWater = null, bridgeGroup = null;
         function createRiverWater() {
             const river = _getRiver();
@@ -2172,21 +2197,28 @@
             if (!river && !rvPts) return;  // 无河流数据
 
             if (rvPts && rvPts.length >= 2) {
-                // 编辑器河流：沿轨迹点创建带状水面
-                const pts = rvPts;
+                // 编辑器河流：共享顶点条带 + 贝塞尔预平滑
+                const pts = subdivideSharpCorners(rvPts, 40);
                 const hw = 4;  // 半宽 4m（匹配编辑器桥梁宽度）
                 const verts = [];
                 const indices = [];
                 for (let i = 0; i < pts.length; i++) {
                     const p = pts[i];
                     let dx, dz;
-                    if (i < pts.length - 1) {
+                    if (i === 0) {
                         dx = pts[i+1].x - p.x; dz = pts[i+1].z - p.z;
-                    } else {
+                    } else if (i === pts.length - 1) {
                         dx = p.x - pts[i-1].x; dz = p.z - pts[i-1].z;
+                    } else {
+                        const dxIn = p.x - pts[i-1].x, dzIn = p.z - pts[i-1].z;
+                        const lenIn = Math.hypot(dxIn, dzIn) || 1;
+                        const dxOut = pts[i+1].x - p.x, dzOut = pts[i+1].z - p.z;
+                        const lenOut = Math.hypot(dxOut, dzOut) || 1;
+                        dx = dxIn/lenIn + dxOut/lenOut;
+                        dz = dzIn/lenIn + dzOut/lenOut;
                     }
                     const len = Math.hypot(dx, dz) || 1;
-                    const nx = -dz / len * hw, nz = dx / len * hw;
+                    const nx = -dz/len * hw, nz = dx/len * hw;
                     verts.push(p.x + nx, RIVER_WATER_LEVEL, p.z + nz);
                     verts.push(p.x - nx, RIVER_WATER_LEVEL, p.z - nz);
                 }
@@ -5591,7 +5623,7 @@
             }
 
             el.textContent =
-                'v0.32.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.32.1  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -6004,7 +6036,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.32.0 | 河流生成修复：性能优化+河床下切逻辑修复+水面扭曲消除');
+        console.log('🎮 坦克运动demo v0.32.1 | 河流水面修复：法线方向+河床水位+锐角预平滑+5项编辑器bug');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

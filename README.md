@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.32.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.32.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.32.1 — 河流水面渲染修复（2026-05-20）
+- **水面不可见修复**：三角形绕序修正为逆时针（法线朝上），添加 `DoubleSide` 兜底；主游戏编辑器河流同步修复
+- **水面沉入河床**：`waterBaseLevel = maxOrigH - brushStrength × 0.6`，水面在凹槽内而非浮在地表
+- **锐角折叠修复**：贝塞尔预平滑（`subdivideSharpCorners`）在折角>40°处插入插值点，消除条带顶点交叉
+- **5项编辑器bug修复**：`isEdited`→`isEdited_w`、`t0`作用域提升、`adjustedWaterLevel`→`waterBaseLevel`、`polygonOffset` 深度冲突、水面采样点改用平滑路径
+- 修复范围：`map_editor.html` + `index.html` 河流水面相关函数（~150行修改）
 
 ### v0.32.0 — 河流生成功能修复（2026-05-19）
 - **性能优化**：`applyBrush` 添加 `skipGeoUpdate` 参数，批量雕刻时跳过几何体更新，`mouseup` 时一次性 `createGround()` 重建
@@ -842,7 +849,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.29.0 | 地图编辑器完成+撤销重做+敌人配置面板+主游戏集成+30fps优化`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.32.1 | 河流水面修复：法线方向+河床水位+锐角预平滑+5项编辑器bug`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
@@ -856,9 +863,9 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. **顶点去重**：维护 `editedWaterVerts` Set，同一顶点只编辑一次
 4. **预览适配**：`updateWaterPreview()` 宽度用 `brushRadius` 替代硬编码6
 
-### 代码规模（截至 v0.31.0）
-- `index.html`：约 6200 行（主游戏引擎 + 道路村落系统 + 编辑器地图加载入口 + 离散高度图模式）
-- `map_editor.html`：约 2750 行（地图编辑器 Phase 6：水体碰撞检测+自动桥梁+撤销重做+性能优化）
+### 代码规模（截至 v0.32.1）
+- `index.html`：约 6250 行（主游戏引擎 + 道路村落系统 + 编辑器地图加载入口 + 离散高度图模式 + 河流贝塞尔预平滑）
+- `map_editor.html`：约 2800 行（地图编辑器：河流水面修复+贝塞尔预平滑+水体碰撞检测+自动桥梁+撤销重做+性能优化）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
 - `models/pickups.js`：约 190 行（程序化倒角红箱）
 - `zombie_prototype.html`：约 980 行（丧尸原型独立预览）
@@ -867,11 +874,11 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 - `fireSmokeParticles.js`：约 390 行（粒子系统）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
 - `models/buildings.js`：约 220 行（建筑模型）
-- **总计约 7350 行**
+- **总计约 7400 行**
 
 ---
 
-## 当前版本关键参数（v0.31.0）
+## 当前版本关键参数（v0.32.1）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|

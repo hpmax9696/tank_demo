@@ -611,7 +611,7 @@
 //  版本: v0.1.0 | 日期: 2026-05-14
 // ============================================================
 
-console.log('🗺️ 地图编辑器 v0.31.0 — 河流生成修复：性能优化+河床下切逻辑修复+水面扭曲消除');
+console.log('🗺️ 地图编辑器 v0.32.1 — 河流水面修复：法线方向+河床水位+锐角贝塞尔预平滑+5项bug修复');
 
 // ----- 常量 -----
 const WORLD_SIZE = 300;          // 地图世界尺寸（含外围缓冲区）
@@ -974,7 +974,7 @@ function disposeGroup(grp) {
     grp.traverse(child => { if (child.geometry) child.geometry.dispose(); if (child.material) { if (child.material.map) child.material.map.dispose(); child.material.dispose(); } });
 }
 
-// ----- 水体系统（v0.31.0: 性能优化+河床下切逻辑修复+水面扭曲消除） -----
+// ----- 水体系统（v0.32.1: 水面可见+河床内水位+锐角贝塞尔预平滑+bug修复） -----
 // 水体笔刷的核心：修改 applyBrush() 中的 'water' 分支
 // 视觉通过 vertexColors（蓝色）呈现在地形模型上
 
@@ -1518,12 +1518,14 @@ function createWaterLayer() {
     
     const waterMat = new THREE.MeshStandardMaterial({
         color: '#3388cc', roughness: 0.1, metalness: 0.3,
-        transparent: true, opacity: 0.6, depthWrite: true, depthTest: true
+        transparent: true, opacity: 0.6, depthWrite: true, depthTest: true,
+        side: THREE.DoubleSide,  // 修复：水面三角形法线朝下，需双面渲染
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
     });
     
     for (const w of mapData.waters) {
         const waterLevel = w.waterLevel || 0;
-        const surfaceLevel = waterLevel + 0.2;  // 水面高出水位 0.2m
+        const surfaceLevel = waterLevel;  // 水面精确在水位高度（水位已在河床凹槽内）
         console.log('🌊 [createWaterLayer] 处理水体:', w.type, 'waterLevel:', waterLevel, 'surfaceLevel:', surfaceLevel);
         
         if (w.type === 'pond' && w.center && w.radius) {
@@ -1539,36 +1541,39 @@ function createWaterLayer() {
             scene.add(mesh);
             waterLayerMeshes.push(mesh);
         } else if (w.type === 'river' && w.points && w.points.length >= 2) {
-            // 河流：矩形条带法，每对相邻路径点创建独立矩形（避免CatmullRom法向量扭曲）
-            console.log('🌊 [河流水面] 点数:', w.points.length, 'width:', w.width, 'surfaceLevel:', surfaceLevel);
+            // 河流：共享顶点条带法 + 贝塞尔预平滑（折角处插入插值点）
+            const pts = subdivideSharpCorners(w.points, 40);
+            console.log('🌊 [河流水面] 原始点数:', w.points.length, '平滑后:', pts.length, 'width:', w.width, 'surfaceLevel:', surfaceLevel);
             const hw = (w.width || brushRadius || 10) * 0.6;
             const verts = [], idx = [];
             
-            // 先计算每段的方向向量用于条带宽度
-            for (let i = 0; i < w.points.length; i++) {
-                const p = w.points[i];
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
                 let nx, nz;
-                if (i < w.points.length - 1) {
-                    // 使用与下一个点的方向
-                    const dx = w.points[i + 1].x - p.x;
-                    const dz = w.points[i + 1].z - p.z;
+                if (i === 0) {
+                    const dx = pts[i+1].x - p.x, dz = pts[i+1].z - p.z;
                     const len = Math.hypot(dx, dz) || 1;
-                    nx = -dz / len; nz = dx / len;
+                    nx = -dz/len; nz = dx/len;
+                } else if (i === pts.length - 1) {
+                    const dx = p.x - pts[i-1].x, dz = p.z - pts[i-1].z;
+                    const len = Math.hypot(dx, dz) || 1;
+                    nx = -dz/len; nz = dx/len;
                 } else {
-                    // 最后一个点，使用上一个点的方向
-                    const dx = p.x - w.points[i - 1].x;
-                    const dz = p.z - w.points[i - 1].z;
-                    const len = Math.hypot(dx, dz) || 1;
-                    nx = -dz / len; nz = dx / len;
+                    const dxIn = p.x - pts[i-1].x, dzIn = p.z - pts[i-1].z;
+                    const lenIn = Math.hypot(dxIn, dzIn) || 1;
+                    const dxOut = pts[i+1].x - p.x, dzOut = pts[i+1].z - p.z;
+                    const lenOut = Math.hypot(dxOut, dzOut) || 1;
+                    const ax = dxIn/lenIn + dxOut/lenOut;
+                    const az = dzIn/lenIn + dzOut/lenOut;
+                    const aLen = Math.hypot(ax, az) || 1;
+                    nx = -az/aLen; nz = ax/aLen;
                 }
-                verts.push(p.x + nx * hw, surfaceLevel, p.z + nz * hw);  // 左
-                verts.push(p.x - nx * hw, surfaceLevel, p.z - nz * hw);  // 右
+                verts.push(p.x + nx*hw, surfaceLevel, p.z + nz*hw);
+                verts.push(p.x - nx*hw, surfaceLevel, p.z - nz*hw);
             }
-            
-            // 三角形索引：每对相邻点形成2个三角形
-            for (let i = 0; i < w.points.length - 1; i++) {
+            for (let i = 0; i < pts.length - 1; i++) {
                 const vi = i * 2;
-                idx.push(vi, vi+1, vi+2, vi+1, vi+3, vi+2);
+                idx.push(vi, vi+2, vi+1, vi+1, vi+2, vi+3);
             }
             
             if (verts.length > 0) {
@@ -1577,6 +1582,7 @@ function createWaterLayer() {
                 geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
                 geo.setIndex(idx);
                 geo.computeVertexNormals();
+                geo.computeBoundingSphere();
                 const mesh = new THREE.Mesh(geo, waterMat);
                 mesh.name = 'water-river-' + w.id;
                 mesh.renderOrder = 1;
@@ -1863,6 +1869,33 @@ function samplePathSmoothDense(points, spacing) {
     return samples;
 }
 
+// 贝塞尔预平滑：在折角 > maxAngle 处插入二次贝塞尔插值点，消除尖锐转角
+function subdivideSharpCorners(pts, maxAngle = 45) {
+    if (pts.length < 3) return [...pts];
+    const result = [pts[0]];
+    for (let i = 1; i < pts.length - 1; i++) {
+        const dxIn = pts[i].x - pts[i-1].x, dzIn = pts[i].z - pts[i-1].z;
+        const dxOut = pts[i+1].x - pts[i].x, dzOut = pts[i+1].z - pts[i].z;
+        const lenIn = Math.hypot(dxIn, dzIn) || 1;
+        const lenOut = Math.hypot(dxOut, dzOut) || 1;
+        const dot = (dxIn*dxOut + dzIn*dzOut) / (lenIn*lenOut);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
+        if (angle > maxAngle) {
+            const n = Math.ceil(angle / 20);  // 每20°插入一个点
+            for (let j = 1; j <= n; j++) {
+                const t = j / (n + 1);
+                // 二次贝塞尔：B(t) = (1-t)²p0 + 2(1-t)t·p1 + t²p2
+                const bx = (1-t)*(1-t)*pts[i-1].x + 2*(1-t)*t*pts[i].x + t*t*pts[i+1].x;
+                const bz = (1-t)*(1-t)*pts[i-1].z + 2*(1-t)*t*pts[i].z + t*t*pts[i+1].z;
+                result.push({ x: bx, z: bz });
+            }
+        }
+        result.push(pts[i]);
+    }
+    result.push(pts[pts.length - 1]);
+    return result;
+}
+
 function applyBrush(wx, wz, skipGeoUpdate = false) {
     if (Math.abs(wx) > WORLD_HALF || Math.abs(wz) > WORLD_HALF) return;
     const brPx = brushRadius / WORLD_SIZE * HM_RES;
@@ -1917,7 +1950,7 @@ function applyBrush(wx, wz, skipGeoUpdate = false) {
                         affectedBlocks.add(sx + ',' + sy);
                         dirtyTex = true;
                     }
-                    if (!isEdited) mapData.editedVerticesPaint.add(sx + ',' + sy);
+                    if (!isEdited_w) mapData.editedVerticesPaint.add(sx + ',' + sy);
                     break;
             }
         }
@@ -2243,14 +2276,15 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
     if (isSprayPlacing) { isSprayPlacing = false; overlayInfo.textContent = '🖱️选择模式 — 拖拽旋转 | Shift平移 | 滚轮缩放'; }
     if (isWaterPainting) {
         isWaterPainting = false;
+        const t0 = performance.now();
         // 记录水体元数据（池塘 vs 河流）
         if (waterDragPoints.length >= 3) {
-            // ========== 河流：计算海平面 = 轨迹最高原始高度（水面必须高于所有点） ==========
-            const t0 = performance.now();
+            // ========== 河流：水面应在河床凹槽内（地表 - 下切深度×60%） ==========
             const maxOrigH = waterDragBaseLevels.length > 0 ? Math.max(...waterDragBaseLevels) : waterBaseLevel;
-            const adjustedWaterLevel = Math.max(waterBaseLevel, maxOrigH);
-            waterBaseLevel = adjustedWaterLevel;
-            console.log('🔵 [河流] 海平面: 初始='+waterBaseLevel.toFixed(1)+' 轨迹最高='+maxOrigH.toFixed(1)+' 最终='+adjustedWaterLevel.toFixed(1));
+            // 水面沉入河道：原始地表高度 - 下切深度的60%
+            const riverSurfaceLevel = maxOrigH - brushStrength * 0.6;
+            waterBaseLevel = riverSurfaceLevel;
+            console.log('🔵 [河流] 水面高度: 地表='+maxOrigH.toFixed(1)+' 下切='+brushStrength+'m 水面='+waterBaseLevel.toFixed(1));
             
             // 采样间距 = max(1.5, 笔刷半径/4)，兼顾连续性和性能
             const sampleSpacing = Math.max(1.5, brushRadius / 4);
@@ -2266,16 +2300,16 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
             console.log('⏱️ [河流] 批量雕刻完成, 耗时:', (t1-t0).toFixed(0)+'ms');
             
             // 验证：抽查3个点的地形高度
-            console.log('🔵 [河流] 地形高度抽查 (水面='+adjustedWaterLevel.toFixed(2)+' 下切深度='+brushStrength+'m):');
+            console.log('🔵 [河流] 地形高度抽查 (水面='+waterBaseLevel.toFixed(2)+' 下切深度='+brushStrength+'m):');
             for (let i = 0; i < Math.min(3, smoothPts.length); i++) {
                 const idx = Math.floor(i * smoothPts.length / 3);
                 const pt = smoothPts[idx];
                 const h = smpHeight(pt.x, pt.z);
-                console.log('  点'+idx+': ('+pt.x.toFixed(1)+','+pt.z.toFixed(1)+') 地形='+h.toFixed(2)+' 应<'+adjustedWaterLevel.toFixed(2));
+                console.log('  点'+idx+': ('+pt.x.toFixed(1)+','+pt.z.toFixed(1)+') 地形='+h.toFixed(2)+' 应<'+waterBaseLevel.toFixed(2));
             }
             
-            const center = waterDragPoints[Math.floor(waterDragPoints.length / 2)];
-            addWaterRecord('river', { x: center.x, z: center.z }, null, waterDragPoints, waterBaseLevel, brushRadius);
+            const center = smoothPts[Math.floor(smoothPts.length / 2)];
+            addWaterRecord('river', { x: center.x, z: center.z }, null, smoothPts, waterBaseLevel, brushRadius);
             overlayInfo.textContent = '✅ 河流已创建 ('+smoothPts.length+'段 | 宽'+brushRadius+'m | 下切'+brushStrength+'m | 水位'+waterBaseLevel.toFixed(1)+'m | 耗时'+(t1-t0).toFixed(0)+'ms)';
         } else {
             // 湖泊
@@ -2938,7 +2972,7 @@ function init() {
     document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
     document.getElementById('status-tool').textContent = '选择';
     refreshWaterList();
-    console.log('✅ 地图编辑器 v0.31.0 河流生成修复 初始化完成');
+    console.log('✅ 地图编辑器 v0.32.1 河流水面修复 初始化完成');
 }
 init(); pushSnapshot(); animate(performance.now());
 
