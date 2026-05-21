@@ -133,22 +133,22 @@
     function updatePatrol(enemy, ai, cfg, dt) {
         if (!cfg.patrolPath || cfg.patrolPath.length === 0) return;
         const wp = cfg.patrolPath[ai.patrolIndex];
-        const beforeX = enemy.position.x, beforeZ = enemy.position.z;
+        const distBefore = Math.hypot(enemy.position.x - wp[0], enemy.position.z - wp[1]);
         const arrived = moveEnemyToward(enemy, wp[0], wp[1], cfg.speed || 3.0, dt);
         if (arrived) {
             ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
             ai.wpStuckTimer = 0;
             ai._consecutiveStucks = 0;
         } else {
-            // v0.26.5fix: 障碍物卡住检测 — 位移极小说明被障碍物挡住
-            const moved = Math.abs(enemy.position.x - beforeX) + Math.abs(enemy.position.z - beforeZ);
-            if (moved < 0.02) {
+            // 用距巡逻点距离缩小替代绝对位移（防止敌人间碰撞推挤导致 stuck 误复位）
+            const distAfter = Math.hypot(enemy.position.x - wp[0], enemy.position.z - wp[1]);
+            const distReduction = distBefore - distAfter;
+            if (distReduction < 0.01) {  // 没有实质接近巡逻点
                 ai.wpStuckTimer = (ai.wpStuckTimer || 0) + dt;
-                if (ai.wpStuckTimer > 1.5) {  // 1.5秒卡住即跳过（原3.0s太长）
+                if (ai.wpStuckTimer > 1.5) {
                     ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
                     ai.wpStuckTimer = 0;
                     ai._consecutiveStucks = (ai._consecutiveStucks || 0) + 1;
-                    // 连续卡住超过3个点 → 随机偏移尝试逃离障碍物区域
                     if (ai._consecutiveStucks >= 3) {
                         const angle = Math.random() * Math.PI * 2;
                         const r = 2 + Math.random() * 4;

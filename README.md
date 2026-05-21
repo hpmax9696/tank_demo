@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.34.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.35.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,15 @@ fireSmokeParticles.js:
 - 修复范围：`map_editor.html` + `index.html` 河流水面相关函数（~150行修改）
 
 
+
+### v0.35.0 — 编辑器地图全链路修复（2026-05-21）
+- **坐标映射修复**：getTerrainHeight 编辑器高度图 half 100→150，与纹理 300×300 坐标系统一，消除河床 ~19m 偏移
+- **分段水面**：createRiverWater 使用 riverWaterLevels 分段水位替代单一全局水位，水面跟随河床起伏
+- **河流宽度**：convertBlueprintToMapConfig 传递 riverWidth，水面宽度匹配编辑器画笔半径
+- **空气墙修复**：碰撞半径 hw+1.5→hw+4，密度 ↑35；createBridge 不再清空 riverColliders
+- **树木载入**：createObstacles 消费 editorTrees（InstancedMesh 顺序修正）；编辑器实体边界 spawnR→±150；随机障碍物清零（JS falsy 陷阱修复）
+- **巡逻卡住**：enemyAI.js 卡住检测改用距巡逻点距离缩小替代绝对位移，消除敌人互推振荡
+- **日志清理**：精简河流/树木诊断输出，保留关键摘要
 
 ### v0.34.0 — 加载画面+编辑器地图对接+批量编辑+巡逻分散（2026-05-21）
 - **加载画面**：进入任意地图时显示黑色底+渐变色进度条+7步状态提示，解决干等问题
@@ -762,26 +771,26 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.34.0 | 加载画面+编辑器地图对接+批量属性编辑+巡逻分散`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.35.0 | 编辑器地图全链路修复+河流宽度空气墙+树木载入+巡逻卡住`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.34.0）
-- `index.html`：约 6550 行（主游戏引擎 + 加载画面 + 编辑器地图对接 + 巡逻分散）
+### 代码规模（截至 v0.35.0）
+- `index.html`：约 6680 行（主游戏引擎 + 编辑器地图全链路修复）
 - `map_editor.html`：约 2850 行（地图编辑器 + 批量属性编辑 + 实体列表分类折叠）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
 - `models/pickups.js`：约 190 行（程序化倒角红箱）
 - `zombie_prototype.html`：约 980 行（丧尸原型独立预览）
-- `combat/enemyAI.js`：约 530 行（AI状态机）
+- `combat/enemyAI.js`：约 535 行（AI状态机 + 卡住检测重写）
 - `combat/scoreSystem.js`：约 80 行（积分系统）
 - `fireSmokeParticles.js`：约 390 行（粒子系统）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
 - `models/buildings.js`：约 220 行（建筑模型）
-- **总计约 7400 行**
+- **总计约 7500 行**
 
 ---
 
-## 当前版本关键参数（v0.34.0）
+## 当前版本关键参数（v0.35.0）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|
