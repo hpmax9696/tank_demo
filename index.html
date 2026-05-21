@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.32.1</title>
+    <title>坦克运动demo v0.34.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -149,6 +149,36 @@
         }
         #game-container.active {
             visibility: visible; pointer-events: auto;
+        }
+
+        /* ========== 加载画面 ========== */
+        #loading-overlay {
+            position: fixed; inset: 0; z-index: 300;
+            background: #0a0a14;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            visibility: hidden; opacity: 0;
+            transition: opacity 0.4s;
+        }
+        #loading-overlay.active {
+            visibility: visible; opacity: 1;
+        }
+        #loading-title {
+            font-size: 24px; font-weight: bold; color: #ccc;
+            margin-bottom: 24px; letter-spacing: 2px;
+        }
+        #loading-bar-wrap {
+            width: 340px; height: 6px;
+            background: #1a1a2e; border-radius: 3px;
+            overflow: hidden; margin-bottom: 12px;
+        }
+        #loading-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #f5954a, #f5c842);
+            border-radius: 3px; transition: width 0.3s;
+        }
+        #loading-text {
+            font-size: 12px; color: #888; min-height: 18px;
         }
 
         /* ========== 模型预览 ========== */
@@ -376,6 +406,13 @@
         </div>
     </div>
 
+    <!-- ========== 加载画面 ========== -->
+    <div id="loading-overlay">
+        <div id="loading-title">🚀 正在载入地图</div>
+        <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+        <div id="loading-text"></div>
+    </div>
+
     <!-- ========== 游戏画面 ========== -->
     <div id="game-container">
         <!-- 调试信息 -->
@@ -450,6 +487,11 @@
         const versusResult = document.getElementById('versus-result');
         const resultP1 = document.getElementById('result-p1');
         const resultP2 = document.getElementById('result-p2');
+        // 加载画面
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingBar = document.getElementById('loading-bar');
+        const loadingText = document.getElementById('loading-text');
+        const loadingTitle = document.getElementById('loading-title');
 
         // ── 地图选择器 DOM ──
         const mapSelector = document.getElementById('map-selector');
@@ -862,8 +904,14 @@
                 };
             }
             if (riverW && riverW.points && riverW.points.length >= 2) {
-                // 保存轨迹点用于河流水面渲染
+                // 保存轨迹点 + 编辑器计算的水位（分段或全局）
                 terrainExtra.riverPoints = riverW.points.map(p => ({ x: p.x, z: p.z }));
+                if (riverW.waterLevels && riverW.waterLevels.length > 0) {
+                    terrainExtra.riverWaterLevels = Array.from(riverW.waterLevels);
+                    terrainExtra.riverWaterLevel = riverW.waterLevel || riverW.waterLevels[riverW.waterLevels.length - 1];
+                } else if (riverW.waterLevel !== undefined) {
+                    terrainExtra.riverWaterLevel = riverW.waterLevel;
+                }
             }
             // 桥梁
             const editorBridges = bp.bridges || [];
@@ -887,7 +935,7 @@
                 mode: 'combat',
                 desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
                 spawnPoints: { p1: spawn },
-                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5, ...terrainExtra },
+                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5, splatMap: bp.splatMap, ...terrainExtra },
                 waters: Object.keys(watersCfg).length > 0 ? watersCfg : undefined,
                 bridges: bridgesCfg.length > 0 ? bridgesCfg : undefined,
                 enemies,
@@ -929,8 +977,17 @@
             const md = currentMapData;
             const size = 256;
             const data = new Uint8Array(size * size);
-            const defaultType = TERRAIN_TYPE_INDEX[md.terrainTypes.default] || 0;
+            const defaultType = TERRAIN_TYPE_INDEX[md.terrainTypes ? md.terrainTypes.default : 'grass'] || 0;
             for (let i = 0; i < size * size; i++) data[i] = defaultType;
+
+            // 编辑器地图：直接使用蓝图的 splatMap（道路/纹理信息）
+            if (md.terrain && md.terrain.splatMap) {
+                const sm = md.terrain.splatMap;
+                for (let i = 0; i < size * size && i < sm.length; i++) {
+                    data[i] = Math.min(5, Math.max(0, sm[i] | 0));
+                }
+                return data;
+            }
 
             if (!md.terrainTypes || isVersusMap) return data;
 
@@ -2197,9 +2254,38 @@
             if (!river && !rvPts) return;  // 无河流数据
 
             if (rvPts && rvPts.length >= 2) {
-                // 编辑器河流：共享顶点条带 + 贝塞尔预平滑
-                const pts = subdivideSharpCorners(rvPts, 40);
+                // 编辑器河流：路径插值（每 2m 插入一个点，紧密跟随原始路径）
+                const pts = [];
+                for (let i = 0; i < rvPts.length - 1; i++) {
+                    const a = rvPts[i], b = rvPts[i+1];
+                    pts.push(a);
+                    const segLen = Math.hypot(b.x - a.x, b.z - a.z);
+                    const step = Math.max(1, Math.ceil(segLen / 2)); // 每2m一个点
+                    for (let j = 1; j < step; j++) {
+                        const t = j / step;
+                        pts.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+                    }
+                }
+                pts.push(rvPts[rvPts.length - 1]);
                 const hw = 4;  // 半宽 4m（匹配编辑器桥梁宽度）
+                // 优先使用编辑器计算的水位（保存时已校准到河床凹槽内）
+                let waterY;
+                const md = currentMapData;
+                if (md.terrain.riverWaterLevel !== undefined) {
+                    waterY = md.terrain.riverWaterLevel;
+                    console.log('🌊 编辑器河流水面: 使用蓝图水位 waterY=' + waterY.toFixed(2));
+                } else {
+                    // 回退：根据地形计算
+                    let sumH = 0, minH = Infinity;
+                    for (const p of pts) {
+                        const th = getTerrainHeight(p.x, p.z);
+                        sumH += th;
+                        if (th < minH) minH = th;
+                    }
+                    const waterBase = (sumH / pts.length) - 0.6;
+                    waterY = Math.min(waterBase, minH + 0.3);
+                    console.log('🌊 编辑器河流水面: 平均地形=' + (sumH/pts.length).toFixed(2) + ' 最低=' + minH.toFixed(2) + ' → waterY=' + waterY.toFixed(2));
+                }
                 const verts = [];
                 const indices = [];
                 for (let i = 0; i < pts.length; i++) {
@@ -2219,8 +2305,8 @@
                     }
                     const len = Math.hypot(dx, dz) || 1;
                     const nx = -dz/len * hw, nz = dx/len * hw;
-                    verts.push(p.x + nx, RIVER_WATER_LEVEL, p.z + nz);
-                    verts.push(p.x - nx, RIVER_WATER_LEVEL, p.z - nz);
+                    verts.push(p.x + nx, waterY, p.z + nz);
+                    verts.push(p.x - nx, waterY, p.z - nz);
                 }
                 for (let i = 0; i < pts.length - 1; i++) {
                     const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
@@ -2238,6 +2324,10 @@
                 riverWater.name = 'riverWater';
                 riverWater.receiveShadow = true;
                 scene.add(riverWater);
+                // 沿河流路径生成碰撞体（每隔 2 段放一个碰撞点，半径=半宽+1m）
+                for (let i = 0; i < pts.length; i += Math.max(1, Math.floor(pts.length / 20))) {
+                    riverColliders.push({ x: pts[i].x, z: pts[i].z, radius: hw + 1.5 });
+                }
                 return;
             }
 
@@ -2290,8 +2380,6 @@
                 editorBridges.forEach(b => {
                     const bCX = b.cx, bHW = b.halfW || 4;
                     const spanZ = 10;  // 跨越宽度
-                    // 用桥中心高度（来自离散高度图）
-                    const gh = getTerrainHeight(bCX, 0, currentMapData);
                     const bz = 0; // 简化：桥在 z=0 附近
                     const matDeck = new THREE.MeshStandardMaterial({ color: '#8B7355', roughness: 0.7, metalness: 0.1 });
                     const matRail = new THREE.MeshStandardMaterial({ color: '#6B5340', roughness: 0.6, metalness: 0.2 });
@@ -2306,11 +2394,13 @@
                         railTop.receiveShadow = true; railTop.castShadow = true;
                         bridgeGroup.add(railTop);
                     }
+                    // 河岸碰撞体（桥两端，阻止坦克掉入河流）
+                    const shoreRadius = bHW * 1.2;
+                    riverColliders.push({ x: bCX, z: bz - spanZ/2 - 1, radius: shoreRadius });
+                    riverColliders.push({ x: bCX, z: bz + spanZ/2 + 1, radius: shoreRadius });
                 });
                 scene.add(bridgeGroup);
-                return;
-            }
-
+            } else if (paramRiver) {
             // 参数化桥梁（01a 等地图）
             const b = _getBridge();
             const r = paramRiver;
@@ -2359,6 +2449,7 @@
             riverColliders.push({ x: bCX, z: bz - bhw - 1, radius: shoreRadius });
             // 桥后的河岸碰撞点
             riverColliders.push({ x: bCX, z: bz + bhw + 1, radius: shoreRadius });
+            }  // else if (paramRiver)
         }
 
         // ==================== 坦克模型（双 GLB：1P绿色 + 2P黄色，程序化回退） ====================
@@ -4740,8 +4831,11 @@
         }
 
         // ==================== PvE 战斗模式 ====================
-        function enterCombatMode() {
+        async function enterCombatMode() {
             gameMode = 'combat'; isVersusMap = false;
+            updateLoadingProgress(8, '准备战斗场景...');
+            await raf();
+
             menuOverlay.classList.add('hidden'); gameContainer.classList.add('active');
             splitLine.style.display = 'none'; arrowP1.style.display = 'none'; arrowP2.style.display = 'none';
             hintBar.textContent = '键盘 W/S/↑/↓  |  空格/RT 开炮 | ⚔️ PvE战斗模式';
@@ -4754,7 +4848,6 @@
                 if (player1.damageEffects.firePoints && player1.damageEffects.firePoints.parent) player1.damageEffects.firePoints.parent.remove(player1.damageEffects.firePoints);
                 if (player1.damageEffects.smokePoints && player1.damageEffects.smokePoints.parent) player1.damageEffects.smokePoints.parent.remove(player1.damageEffects.smokePoints);
             }
-            // 移除双人模式残留
             if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
             if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
             if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
@@ -4762,18 +4855,21 @@
                 if (player2.damageEffects.firePoints && player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints);
                 if (player2.damageEffects.smokePoints && player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints);
             }
-            // 清理旧特效
             shells.forEach(s => { scene.remove(s.mesh); disposeShellMesh(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } }); shells = [];
             fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }); fragments = [];
             muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); }); muzzleLights = [];
             explosions.forEach(exp => exp.dispose()); explosions = [];
             scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); }); scorchMarks = [];
             groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); }); groundDebris = [];
-            // 清理旧敌人+掉落物
             cleanupEnemies();
             cleanupPickups();
-            // 重建地图
-            rebuildMap();
+
+            // 重建地图（复用异步版：清理→地形→草丛→水体→障碍物）
+            await rebuildMapAsync();
+
+            const enemyCount = (currentMapData && currentMapData.enemies) ? currentMapData.enemies.length : 0;
+            await raf(); updateLoadingProgress(82, enemyCount > 0 ? `生成敌人 (${enemyCount}个)...` : '准备玩家...');
+
             // 玩家配置
             const pcfg = currentMapData.players || {};
             player1 = createPlayer('green', POINT_A_X, POINT_A_Z, Math.PI / 2, true);
@@ -4789,35 +4885,39 @@
             tankGroup = player1.group; tankHull = player1.hull;
             leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
             reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
-            // 重置全局状态
             tankState.x = POINT_A_X; tankState.z = POINT_A_Z; tankState.yaw = Math.PI / 2;
             totalDistance = 0;
             combatShakeTimer = 0;
-            // 重置机枪状态
             mgBullets.forEach(b => { scene.remove(b.mesh); b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } }); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
             mgBullets = []; mgTimer = 0; mgHeat = 0; mgOverheated = false;
-            // 战斗数据
             combatData = {
                 score: 0,
                 lives: pcfg.lives || 3,
                 phase: 'combat',
                 playerCannonDamage: pcfg.cannonDamage || 40,
             };
-            // 创建敌人
+
+            // 创建敌人（04a地图30只丧尸是最重的步骤）
+            if (enemyCount > 0) {
+                const stepPerEnemy = Math.min(8, 13 / enemyCount); // 82%→95%
+                for (let i = 0; i < enemyCount; i++) {
+                    if (i % Math.max(1, Math.floor(enemyCount / 6)) === 0) {
+                        updateLoadingProgress(82 + i * stepPerEnemy, `生成敌人 ${i+1}/${enemyCount}...`);
+                        await raf();
+                    }
+                }
+            }
             createEnemies();
-            // 初始化
+
+            await raf(); updateLoadingProgress(96, '初始化...');
             visibilityTimer = 0;
             updateObstacleVisibility();
             handleObstacleOcclusion();
             placeCamera();
             initAudio(); startEngineSound();
-            // v0.26.4fix: 强制恢复 AudioContext（MG机枪自动开火需要）
             if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    console.log('🔊 AudioContext 已恢复运行');
-                }).catch(e => {
-                    console.warn('⚠️ AudioContext 恢复失败:', e);
-                });
+                audioCtx.resume().then(() => console.log('🔊 AudioContext 已恢复运行'))
+                    .catch(e => console.warn('⚠️ AudioContext 恢复失败:', e));
             }
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -4828,6 +4928,10 @@
             renderer.setViewport(0, 0, cssW, cssH);
             camera.aspect = cssW / cssH;
             camera.updateProjectionMatrix();
+
+            updateLoadingProgress(100, '完成！');
+            await raf();
+            hideLoading();
             renderer.render(scene, camera);
             updateDebugInfo();
             if (animationId) { cancelAnimationFrame(animationId); }
@@ -4837,7 +4941,9 @@
 
         function createEnemies() {
             if (!currentMapData || !currentMapData.enemies) return;
-            console.log('🗺️ 地图敌人配置数:', currentMapData.enemies.length, '| IDs:', currentMapData.enemies.map(e => e.id).join(','));
+            const totalCfg = currentMapData.enemies.length;
+            const withPatrol = currentMapData.enemies.filter(e => e.patrolPath && e.patrolPath.length > 0).length;
+            console.log('🗺️ 地图敌人: 总数='+totalCfg+' 有巡逻='+withPatrol+' | IDs:', currentMapData.enemies.map(e => e.id).join(','));
             for (const ecfg of currentMapData.enemies) {
                 let model;
                 if (ecfg.type === 'assault-vehicle') {
@@ -4931,6 +5037,18 @@
                 scene.add(model);
                 enemies.push(model);
                 console.log('👾 敌人已部署: ' + ecfg.id + ' (' + ecfg.type + ') at [' + pos[0].toFixed(1) + ',' + gy.toFixed(1) + ',' + pos[2].toFixed(1) + ']');
+            }
+            // 分散巡逻起点：多个敌人共享同一路线时随机偏移起始路径点索引，避免扎堆堵塞
+            if (enemies.length >= 2 && currentMapData.enemies[0].patrolPath) {
+                const pathLen = currentMapData.enemies[0].patrolPath.length;
+                if (pathLen >= 4) {
+                    enemies.forEach((enemy, i) => {
+                        if (enemy.ai && enemy.ai.state === 'patrol') {
+                            enemy.ai.patrolIndex = (i * Math.ceil(pathLen / enemies.length)) % pathLen;
+                        }
+                    });
+                    console.log('🔄 分散巡逻起点: ' + enemies.length + '辆车 | 路线长度=' + pathLen + ' | 分布在路径上');
+                }
             }
         }
 
@@ -5475,7 +5593,14 @@
             });
             // 追加编辑器地图
             try {
-                const bps = JSON.parse(localStorage.getItem('tank_map_editor_blueprints') || '[]');
+                // 全量诊断：列出所有 localStorage 键
+                const allKeys = [];
+                for (let i = 0; i < localStorage.length; i++) allKeys.push(localStorage.key(i));
+                console.log('🔍 localStorage 全部键:', allKeys);
+                const bpsRaw = localStorage.getItem('tank_map_editor_blueprints');
+                console.log('📝 tank_map_editor_blueprints:', bpsRaw ? bpsRaw.substring(0, 300) + (bpsRaw.length > 300 ? '...' : '') : '(空/不存在)');
+                const bps = JSON.parse(bpsRaw || '[]');
+                console.log('📝 编辑器蓝图数量:', bps.length, bps.length > 0 ? '名称: ' + bps.map(b => b.name).join(', ') : '⚠️ 无蓝图');
                 if (bps.length > 0) {
                     const sep = document.createElement('div');
                     sep.className = 'map-item';
@@ -5516,8 +5641,26 @@
             document.querySelectorAll('#menu-overlay > .changelog').forEach(c => c.style.display = '');
         }
 
-        function enterGame() {
+        // ==================== 加载画面 API ====================
+        function showLoading(title) {
+            if (loadingTitle) loadingTitle.textContent = title || '🚀 正在载入地图';
+            if (loadingText) loadingText.textContent = '';
+            if (loadingBar) loadingBar.style.width = '0%';
+            loadingOverlay.classList.add('active');
+        }
+        function updateLoadingProgress(pct, text) {
+            if (loadingBar) loadingBar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+            if (loadingText && text) loadingText.textContent = text;
+        }
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        async function enterGame() {
             hideMapSelector();
+            showLoading('🚀 正在载入地图');
+            await raf(); updateLoadingProgress(5, '加载地图配置...');
+
             // 加载选中地图配置
             if (!loadMapConfig(selectedMapId)) {
                 console.warn('地图加载失败，使用默认配置');
@@ -5525,25 +5668,28 @@
             }
             // 战斗地图路由
             if (currentMapData && currentMapData.mode === 'combat') {
-                enterCombatMode();
+                await enterCombatMode();
                 return;
             }
             gameMode='single';isVersusMap=false;
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
             hintBar.textContent='键盘 W/S/↑/↓  |  手柄 左摇杆/右摇杆  |  空格/RT 开炮';
-            scene = scene1; // 切换到单人模式场景（含河流桥梁）
+            scene = scene1;
 
-            // 移除双人模式的 player2 坦克和 UI（可能从场景2移除）
+            await raf(); updateLoadingProgress(10, '清理旧场景...');
+            // 移除双人模式的 player2 坦克和 UI
             if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
             if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
             if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
             if (player2 && player2.damageEffects) { if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints); if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints); }
-            // 清理所有爆炸效果残留
             explosions.forEach(exp => exp.dispose()); explosions = [];
-            // 重建单人场景（确保地形/草丛与当前地图配置一致）
-            rebuildMap();
-            // 重置 player1 state 与全局状态同步
+
+            // 重建场景（分步上报进度）
+            await rebuildMapAsync();
+
+            await raf(); updateLoadingProgress(85, '初始化玩家...');
+            // 重置 player1 state
             if (player1) {
                 player1.state.x = POINT_A_X; player1.state.z = POINT_A_Z; player1.state.yaw = Math.PI / 4;
                 player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
@@ -5558,8 +5704,7 @@
                 if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
             }
             resetTank();
-            totalDistance = 0; // 重置里程
-            // 立即刷新障碍物可见性（tankState 已更新为 A 点位置）
+            totalDistance = 0;
             visibilityTimer = 0;
             updateObstacleVisibility();
             if(reloadBarGroup)reloadBarGroup.visible=true;
@@ -5567,9 +5712,8 @@
             placeCamera();
             handleObstacleOcclusion();
             initAudio();startEngineSound();
-            // 确保 canvas 尺寸匹配窗口
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.type = THREE.PCFShadowMap;  // v0.24.10
+            renderer.shadowMap.type = THREE.PCFShadowMap;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.2;
             renderer.setScissorTest(false);
@@ -5577,10 +5721,64 @@
             renderer.setViewport(0, 0, cssW, cssH);
             camera.aspect = cssW / cssH;
             camera.updateProjectionMatrix();
+            updateLoadingProgress(100, '完成！');
+            await raf();
+            hideLoading();
             renderer.render(scene, camera);
             updateDebugInfo();
             if(animationId){cancelAnimationFrame(animationId);}
             clock.getDelta();animationId=requestAnimationFrame(gameLoop);
+        }
+
+        // requestAnimationFrame 的 Promise 封装（用于加载画面渲染间隔）
+        function raf() { return new Promise(r => requestAnimationFrame(r)); }
+
+        // 异步版 rebuildMap（分步上报加载进度）
+        async function rebuildMapAsync() {
+            // 清理
+            await raf(); updateLoadingProgress(15, '移除旧地面...');
+            if (groundPlane) { scene.remove(groundPlane); groundPlane.geometry.dispose(); groundPlane.material.dispose(); }
+            if (waterPlane) { scene.remove(waterPlane); waterPlane.geometry.dispose(); waterPlane.material.dispose(); waterPlane = null; }
+            if (riverWater) { scene.remove(riverWater); riverWater.geometry.dispose(); riverWater.material.dispose(); riverWater = null; }
+            if (bridgeGroup) { bridgeGroup.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); scene.remove(bridgeGroup); bridgeGroup = null; }
+            if (window._treeIMs) {
+                for (const im of window._treeIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose(); im.material.dispose();
+                }
+                window._treeIMs = [];
+            }
+            obstacleMeshes.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            obstacleMeshes = []; obstacleData = [];
+            transparentTreeGroups.forEach(g => {
+                if (g.parent) g.parent.remove(g);
+                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+            });
+            transparentTreeGroups = [];
+            clearGrass();
+
+            // 地基
+            await raf(); updateLoadingProgress(25, '生成地形...');
+            createGround();
+
+            // 草丛
+            await raf(); updateLoadingProgress(45, '生成草丛...');
+            placeGrass();
+
+            // 水体
+            if (!isVersusMap) {
+                await raf(); updateLoadingProgress(55, '生成水体...');
+                createWaterSurface(); createRiverWater(); createBridge();
+            }
+
+            // 障碍物（最重的步骤）
+            await raf(); updateLoadingProgress(65, '生成障碍物...');
+            createObstacles();
+
+            await raf(); updateLoadingProgress(80, '完成场景构建');
         }
 
         function updateDebugInfo() {
@@ -6036,7 +6234,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.32.1 | 河流水面修复：法线方向+河床水位+锐角预平滑+5项编辑器bug');
+        console.log('🎮 坦克运动demo v0.34.0 | 加载画面+编辑器地图对接+批量属性编辑+巡逻分散');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

@@ -142,7 +142,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.33.1 — 地图编辑器）
+## 关键参数（v0.34.0 — 加载画面+编辑器地图修复）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -184,6 +184,10 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 端点削波 | 路径起点/终点 hw 范围内深度线性归零 | `taper = min(startTaper, endTaper)` |
 | 桥梁引道 | 桥两端 5m 范围地形渐变到桥面高度（挖方/填方） | `carveApproach()` 在 `addBridge()` 中 |
 | 斜坡桥面 → 水平桥面 | 改回水平 BoxGeometry，引道用 BufferGeometry 斜坡面板 | `createBridgeMesh()` |
+| 加载画面 | 黑色底+渐变色进度条+状态文字，全地图覆盖 | `showLoading()`/`updateLoadingProgress()`/`hideLoading()` |
+| 编辑器地图对接 | splatMap纹理+waterLevel水位+riverColliders空气墙+巡逻分散 | `convertBlueprintToMapConfig()` + `createRiverWater()` |
+| 敌人批量属性编辑 | 多选敌人时属性面板批量写入HP/速度/视野等 | `syncEnemyConfigPanel()` (map_editor.html) |
+| 实体列表分类折叠 | 建筑/树木默认折叠，出生点/敌人展开 | `collapsedCategories` Set |
 
 ## 常见修复模式
 
@@ -194,22 +198,6 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 **修改地形高度**: 编辑 `.map.json` 的 `terrain.heightMap` 数组，或修改 `getTerrainHeight()` 函数。
 
 **添加新音效**: 在 `index.html` 的音频初始化部分使用 `AudioContext.createOscillator()` 生成。
-
-## Git 操作
-
-```bash
-# 推送到两个远程仓库
-git add -A
-git commit -m "vX.Y.Z: 描述"
-git push origin master    # Gitee
-git push github master    # GitHub
-
-# OneDrive 同步（含 CODEBUDDY.md 和 sky-panorama.png）
-Copy-Item -Path "index.html","README.md","CODEBUDDY.md","three.min.js","GLTFLoader.js","fireSmokeParticles.js","zombie_prototype.html" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\" -Force
-Copy-Item -Path "maps\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\maps\" -Recurse -Force
-Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\models\" -Recurse -Force
-Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\坦克对战demo\combat\" -Recurse -Force
-```
 
 ## 接力开发交接规范
 
@@ -290,10 +278,15 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 11 | 编辑器水体弯道重叠+河岸悬崖+端点深坑 | ✅ v0.32.2~v0.32.6 | 统一网格单元水面(无重叠)→走廊法(一致性)→ease-out falloff(宽缓河岸)→端点削波(渐变归零) |
 | 12 | 起伏地形河流水面溢出河岸 | ✅ v0.33.0 | 分段水面剖面(单调不增, 每段≤本地形) |
 | 13 | 桥梁倾斜/悬浮/撞悬崖 | ✅ v0.33.1 | 水平桥面+引道地形修整(挖方/填方) |
+| 14 | 编辑器地图纹理全绿+splatMap丢失 | ✅ v0.34.0 | convertBlueprintToMapConfig传递splatMap+generateSplatMap优先使用 |
+| 15 | 编辑器河流水面对齐河床 | ✅ v0.34.0 | 蓝图层传递waterLevel字段+createRiverWater优先使用 |
+| 16 | 编辑器地图河流空气墙缺失 | ✅ v0.34.0 | editorBridges路径添加riverColliders+河流路径均匀生成碰撞点 |
+| 17 | 多敌人同路线巡逻堵塞(17辆仅5辆移动) | ✅ v0.34.0 | 分散起始patrolIndex+卡住超时3s→1.5s+连续卡住随机偏移 |
+
 
 ---
 
-## 📋 待完成任务（截至 v0.33.1 移交时）
+## 📋 待完成任务（截至 v0.34.0 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
@@ -304,265 +297,45 @@ Copy-Item -Path "combat\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## ⚔️ PvE 战斗系统方案（v0.26.5 战利品掉落+丧尸）
+## ⚔️ PvE 战斗系统（Phase 1-4 ✅ 完成，Phase 5-6 📋 待开始）
 
-> **记录日期**: 2026-05-10 | **版本**: v0.26.5 | **状态**: Phase 1-4 基本完成，战利品掉落+丧尸模型就绪
+**模块架构**：`combat/scoreSystem.js`（积分持久化）+ `combat/enemyAI.js`（8状态机）+ `models/enemies.js`（程序化敌人）+ `maps/*.map.json`（战斗配置）
 
-### 一、需求总览
+**敌人类型**：装甲突击车（近战冲撞+喷火）✅ | 导弹发射车（远程）📋 | 重型坦克（精英）📋 | Boss炮舰（多阶段）📋
 
-1. **地图绑定积分记录**：每张战斗地图维护单次最高分，含产生时间（首次刷纪录时间）和结算时间（最近一次刷新纪录时间）。
-2. **清空积分功能**：Demo 内提供「清空积分记录」按钮；也可手动删除 localStorage 条目。
-3. **累计总分**：多次游玩积分累加，独立文件存储，后期用于兑换升级道具。同样提供清空按钮和手动删除方式。
-4. **渐进式实现**：先搭架构 → 创一种杂兵 → 模型预览通过 → 放入 03a 地图 → 战斗测试。
+**积分接口** `window.ScoreSystem`：
+- `getMapHighScore(mapId)` → `{ highScore, createdAt, settledAt }` | `settleScore(mapId, score)` → 结算+累加
+- `getTotalScore()` / `clearAllScores()` / `clearMapScore(mapId)` / `clearTotalScore()`
+- 持久化：localStorage `tank_demo_map_scores` + `tank_demo_total_score`
 
-### 二、模块架构
+**AI 状态机**：IDLE → PATROL → ALERT → PURSUIT → SEARCH → ATTACK → STAGGER → DEAD（视野锥形检测+仇恨连锁25m半径）
 
-```
-combat/
-├── scoreSystem.js     ← 积分系统（地图高分 + 累计总分 + localStorage 持久化）
-└── enemyAI.js         ← AI 状态机（PATROL→CHASE→ENGAGE→FLEE→DEAD）
-
-models/
-└── enemies.js         ← 敌方单位 3D 模型（程序化生成，注册到 ModelRegistry）
-
-maps/
-└── test_map_03a.map.json  ← PvE 战斗地图（含 enemies 配置段）
-
-index.html             ← 战斗主引擎（加载上述模块，gameMode 新增 'combat'）
-```
-
-**加载顺序**（已在 index.html 中添加）：
-```html
-<script src="models/enemies.js"></script>
-<!-- PvE 战斗系统模块 -->
-<script src="combat/scoreSystem.js"></script>
-<script src="combat/enemyAI.js"></script>
-```
-
-### 三、积分系统设计（`combat/scoreSystem.js`）
-
-| 存储 Key | 数据结构 | 说明 |
-|----------|----------|------|
-| `tank_demo_map_scores` | `{ "mapId": { highScore, createdAt, settledAt } }` | 每张地图的最高分记录 |
-| `tank_demo_total_score` | `number`（字符串存储） | 跨地图累计总分 |
-
-**全局接口** `window.ScoreSystem`：
-
-| 方法 | 参数 | 返回值 | 说明 |
-|------|------|--------|------|
-| `getMapHighScore(mapId)` | 地图 ID | `{ highScore, createdAt, settledAt }` 或 `null` | 查询地图最高分 |
-| `settleScore(mapId, score)` | 地图 ID + 本局得分 | `{ isNewHigh, highScore, totalScore }` | 结算：更新纪录 + 累加总分 |
-| `getTotalScore()` | — | `number` | 获取累计总分 |
-| `clearAllScores()` | — | — | 清空全部积分（地图分+累计分） |
-| `clearMapScore(mapId)` | 地图 ID | — | 清空指定地图记录 |
-| `clearTotalScore()` | — | — | 仅清空累计总分 |
-
-**持久化方式**：`localStorage`（浏览器本地存储，关闭 demo 后保留，可手动在 F12 → Application → Local Storage 中删除）。
-
-### 四、敌人类型规划
-
-| 类型 | ID | 角色 | 武器 | 行为 | 状态 |
-|------|-----|------|------|------|------|
-| **装甲突击车** | `assault-vehicle` | 杂兵（近战） | V形铲斗冲撞 + 炮塔喷火器 | 巡逻→发现猛冲→近距喷火→绕圈再冲 | ✅ 模型已创建 |
-| 导弹发射车 | `missile-launcher` | 杂兵（远程） | 导弹发射器 | 巡逻→远程锁定→发射导弹→转移 | 📋 待设计 |
-| 重型坦克 | `heavy-tank` | 精英 | 大口径火炮 + 机枪 | 巡逻→正面对决→掩护射击 | 📋 待设计 |
-| Boss 炮舰 | `gunship` | Boss | 多联装火炮 + 导弹 | 固定路径巡游→多阶段攻击 | 📋 待设计 |
-
-### 五、AI 状态机（`combat/enemyAI.js`）
-
-```
-                    ┌─────────────────────────┐
-                    │        PATROL           │  巡逻：沿路径点移动
-                    │   (初始状态/丢失目标)    │
-                    └─────┬──────────┬────────┘
-                 发现玩家  │          │  丢失目标 >5s
-                          ▼          ▼
-                    ┌─────────┐  ┌─────────┐
-                    │  CHASE  │  │  FLEE   │  HP<25% 触发逃跑
-                    │ (追击)  │  │ (逃跑)  │
-                    └───┬─────┘  └─────────┘
-              进入射程 │  脱离射程
-                       ▼
-                    ┌─────────┐
-                    │ ENGAGE  │  瞄准→开火→装填循环
-                    │ (交战)  │
-                    └────┬────┘
-                    HP=0  │
-                         ▼
-                    ┌─────────┐
-                    │  DEAD   │  移除模型 + 掉落 + 加分
-                    └─────────┘
-```
-
-**视野检测**（`canSeeTarget` 函数）：
-- 锥形视野（角度 + 距离上限）
-- 前方方向点积检测
-- Raycaster 障碍物遮挡（接口已预留，TODO）
-
-**装甲突击车 AI 参数**（来自 `test_map_03a.map.json`）：
-
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `hp` | 60 | 生命值 |
-| `speed` | 5.0 | 移动速度（单位/秒） |
-| `viewDist` | 50 | 视野距离 |
-| `engageDist` | 15 | 交战距离 |
-| `ramDamage` | 15 | 冲撞伤害 |
-| `flameDamage` | 8 | 喷火伤害/跳 |
-| `flameTicks` | 3 | 喷火跳数 |
-| `flameRange` | 12 | 喷火射程 |
-| `ramCooldown` | 3 | 冲撞冷却（秒） |
-| `score` | 100 | 击杀得分 |
-| `dropRate` | 0.25 | 掉落概率 |
-| `dropHeal` | 30 | 掉落回血量 |
-
-### 六、战斗地图配置（`test_map_03a.map.json`）
-
-```json
-{
-  "type": "single",
-  "mode": "combat",
-  "players": {
-    "lives": 3,
-    "hp": 100,
-    "cannonDamage": 40,
-    "cannonReload": 2.5,
-    "mgDamage": 5,
-    "mgRange": 50,
-    "mgFireRate": 3
-  },
-  "enemies": [
-    { "id": "av-01", "type": "assault-vehicle", "position": [-25,0,22], ... },
-    { "id": "av-02", "type": "assault-vehicle", "position": [30,0,28], ... }
-  ]
-}
-```
-
-**地图布局**：噪声地形 + 池塘 + 河流 + 桥梁 + 山丘 + 盆地 + 350 障碍物。
-
-### 七、实现阶段
-
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| **Phase 1** | 架构搭建（`enemies.js` + `scoreSystem.js` + `enemyAI.js` 骨架） | ✅ 完成 |
-| **Phase 2** | 装甲突击车外形审批（菜单 → 模型预览 → 敌方单位 → 装甲突击车） | ✅ 通过 (v0.26.0) |
-| **Phase 3** | 03a 地图部署1辆突击车 + AI PATROL/CHASE/ENGAGE + 被动反击 + 积分结算 | ✅ 完成 (v0.26.0) |
-| **Phase 3.5** | 火焰伤害跳距模型修复 + 近防机枪系统 + 方向安全校验收紧 | ✅ 完成 (v0.26.3) |
-| **Phase 3.6** | av-01/02 巡逻+地形俯仰+MG音效+仇恨共享 (4个PvE bug修复) | ✅ 完成 (v0.26.4) |
-| **Phase 4** | 敌人HP伤害显示 + 击杀加分 + 掉落物品 + 玩家重生 | ✅ 完成 (v0.28.0) |
-| **Phase 5** | 清空积分UI按钮 + 局内HUD（HP/弹药/分数） | 📋 待开始 |
-| **Phase 6** | 精英单位 + Boss 炮舰 + 多阶段战斗 | 📋 远期 |
-
-### 八、关键接口（index.html 集成时使用）
-
+**战斗集成**：
 ```javascript
-// 创建敌人实例
-const enemyModel = EnemyModels.createAssaultVehicle();
-enemyModel.position.set(x, y, z);
-enemyModel.cfg = mapEnemyConfig;  // 来自地图 JSON
-enemyModel.ai = { state: 'patrol', patrolIndex: 0, ... };
-scene.add(enemyModel);
-
-// 游戏循环中更新 AI
-EnemyAI.updateEnemyAI(enemy, dt, players, scene);
-
-// 战斗结算
-const result = ScoreSystem.settleScore('test_map_03a', finalScore);
-if (result.isNewHigh) { /* 显示新纪录提示 */ }
-
-// 获取积分
-const highScore = ScoreSystem.getMapHighScore('test_map_03a');
-const totalScore = ScoreSystem.getTotalScore();
-
-// 清空积分（绑定 UI 按钮）
-ScoreSystem.clearAllScores();
+const enemy = EnemyModels.createAssaultVehicle();
+enemy.cfg = mapEnemyConfig; scene.add(enemy);
+EnemyAI.updateEnemyAI(enemy, dt, players, scene);  // 每帧
+ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 ```
 
-### 九、模型预览入口
-
-菜单 → **模型预览** → **敌方单位** → **装甲突击车**
-
-装甲突击车外观：低矮六轮装甲车，浅棕迷彩（#BFA470），车头 V 形铲斗冲撞角，炮塔顶部喷火器管，深色车轮+金属轮毂。
+**03a地图**：装甲突击车×2 | **04a地图**：程序化丧尸×30（5×6网格集群）
 
 ---
 
-## ✅ 地图编辑器 v0.30.0 — 树状村落+水体重制
+## ✅ 地图编辑器 `map_editor.html`（7 阶段 ✅ 全部完成）
 
-> **完成日期**: 2026-05-18 | **版本**: v0.30.0 | **状态**: 树状道路+村落系统 ✅ 完成
+| 阶段 | 内容 |
+|------|------|
+| **Phase 1-2** | HTML四区布局 + 高度笔刷(5种) + SplatMap纹理(6种) + 2048²地面贴图合成 |
+| **Phase 3-4** | 实体放置(出生点/障碍物/敌人/巡逻路径) + 蓝图CRUD + JSON导出/导入 |
+| **Phase 5-6** | 水体+桥梁 + 敌人配置面板 + UndoManager 50步 + 主游戏集成 |
+| **Phase 7** | 树状道路+村落：主路→村路→广场→建筑集群+连接小路，双端(index.html+编辑器) |
 
-### 🗺️ 功能清单（6 阶段 — 全部完成）
+**道路+村落生成**：`generateRoadVillageSystem()` → 7步管线（主路8.5m→分支村路→广场圆盘→建筑集群→连接小路→树木填充→绿化带）
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| **Phase 1** | 基础架构：HTML布局(工具栏/侧面板/2D+3D视口)、Three.js地形预览(256段+透视相机)、高度图Canvas灰度显示 | ✅ 完成 |
-| **Phase 2** | 高度编辑(提升/下陷/平滑笔刷)+SplatMap涂抹(6种纹理)+实时地面贴图合成(2048×2048 Canvas2D) | ✅ 完成 |
-| **Phase 3** | 实体放置：出生点(旗帜+朝向)、障碍物(树/建筑各有3种)、敌人(突击车/丧尸+属性面板)、巡逻路径(连线+拖拽点) | ✅ 完成 |
-| **Phase 4** | 地图JSON管理：MapSerializer(内存↔JSON)、CRUD(localStorage蓝图)、导出下载+导入上传、ParameterFitter(高度图→参数化地形拟合) | ✅ 完成 |
-| **Phase 5** | 水体+桥梁放置、敌人行为配置面板(HP/速度/视野/攻击/行为模式/巡逻预览)、批量编辑(巡逻复制/清空) | ✅ 完成 |
-| **Phase 6** | 撤销重做(UndoManager 50步+Ctrl+Z/Y)、主游戏集成(localStorage→地图列表)、离散高度图双线性插值、性能优化(30fps+笔刷批处理) | ✅ 完成 |
-| **Phase 7** | 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（index.html+map_editor.html双端） | ✅ v0.30.0 |
+**数据流**：编辑器内存 → localStorage蓝图表 → 导出JSON → `convertBlueprintToMapConfig()` → 主游戏离散高度图双线性插值加载
 
-### 🏘️ 道路+村落树状生成系统（v0.30.0 新增）
 
-**双端实现**：
-- `index.html`：运行时 `generateRoadVillageSystem()` → `createObstacles()` 集成
-- `map_editor.html`：编辑器 `randomGenerateVillage()` 全流程重制
 
-**生成顺序**：
-1. 主路（横穿地图，柏油路，宽8.5m）
-2. 垂直分支村路（2-4条，柏油路，宽4.5m）
-3. 村路尽头 → 广场（地砖圆盘，半径可配置）
-4. 广场周围 → 建筑集群（预计算位置，紧密聚集）
-5. 建筑 → 广场连接小路（水泥路，宽1.5m）
-6. 泊松采样填充树木（排除道路区域）
-7. 绿化带（广场外圈恢复草地）
 
-**关键函数**（index.html）：
-- `generateRoadVillageSystem(spawnRadius)` — 返回 roadSegments + villages + roadAreas
-- `isOnRoad(px, pz, roadAreas)` — OBB碰撞检测
-- `createRoadMeshes(roadSegments, villages, scene)` — 渲染道路+广场+连接路
-- `cleanupRoadMeshes()` — 清理道路网格
-
-**关键函数**（map_editor.html）：
-- `randomGenerateVillage()` — 全流程重制，使用 splatMap 绘制道路
-- `drawRoadLine(x1,z1,x2,z2,width,texType)` — splatMap 道路绘制
-- `drawCircleSplat(x,y,radius,texType)` — splatMap 圆形广场绘制
-
-**新增模型注册函数**：
-- `window.ModelRegistry.randomBuildingMaker()` — 仅从 buildings 分类选取（排除树木）
-
-### 🔑 核心能力
-
-- **map_editor.html**：~2700行独立文件，工具栏+侧面板+3D视口+高度图面板四区布局
-- **数据流**：编辑器内存 → localStorage暂存 → 导出JSON → 放入maps/或主游戏直接加载(含离散高度图双线性插值)
-- **主游戏入口**：地图选择列表自动显示 📝编辑地图，无需手动复制JSON
-- **撤销栈内存**：50步 × ~320KB/步 ≈ 16MB，现代浏览器可接受
-
-### ✅ v0.26.4 已修复
-
-- **av-01巡逻启动**：`createEnemies`中初始朝向面向第一巡逻点 + `moveEnemyToward`添加NaN/dt防护
-- **敌人地形俯仰**：游戏循环中 enemies 更新时计算前后1m高度差设置 `rotation.x`
-- **MG音效频率**：`updateMGAutoTarget` 移出敌人循环，每帧只调用一次
-- **仇恨共享**：`shareAggro` 函数，受击敌人40m半径内盟友同步切换CHASE
-
-### ✅ v0.26.3 已修复
-
-- **火焰伤害跳距模型**：视觉射程12→18u，传播速度14→28u/s，伤害判断统一为火焰前沿触达（已消耗跳数×4.2u≥玩家距离），修复第5跳丢失。
-- **近防机枪**：自动检测35u内最近敌，持续射击含命中火花+音效，伤害+击杀判断统一。
-
-### ✅ v0.26.0 已新增
-
-- **PvE战斗系统**：装甲突击车模型(`models/enemies.js`)+AI状态机(`combat/enemyAI.js` PATROL→CHASE→ENGAGE被动反击)+积分系统(`combat/scoreSystem.js` localStorage)+03a战斗地图+index.html combat模式(敌人生成/HP血条/碰撞/火焰伤害/玩家重生/积分结算)
-- **炮塔重构**：突击车炮塔独立 turretPivot Group，支持AI独立旋转瞄准
-
-### ✅ v0.25.5 已改进
-
-- **球形树重构**：25→50+椭球体，蓬松伞形树冠，模型预览菜单恢复3树种
-- **阴影提升**：单人阴影范围 36m→72m（±18→±36），分辨率 512→1024；双人基础范围同步扩展
-
-### ✅ v0.25.4 已修复
-
-- **双人阴影缺失**：versusGameLoop添加阴影相机更新，跟随两玩家中点，按间距动态扩展
-- **炮弹轨迹**（v0.25.3）：计入地形俯仰+5.7°基础仰角，平地射程~200u
-- **坡面焦痕**（v0.25.2）：法线采样 d=0.5, polygonOffset -4/-4, 法线偏移 0.06
 

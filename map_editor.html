@@ -169,6 +169,20 @@
         .sidebar .entity-row.selected { background:#3a3a20; border:1px solid rgba(245,149,74,0.3); }
         .sidebar .entity-row .btn-del { margin-left:auto; background:none; border:none; color:#844; cursor:pointer; font-size:14px; padding:0 4px; }
         .sidebar .entity-row .btn-del:hover { color:#f44; }
+        /* 分类折叠 */
+        .sidebar .cat-header {
+            display:flex; align-items:center; gap:4px;
+            padding:4px 6px; margin-top:4px; border-radius:3px;
+            cursor:pointer; font-size:10px; color:#aaa; user-select:none;
+            background:#1a1a2e; border:1px solid #2a2a45;
+        }
+        .sidebar .cat-header:hover { background:#252545; color:#ccc; }
+        .sidebar .cat-header .cat-arrow { transition:transform 0.2s; display:inline-block; width:12px; text-align:center; }
+        .sidebar .cat-header.collapsed .cat-arrow { transform:rotate(-90deg); }
+        .sidebar .cat-header .cat-count { margin-left:auto; color:#666; font-size:9px; }
+        .sidebar .cat-body { overflow:hidden; }
+        .sidebar .cat-body.collapsed { display:none; }
+        .sidebar .cat-body .entity-row { padding-left:14px; }
         .sidebar .chk-multi { margin-right:2px; accent-color:#f5954a; }
         .sidebar .batch-bar { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; padding:4px 0; border-top:1px solid #3a3a55; }
         .sidebar .batch-bar.hidden { display:none; }
@@ -481,6 +495,7 @@
         <div class="batch-bar hidden" id="batch-bar">
             <button class="batch-btn" data-batch="del-sel">🗑️删除选中</button>
             <button class="batch-btn" data-batch="group">📦编组</button>
+            <button class="batch-btn batch-cfg-btn" data-batch="batch-cfg" id="batch-cfg-btn" style="display:none;">⚙️批量属性</button>
         </div>
     </div>
     <div class="section enemy-cfg" id="enemy-cfg-panel">
@@ -690,6 +705,7 @@ let entityType = 'assault'; // enemy
 let treeType = 'cone'; // cone|sphere|oak
 let bldgType = 'bungalow'; // bungalow|villa|apartment
 let selectedEntityIds = new Set();  // 多选 ID 集合
+let collapsedCategories = new Set(['building', 'tree']); // 默认折叠建筑和树木
 let waypointParentId = null;
 let entityIdCounter = 1;
 const entityMarkers = {};
@@ -1179,63 +1195,124 @@ function syncHighlightRings() {
 }
 
 // ========== 敌人行为配置面板 ==========
-function syncEnemyConfigPanel() {
-    const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
-    if (!selEnt || selEnt.type !== 'enemy') { hideEnemyConfigPanel(); return; }
-    if (!selEnt.cfg) selEnt.cfg = defaultEnemyCfg(selEnt.enemyType || 'assault');
-    cfgPanel.classList.add('visible');
-    cfgHp.value = selEnt.cfg.hp || 60;
-    cfgSpeed.value = selEnt.cfg.speed || 5;
-    cfgView.value = selEnt.cfg.viewDist || 50;
-    cfgAtkDmg.value = selEnt.cfg.attackDamage || 15;
-    cfgAtkCd.value = selEnt.cfg.attackCooldown || 3;
-    cfgDrop.value = selEnt.cfg.dropRate || 0.25;
-    cfgHeal.value = selEnt.cfg.dropHeal || 30;
-    cfgScore.value = selEnt.cfg.score || 100;
-    // 行为模式按钮高亮
-    cfgModeBar.querySelectorAll('.cfg-mode-btn').forEach(b => {
-        const mode = b.dataset.mode;
-        if (mode === 'reactive') b.classList.toggle('active', selEnt.cfg.reactive === true && selEnt.cfg.aggressive !== true);
-        else if (mode === 'aggressive') b.classList.toggle('active', selEnt.cfg.aggressive === true);
-        else if (mode === 'none') b.classList.toggle('active', selEnt.cfg.reactive === false && selEnt.cfg.aggressive !== true);
-    });
-    // 巡逻点预览
-    const wpCount = (selEnt.patrol||[]).length;
-    if (wpCount > 0) {
-        cfgPatrolPrev.innerHTML = '<div style="color:#f5954a;margin-top:2px;">📍 巡逻点 ('+wpCount+'):</div>' +
-            selEnt.patrol.map((wp,i) => `<div class="wp-line">${i+1}. X:${wp.x.toFixed(1)} Z:${wp.z.toFixed(1)}</div>`).join('');
-    } else {
-        cfgPatrolPrev.innerHTML = '<div style="color:#555;">暂无巡逻点</div>';
-    }
-}
-function hideEnemyConfigPanel() {
-    cfgPanel.classList.remove('visible');
+// 获取当前选中的所有敌人实体
+function getSelectedEnemies() {
+    return [...selectedEntityIds]
+        .map(id => mapData.entities.find(e => e.id === id))
+        .filter(e => e && e.type === 'enemy');
 }
 
-// 配置字段 change 事件绑定
+// 是否处于批量编辑模式（选中超过1个敌人）
+function isBatchEnemyEdit() {
+    return selectedEntityIds.size >= 2 && getSelectedEnemies().length >= 2;
+}
+
+function syncEnemyConfigPanel() {
+    const selEnemies = getSelectedEnemies();
+    const nEnemy = selEnemies.length;
+    
+    // 无敌人选中 → 隐藏面板
+    if (nEnemy === 0) { hideEnemyConfigPanel(); return; }
+    
+    // 选中了非敌人实体（混合选择）→ 隐藏面板
+    const selIds = [...selectedEntityIds];
+    const nonEnemy = selIds.some(id => {
+        const e = mapData.entities.find(e => e.id === id);
+        return e && e.type !== 'enemy';
+    });
+    if (nonEnemy) { hideEnemyConfigPanel(); return; }
+    
+    // 取第一个敌人作为显示参考
+    const refEnt = selEnemies[0];
+    if (!refEnt.cfg) refEnt.cfg = defaultEnemyCfg(refEnt.enemyType || 'assault');
+    
+    const batch = nEnemy >= 2;
+    // 更新标题
+    const title = cfgPanel.querySelector('.section-title');
+    if (title) {
+        title.innerHTML = batch ? `⚙️ 敌人属性 <span style="color:#f5954a;font-size:10px;">(批量编辑 ${nEnemy}个)</span>` : '⚙️ 敌人属性';
+    }
+    
+    cfgPanel.classList.add('visible');
+    cfgHp.value = refEnt.cfg.hp || 60;
+    cfgSpeed.value = refEnt.cfg.speed || 5;
+    cfgView.value = refEnt.cfg.viewDist || 50;
+    cfgAtkDmg.value = refEnt.cfg.attackDamage || 15;
+    cfgAtkCd.value = refEnt.cfg.attackCooldown || 3;
+    cfgDrop.value = refEnt.cfg.dropRate || 0.25;
+    cfgHeal.value = refEnt.cfg.dropHeal || 30;
+    cfgScore.value = refEnt.cfg.score || 100;
+    
+    // 行为模式按钮高亮（以第一个敌人为准）
+    cfgModeBar.querySelectorAll('.cfg-mode-btn').forEach(b => {
+        const mode = b.dataset.mode;
+        if (mode === 'reactive') b.classList.toggle('active', refEnt.cfg.reactive === true && refEnt.cfg.aggressive !== true);
+        else if (mode === 'aggressive') b.classList.toggle('active', refEnt.cfg.aggressive === true);
+        else if (mode === 'none') b.classList.toggle('active', refEnt.cfg.reactive === false && refEnt.cfg.aggressive !== true);
+    });
+    
+    // 巡逻点预览（仅单选时显示，批量模式无意义）
+    if (!batch) {
+        const wpCount = (refEnt.patrol||[]).length;
+        if (wpCount > 0) {
+            cfgPatrolPrev.innerHTML = '<div style="color:#f5954a;margin-top:2px;">📍 巡逻点 ('+wpCount+'):</div>' +
+                refEnt.patrol.map((wp,i) => `<div class="wp-line">${i+1}. X:${wp.x.toFixed(1)} Z:${wp.z.toFixed(1)}</div>`).join('');
+        } else {
+            cfgPatrolPrev.innerHTML = '<div style="color:#555;">暂无巡逻点</div>';
+        }
+    } else {
+        cfgPatrolPrev.innerHTML = '<div style="color:#888;">(批量编辑不显示巡逻点)</div>';
+    }
+}
+
+function hideEnemyConfigPanel() {
+    cfgPanel.classList.remove('visible');
+    const title = cfgPanel.querySelector('.section-title');
+    if (title) title.innerHTML = '⚙️ 敌人属性';
+}
+
+// 配置字段 change 事件绑定（支持批量模式）
 [cfgHp,cfgSpeed,cfgView,cfgAtkDmg,cfgAtkCd,cfgDrop,cfgHeal,cfgScore].forEach(el => {
     el.addEventListener('input', () => {
-        const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
-        if (!selEnt || !selEnt.cfg) return;
-        selEnt.cfg.hp = parseFloat(cfgHp.value) || 60;
-        selEnt.cfg.speed = parseFloat(cfgSpeed.value) || 5;
-        selEnt.cfg.viewDist = parseInt(cfgView.value) || 50;
-        selEnt.cfg.attackDamage = parseInt(cfgAtkDmg.value) || 15;
-        selEnt.cfg.attackCooldown = parseFloat(cfgAtkCd.value) || 3;
-        selEnt.cfg.dropRate = parseFloat(cfgDrop.value);
-        selEnt.cfg.dropHeal = parseInt(cfgHeal.value) || 30;
-        selEnt.cfg.score = parseInt(cfgScore.value) || 100;
+        const enemies = getSelectedEnemies();
+        if (enemies.length === 0) return;
+        // 读取面板当前值
+        const hp = parseFloat(cfgHp.value) || 60;
+        const speed = parseFloat(cfgSpeed.value) || 5;
+        const view = parseInt(cfgView.value) || 50;
+        const atkDmg = parseInt(cfgAtkDmg.value) || 15;
+        const atkCd = parseFloat(cfgAtkCd.value) || 3;
+        const drop = parseFloat(cfgDrop.value);
+        const heal = parseInt(cfgHeal.value) || 30;
+        const score = parseInt(cfgScore.value) || 100;
+        // 批量写入所有选中的敌人
+        enemies.forEach(ent => {
+            if (!ent.cfg) ent.cfg = defaultEnemyCfg(ent.enemyType || 'assault');
+            ent.cfg.hp = hp;
+            ent.cfg.speed = speed;
+            ent.cfg.viewDist = view;
+            ent.cfg.attackDamage = atkDmg;
+            ent.cfg.attackCooldown = atkCd;
+            ent.cfg.dropRate = drop;
+            ent.cfg.dropHeal = heal;
+            ent.cfg.score = score;
+        });
     });
 });
+
 cfgModeBar.addEventListener('click', (ev) => {
     const btn = ev.target.closest('.cfg-mode-btn');
     if (!btn) return;
-    const selEnt = (selectedEntityIds.size === 1) ? mapData.entities.find(e => e.id === [...selectedEntityIds][0]) : null;
-    if (!selEnt || !selEnt.cfg) return;
+    const enemies = getSelectedEnemies();
+    if (enemies.length === 0) return;
     const mode = btn.dataset.mode;
-    if (mode === 'reactive') { selEnt.cfg.reactive = true; selEnt.cfg.aggressive = false; }
-    else if (mode === 'aggressive') { selEnt.cfg.reactive = false; selEnt.cfg.aggressive = true; }
-    else { selEnt.cfg.reactive = false; selEnt.cfg.aggressive = false; }
+    // 批量写入所有选中的敌人
+    enemies.forEach(ent => {
+        if (!ent.cfg) ent.cfg = defaultEnemyCfg(ent.enemyType || 'assault');
+        if (mode === 'reactive') { ent.cfg.reactive = true; ent.cfg.aggressive = false; }
+        else if (mode === 'aggressive') { ent.cfg.reactive = false; ent.cfg.aggressive = true; }
+        else { ent.cfg.reactive = false; ent.cfg.aggressive = false; }
+    });
     syncEnemyConfigPanel();
 });
 
@@ -1246,19 +1323,46 @@ function refreshEntityList() {
     const treeNames = {cone:'锥形树', sphere:'球形树', oak:'橡树'};
     const bldgNames = {bungalow:'平房', villa:'别墅', apartment:'公寓'};
     const enemyNames = {assault:'突击车', zombie:'丧尸'};
+    const icons = { spawn: '🚩', tree: '🌲', building: '🏠', enemy: '👾' };
+    const labels = { spawn: '出生点', tree: '树木', building: '建筑', enemy: '敌人' };
+    const catNames = { spawn: '🚩 出生点', enemy: '👾 敌人', building: '🏠 建筑', tree: '🌲 树木' };
+    const catOrder = ['spawn', 'enemy', 'building', 'tree'];
     const nSel = selectedEntityIds.size;
     batchBar.classList.toggle('hidden', nSel < 2);
+    // 批量属性按钮：仅全部选中为敌人时显示
+    const batchCfgBtn = document.getElementById('batch-cfg-btn');
+    if (batchCfgBtn) {
+        const allEnemy = nSel >= 2 && [...selectedEntityIds].every(id => {
+            const e = mapData.entities.find(e => e.id === id);
+            return e && e.type === 'enemy';
+        });
+        batchCfgBtn.style.display = allEnemy ? '' : 'none';
+    }
 
-    let html = mapData.entities.map((e, i) => {
-        const icons = { spawn: '🚩', tree: '🌲', building: '🏠', enemy: '👾' };
-        const labels = { spawn: '出生点', tree: '树木', building: '建筑', enemy: '敌人' };
-        const sel = selectedEntityIds.has(e.id) ? ' selected' : '';
-        let sub = '';
-        if (e.type === 'tree') sub = ` (${treeNames[e.subType]||e.subType})`;
-        if (e.type === 'building') sub = ` (${bldgNames[e.subType]||e.subType})`;
-        if (e.type === 'enemy') sub = ` (${enemyNames[e.enemyType]||e.enemyType} | 巡逻:${(e.patrol||[]).length})`;
-        return `<div class="entity-row${sel}" data-eid="${e.id}" title="X:${e.position.x.toFixed(1)} Z:${e.position.z.toFixed(1)}">${icons[e.type]||'●'} ${labels[e.type]||e.type} #${i+1}${sub}<button class="btn-del" data-del="${e.id}">×</button></div>`;
-    }).join('');
+    // 按类型分组（保留全局序号）
+    const groups = {};
+    catOrder.forEach(t => groups[t] = []);
+    mapData.entities.forEach((e, i) => { e._seq = i + 1; if (groups[e.type]) groups[e.type].push(e); });
+
+    let html = '';
+    catOrder.forEach(type => {
+        const ents = groups[type];
+        if (!ents || ents.length === 0) return;
+        const collapsed = collapsedCategories.has(type);
+        html += `<div class="cat-header${collapsed?' collapsed':''}" data-cat="${type}">` +
+            `<span class="cat-arrow">▼</span>${catNames[type]}` +
+            `<span class="cat-count">${ents.length}个</span></div>`;
+        html += `<div class="cat-body${collapsed?' collapsed':''}" data-cat-body="${type}">`;
+        ents.forEach(e => {
+            const sel = selectedEntityIds.has(e.id) ? ' selected' : '';
+            let sub = '';
+            if (e.type === 'tree') sub = ` (${treeNames[e.subType]||e.subType})`;
+            if (e.type === 'building') sub = ` (${bldgNames[e.subType]||e.subType})`;
+            if (e.type === 'enemy') sub = ` (${enemyNames[e.enemyType]||e.enemyType} | 巡逻:${(e.patrol||[]).length})`;
+            html += `<div class="entity-row${sel}" data-eid="${e.id}" title="X:${e.position.x.toFixed(1)} Z:${e.position.z.toFixed(1)}">${icons[e.type]||'●'} ${labels[e.type]||e.type} #${e._seq}${sub}<button class="btn-del" data-del="${e.id}">×</button></div>`;
+        });
+        html += '</div>';
+    });
 
     // 选中实体类型修改区（仅单选时显示，多选用批量栏）
     if (nSel === 1) {
@@ -1290,6 +1394,18 @@ function refreshEntityList() {
 
     el.innerHTML = html;
 
+    // 分类折叠/展开
+    el.querySelectorAll('.cat-header').forEach(hdr => {
+        hdr.addEventListener('click', () => {
+            const cat = hdr.dataset.cat;
+            if (collapsedCategories.has(cat)) collapsedCategories.delete(cat);
+            else collapsedCategories.add(cat);
+            const body = el.querySelector(`[data-cat-body="${cat}"]`);
+            if (body) body.classList.toggle('collapsed', collapsedCategories.has(cat));
+            hdr.classList.toggle('collapsed', collapsedCategories.has(cat));
+        });
+    });
+
     // 点击选中（支持 Ctrl/Shift 多选 + 双击选同类）
     el.querySelectorAll('.entity-row').forEach(row => {
         let clickTimer = null;
@@ -1303,12 +1419,9 @@ function refreshEntityList() {
                 if (!ent) return;
                 selectedEntityIds.clear();
                 if (ev.altKey) {
-                    // Alt+双击：所有同大类
                     mapData.entities.forEach(e => { if (e.type === ent.type) selectedEntityIds.add(e.id); });
-                    const labels = {spawn:'出生点',tree:'树木',building:'建筑',enemy:'敌人'};
                     overlayInfo.textContent = '✅ 已选中全部 ' + labels[ent.type] + ' (' + selectedEntityIds.size + '个)';
                 } else {
-                    // 双击：所有同小类
                     const subKey = ent.type === 'tree' ? 'subType' : ent.type === 'building' ? 'subType' : ent.type === 'enemy' ? 'enemyType' : null;
                     if (subKey) {
                         mapData.entities.forEach(e => { if (e[subKey] === ent[subKey]) selectedEntityIds.add(e.id); });
@@ -1461,6 +1574,13 @@ document.getElementById('batch-bar').addEventListener('click', (ev) => {
         undoManager._inUndoRedo = false;
     }
     if (op === 'group') createGroup();
+    if (op === 'batch-cfg') {
+        // 滚动到敌人属性面板并高亮闪烁
+        cfgPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cfgPanel.style.transition = 'box-shadow 0.15s';
+        cfgPanel.style.boxShadow = '0 0 20px #f5954a';
+        setTimeout(() => { cfgPanel.style.boxShadow = ''; }, 800);
+    }
 });
 const TC = [[74,107,58],[107,90,58],[196,180,122],[138,138,128],[58,58,62],[139,94,74]]; // 6种地形RGB
 const TNAMES = ['grass','mud','sand','concrete','asphalt','brick'];
@@ -2839,6 +2959,11 @@ function saveBlueprint() {
 
 function showBlueprintModal() {
     const bps = getBlueprints();
+    // 诊断日志
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) allKeys.push(localStorage.key(i));
+    console.log('🔍 [编辑器] localStorage 全部键:', allKeys);
+    console.log('📝 [编辑器] 蓝图数量:', bps.length, bps.length > 0 ? '名称: ' + bps.map(b => b.name).join(', ') : '⚠️ 无蓝图');
     const list = document.getElementById('bp-list');
     if (bps.length === 0) { list.innerHTML = '<div style="color:#888;font-size:12px;">暂无草稿。使用"💾暂存草稿"创建，刷新/关闭浏览器不丢失。</div>'; }
     else {

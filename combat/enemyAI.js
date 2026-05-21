@@ -138,18 +138,28 @@
         if (arrived) {
             ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
             ai.wpStuckTimer = 0;
+            ai._consecutiveStucks = 0;
         } else {
             // v0.26.5fix: 障碍物卡住检测 — 位移极小说明被障碍物挡住
             const moved = Math.abs(enemy.position.x - beforeX) + Math.abs(enemy.position.z - beforeZ);
             if (moved < 0.02) {
                 ai.wpStuckTimer = (ai.wpStuckTimer || 0) + dt;
-                if (ai.wpStuckTimer > 3.0) {
-                    // 超过3秒无法接近路径点，跳过此点
+                if (ai.wpStuckTimer > 1.5) {  // 1.5秒卡住即跳过（原3.0s太长）
                     ai.patrolIndex = (ai.patrolIndex + 1) % cfg.patrolPath.length;
                     ai.wpStuckTimer = 0;
+                    ai._consecutiveStucks = (ai._consecutiveStucks || 0) + 1;
+                    // 连续卡住超过3个点 → 随机偏移尝试逃离障碍物区域
+                    if (ai._consecutiveStucks >= 3) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = 2 + Math.random() * 4;
+                        enemy.position.x += Math.cos(angle) * r;
+                        enemy.position.z += Math.sin(angle) * r;
+                        ai._consecutiveStucks = 0;
+                    }
                 }
             } else {
                 ai.wpStuckTimer = 0;
+                ai._consecutiveStucks = 0;
             }
         }
     }
