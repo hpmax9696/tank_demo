@@ -142,7 +142,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.35.0 — 编辑器地图全链路修复）
+## 关键参数（v0.36.0 — 水面修复：WATER_LEVEL常量覆盖+椭圆形水面+堤岸修整）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -284,11 +284,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 17 | 多敌人同路线巡逻堵塞(17辆仅5辆移动) | ✅ v0.35.0 | 分散起始patrolIndex+距离缩小替代绝对位移卡住检测 |
 | 18 | 编辑器河床/纹理/水面三线坐标偏移~19m | ✅ v0.35.0 | getTerrainHeight half 100→150与纹理300统一 |
 | 19 | 编辑器树木不加载/聚集/位置错误 | ✅ v0.35.0 | editorTrees消费+InstancedMesh顺序修正+spawnR→150+falsy陷阱 |
+| 20 | 池塘水面悬空（WATER_LEVEL常量覆盖） | ✅ v0.36.0 | 游戏循环每帧`waterPlane.position.y=WATER_LEVEL`硬编码覆盖，修复：userData.baseY存储实际水面高度 |
 
 
 ---
 
-## 📋 待完成任务（截至 v0.35.0 移交时）
+## 📋 待完成任务（截至 v0.36.0 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|

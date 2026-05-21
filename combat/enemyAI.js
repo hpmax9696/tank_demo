@@ -94,10 +94,18 @@
         if (facingDot > -0.8) {
             // 步长按朝向对齐度缩放：正对时全速，90°偏角时半速，极限143°时微速
             const alignment = Math.max(0.15, (facingDot + 0.8) / 1.8);
-            const step = Math.min(speed * dt * alignment, dist);
-            // 沿车身前方移动（转向后的新朝向）
+            let moveStep = speed * dt * alignment;
+            // 坡度速度限制（复用单例避免频繁创建 Vector3）
             const newFwdX = -Math.cos(enemy.rotation.y);
             const newFwdZ =  Math.sin(enemy.rotation.y);
+            const slopeFront = getTerrainHeight(enemy.position.x + newFwdX * 1.0, enemy.position.z + newFwdZ * 1.0);
+            const slopeBack  = getTerrainHeight(enemy.position.x - newFwdX * 1.0, enemy.position.z - newFwdZ * 1.0);
+            const slopeAngle = Math.atan2(slopeFront - slopeBack, 2.0);
+            if (Math.abs(slopeAngle) > MAX_SLOPE) {
+                moveStep *= MAX_SLOPE / Math.abs(slopeAngle);
+            }
+            const step = Math.min(moveStep, dist);
+            // 沿车身前方移动（转向后的新朝向）
             enemy.position.x += newFwdX * step;
             enemy.position.z += newFwdZ * step;
         }
@@ -288,9 +296,16 @@
         const forwardDot = Math.cos(curYaw - targetYaw);
         if (forwardDot > -0.5) {
             const alignment = Math.max(0.3, (forwardDot + 0.5) / 1.5);
-            const step = Math.min(speed * dt * alignment, dist);
-            enemy.position.x += (dx / dist) * step;
-            enemy.position.z += (dz / dist) * step;
+            let moveStep = speed * dt * alignment;
+            // 坡度速度限制
+            const ndx = dx / dist, ndz = dz / dist;
+            const sf = getTerrainHeight(enemy.position.x + ndx * 1.0, enemy.position.z + ndz * 1.0);
+            const sb = getTerrainHeight(enemy.position.x - ndx * 1.0, enemy.position.z - ndz * 1.0);
+            const sa = Math.atan2(sf - sb, 2.0);
+            if (Math.abs(sa) > MAX_SLOPE) moveStep *= MAX_SLOPE / Math.abs(sa);
+            const step = Math.min(moveStep, dist);
+            enemy.position.x += ndx * step;
+            enemy.position.z += ndz * step;
         }
         return false;
     }

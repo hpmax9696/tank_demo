@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.35.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.36.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -232,7 +232,17 @@ fireSmokeParticles.js:
 
 ## 完整版本历史
 
-### v0.32.1 — 河流水面渲染修复（2026-05-20）
+### v0.36.0 — 水面修复（2026-05-21）
+- **根因发现**：游戏循环每帧执行 `waterPlane.position.y = WATER_LEVEL(-1.0) + sin(...)` 硬编码覆盖，`createWaterSurface()` 中计算的水面高度完全无效
+- **修复**：`waterPlane.userData.baseY` 存储实际水面高度，游戏循环改用 `baseY` 替代 `WATER_LEVEL` 常量
+- **椭圆形水面**：水面从圆形改为椭圆（`a = rx×1.25`, `b = rz×1.25`），覆盖完整池塘雕刻范围
+- **堤岸修整**：`createGround()` 中池塘边缘 `ed=1.0~1.25` 范围地形平滑过渡到水面高度，消除盆地侧壁悬空
+- 修复范围：`index.html`（水面创建 + 游戏循环）
+
+### v0.35.0 — 编辑器地图全链路修复（2026-05-21）
+- **坐标映射修复**：getTerrainHeight 编辑器高度图 half 100→150，与纹理 300×300 坐标系统一，消除河床 ~19m 偏移
+- **分段水面**：createRiverWater 使用 riverWaterLevels 分段水位替代单一全局水位，水面跟随河床起伏
+- **河流宽度**：convertBlueprintToMapConfig 传递 riverWidth，水面宽度匹配编辑器画笔半径
 - **水面不可见修复**：三角形绕序修正为逆时针（法线朝上），添加 `DoubleSide` 兜底；主游戏编辑器河流同步修复
 - **水面沉入河床**：`waterBaseLevel = maxOrigH - brushStrength × 0.6`，水面在凹槽内而非浮在地表
 - **锐角折叠修复**：贝塞尔预平滑（`subdivideSharpCorners`）在折角>40°处插入插值点，消除条带顶点交叉

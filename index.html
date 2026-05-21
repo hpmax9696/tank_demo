@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.35.0</title>
+    <title>坦克运动demo v0.36.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -383,7 +383,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.35.0</div>
+        <div class="menu-version">v0.36.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -398,11 +398,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌊 v0.36.0 水面修复 — 游戏循环WATER_LEVEL常量覆盖问题+椭圆形水面覆盖完整雕刻范围+堤岸修整</div>
             <div class="cl-title">🔧 v0.35.0 编辑器地图全链路 — 河流水面/纹理/河床三线对齐(坐标修正)+分段水位+河宽传递+空气墙修复+树木载入+巡逻卡住重写</div>
             <div class="cl-title">🐛 v0.32.1 河流修复 — 水面可见(法线朝上)+沉入河床凹槽+锐角折弯贝塞尔预平滑+5项编辑器bug修复</div>
             <div class="cl-title">🌊 v0.32.0 河流生成修复 — 性能优化(跳过几何体更新)+河床下切逻辑修复+水面扭曲消除(矩形条带法)</div>
             <div class="cl-title">🌊 v0.31.0 水体修复 — 河流碰撞检测+自动桥梁：建筑/树木不再生成到河流中，道路跨越河流自动生成桥梁</div>
-            <div class="cl-title">🏘️ v0.30.0 村落 — 树状道路+村落系统：主路→村路→广场→建筑集群+连接小路（demo+编辑器双端）</div>
         </div>
     </div>
 
@@ -894,7 +894,7 @@
             const watersCfg = {};
             const terrainExtra = {};
             if (pondW || riverW) {
-                watersCfg.pond = { waterLevel: -1 };
+                watersCfg.pond = { waterLevel: pondW ? (pondW.waterLevel ?? -1) : -1 };
                 watersCfg.river = { waterLevel: -1 };
             }
             if (pondW && pondW.center) {
@@ -923,10 +923,10 @@
             }));
             // 编辑器放置的建筑/树木实体（用于游戏端直接放置）
             const editorBuildings = (bp.entities || []).filter(e => e.type === 'building').map(e => ({
-                x: e.position.x, z: e.position.z, type: e.buildingType || 'bungalow'
+                x: e.position.x, z: e.position.z, type: e.subType || 'bungalow'
             }));
             const editorTrees = (bp.entities || []).filter(e => e.type === 'tree').map(e => ({
-                x: e.position.x, z: e.position.z, type: e.treeType || 'cone'
+                x: e.position.x, z: e.position.z, type: e.subType || 'cone'
             }));
             // 编辑器地图障碍物：编辑器已手动放置实体，不生成随机障碍物
             const hasEditorEntities = (editorBuildings.length > 0 || editorTrees.length > 0);
@@ -1540,6 +1540,7 @@
         const TRACK_ACCEL = 6.0, TRACK_DECEL = 10.0, TRACK_COAST = 3.5;
         const PITCH_GAIN = 0.015, PITCH_MAX = 0.09, PITCH_SMOOTH = 8.0;
         const RECOIL_PITCH = -0.08, RECOIL_DECAY = 5.0;
+        const MAX_SLOPE = 0.52; // 最大爬坡度 ~30°，超过此坡度时自动降速
         const WORLD_HALF = 100;
         const OBSTACLE_COUNT = 350;
         const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
@@ -1584,7 +1585,7 @@
         }
         function _getWaterLevel(type) {
             if (currentMapData && currentMapData.waters && currentMapData.waters[type])
-                return currentMapData.waters[type].waterLevel || -1;
+                return currentMapData.waters[type].waterLevel ?? -1;
             return -1;
         }
 
@@ -1857,6 +1858,29 @@
                 const wz = -gy;
                 const h = isVersusMap ? 0 : getTerrainHeight(gx, wz);
                 pos.setZ(i, h);
+            }
+            // ── 池塘堤岸修整：强制将池塘边缘地形过渡到水面高度，消除"悬空" ──
+            const pond = currentMapData && currentMapData.waters && currentMapData.waters.pond;
+            if (pond && pond.rx && pond.rz) {
+                const sAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+                const edgeHs = sAngles.map(a => getTerrainHeight(pond.cx + Math.cos(a) * pond.rx, pond.cz + Math.sin(a) * pond.rz));
+                const edgeMax = Math.max(...edgeHs);
+                const targetH = edgeMax + 0.03; // 与 createWaterSurface 中水面高度一致
+                const shoreMargin = 1.25; // 堤岸外扩系数
+                for (let i = 0; i < pos.count; i++) {
+                    const gx = pos.getX(i);
+                    const gy = pos.getY(i);
+                    const wz = -gy;
+                    const dx = gx - pond.cx, dz = wz - pond.cz;
+                    const ed = Math.sqrt((dx * dx) / (pond.rx * pond.rx) + (dz * dz) / (pond.rz * pond.rz));
+                    if (ed > shoreMargin) continue;
+                    const curH = pos.getZ(i);
+                    // ed<=1.0 处完全修整到 targetH；1.0~shoreMargin 间平滑过渡
+                    const t = Math.max(0, (ed - 1.0) / (shoreMargin - 1.0));
+                    const falloff = 1.0 - t * t * (3.0 - 2.0 * t); // smoothstep
+                    // 强制修整（无论当前高低）到 targetH，确保边缘完全平齐
+                    pos.setZ(i, curH + (targetH - curH) * falloff);
+                }
             }
             groundGeo.computeVertexNormals();
 
@@ -2219,19 +2243,51 @@
         // ==================== 水面 ====================
         let waterPlane = null;  // groundEdgeLine/fogRing 已移除（v0.24.5）
         function createWaterSurface() {
+            // 清理旧水面（防止多次调用产生重叠）
+            if (waterPlane) {
+                scene.remove(waterPlane);
+                if (waterPlane.geometry) waterPlane.geometry.dispose();
+                if (waterPlane.material) waterPlane.material.dispose();
+                waterPlane = null;
+            }
             const pond = _getPond(); if (!pond) return;
-            const wrx = pond.rx - 0.8, wrz = pond.rz - 0.8;
-            const wGeo = new THREE.PlaneGeometry(wrx * 2, wrz * 2);
+            const SHORE_MARGIN = 1.25;
+            const a = pond.rx * SHORE_MARGIN;
+            const b = pond.rz * SHORE_MARGIN;
+            if (a <= 0 || b <= 0) return;
+            const sAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+            const edgeHs = sAngles.map(ang => getTerrainHeight(pond.cx + Math.cos(ang) * pond.rx, pond.cz + Math.sin(ang) * pond.rz));
+            const edgeMin = Math.min(...edgeHs);
+            const waterY = edgeMin - 0.3; // 低于最低边缘 0.3m，形成自然堤岸
+            console.log('🌊 水面(测试):', JSON.stringify({ waterY: waterY.toFixed(3), edgeMin: edgeMin.toFixed(3), edgeHs: edgeHs.map(h => Number(h.toFixed(3))) }));
+            // ── 椭圆形水面：与池塘雕刻（椭圆）完全匹配 ──
+            const seg = 32;
+            const ePos = [0, 0, 0]; // 中心顶点
+            const eUV = [0.5, 0.5];
+            const eIdx = [];
+            for (let i = 0; i <= seg; i++) {
+                const theta = (i / seg) * Math.PI * 2;
+                ePos.push(Math.cos(theta) * a, 0, Math.sin(theta) * b);
+                eUV.push(0.5 + Math.cos(theta) * 0.5, 0.5 + Math.sin(theta) * 0.5);
+            }
+            for (let i = 0; i < seg; i++) eIdx.push(0, i + 2, i + 1);
+            const eGeo = new THREE.BufferGeometry();
+            eGeo.setAttribute('position', new THREE.Float32BufferAttribute(ePos, 3));
+            eGeo.setAttribute('uv', new THREE.Float32BufferAttribute(eUV, 2));
+            eGeo.setIndex(eIdx);
+            eGeo.computeVertexNormals();
             const wMat = new THREE.MeshStandardMaterial({
                 color: '#3388bb', roughness: 0.15, metalness: 0.1,
                 transparent: true, opacity: 0.55, depthWrite: false,
+                side: THREE.DoubleSide,
             });
-            waterPlane = new THREE.Mesh(wGeo, wMat);
-            waterPlane.rotation.x = -Math.PI / 2;
-            waterPlane.position.set(pond.cx, _getWaterLevel('pond'), pond.cz);
+            waterPlane = new THREE.Mesh(eGeo, wMat);
+            waterPlane.position.set(pond.cx, waterY, pond.cz);
             waterPlane.name = 'water';
             waterPlane.receiveShadow = true;
+            waterPlane.userData.baseY = waterY; // 存储实际水面高度，供游戏循环使用
             scene.add(waterPlane);
+            console.log('🌊 水面:', JSON.stringify({ waterY: waterY.toFixed(3), edgeMin: edgeMin.toFixed(3), edgeHs: edgeHs.map(h => Number(h.toFixed(3))) }));
         }
 
         // ==================== 河流（蛇形水面+桥梁） ====================
@@ -2864,28 +2920,55 @@
 
         // 道路可视化：主路+村路+广场+连接小路
         // 道路数据来自地图配置 (currentMapData.roadSystem)，由地图编辑器生成
+        // 修复：使用贴合地形的自定义几何体替代 PlaneGeometry（避免路面悬空/扎地）
         let _roadMat = null, _pathMat = null, _plazaGeo = null;
         function createRoadMeshes(roadSegments, villages, targetScene) {
             cleanupRoadMeshes();
             if (!_roadMat) _roadMat = new THREE.MeshStandardMaterial({ color: '#7B6B5A', roughness: 0.95, metalness: 0.0 });
             if (!_pathMat) _pathMat = new THREE.MeshStandardMaterial({ color: '#A09080', roughness: 0.9, metalness: 0.0 });
 
-            // 主路和村路
-            for (const seg of roadSegments) {
-                const dx = seg.x2 - seg.x1, dz = seg.z2 - seg.z1;
+            // 创建贴合地形的道路网格：沿路面长度采样地形高度，每个顶点独立 Y
+            function makeRoadMesh(x1, z1, x2, z2, width, offset, material) {
+                const dx = x2 - x1, dz = z2 - z1;
                 const len = Math.sqrt(dx * dx + dz * dz);
-                const angle = Math.atan2(dz, dx);
-                const geo = new THREE.PlaneGeometry(len, seg.width, 2, 1);
-                const midX = (seg.x1 + seg.x2) / 2, midZ = (seg.z1 + seg.z2) / 2;
-                const roadY = getTerrainHeight(midX, midZ) + 0.04;
-                const mesh = new THREE.Mesh(geo, _roadMat);
-                mesh.rotation.x = -Math.PI / 2;
-                mesh.rotation.z = angle;
-                mesh.position.set(midX, roadY, midZ);
+                if (len < 0.01) return null;
+                const ux = dx / len, uz = dz / len;
+                const px = -uz, pz = ux; // 垂直方向
+                const halfW = width / 2;
+
+                // 顶点：3列×2行（沿长度3个采样点，宽度2边）
+                const positions = new Float32Array(6 * 3);
+                const tVals = [0, 0.5, 1];
+                let idx = 0;
+                for (let i = 0; i < 3; i++) {
+                    const wx = x1 + dx * tVals[i];
+                    const wz = z1 + dz * tVals[i];
+                    const h = getTerrainHeight(wx, wz) + offset;
+                    // 左沿
+                    positions[idx++] = wx - px * halfW;
+                    positions[idx++] = h;
+                    positions[idx++] = wz - pz * halfW;
+                    // 右沿
+                    positions[idx++] = wx + px * halfW;
+                    positions[idx++] = h;
+                    positions[idx++] = wz + pz * halfW;
+                }
+                // 索引：2个三角形×2个分段
+                const indices = [0, 2, 1, 1, 2, 3, 2, 4, 3, 3, 4, 5];
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                const mesh = new THREE.Mesh(geo, material);
                 mesh.receiveShadow = true;
                 mesh.userData.isRoad = true;
-                targetScene.add(mesh);
-                _roadMeshes.push(mesh);
+                return mesh;
+            }
+
+            // 主路和村路
+            for (const seg of roadSegments) {
+                const mesh = makeRoadMesh(seg.x1, seg.z1, seg.x2, seg.z2, seg.width, 0.04, _roadMat);
+                if (mesh) { targetScene.add(mesh); _roadMeshes.push(mesh); }
             }
 
             // 村庄广场 + 连接小路
@@ -2903,23 +2986,11 @@
                     targetScene.add(plaza);
                     _roadMeshes.push(plaza);
 
-                    // --- 建筑到广场的连接小路 ---
+                    // --- 建筑到广场的连接小路（同样贴合地形）---
                     for (const conn of (vil.connectors || [])) {
-                        const dx = conn.x2 - conn.x1, dz = conn.z2 - conn.z1;
-                        const cLen = Math.sqrt(dx * dx + dz * dz);
-                        if (cLen < 0.1) continue;
-                        const cAngle = Math.atan2(dz, dx);
-                        const cGeo = new THREE.PlaneGeometry(cLen, conn.width || 1.2, 2, 1);
-                        const cMidX = (conn.x1 + conn.x2) / 2, cMidZ = (conn.z1 + conn.z2) / 2;
-                        const cy = getTerrainHeight(cMidX, cMidZ) + 0.06;
-                        const cMesh = new THREE.Mesh(cGeo, _pathMat);
-                        cMesh.rotation.x = -Math.PI / 2;
-                        cMesh.rotation.z = cAngle;
-                        cMesh.position.set(cMidX, cy, cMidZ);
-                        cMesh.receiveShadow = true;
-                        cMesh.userData.isRoad = true;
-                        targetScene.add(cMesh);
-                        _roadMeshes.push(cMesh);
+                        const cw = conn.width || 1.2;
+                        const cMesh = makeRoadMesh(conn.x1, conn.z1, conn.x2, conn.z2, cw, 0.06, _pathMat);
+                        if (cMesh) { targetScene.add(cMesh); _roadMeshes.push(cMesh); }
                     }
                 }
             }
@@ -3595,7 +3666,17 @@
 
             const forwardX = Math.cos(tankState.yaw);
             const forwardZ = Math.sin(tankState.yaw);
-            let newX = tankState.x + forwardX * v * dt;
+
+            // ── 坡度速度限制：超过最大爬坡度时按比例降速 ──
+            const slopeFront = getGroundHeight(tankState.x + forwardX * 1.0, tankState.z + forwardZ * 1.0);
+            const slopeBack  = getGroundHeight(tankState.x - forwardX * 1.0, tankState.z - forwardZ * 1.0);
+            const slopeAngle = Math.atan2(slopeFront - slopeBack, 2.0);
+            let slopeFactor = 1.0;
+            if (Math.abs(slopeAngle) > MAX_SLOPE) {
+                slopeFactor = MAX_SLOPE / Math.abs(slopeAngle);
+            }
+            const limitedV = v * slopeFactor;
+            let newX = tankState.x + forwardX * limitedV * dt;
             let newZ = tankState.z + forwardZ * v * dt;
 
             for (let iter = 0; iter < 3; iter++) {
@@ -3606,15 +3687,17 @@
             const wallMargin = TANK_HALF_W;
             newX = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newX));
             newZ = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newZ));
-            // 池塘空气墙（阻止坦克驶入池塘）
+            // 池塘空气墙（阻止坦克驶入池塘，使用动态池塘数据）
             if (isInPond(newX, newZ)) {
-                // 推回池塘边缘
-                const px = newX - POND_CX, pz = newZ - POND_CZ;
-                const margin = TANK_HALF_W + 0.3;
-                const erx = POND_RX + margin, erz = POND_RZ + margin;
-                const angle = Math.atan2(pz / erz, px / erx);
-                newX = POND_CX + erx * Math.cos(angle);
-                newZ = POND_CZ + erz * Math.sin(angle);
+                const pond = _getPond();
+                if (pond) {
+                    const px = newX - pond.cx, pz = newZ - pond.cz;
+                    const margin = TANK_HALF_W + 0.3;
+                    const erx = pond.rx + margin, erz = pond.rz + margin;
+                    const angle = Math.atan2(pz / erz, px / erx);
+                    newX = pond.cx + erx * Math.cos(angle);
+                    newZ = pond.cz + erz * Math.sin(angle);
+                }
             }
             // 河流空气墙（桥梁区域可通过）
             if (isInRiver(newX, newZ) && !isOnBridge(newX)) {
@@ -3989,7 +4072,8 @@
 
             // 水面波动动画（池塘）
             if (waterPlane) {
-                waterPlane.position.y = WATER_LEVEL + Math.sin(Date.now() * 0.002) * 0.08;
+                const baseY = waterPlane.userData.baseY !== undefined ? waterPlane.userData.baseY : WATER_LEVEL;
+                waterPlane.position.y = baseY + Math.sin(Date.now() * 0.002) * 0.08;
             }
             // 河流水面流动波动
             if (riverWater) {
@@ -4702,7 +4786,12 @@
             const om=(p.currentLeftSpeed-p.currentRightSpeed)/TRACK_SPACING;
             p.state.yaw+=om*dt;
             const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);
-            let nx=p.state.x+fx*v*dt,nz=p.state.z+fz*v*dt;
+            // 坡度速度限制（同单人模式）
+            const sf=getGroundHeight(p.state.x+fx*1.0,p.state.z+fz*1.0);
+            const sb=getGroundHeight(p.state.x-fx*1.0,p.state.z-fz*1.0);
+            const sa=Math.atan2(sf-sb,2.0);
+            const sv=Math.abs(sa)>MAX_SLOPE?MAX_SLOPE/Math.abs(sa):1.0;
+            let nx=p.state.x+fx*v*sv*dt,nz=p.state.z+fz*v*sv*dt;
             for(let it=0;it<3;it++){const cr=checkCollision(nx,nz);if(cr.hit){nx+=cr.pushX;nz+=cr.pushZ;}else break;}
             if(gameMode==='versus'){const o=p===player1?player2:player1;
                 if(o&&!o.dead){const tdx=nx-o.state.x,tdz=nz-o.state.z,td=Math.sqrt(tdx*tdx+tdz*tdz);
@@ -4713,11 +4802,14 @@
             // 池塘/河流空气墙 + 桥梁护栏（仅单人地图）
             if(!isVersusMap){
                 if(isInPond(p.state.x,p.state.z)){
-                    const ppx=p.state.x-POND_CX,ppz=p.state.z-POND_CZ;
-                    const margin=TANK_HALF_W+0.3,erx=POND_RX+margin,erz=POND_RZ+margin;
-                    const angle=Math.atan2(ppz/erz,ppx/erx);
-                    p.state.x=POND_CX+erx*Math.cos(angle);
-                    p.state.z=POND_CZ+erz*Math.sin(angle);
+                    const pond=_getPond();
+                    if(pond){
+                        const ppx=p.state.x-pond.cx,ppz=p.state.z-pond.cz;
+                        const margin=TANK_HALF_W+0.3,erx=pond.rx+margin,erz=pond.rz+margin;
+                        const angle=Math.atan2(ppz/erz,ppx/erx);
+                        p.state.x=pond.cx+erx*Math.cos(angle);
+                        p.state.z=pond.cz+erz*Math.sin(angle);
+                    }
                 }
                 if(isInRiver(p.state.x,p.state.z)&&!isOnBridge(p.state.x)){
                     const rzc=riverCenterZ(p.state.x),rhw=riverHalfWidth(p.state.x)+TANK_HALF_W+0.3;
@@ -5321,14 +5413,17 @@
             const mgOrigin = new THREE.Vector3(0, 0.65, 0);
             player.group.localToWorld(mgOrigin);
 
-            // 射线检测（排除玩家坦克自身，避免子弹被自己挡住）
+            // 射线检测（排除玩家坦克自身，防止子弹被自己挡住）
+            // v0.35.1fix: 显式加入 groundPlane 确保地形遮挡生效
             const epos = nearestEnemy.position.clone();
             const dir = new THREE.Vector3().subVectors(epos, mgOrigin).normalize();
             const raycaster = new THREE.Raycaster(mgOrigin, dir, 0, MG_RANGE);
             // v0.26.4fix3: 排除玩家坦克 group 的所有子节点，防止自瞄射线命中自身
             const excludeList = [];
             if (player && player.group) player.group.traverse(c => { if (c.isMesh || c.isGroup) excludeList.push(c); });
-            const hits = raycaster.intersectObjects(scene.children, true).filter(h => !excludeList.includes(h.object));
+            const hitTargets = [...scene.children];
+            if (groundPlane && !hitTargets.includes(groundPlane)) hitTargets.push(groundPlane);
+            const hits = raycaster.intersectObjects(hitTargets, true).filter(h => !excludeList.includes(h.object));
 
             let hitDist = Math.min(MG_RANGE, nearestDist);
             let hitEnemyFound = false;
@@ -5489,7 +5584,7 @@
             if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);updateGrassVisibility([player2.state]);visibilityTimer=0;}
             for(const od of obstacleData){if(od.blades)od.blades.rotation.x+=1.5*dt;}
             // 水面波动
-            if(waterPlane)waterPlane.position.y=WATER_LEVEL+Math.sin(Date.now()*.002)*.08;
+            if(waterPlane){const baseY=waterPlane.userData.baseY!==undefined?waterPlane.userData.baseY:WATER_LEVEL;waterPlane.position.y=baseY+Math.sin(Date.now()*.002)*.08;}
             // 河流水面流动波动
             if(riverWater){const rpos=riverWater.geometry.attributes.position;const t=Date.now()*.002;
                 for(let i=0;i<rpos.count;i++)rpos.setY(i,RIVER_WATER_LEVEL+Math.sin(rpos.getX(i)*.35+t*1.8)*.1);
@@ -5893,7 +5988,7 @@
             }
 
             el.textContent =
-                'v0.35.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.36.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -6306,7 +6401,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.35.0 | 编辑器地图全链路修复+河流宽度空气墙+树木载入+巡逻卡住');
+        console.log('🎮 坦克运动demo v0.36.0 | 水面修复：游戏循环WATER_LEVEL覆盖+椭圆形水面+堤岸修整');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {
