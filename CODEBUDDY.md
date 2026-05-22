@@ -88,6 +88,25 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 └── 指向箭头: 透视投影 + behind 检测
 ```
 
+### 模型工厂编辑器（model_factory.html）⭐ v0.36.1 新增
+
+`model_factory.html` 是通用程序化模型编辑器，~1580行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
+
+```
+├── 几何系统: buildTaperedBox() + 7种Three.js几何 + RoundedBoxGeometry
+├── 配置树: TANK_CONFIG/BUILDING_CONFIG/ENEMY_CONFIG 嵌套节点
+├── 选择系统: 单选/多选(Ctrl)/全选 → 高亮线框 + 路径面包屑 + 面板聚焦
+├── 批量编辑: 位置偏移(累积式)+颜色+材质 滑杆
+├── 结构编辑: 重命名/形状切换/添加子部件/删除部件
+├── Lathe/Extrude: 轮廓/形状JSON文本编辑
+├── 撤销系统: saveUndo()内联快照 + Ctrl+Z (最多50步)
+├── 持久化: Ctrl+S → localStorage + 自动加载
+├── 视图系统: 7种预设视角 + easeInOutQuad动画
+└── 底盘: 双TaperedBox倒扣船形结构
+```
+
+**导出流程**: 模型工厂调参 → Ctrl+S保存 → 📋输出姿态JSON → 固化到 `models/tank_procedural.js` → index.html 集成
+
 **关键全局变量**:
 - `scene` — 主场景
 - `players[]` — 玩家坦克数组
@@ -142,7 +161,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.36.0 — 水面修复：WATER_LEVEL常量覆盖+椭圆形水面+堤岸修整）
+## 关键参数（v0.36.1 — 模型工厂通用程序化编辑器+台型车体+撤销+视图）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -285,18 +304,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 18 | 编辑器河床/纹理/水面三线坐标偏移~19m | ✅ v0.35.0 | getTerrainHeight half 100→150与纹理300统一 |
 | 19 | 编辑器树木不加载/聚集/位置错误 | ✅ v0.35.0 | editorTrees消费+InstancedMesh顺序修正+spawnR→150+falsy陷阱 |
 | 20 | 池塘水面悬空（WATER_LEVEL常量覆盖） | ✅ v0.36.0 | 游戏循环每帧`waterPlane.position.y=WATER_LEVEL`硬编码覆盖，修复：userData.baseY存储实际水面高度 |
+| 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore或snapshot含相同状态 |
 
 
 ---
 
-## 📋 待完成任务（截至 v0.36.0 移交时）
+## 📋 待完成任务（截至 v0.36.1 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 3 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
-| 4 | 战利品掉落扩展：弹药箱/经验值 | 🔵 远期 | 未分配 | 丰富战利品种类 |
+| 1 | 模型工厂撤销修复：Ctrl+Z逐步回退 | 🔴 紧急 | v0.37.0 | saveUndo快照相同状态问题，需排查deepRestore引用或config写入路径 |
+| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
+| 3 | 坦克程序化模型固化 | 🟡 中期 | v0.37.0 | 模型工厂调优完成→导出JSON→固化到models/tank_procedural.js→集成index.html |
+| 4 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 5 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
 ---
 

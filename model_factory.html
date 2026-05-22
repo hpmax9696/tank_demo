@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>🏭 模型工厂 — 通用程序化模型编辑器</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { overflow:hidden; font-family:'Segoe UI',Arial,sans-serif; background:#1a1a2e; }
+  #info { position:absolute; top:12px; left:12px; color:#ccc; background:rgba(0,0,0,0.7); padding:10px 16px; border-radius:6px; font-size:13px; pointer-events:none; z-index:10; }
+  #info b { color:#ffd866; }
+  #stats { position:absolute; bottom:20px; right:20px; color:#aaa; font-size:12px; z-index:10; background:rgba(0,0,0,0.55); padding:4px 10px; border-radius:4px; }
+  #toggle-helpers { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); z-index:10; background:rgba(0,0,0,0.6); color:#fff; border:1px solid #888; padding:8px 20px; border-radius:5px; cursor:pointer; font-size:14px; transition:background 0.2s; }
+  #toggle-helpers:hover { background:rgba(0,0,0,0.85); }
+  /* lil-gui 覆盖样式 — 深色主题高对比度 */
+  .lil-gui {
+    --background-color:#1b1b30;
+    --text-color:#d4d4d4;
+    --title-background-color:#2a2a45;
+    --title-color:#ffcc66;
+    --widget-color:#3d5068;
+    --number-color:#7eb8ff;
+    --string-color:#7ee0a0;
+    --font-family:'Segoe UI',Arial,sans-serif;
+  }
+  .lil-gui.root { border-right:1px solid #333; }
+  #selection-box { position:fixed; border:1px dashed #4ecdc4; background:rgba(78,205,196,0.1); pointer-events:none; display:none; z-index:100; }
+  /* 视图工具栏 */
+  #view-toolbar { position:absolute; top:100px; left:12px; display:flex; flex-direction:column; gap:4px; z-index:10; }
+  #view-toolbar button { width:38px; height:38px; background:rgba(0,0,0,0.65); color:#aaa; border:1px solid #555; border-radius:4px; cursor:pointer; font-size:16px; transition:all 0.15s; display:flex; align-items:center; justify-content:center; }
+  #view-toolbar button:hover { background:rgba(0,0,0,0.85); color:#fff; border-color:#888; }
+  #view-toolbar button.active { background:rgba(78,205,196,0.3); color:#4ecdc4; border-color:#4ecdc4; }
+  #view-toolbar .sep { height:1px; background:#444; margin:4px 0; }
+  /* 选中路径面包屑 */
+  #path-breadcrumb { position:absolute; bottom:20px; left:12px; color:#aaa; font-size:12px; z-index:10; background:rgba(0,0,0,0.55); padding:4px 10px; border-radius:4px; max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #path-breadcrumb span { color:#4ecdc4; }
+  #path-breadcrumb .sep-arrow { color:#666; margin:0 3px; }
+</style>
+</head>
+<body>
+<div id="info">
+  🏭 <b>模型工厂</b> v0.4 — 通用程序化模型编辑器<br>
+  按住左键旋转 · 滚轮缩放 · 右键平移<br>
+  <span style="color:#ffd866;">单击选中 · Ctrl+点击多选 · 全选按钮 · Delete隐藏 · Ctrl+Z撤销 · Ctrl+S保存</span>
+</div>
+<div id="stats">面数: <span id="triCount">0</span> tris</div>
+<div id="view-toolbar">
+  <button title="透视视图" data-view="persp">🌐</button>
+  <div class="sep"></div>
+  <button title="前视图" data-view="front">⬆</button>
+  <button title="后视图" data-view="back">⬇</button>
+  <button title="左视图" data-view="left">⬅</button>
+  <button title="右视图" data-view="right">➡</button>
+  <button title="顶视图" data-view="top">🔝</button>
+  <button title="底视图" data-view="bottom">🔽</button>
+</div>
+<div id="path-breadcrumb">📍 未选中</div>
+<div id="selection-box"></div>
+<button id="toggle-helpers">🔲 切换对齐辅助框 (BoxHelper)</button>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "lil-gui": "https://unpkg.com/lil-gui@0.18.0/dist/lil-gui.esm.js"
+  }
+}
+</script>
+
+<script type="module">
+// ============================================================
+// 1. 默认材质字典
+// ============================================================
+const MATERIAL_DEFS = {
+  steel:       { color:0x6b6b7b, roughness:0.5,  metalness:0.8 },
+  dark_steel:  { color:0x4a4a5a, roughness:0.45, metalness:0.85 },
+  barrel_steel:{ color:0x3a3a44, roughness:0.35, metalness:0.9 },
+  rubber:      { color:0x2a2a2e, roughness:0.9,  metalness:0.05 },
+  camo_green:  { color:0x4a5c2e, roughness:0.75, metalness:0.1 },
+  camo_dark:   { color:0x3d4f25, roughness:0.7,  metalness:0.1 },
+  camo_desert: { color:0x8b7d4a, roughness:0.75, metalness:0.1 },
+  wood:        { color:0x6b4e3d, roughness:0.85, metalness:0.0 },
+  default:     { color:0x888888, roughness:0.6,  metalness:0.2 }
+};
+
+function getMaterial(matId) {
+  const def = MATERIAL_DEFS[matId] || MATERIAL_DEFS.default;
+  return new THREE.MeshStandardMaterial({ ...def });
+}
+
+// ============================================================
+// 1.5 台型几何体（顶底矩形不同大小）
+// ============================================================
+function buildTaperedBox(bw, h, bd, tw, td) {
+  // bw=底部宽, h=高度, bd=底部深, tw=顶部宽, td=顶部深
+  const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
+  const verts = new Float32Array([
+    // 底面4顶点 (y=0)
+    -hw, 0, -hd,   hw, 0, -hd,   hw, 0,  hd,  -hw, 0,  hd,
+    // 顶面4顶点 (y=h)
+    -thw, h, -thd,  thw, h, -thd,  thw, h,  thd, -thw, h,  thd,
+  ]);
+  const indices = [
+    // 底面 (v0,v2,v1, v0,v3,v2)
+    0,2,1, 0,3,2,
+    // 顶面 (v4,v5,v6, v4,v6,v7)
+    4,5,6, 4,6,7,
+    // 前面 (v0,v1,v5, v0,v5,v4)
+    0,1,5, 0,5,4,
+    // 后面 (v3,v2,v6, v3,v6,v7)
+    3,2,6, 3,6,7,
+    // 左面 (v0,v4,v7, v0,v7,v3)
+    0,4,7, 0,7,3,
+    // 右面 (v1,v2,v6, v1,v6,v5)
+    1,2,6, 1,6,5,
+  ];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// ============================================================
+// 2. 几何工厂（7种类型）
+// ============================================================
+function createGeometry(node) {
+  const s = node.size || [1, 1, 1];
+  const seg = node.segments || [8, 1];
+  switch (node.type) {
+    case 'Box':
+      return new THREE.BoxGeometry(s[0], s[1]||s[0], s[2]||s[0]);
+    case 'TaperedBox':
+      // size: [底部宽, 高, 底部深, 顶部宽, 顶部深]
+      return buildTaperedBox(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6);
+    case 'RoundedBox':
+      // size: [width, height, depth, radius, segments]
+      return new RoundedBoxGeometry(s[0], s[1]||s[0], s[2]||s[0], seg[0]||3, s[3]||0.08);
+    case 'Cylinder':
+      return new THREE.CylinderGeometry(s[0], s[2]!==undefined ? s[2] : s[0], s[1], seg[0]||6);
+    case 'Sphere':
+      return new THREE.SphereGeometry(s[0], seg[0]||8, seg[1]||6);
+    case 'Torus':
+      return new THREE.TorusGeometry(s[0], s[1]||0.05, seg[0]||8, seg[1]||12);
+    case 'Lathe': {
+      const profile = node.profile || [[0.5,0],[0.5,0.3],[0.6,0.3],[0.6,0.35],[0.55,0.4],[0.3,0.45],[0.1,0.4]];
+      const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
+      return new THREE.LatheGeometry(pts, seg[0]||24);
+    }
+    case 'Extrude': {
+      const shape = node.shape || [[-0.5,-0.2],[0.5,-0.2],[0.5,0.2],[-0.5,0.2]];
+      const shape2D = new THREE.Shape(shape.map(p => new THREE.Vector2(p[0], p[1])));
+      const depth = node.extrudeDepth !== undefined ? node.extrudeDepth : 0.5;
+      const bevel = node.bevelThickness || 0.02;
+      return new THREE.ExtrudeGeometry(shape2D, { depth, bevelThickness:bevel, bevelSize:bevel, bevelSegments:2 });
+    }
+    default: return null;
+  }
+}
+
+// ============================================================
+// 3. 辅助色（BoxHelper 颜色映射）
+// ============================================================
+function helperColor(name) {
+  const hash = name.split('').reduce((a,c)=>((a<<5)-a)+c.charCodeAt(0),0);
+  const hues = [0xFF6B6B,0x4ECDC4,0xFFE66D,0x95E1D3,0xF38181,0xAA96DA,0x88D8B0,0x70C1B3,0xFF8A5C,0xCCA000];
+  return hues[Math.abs(hash) % hues.length];
+}
+
+// ============================================================
+// 4. 递归构建函数 buildFromConfig()
+// ============================================================
+function buildFromConfig(config, parent, showHelpers, nodeMap) {
+  const helpers = [];
+  function adjustPos(rawPos, comp) {
+    return [rawPos[0]+comp[0], rawPos[1]+comp[1], rawPos[2]+comp[2]];
+  }
+
+  function buildNode(node, parentObj, pivotComp = [0,0,0]) {
+    if (node.type === 'Group') {
+      const g = new THREE.Group();
+      g.name = node.name;
+      if (node.position) g.position.set(...adjustPos(node.position, pivotComp));
+      if (node.rotation) g.rotation.set(...node.rotation);
+      if (node.scale) g.scale.set(...node.scale);
+      g.visible = node.visible !== false;
+      parentObj.add(g);
+      // Group也要存入nodeMap，否则GUI面板找不到它
+      nodeMap.set(node.name, { group: g, mesh: null, configNode: node, rotTarget: g });
+      if (node.children) {
+        for (const c of node.children) buildNode(c, g);
+      }
+      return;
+    }
+
+    const geo = createGeometry(node);
+    // NaN 诊断：检查几何体顶点
+    if (geo.attributes && geo.attributes.position) {
+      const p = geo.attributes.position;
+      for (let i = 0; i < Math.min(p.count, 3); i++) {
+        if (!isFinite(p.getX(i))) {
+          console.warn('⚠️ NaN geometry from createGeometry:', node.name, node.type, JSON.stringify(node.size));
+          break;
+        }
+      }
+    }
+    // 安全居中：避免某些几何体 computeBoundingBox 产生 NaN
+    geo.computeBoundingBox();
+    const box = geo.boundingBox;
+    if (box && isFinite(box.min.x) && isFinite(box.max.x)) {
+      const cx = (box.min.x + box.max.x) / 2;
+      const cy = (box.min.y + box.max.y) / 2;
+      const cz = (box.min.z + box.max.z) / 2;
+      geo.translate(-cx, -cy, -cz);
+    } else {
+      console.warn('⚠️ NaN boundingBox for:', node.name, node.type, JSON.stringify(node.size));
+    }
+    const mat = (node.color)
+      ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 })
+      : getMaterial(node.materialId || 'default');
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = node.name + '_mesh';
+
+    const pos = adjustPos(node.position || [0,0,0], pivotComp);
+    const group = new THREE.Group();
+    group.name = node.name;
+    group.position.set(...pos);
+    if (node.scale) group.scale.set(...node.scale);
+    group.visible = node.visible !== false;
+    parentObj.add(group);
+
+    let rotTarget = group;
+    if (node.pivot) {
+      const pivot = new THREE.Group();
+      pivot.name = node.name + '_pivot';
+      pivot.position.set(node.pivot[0], node.pivot[1], node.pivot[2]);
+      group.add(pivot);
+      mesh.position.set(-node.pivot[0], -node.pivot[1], -node.pivot[2]);
+      pivot.add(mesh);
+      rotTarget = pivot;
+      group.userData.pivot = pivot;
+    } else {
+      group.add(mesh);
+    }
+
+    if (node.rotation) rotTarget.rotation.set(...node.rotation);
+
+    // 存储映射
+    nodeMap.set(node.name, { group, mesh, configNode:node, rotTarget });
+
+    // BoxHelper
+    if (showHelpers) {
+      const h = new THREE.BoxHelper(mesh, helperColor(node.name));
+      h.update();
+      h.visible = node.visible !== false;
+      h.userData._mesh = mesh;
+      helpers.push(h);
+    }
+
+    const childComp = node.pivot
+      ? [-node.pivot[0], -node.pivot[1], -node.pivot[2]]
+      : [0,0,0];
+    group.userData.appliedComp = pivotComp;
+    group.userData.childComp = childComp;
+
+    if (node.children) {
+      for (const child of node.children) {
+        buildNode(child, rotTarget, childComp);
+      }
+    }
+  }
+
+  buildNode(config, parent);
+  for (const h of helpers) parent.add(h);
+  parent.userData.helpers = helpers;
+  return parent;
+}
+
+// ============================================================
+// 5. 统计面数
+// ============================================================
+function countTriangles(obj) {
+  let count = 0;
+  obj.traverse(child => {
+    if (child.isMesh && child.geometry) {
+      const geo = child.geometry;
+      count += (geo.index ? geo.index.count : geo.attributes.position.count) / 3;
+    }
+  });
+  return Math.round(count);
+}
+
+// ============================================================
+// 6. 初始模型配置（含坦克底盘 stub）
+// ============================================================
+const TANK_CONFIG = {
+  name: '坦克根节点',
+  type: 'Group',
+  position: [0, 0.4, 0],
+  rotation: [0, 0, 0],
+  scale: [1, 1, 1],
+  children: [
+    // ---------- 车体 ----------
+    {
+      name: '车体',
+      type: 'Group',
+      position: [0, 0, 0],
+      children: [
+        // 下台型：底部宽大，顶部收窄（船形底盘）
+        {
+          name: '下车体',
+          type: 'TaperedBox',
+          size: [0.90, 0.22, 1.70, 0.72, 1.50],
+          position: [0, 0.11, 0],
+          materialId: 'camo_green',
+        },
+        // 上台型：底部匹配下车体顶部，上部略宽（上层结构）
+        {
+          name: '上车体',
+          type: 'TaperedBox',
+          size: [0.72, 0.28, 1.50, 0.78, 1.10],
+          position: [0, 0.36, -0.08],
+          materialId: 'camo_green',
+        },
+        {
+          name: '发动机舱',
+          type: 'Box',
+          size: [0.70, 0.14, 0.45],
+          position: [0, 0.50, -0.58],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '左翼子板',
+          type: 'Box',
+          size: [0.14, 0.05, 1.65],
+          position: [-0.50, 0.20, 0],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '右翼子板',
+          type: 'Box',
+          size: [0.14, 0.05, 1.65],
+          position: [0.50, 0.20, 0],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '前装甲板',
+          type: 'Box',
+          size: [0.78, 0.18, 0.05],
+          position: [0, 0.36, 0.52],
+          rotation: [-0.55, 0, 0],
+          materialId: 'camo_green',
+        },
+      ]
+    },
+    // ---------- 行走装置 ----------
+    { name: '左履带', type: 'Group', position:[-0.56,0.10,0], children:[] },
+    { name: '右履带', type: 'Group', position:[0.56,0.10,0], children:[] },
+    // ---------- 炮塔 ----------
+    {
+      name: '炮塔总成',
+      type: 'Group',
+      position: [0, 0.58, -0.05],
+      children: [
+        {
+          name: '炮塔座圈',
+          type: 'Torus',
+          size: [0.42, 0.04],
+          segments: [16, 8],
+          position: [0, 0, 0],
+          rotation: [Math.PI/2, 0, 0],
+          materialId: 'steel',
+        },
+        {
+          name: '炮塔主体',
+          type: 'Lathe',
+          profile: [[0.38,0],[0.40,0.05],[0.42,0.12],[0.38,0.25],[0.28,0.35],[0.12,0.40],[0.04,0.32]],
+          segments: [24],
+          position: [0, 0.04, 0],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '指挥塔',
+          type: 'Cylinder',
+          size: [0.16, 0.10, 0.14],
+          segments: [8],
+          position: [-0.10, 0.42, -0.05],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '左舱盖',
+          type: 'Box',
+          size: [0.14, 0.04, 0.14],
+          position: [-0.10, 0.48, -0.05],
+          materialId: 'camo_dark',
+        },
+        {
+          name: '右舱盖',
+          type: 'Box',
+          size: [0.14, 0.04, 0.14],
+          position: [0.18, 0.42, -0.10],
+          materialId: 'camo_dark',
+        },
+        // ---------- 武器 ----------
+        {
+          name: '炮管总成',
+          type: 'Group',
+          position: [0, 0.22, 0.38],
+          rotation: [0, 0, 0],
+          children: [
+            {
+              name: '炮盾',
+              type: 'Sphere',
+              size: [0.14],
+              segments: [8, 6],
+              position: [0, 0, 0],
+              materialId: 'dark_steel',
+            },
+            {
+              name: '炮管根部',
+              type: 'Cylinder',
+              size: [0.07, 0.20, 0.07],
+              segments: [8],
+              position: [0, 0, 0.12],
+              materialId: 'barrel_steel',
+            },
+            {
+              name: '主炮管',
+              type: 'Cylinder',
+              size: [0.06, 0.70, 0.05],
+              segments: [8],
+              position: [0, 0, 0.55],
+              materialId: 'barrel_steel',
+            },
+            {
+              name: '制退器',
+              type: 'Cylinder',
+              size: [0.08, 0.12, 0.07],
+              segments: [8],
+              position: [0, 0, 0.95],
+              materialId: 'barrel_steel',
+            },
+            {
+              name: '同轴机枪',
+              type: 'Cylinder',
+              size: [0.02, 0.30, 0.02],
+              segments: [6],
+              position: [0.07, -0.04, 0.20],
+              materialId: 'dark_steel',
+            },
+          ]
+        },
+        {
+          name: '车顶机枪',
+          type: 'Group',
+          position: [0.16, 0.42, -0.06],
+          children: [
+            {
+              name: '机枪座',
+              type: 'Box',
+              size: [0.04, 0.08, 0.04],
+              position: [0, 0.04, 0],
+              materialId: 'steel',
+            },
+            {
+              name: '高射机枪管',
+              type: 'Cylinder',
+              size: [0.015, 0.25, 0.012],
+              segments: [6],
+              position: [0, 0.10, 0],
+              materialId: 'dark_steel',
+            },
+          ]
+        },
+      ]
+    },
+  ]
+};
+
+// 建筑配置占位
+const BUILDING_CONFIG = {
+  name: 'buildingRoot',
+  type: 'Group',
+  position: [0, 0, 0],
+  children: [
+    { name:'walls', type:'Box', size:[2,2,2], position:[0,1,0], materialId:'wood' },
+    { name:'roof', type:'Cylinder', size:[1.4,0.3,1.6], segments:[4], position:[0,2.05,0], materialId:'wood' },
+  ]
+};
+
+// 敌人配置占位
+const ENEMY_CONFIG = {
+  name: 'enemyRoot',
+  type: 'Group',
+  position: [0, 0.5, 0],
+  children: [
+    { name:'body', type:'Box', size:[0.5,0.4,0.7], position:[0,0.3,0], materialId:'camo_desert' },
+    { name:'head', type:'Sphere', size:[0.15], position:[0,0.6,0], materialId:'steel' },
+  ]
+};
+
+const MODEL_CONFIGS = { tank:TANK_CONFIG, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG };
+let currentModelType = 'tank';
+
+// ============================================================
+// 7. Three.js 初始化
+// ============================================================
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import GUI from 'lil-gui';
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#2A2A3A');
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.05, 50);
+camera.position.set(2.5, 2.0, 3.5);
+camera.lookAt(0, 0.8, 0);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.8, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.update();
+
+// 光照
+scene.add(new THREE.AmbientLight(0x404060, 0.6));
+const dirLight = new THREE.DirectionalLight(0xFFF0E0, 2.0);
+dirLight.position.set(5, 10, 7);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024, 1024);
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x8888FF, 0.3);
+fillLight.position.set(-3, 4, -5);
+scene.add(fillLight);
+
+// 地面
+scene.add(new THREE.GridHelper(5, 10, 0x666688, 0x444466));
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(5, 5),
+  new THREE.ShadowMaterial({ opacity:0.3 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = 0;
+ground.receiveShadow = true;
+scene.add(ground);
+scene.add(new THREE.AxesHelper(2.5));
+
+// ============================================================
+// 8. 构建初始模型
+// ============================================================
+let modelRoot = new THREE.Group();
+let nodeMap = new Map();  // name → {group, mesh, configNode, rotTarget}
+let gui;
+
+// --- 选择系统（多选支持）---
+let selectedParts = new Set();     // 当前选中的部件名集合
+let highlightLines = new Map();    // name → highlight LineSegments
+let guiFolderMap = new Map();      // 名称→GUI文件夹
+let clickStart = { x:0, y:0 };    // 用于区分点击与拖拽
+
+// --- 撤销系统 ---
+let undoStack = [];
+const MAX_UNDO = 50;
+const SAVE_KEY = 'tank_model_factory_save';
+// 全局快照函数：在 onChange 回调开头调用，保证每次参数修改前都拍照
+function saveUndo(label) {
+  if (!autoSnapshot || !modelRoot) return;
+  const clone = JSON.parse(JSON.stringify(MODEL_CONFIGS[currentModelType]));
+  undoStack.push(clone);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  console.log('📸 快照 #'+undoStack.length+' ('+label+')');
+}
+let batchGuiFolder = null;  // 批量编辑面板引用
+let batchInfoObj = null;    // 批量编辑计数对象引用
+
+// --- 自动快照（参数变化前保存）---
+let autoSnapshot = true;
+
+function rebuildModel() {
+  // 清理旧模型
+  if (modelRoot) {
+    modelRoot.traverse(c => { if (c.geometry && c !== modelRoot) c.geometry.dispose(); });
+    scene.remove(modelRoot);
+  }
+  // 清理选择
+  deselectAll();
+  nodeMap.clear();
+  guiFolderMap.clear();
+  modelRoot = new THREE.Group();
+  const cfg = MODEL_CONFIGS[currentModelType];
+  buildFromConfig(cfg, modelRoot, showHelpersGlobal, nodeMap);
+  scene.add(modelRoot);
+  updateTriCount();
+  if (gui) { gui.destroy(); gui = null; }
+  buildGUI();
+}
+
+// ============================================================
+// 选择系统 v2：单选/多选(Ctrl)/框选 + 批量编辑
+// ============================================================
+function createHighlight(_name) {
+  // 先清除全部旧高亮
+  for (const [n, hl] of highlightLines) {
+    if (hl) { hl.parent?.remove(hl); }
+  }
+  highlightLines.clear();
+  // 遍历 selectedParts 为每个选中部件创建高亮
+  const color = selectedParts.size > 1 ? 0x4ecdc4 : 0xffd700; // 多选青色，单选金色
+  for (const n of selectedParts) {
+    const inf = nodeMap.get(n);
+    if (inf && inf.mesh && inf.mesh.geometry) {
+      const geo = inf.mesh.geometry;
+      // 检查几何体是否有效（避免 NaN 几何体导致 EdgesGeometry 崩溃）
+      if (!geo.attributes.position || geo.attributes.position.count === 0) continue;
+      const e = new THREE.EdgesGeometry(geo);
+      const h = new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color, linewidth:1, depthTest:false }));
+      inf.rotTarget.add(h);
+      highlightLines.set(n, h);
+    }
+  }
+}
+
+function removeHighlight(name) {
+  const hl = highlightLines.get(name);
+  if (hl) { hl.parent?.remove(hl); highlightLines.delete(name); }
+}
+
+function expandPath(cfg, targetName, ancestors) {
+  if (cfg.name === targetName) { ancestors.push(cfg.name); return true; }
+  if (cfg.children) {
+    for (const c of cfg.children) {
+      if (expandPath(c, targetName, ancestors)) { ancestors.push(cfg.name); return true; }
+    }
+  }
+  return false;
+}
+
+function buildPath(cfg, targetName, parts) {
+  if (cfg.name === targetName) { parts.push(cfg.name); return true; }
+  if (cfg.children) {
+    for (const c of cfg.children) {
+      if (buildPath(c, targetName, parts)) { parts.push(cfg.name); return true; }
+    }
+  }
+  return false;
+}
+
+function updateBreadcrumb() {
+  const el = document.getElementById('path-breadcrumb');
+  if (selectedParts.size === 0) {
+    el.innerHTML = '📍 未选中';
+    return;
+  }
+  if (selectedParts.size === 1) {
+    const paths = [];
+    buildPath(MODEL_CONFIGS[currentModelType], [...selectedParts][0], paths);
+    paths.reverse();
+    el.innerHTML = '📍 ' + paths.map((p,i) => `<span>${p}</span>`).join('<span class="sep-arrow">→</span>');
+  } else {
+    el.innerHTML = `📍 已选 <span>${selectedParts.size}</span> 个部件`;
+  }
+}
+
+function updateBatchPanel() {
+  if (!batchGuiFolder) return;
+  const count = selectedParts.size;
+  // 更新计数显示
+  if (batchInfoObj) batchInfoObj.count = count;
+  if (count >= 2) {
+    batchGuiFolder.open();
+  } else {
+    batchGuiFolder.close();
+  }
+}
+
+// 单选模式
+function selectSingle(name) {
+  removeAllHighlights();
+  selectedParts.clear();
+  selectedParts.add(name);
+  createHighlight(name);
+  focusPanel(name);
+  updateBatchPanel();
+  updateBreadcrumb();
+}
+
+// 多选模式（切换）
+function toggleSelect(name) {
+  if (selectedParts.has(name)) {
+    removeHighlight(name);
+    selectedParts.delete(name);
+  } else {
+    selectedParts.add(name);
+  }
+  createHighlight(name);
+  if (selectedParts.size === 1) {
+    focusPanel([...selectedParts][0]);
+  }
+  updateBatchPanel();
+  updateBreadcrumb();
+}
+
+function removeAllHighlights() {
+  for (const [n, hl] of highlightLines) {
+    if (hl) hl.parent?.remove(hl);
+  }
+  highlightLines.clear();
+}
+
+function deselectAll() {
+  removeAllHighlights();
+  selectedParts.clear();
+  updateBatchPanel();
+  updateBreadcrumb();
+}
+
+function focusPanel(name) {
+  guiFolderMap.forEach(f => f.close());
+  const ancestors = [];
+  expandPath(MODEL_CONFIGS[currentModelType], name, ancestors);
+  for (const a of ancestors) { const f = guiFolderMap.get(a); if (f) f.open(); }
+  function expandDescendants(cfg) {
+    if (!cfg) return;
+    const f = guiFolderMap.get(cfg.name); if (f) f.open();
+    if (cfg.children) for (const c of cfg.children) expandDescendants(c);
+  }
+  function findNode(cfg, target) {
+    if (cfg.name === target) { expandDescendants(cfg); return true; }
+    if (cfg.children) for (const c of cfg.children) if (findNode(c, target)) return true;
+    return false;
+  }
+  findNode(MODEL_CONFIGS[currentModelType], name);
+  const folder = guiFolderMap.get(name);
+  if (folder) {
+    try {
+      const el = folder.domElement || folder._title;
+      if (el && el.scrollIntoView) {
+        setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
+      }
+    } catch(e) {}
+  }
+}
+
+// 获取mesh的屏幕空间包围盒
+function getScreenBBox(mesh) {
+  if (!mesh.geometry) return null;
+  mesh.geometry.computeBoundingBox();
+  const box = mesh.geometry.boundingBox.clone();
+  const mat = mesh.matrixWorld.clone();
+  const corners = [
+    new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+    new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+  ];
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const c of corners) {
+    const w = c.applyMatrix4(mat).project(camera);
+    const sx = (w.x*0.5+0.5)*window.innerWidth;
+    const sy = (-w.y*0.5+0.5)*window.innerHeight;
+    if (sx<minX) minX=sx; if (sy<minY) minY=sy;
+    if (sx>maxX) maxX=sx; if (sy>maxY) maxY=sy;
+  }
+  if (!isFinite(minX)) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+// 框选检测：屏幕矩形与部件屏幕包围盒是否重叠
+function rectsOverlap(a, b) {
+  return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+}
+
+function boxSelect(sx, sy, ex, ey) {
+  const selRect = {
+    minX: Math.min(sx, ex), minY: Math.min(sy, ey),
+    maxX: Math.max(sx, ex), maxY: Math.max(sy, ey),
+  };
+  const names = [];
+  nodeMap.forEach((info, name) => {
+    if (!info.mesh || !info.group.visible) return;
+    const bbox = getScreenBBox(info.mesh);
+    if (bbox && rectsOverlap(selRect, bbox)) names.push(name);
+  });
+  // 清空旧选择，添加新选择
+  removeAllHighlights();
+  selectedParts.clear();
+  for (const n of names) {
+    selectedParts.add(n);
+  }
+  createHighlight('');
+  updateBatchPanel();
+  console.log('📦 框选了 ' + selectedParts.size + ' 个部件');
+}
+
+// 点击选择
+function onClickSelect(e) {
+  if (!modelRoot) return;
+  const mouse = new THREE.Vector2();
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  const targets = [];
+  nodeMap.forEach((info, name) => {
+    if (info.mesh && info.group.visible) targets.push(info.mesh);
+  });
+  const hits = raycaster.intersectObjects(targets, false);
+  if (hits.length > 0) {
+    const name = hits[0].object.name.replace('_mesh', '');
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+点击：切换多选
+      toggleSelect(name);
+    } else {
+      // 普通点击：单选
+      selectSingle(name);
+    }
+  } else {
+    // 点击空白取消全部
+    deselectAll();
+  }
+}
+
+// 点击选择（不拦截拖拽，OrbitControls 正常旋转场景）
+function setupRaycaster() {
+  const canvas = renderer.domElement;
+  canvas.addEventListener('pointerdown', e => {
+    clickStart = { x:e.clientX, y:e.clientY };
+  });
+  canvas.addEventListener('pointerup', e => {
+    const dx = e.clientX - clickStart.x;
+    const dy = e.clientY - clickStart.y;
+    if (Math.sqrt(dx*dx+dy*dy) < 4) {
+      // 这是点击而非拖拽
+      onClickSelect(e);
+    }
+  });
+}
+
+let showHelpersGlobal = true;
+
+function updateTriCount() {
+  document.getElementById('triCount').textContent = countTriangles(modelRoot);
+}
+
+function updateAllHelpers() {
+  const helpers = modelRoot.userData.helpers || [];
+  for (const h of helpers) {
+    const m = h.userData._mesh;
+    if (m && m.geometry && m.geometry.attributes.position) {
+      const pos = m.geometry.attributes.position;
+      // 跳过NaN几何体，避免BoxHelper.update崩溃
+      let hasNaN = false;
+      for (let i = 0; i < Math.min(pos.count, 3); i++) {
+        if (!isFinite(pos.getX(i))) { hasNaN = true; break; }
+      }
+      if (!hasNaN) {
+        try { h.update(); } catch(e) {}
+      }
+    }
+    h.visible = showHelpersGlobal;
+  }
+}
+
+// ============================================================
+// 9. 重建单个 mesh（几何参数变化时）
+// ============================================================
+function rebuildMesh(nodeName) {
+  const info = nodeMap.get(nodeName);
+  if (!info || !info.configNode) return;
+  const { mesh, configNode } = info;
+  if (!mesh || mesh.type === 'Group') return;
+
+  // 重建几何体
+  mesh.geometry.dispose();
+  const geo = createGeometry(configNode);
+  geo.computeBoundingBox();
+  const bbox = geo.boundingBox;
+  if (bbox && isFinite(bbox.min.x) && isFinite(bbox.max.x)) {
+    const cx = (bbox.min.x + bbox.max.x) / 2;
+    const cy = (bbox.min.y + bbox.max.y) / 2;
+    const cz = (bbox.min.z + bbox.max.z) / 2;
+    geo.translate(-cx, -cy, -cz);
+  }
+  mesh.geometry = geo;
+
+  // 重建材质（如果颜色参数在 configNode.color 中）
+  if (!mesh.material._factoryColor) {
+    // 保持原有材质引用，仅更新 color
+    if (configNode.color) {
+      mesh.material.color.set(configNode.color);
+    }
+  }
+
+  // 更新 BoxHelper（如果有引用该 mesh 的 helper）
+  const helpers = modelRoot.userData.helpers || [];
+  for (const h of helpers) {
+    if (h.userData._mesh === mesh) h.update();
+  }
+  updateTriCount();
+  // 如果选中的部件几何变化，刷新高亮
+  if (selectedParts.has(nodeName)) {
+    removeHighlight(nodeName);
+    createHighlight(nodeName);
+  }
+}
+
+// ============================================================
+// 9.5 树编辑工具：查找父节点 / 添加子节点 / 删除节点
+// ============================================================
+function findParentNode(cfg, targetName) {
+  if (!cfg.children) return null;
+  for (const c of cfg.children) {
+    if (c.name === targetName) return cfg;
+    const found = findParentNode(c, targetName);
+    if (found) return found;
+  }
+  return null;
+}
+
+function generateName(cfg, prefix) {
+  let maxN = 0;
+  function scan(node) {
+    if (node.name && node.name.startsWith(prefix + '_')) {
+      const n = parseInt(node.name.split('_').pop());
+      if (!isNaN(n) && n > maxN) maxN = n;
+    }
+    if (node.children) for (const c of node.children) scan(c);
+  }
+  scan(cfg);
+  return prefix + '_' + String(maxN + 1).padStart(2, '0');
+}
+
+function addChildNode(parentName) {
+  const cfg = MODEL_CONFIGS[currentModelType];
+  function findNode(n, target) {
+    if (n.name === target) return n;
+    if (n.children) for (const c of n.children) { const f = findNode(c, target); if (f) return f; }
+    return null;
+  }
+  const parent = findNode(cfg, parentName);
+  if (!parent) return;
+  if (!parent.children) parent.children = [];
+  const newNode = {
+    name: generateName(cfg, 'part'),
+    type: 'Box',
+    size: [0.3, 0.3, 0.3],
+    position: [0, 0.15, 0],
+    materialId: 'default',
+  };
+  parent.children.push(newNode);
+  rebuildModel();
+  console.log('➕ 已添加子部件: ' + newNode.name + ' → ' + parentName);
+}
+
+function deleteNode(targetName) {
+  const cfg = MODEL_CONFIGS[currentModelType];
+  const parent = findParentNode(cfg, targetName);
+  if (!parent || !parent.children) { console.log('⚠️ 无法删除根节点'); return; }
+  const idx = parent.children.findIndex(c => c.name === targetName);
+  if (idx === -1) return;
+  parent.children.splice(idx, 1);
+  rebuildModel();
+  console.log('🗑 已删除部件: ' + targetName);
+}
+
+function renameNode(oldName, newName) {
+  if (!newName || newName === oldName) return;
+  const cfg = MODEL_CONFIGS[currentModelType];
+  function findNode(n, target) {
+    if (n.name === target) return n;
+    if (n.children) for (const c of n.children) { const f = findNode(c, target); if (f) return f; }
+    return null;
+  }
+  const node = findNode(cfg, oldName);
+  if (!node) return;
+  node.name = newName;
+  deselectAll();
+  rebuildModel();
+  console.log('✏️ 已重命名: ' + oldName + ' → ' + newName);
+}
+
+const TYPE_DEFAULTS = {
+  Box: { size:[0.3,0.3,0.3] },
+  TaperedBox: { size:[0.5,0.3,0.5,0.35,0.35] },
+  RoundedBox: { size:[0.3,0.3,0.3,0.06], segments:[3] },
+  Cylinder: { size:[0.15,0.3,0.15], segments:[6] },
+  Sphere: { size:[0.2], segments:[8,6] },
+  Torus: { size:[0.3,0.05], segments:[8,12] },
+  Lathe: { size:[1], segments:[24], profile:[[0.2,0],[0.3,0.2],[0.3,0.3],[0.15,0.35],[0.05,0.3]] },
+  Extrude: { size:[1], shape:[[-0.15,-0.1],[0.15,-0.1],[0.15,0.1],[-0.15,0.1]], extrudeDepth:0.3, bevelThickness:0.02 },
+  Group: {},
+};
+
+function switchType(nodeName, newType) {
+  const cfg = MODEL_CONFIGS[currentModelType];
+  function findNode(n, target) {
+    if (n.name === target) return n;
+    if (n.children) for (const c of n.children) { const f = findNode(c, target); if (f) return f; }
+    return null;
+  }
+  const node = findNode(cfg, nodeName);
+  if (!node || node.type === newType) return;
+  node.type = newType;
+  const d = TYPE_DEFAULTS[newType] || {};
+  if (d.size) node.size = [...d.size];
+  if (d.segments) node.segments = [...d.segments];
+  if (d.profile !== undefined) node.profile = [...(d.profile || [[0.3,0],[0.3,0.3],[0.1,0.3]])];
+  if (d.shape !== undefined) node.shape = [...(d.shape || [[-0.15,-0.1],[0.15,-0.1],[0.15,0.1],[-0.15,0.1]])];
+  if (d.extrudeDepth !== undefined) node.extrudeDepth = d.extrudeDepth;
+  if (d.bevelThickness !== undefined) node.bevelThickness = d.bevelThickness;
+  // 清理旧类型的专属字段
+  if (newType !== 'Lathe') delete node.profile;
+  if (newType !== 'Extrude') { delete node.shape; delete node.extrudeDepth; delete node.bevelThickness; }
+  deselectAll();
+  rebuildModel();
+  console.log('🔄 已切换: ' + nodeName + ' → ' + newType);
+}
+
+// ============================================================
+// 10. GUI 构建
+// ============================================================
+function buildGUI() {
+  const cfg = MODEL_CONFIGS[currentModelType];
+  gui = new GUI({ title:'🏭 模型工厂', width:310 });
+
+  // --- 模型切换 ---
+  const modelFolder = gui.addFolder('📦 模型切换');
+  modelFolder.add({ model:currentModelType }, 'model', ['tank','building','enemy'])
+    .name('选择模型').onChange(v => { saveUndo('model'); currentModelType = v; rebuildModel(); });
+  modelFolder.open();
+
+  // --- 全选（独立按钮）---
+  const selectAllFolder = gui.addFolder('✅ 全选部件');
+  selectAllFolder.add({ selectAll:()=>{
+    removeAllHighlights();
+    selectedParts.clear();
+    nodeMap.forEach((info, name) => {
+      if (info.mesh && info.group.visible) selectedParts.add(name);
+    });
+    createHighlight('');
+    updateBatchPanel();
+    console.log('✅ 全选 ' + selectedParts.size + ' 个部件');
+  }}, 'selectAll').name('✅ 全选可见部件');
+  selectAllFolder.open();
+
+  // --- 批量编辑（多选 ≥2 时自动展开）---
+  batchGuiFolder = gui.addFolder('📦 批量编辑 (选中≥2时展开)');
+  batchInfoObj = { count:selectedParts.size };
+  batchGuiFolder.add(batchInfoObj, 'count').name('已选部件数').disable();
+  // 位置偏移（累积式：滑块不归零，数值显示累计偏移）
+  const batchPos = { dx:0, dy:0, dz:0 };
+  const _prevBatch = { dx:0, dy:0, dz:0 };
+  function applyDelta(axis, batchKey, newValue) {
+    if (!isFinite(newValue)) return;
+    const delta = newValue - _prevBatch[batchKey];
+    if (!isFinite(delta) || Math.abs(delta) < 1e-6) return;
+    for (const name of selectedParts) {
+      const info = nodeMap.get(name);
+      const pos = info?.group?.position;
+      if (pos && isFinite(pos[axis])) pos[axis] += delta;
+    }
+    _prevBatch[batchKey] = newValue;
+    updateAllHelpers();
+  }
+  batchGuiFolder.add(batchPos, 'dx', -2, 2, 0.001).name('ΔX').onChange(v => applyDelta('x', 'dx', v));
+  batchGuiFolder.add(batchPos, 'dy', -2, 2, 0.001).name('ΔY').onChange(v => applyDelta('y', 'dy', v));
+  batchGuiFolder.add(batchPos, 'dz', -2, 2, 0.001).name('ΔZ').onChange(v => applyDelta('z', 'dz', v));
+  // 重置偏移
+  batchGuiFolder.add({ resetOffset:()=>{
+    batchPos.dx=0; batchPos.dy=0; batchPos.dz=0;
+    _prevBatch.dx=0; _prevBatch.dy=0; _prevBatch.dz=0;
+  }}, 'resetOffset').name('🔄 重置偏移零点');
+  // 颜色批量
+  const batchColor = { color:'#4a5c2e' };
+  batchGuiFolder.addColor(batchColor, 'color').name('颜色').onChange(v => {
+    saveUndo('batchColor');
+    for (const name of selectedParts) {
+      const info = nodeMap.get(name);
+      if (info && info.mesh && info.mesh.material) {
+        info.mesh.material.color.set(v);
+        const cfg = info.configNode;
+        if (cfg) cfg.color = v;
+      }
+    }
+  });
+  // 材质预设批量
+  batchGuiFolder.add({ mat:'default' }, 'mat', Object.keys(MATERIAL_DEFS)).name('材质').onChange(v => {
+    saveUndo('batchMat');
+    const def = MATERIAL_DEFS[v];
+    for (const name of selectedParts) {
+      const info = nodeMap.get(name);
+      if (info && info.mesh && info.mesh.material) {
+        info.mesh.material.color.set(def.color);
+        info.mesh.material.roughness = def.roughness;
+        info.mesh.material.metalness = def.metalness;
+        const cfg = info.configNode;
+        if (cfg) { cfg.materialId = v; cfg.color = undefined; }
+      }
+    }
+  });
+  // 隐藏选中
+  batchGuiFolder.add({ del:()=>{
+    for (const name of selectedParts) {
+      const info = nodeMap.get(name);
+      if (info && info.group) {
+        info.group.visible = false;
+        const cfg = info.configNode;
+        if (cfg) cfg.visible = false;
+      }
+    }
+    deselectAll();
+    updateAllHelpers();
+    updateTriCount();
+    console.log('🗑 已隐藏 ' + selectedParts.size + ' 个部件（可重新打开可见性恢复）');
+  }}, 'del').name('🗑 隐藏选中');
+  batchGuiFolder.close();
+
+  // --- 全局操作 ---
+  const globalF = gui.addFolder('🛠 全局操作');
+  // 撤销
+  globalF.add({ undo:()=>{
+    if (undoStack.length === 0) { console.log('⚠️ 没有可撤销的操作'); return; }
+    autoSnapshot = false;
+    const prev = undoStack.pop();
+    const cfg = MODEL_CONFIGS[currentModelType];
+    const fmCur2 = cfg.children?.[0]?.children?.[0];
+    const fmPrev2 = prev.children?.[0]?.children?.[0];
+    console.log('🔙 撤销: 当前 size=' + JSON.stringify(fmCur2?.size) + ' → 快照 size=' + JSON.stringify(fmPrev2?.size));
+    function deepRestore(target, source) {
+      Object.keys(target).forEach(k => delete target[k]);
+      Object.assign(target, source);
+    }
+    deepRestore(cfg, prev);
+    console.log('🔙 恢复后 size=' + JSON.stringify(cfg.children?.[0]?.children?.[0]?.size));
+    rebuildModel();
+    autoSnapshot = true;
+    console.log('↩ 撤销成功 (剩余 ' + undoStack.length + ' 步可撤销)');
+  }}, 'undo').name('↩ 撤销 (Ctrl+Z)');
+  // 保存
+  globalF.add({ save:()=>{
+    const cfg = MODEL_CONFIGS[currentModelType];
+    const saveData = { modelType:currentModelType, config:JSON.parse(JSON.stringify(cfg)), timestamp:Date.now() };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    console.log('💾 已保存到本地存储 (' + new Date(saveData.timestamp).toLocaleString() + ')');
+  }}, 'save').name('💾 保存 (Ctrl+S)');
+  // 加载
+  globalF.add({ load:()=>{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { console.log('⚠️ 没有找到已保存的数据'); return; }
+    try {
+      const data = JSON.parse(raw);
+      currentModelType = data.modelType || 'tank';
+      const cfg = MODEL_CONFIGS[currentModelType];
+      function deepRestore(target, source) {
+        Object.keys(target).forEach(k => delete target[k]);
+        Object.assign(target, source);
+      }
+      deepRestore(cfg, data.config);
+      rebuildModel();
+      console.log('📂 已从本地存储加载 (' + new Date(data.timestamp).toLocaleString() + ')');
+    } catch(e) { console.error('加载失败:', e); }
+  }}, 'load').name('📂 加载');
+  // 重置
+  globalF.add({ reset:()=>{ location.reload(); } }, 'reset').name('🔄 重置');
+  // 输出
+  globalF.add({ log:()=>{
+    function collect(cfg) {
+      const r = [];
+      const n = nodeMap.get(cfg.name);
+      if (n && cfg.type!=='Group') {
+        const cc = n.group.userData.appliedComp || [0,0,0];
+        r.push({
+          name:cfg.name, type:cfg.type,
+          position:[n.group.position.x-cc[0],n.group.position.y-cc[1],n.group.position.z-cc[2]].map(v=>+v.toFixed(4)),
+          rotation:[n.rotTarget.rotation.x,n.rotTarget.rotation.y,n.rotTarget.rotation.z].map(v=>+v.toFixed(4)),
+          size:cfg.size?.map(v=>+v.toFixed(4)),
+          segments:cfg.segments, materialId:cfg.materialId, color:cfg.color
+        });
+      }
+      if (cfg.children) for (const c of cfg.children) r.push(...collect(c));
+      return r;
+    }
+    const parts = collect(MODEL_CONFIGS[currentModelType]);
+    console.log('📋 === 当前模型姿态 ===');
+    console.log(JSON.stringify(parts, null, 2));
+    console.log('%c💡 将 position/rotation/size 复制到对应 Config 节点并刷新即可固化','background:#333;color:#ffd;padding:2px 8px;border-radius:3px');
+  }}, 'log').name('📋 输出姿态');
+  // 应用到Config
+  globalF.add({ apply:()=>{
+    function applyState(cfg) {
+      const n = nodeMap.get(cfg.name);
+      if (n && cfg.type!=='Group') {
+        const cc = n.group.userData.appliedComp || [0,0,0];
+        cfg.position = [n.group.position.x-cc[0],n.group.position.y-cc[1],n.group.position.z-cc[2]].map(v=>+v.toFixed(4));
+        cfg.rotation = [n.rotTarget.rotation.x,n.rotTarget.rotation.y,n.rotTarget.rotation.z].map(v=>+v.toFixed(4));
+        cfg.visible = n.group.visible;
+      }
+      if (cfg.children) for (const c of cfg.children) applyState(c);
+    }
+    applyState(MODEL_CONFIGS[currentModelType]);
+    console.log('✅ Config 已应用');
+  }}, 'apply').name('💾 应用到 Config');
+  globalF.open();
+
+  // --- 递归添加部件 UI ---
+  function addPartUI(parentGui, configNode) {
+    if (!configNode || !configNode.name) return;
+    const info = nodeMap.get(configNode.name);
+    if (!info) return;
+    const { group, mesh, rotTarget } = info;
+
+    const folder = parentGui.addFolder(`🔧 ${configNode.name}`);
+    guiFolderMap.set(configNode.name, folder);
+    // 全部默认展开，方便编辑
+
+    // --- 可见性 ---
+    const vis = { v:group.visible };
+    folder.add(vis, 'v').name('👁 可见').onChange(v => {
+      saveUndo('vis');
+      group.visible = v;
+      configNode.visible = v;
+      // 更新 BoxHelper
+      const helpers = modelRoot.userData.helpers || [];
+      for (const h of helpers) {
+        if (h.userData._mesh === mesh) h.visible = v && showHelpersGlobal;
+      }
+    });
+
+    // --- 位置 (x,y,z) ---
+    const p = { x:group.position.x, y:group.position.y, z:group.position.z };
+    const posF = folder.addFolder('📍 位置');
+    posF.add(p, 'x', -2.5, 2.5, 0.005).name('X').onChange(v => { saveUndo('posX'); group.position.x=v; updateAllHelpers(); });
+    posF.add(p, 'y', -2.5, 2.5, 0.005).name('Y').onChange(v => { saveUndo('posY'); group.position.y=v; updateAllHelpers(); });
+    posF.add(p, 'z', -2.5, 2.5, 0.005).name('Z').onChange(v => { saveUndo('posZ'); group.position.z=v; updateAllHelpers(); });
+
+    // --- 旋转 (x,y,z) ---
+    if (configNode.type !== 'Group') {
+      const r = { x:rotTarget.rotation.x, y:rotTarget.rotation.y, z:rotTarget.rotation.z };
+      const rotF = folder.addFolder('🔄 旋转');
+      rotF.add(r, 'x', -Math.PI, Math.PI, 0.01).name('X').onChange(v => { saveUndo('rotX'); rotTarget.rotation.x=v; updateAllHelpers(); });
+      rotF.add(r, 'y', -Math.PI, Math.PI, 0.01).name('Y').onChange(v => { saveUndo('rotY'); rotTarget.rotation.y=v; updateAllHelpers(); });
+      rotF.add(r, 'z', -Math.PI, Math.PI, 0.01).name('Z').onChange(v => { saveUndo('rotZ'); rotTarget.rotation.z=v; updateAllHelpers(); });
+    }
+
+    // --- 几何参数编辑（按类型区分）---
+    if (configNode.type !== 'Group' && mesh) {
+      const geoF = folder.addFolder('📐 几何体 ' + configNode.type);
+      const rebuild = () => rebuildMesh(configNode.name);
+
+      if (configNode.type === 'Box') {
+        const sz = configNode.size || [1,1,1];
+        const b = { w:sz[0], h:sz[1], d:sz[2] };
+        geoF.add(b, 'w', 0.01, 3.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('BoxW');configNode.size[0]=v;rebuild();});
+        geoF.add(b, 'h', 0.01, 3.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('BoxH');configNode.size[1]=v;rebuild();});
+        geoF.add(b, 'd', 0.01, 3.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('BoxD');configNode.size[2]=v;rebuild();});
+      }
+      else if (configNode.type === 'RoundedBox') {
+        const sz = configNode.size || [1,1,1,0.08];
+        const b = { w:sz[0], h:sz[1], d:sz[2], r:sz[3]||0.08 };
+        geoF.add(b, 'w', 0.01, 3.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('RBoxW');configNode.size[0]=v;rebuild();});
+        geoF.add(b, 'h', 0.01, 3.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('RBoxH');configNode.size[1]=v;rebuild();});
+        geoF.add(b, 'd', 0.01, 3.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('RBoxD');configNode.size[2]=v;rebuild();});
+        geoF.add(b, 'r', 0.01, 0.5, 0.005).name('圆角').onChange(v=>{saveUndo('RBoxR');configNode.size[3]=v;rebuild();});
+        const sg = configNode.segments || [3];
+        geoF.add({ s:sg[0] }, 's', 1, 6, 1).name('圆角段').onChange(v=>{saveUndo('RBoxSeg');configNode.segments[0]=v;rebuild();});
+      }
+      else if (configNode.type === 'TaperedBox') {
+        // size: [底部宽, 高, 底部深, 顶部宽, 顶部深]
+        const sz = configNode.size || [0.5,0.3,0.5,0.35,0.35];
+        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6 };
+        geoF.add(t, 'bw', 0.01, 3.0, 0.005).name('底宽').onChange(v=>{saveUndo('TBw');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('TH');configNode.size[1]=v;rebuild();});
+        geoF.add(t, 'bd', 0.01, 3.0, 0.005).name('底深').onChange(v=>{saveUndo('TBd');configNode.size[2]=v;rebuild();});
+        geoF.add(t, 'tw', 0.01, 3.0, 0.005).name('顶宽').onChange(v=>{saveUndo('TTw');configNode.size[3]=v;rebuild();});
+        geoF.add(t, 'td', 0.01, 3.0, 0.005).name('顶深').onChange(v=>{saveUndo('TTd');configNode.size[4]=v;rebuild();});
+      }
+      else if (configNode.type === 'Cylinder') {
+        const sz = configNode.size || [0.5,1,0.5];
+        const c = { rT:sz[0], h:sz[1], rB:sz[2] };
+        geoF.add(c, 'rT', 0.005, 2.0, 0.005).name('顶半径').onChange(v=>{saveUndo('CylR');configNode.size[0]=v;rebuild();});
+        geoF.add(c, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('CylH');configNode.size[1]=v;rebuild();});
+        geoF.add(c, 'rB', 0.005, 2.0, 0.005).name('底半径').onChange(v=>{saveUndo('CylRB');configNode.size[2]=v;rebuild();});
+        const sg = configNode.segments || [6];
+        const sm = { seg:sg[0] };
+        geoF.add(sm, 'seg', 3, 32, 1).name('边数').onChange(v=>{saveUndo('CylSeg');configNode.segments[0]=v;rebuild();});
+      }
+      else if (configNode.type === 'Sphere') {
+        const sz = configNode.size || [0.5];
+        const s = { r:sz[0] };
+        geoF.add(s, 'r', 0.005, 2.0, 0.005).name('半径').onChange(v=>{saveUndo('SphR');configNode.size[0]=v;rebuild();});
+        const sg = configNode.segments || [8,6];
+        const sm = { w:sg[0], h:sg[1] };
+        geoF.add(sm, 'w', 3, 32, 1).name('经线').onChange(v=>{saveUndo('SphW');configNode.segments[0]=v;rebuild();});
+        geoF.add(sm, 'h', 2, 32, 1).name('纬线').onChange(v=>{saveUndo('SphH');configNode.segments[1]=v;rebuild();});
+      }
+      else if (configNode.type === 'Torus') {
+        const sz = configNode.size || [0.5,0.05];
+        const t = { R:sz[0], r:sz[1]||0.05 };
+        geoF.add(t, 'R', 0.01, 2.0, 0.005).name('主半径').onChange(v=>{saveUndo('TorR');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'r', 0.005, 0.5, 0.002).name('管半径').onChange(v=>{saveUndo('Torr');configNode.size[1]=v;rebuild();});
+        const sg = configNode.segments || [8,12];
+        const sm = { rad:sg[0], tub:sg[1] };
+        geoF.add(sm, 'rad', 4, 32, 1).name('径向段').onChange(v=>{saveUndo('TorRad');configNode.segments[0]=v;rebuild();});
+        geoF.add(sm, 'tub', 6, 48, 1).name('管向段').onChange(v=>{saveUndo('TorTub');configNode.segments[1]=v;rebuild();});
+      }
+      else if (configNode.type === 'Lathe') {
+        const sg = configNode.segments || [24];
+        const sm = { seg:sg[0] };
+        geoF.add(sm, 'seg', 6, 64, 1).name('旋转段数').onChange(v=>{saveUndo('LHseg');configNode.segments[0]=v;rebuild();});
+        // 轮廓编辑：JSON 文本输入
+        const prof = configNode.profile || [[0.5,0],[0.5,0.3],[0.6,0.4],[0.1,0.4]];
+        const pStr = { txt: JSON.stringify(prof) };
+        geoF.add(pStr, 'txt').name('轮廓 [x,y]').onChange(v => {
+          try { saveUndo('LHprof'); const arr = JSON.parse(v); if (Array.isArray(arr)) configNode.profile = arr; rebuild(); }
+          catch(e) {}
+        });
+      }
+      else if (configNode.type === 'Extrude') {
+        const d = { depth:configNode.extrudeDepth||0.5, bevel:configNode.bevelThickness||0.02 };
+        geoF.add(d, 'depth', 0.01, 3.0, 0.01).name('挤出深度').onChange(v=>{saveUndo('ExtD');configNode.extrudeDepth=v;rebuild();});
+        geoF.add(d, 'bevel', 0, 0.1, 0.002).name('倒角').onChange(v=>{saveUndo('ExtB');configNode.bevelThickness=v;rebuild();});
+        // 形状编辑
+        const shp = configNode.shape || [[-0.5,-0.2],[0.5,-0.2],[0.5,0.2],[-0.5,0.2]];
+        const sStr = { txt: JSON.stringify(shp) };
+        geoF.add(sStr, 'txt').name('形状 [x,y]').onChange(v => {
+          try { saveUndo('ExtShp'); const arr = JSON.parse(v); if (Array.isArray(arr)) configNode.shape = arr; rebuild(); }
+          catch(e) {}
+        });
+      }
+
+      // --- 颜色编辑（hex color picker）---
+      if (mesh.material.color) {
+        const colF = folder.addFolder('🎨 颜色');
+        const hexStr = '#' + mesh.material.color.getHexString();
+        const c = { color:hexStr };
+        colF.addColor(c, 'color').name('颜色').onChange(v => {
+          saveUndo('color');
+          mesh.material.color.set(v);
+          configNode.color = v;
+        });
+        // 预设材料
+        colF.add({ mat:configNode.materialId||'default' }, 'mat', Object.keys(MATERIAL_DEFS))
+          .name('材质预设').onChange(v => {
+            saveUndo('mat');
+            const def = MATERIAL_DEFS[v];
+            mesh.material.color.set(def.color);
+            mesh.material.roughness = def.roughness;
+            mesh.material.metalness = def.metalness;
+            configNode.materialId = v;
+            configNode.color = undefined;
+          });
+      }
+    }
+
+    // --- 增删改按钮 ---
+    const editF = folder.addFolder('✏️ 结构编辑');
+    // 重命名（自由输入 + 确认按钮，避免 onChange 导致焦点丢失）
+    const rn = { name: configNode.name };
+    editF.add(rn, 'name').name('名称');
+    editF.add({ applyRename:()=>{
+      if (rn.name && rn.name !== configNode.name) renameNode(configNode.name, rn.name);
+    }}, 'applyRename').name('✅ 确认重命名');
+    // 类型切换（仅非 Group）
+    if (configNode.type !== 'Group') {
+      const typeList = ['Box','TaperedBox','RoundedBox','Cylinder','Sphere','Torus','Lathe','Extrude'];
+      editF.add({ type:configNode.type }, 'type', typeList).name('形状').onChange(v => {
+        saveUndo('switchType');
+        switchType(configNode.name, v);
+      });
+    }
+    editF.add({ add:()=>addChildNode(configNode.name) }, 'add').name('➕ 添加子部件');
+    if (configNode.name !== cfg.name) {
+      editF.add({ del:()=>deleteNode(configNode.name) }, 'del').name('🗑 删除此部件');
+    }
+    editF.open();
+
+    // --- 子节点 ---
+    if (configNode.children) {
+      for (const child of configNode.children) {
+        addPartUI(folder, child);
+      }
+    }
+  }
+
+  // 递归添加
+  if (cfg.children) {
+    for (const child of cfg.children) {
+      addPartUI(gui, child);
+    }
+  }
+}
+
+// ============================================================
+// 11. 构建并初始化（自动加载上次保存）
+// ============================================================
+(function autoLoad() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    currentModelType = data.modelType || 'tank';
+    const cfg = MODEL_CONFIGS[currentModelType];
+    Object.keys(cfg).forEach(k => delete cfg[k]);
+    Object.assign(cfg, data.config);
+    console.log('📂 自动加载上次保存 (' + new Date(data.timestamp).toLocaleString() + ')');
+  } catch(e) {}
+})();
+rebuildModel();
+// 激活点击选择
+setupRaycaster();
+
+// --- 自动快照已集成到每个 onChange 回调中（saveUndo）---
+
+// ============================================================
+// 12. 辅助框切换
+// ============================================================
+document.getElementById('toggle-helpers').addEventListener('click', () => {
+  showHelpersGlobal = !showHelpersGlobal;
+  const helpers = modelRoot.userData.helpers || [];
+  for (const h of helpers) {
+    const info = nodeMap.get(h.userData._mesh?.parent?.name || h.userData._mesh?.name?.replace('_mesh',''));
+    h.visible = showHelpersGlobal && (info ? info.group.visible : true);
+  }
+  document.getElementById('toggle-helpers').textContent =
+    showHelpersGlobal ? '🔲 隐藏对齐辅助框' : '🔲 显示对齐辅助框';
+});
+
+// ============================================================
+// 13. 窗口缩放
+// ============================================================
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ============================================================
+// 14. 键盘快捷键
+// ============================================================
+window.addEventListener('keydown', e => {
+  // 正在输入框中打字时，跳过快捷键拦截
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+  if (e.key === 'h' && !e.ctrlKey && !e.metaKey) {
+    document.getElementById('toggle-helpers').click();
+  }
+  if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+    e.preventDefault();
+    if (undoStack.length === 0) { console.log('⚠️ 没有可撤销的操作'); return; }
+    autoSnapshot = false;
+    const prev = undoStack.pop();
+    const cfg = MODEL_CONFIGS[currentModelType];
+    const fmCur = cfg.children?.[0]?.children?.[0];
+    const fmPrev = prev.children?.[0]?.children?.[0];
+    console.log('🔙 撤销: 当前 size=' + JSON.stringify(fmCur?.size) + ' → 快照 size=' + JSON.stringify(fmPrev?.size));
+    function deepRestore(target, source) { Object.keys(target).forEach(k=>delete target[k]); Object.assign(target,source); }
+    deepRestore(cfg, prev);
+    console.log('🔙 恢复后 size=' + JSON.stringify(cfg.children?.[0]?.children?.[0]?.size));
+    rebuildModel();
+    autoSnapshot = true;
+    console.log('↩ 撤销成功 (剩余 ' + undoStack.length + ' 步可撤销)');
+  }
+  if (e.key === 's' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+    e.preventDefault();
+    const cfg = MODEL_CONFIGS[currentModelType];
+    const saveData = { modelType:currentModelType, config:JSON.parse(JSON.stringify(cfg)), timestamp:Date.now() };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    console.log('💾 已保存 (' + new Date(saveData.timestamp).toLocaleString() + ')');
+  }
+  // Delete — 隐藏选中部件
+  if (e.key === 'Delete' && selectedParts.size > 0) {
+    e.preventDefault();
+    for (const name of selectedParts) {
+      const info = nodeMap.get(name);
+      if (info && info.group) {
+        info.group.visible = false;
+        const cfg = info.configNode;
+        if (cfg) cfg.visible = false;
+      }
+    }
+    const count = selectedParts.size;
+    deselectAll();
+    updateAllHelpers();
+    updateTriCount();
+    console.log('🗑 已隐藏 ' + count + ' 个部件');
+  }
+  // Escape — 取消所有选中
+  if (e.key === 'Escape') {
+    deselectAll();
+  }
+});
+
+// ============================================================
+// 15. 导出全局
+// ============================================================
+window.MODEL_CONFIGS = MODEL_CONFIGS;
+window.currentModelType = currentModelType;
+window.rebuildModel = rebuildModel;
+window.nodeMap = nodeMap;
+window.modelRoot = modelRoot;
+
+// ============================================================
+// 15.5 视图切换系统
+// ============================================================
+const VIEW_PRESETS = {
+  persp:  { pos:[2.5, 2.0, 3.5], target:[0, 0.8, 0] },
+  front:  { pos:[0, 0.8, 4.0],  target:[0, 0.8, 0] },
+  back:   { pos:[0, 0.8, -4.0], target:[0, 0.8, 0] },
+  left:   { pos:[-4.0, 0.8, 0], target:[0, 0.8, 0] },
+  right:  { pos:[4.0, 0.8, 0],  target:[0, 0.8, 0] },
+  top:    { pos:[0, 4.0, 0.01], target:[0, 0.8, 0] },
+  bottom: { pos:[0, -3.0, 0.01], target:[0, 0.8, 0] },
+};
+let currentView = 'persp';
+let viewAnim = null; // { startPos, endPos, startTarget, endTarget, startTime, duration }
+
+function switchView(viewName) {
+  const preset = VIEW_PRESETS[viewName];
+  if (!preset) return;
+  currentView = viewName;
+  // 更新按钮 active 状态
+  document.querySelectorAll('#view-toolbar button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === viewName);
+  });
+  const dur = 500; // ms
+  viewAnim = {
+    startPos: camera.position.clone(),
+    endPos: new THREE.Vector3(...preset.pos),
+    startTarget: controls.target.clone(),
+    endTarget: new THREE.Vector3(...preset.target),
+    startTime: performance.now(),
+    duration: dur,
+  };
+}
+
+// 绑定按钮事件
+document.querySelectorAll('#view-toolbar button').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+// 初始高亮
+switchView('persp');
+
+// ============================================================
+// 16. 渲染循环
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  // 视图动画插值
+  if (viewAnim) {
+    const elapsed = performance.now() - viewAnim.startTime;
+    const t = Math.min(elapsed / viewAnim.duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOutQuad
+    camera.position.lerpVectors(viewAnim.startPos, viewAnim.endPos, ease);
+    controls.target.lerpVectors(viewAnim.startTarget, viewAnim.endTarget, ease);
+    if (t >= 1) viewAnim = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+console.log('🏭 模型工厂已就绪');
+console.log('💡 可用全局变量: MODEL_CONFIGS, rebuildModel, nodeMap, modelRoot');
+console.log('💡 快捷键: H=切换辅助框');
+console.log('💡 右侧面板拖拽滑动条实时编辑坦克模型');
+</script>
+</body>
+</html>
