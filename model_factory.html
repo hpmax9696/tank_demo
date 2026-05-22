@@ -34,6 +34,18 @@
   #path-breadcrumb { position:absolute; bottom:20px; left:12px; color:#aaa; font-size:12px; z-index:10; background:rgba(0,0,0,0.55); padding:4px 10px; border-radius:4px; max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #path-breadcrumb span { color:#4ecdc4; }
   #path-breadcrumb .sep-arrow { color:#666; margin:0 3px; }
+  /* 部件树面板 — 紧贴编辑面板左侧 */
+  #part-tree { position:absolute; top:0; right:290px; width:170px; height:100vh; overflow-y:auto; background:rgba(0,0,0,0.75); border-right:1px solid #333; border-left:1px solid #333; padding:8px 0; z-index:10; font-size:12px; color:#ccc; user-select:none; }
+  #part-tree::-webkit-scrollbar { width:4px; }
+  #part-tree::-webkit-scrollbar-thumb { background:#444; border-radius:2px; }
+  .pt-item { display:flex; align-items:center; padding:3px 8px; cursor:pointer; transition:background 0.1s; white-space:nowrap; }
+  .pt-item:hover { background:rgba(255,255,255,0.08); }
+  .pt-item.selected { background:rgba(78,205,196,0.25); color:#4ecdc4; }
+  .pt-item.hidden { color:#666; }
+  .pt-toggle { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; margin-right:2px; font-size:10px; color:#888; cursor:pointer; flex-shrink:0; }
+  .pt-toggle.leaf { visibility:hidden; }
+  .pt-icon { margin-right:4px; font-size:10px; }
+  .pt-children { margin-left:6px; border-left:1px solid #333; }
 </style>
 </head>
 <body>
@@ -56,6 +68,7 @@
 <div id="path-breadcrumb">📍 未选中</div>
 <div id="selection-box"></div>
 <button id="toggle-helpers">🔲 切换对齐辅助框 (BoxHelper)</button>
+<div id="part-tree"></div>
 
 <script type="importmap">
 {
@@ -92,27 +105,19 @@ function getMaterial(matId) {
 // 1.5 台型几何体（顶底矩形不同大小）
 // ============================================================
 function buildTaperedBox(bw, h, bd, tw, td) {
-  // bw=底部宽, h=高度, bd=底部深, tw=顶部宽, td=顶部深
   const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
   const verts = new Float32Array([
-    // 底面4顶点 (y=0)
-    -hw, 0, -hd,   hw, 0, -hd,   hw, 0,  hd,  -hw, 0,  hd,
-    // 顶面4顶点 (y=h)
-    -thw, h, -thd,  thw, h, -thd,  thw, h,  thd, -thw, h,  thd,
+    -hw,0,-hd,  hw,0,-hd,  hw,0,hd,  -hw,0,hd,    // v0~v3 底面
+   -thw,h,-thd, thw,h,-thd, thw,h,thd, -thw,h,thd, // v4~v7 顶面
   ]);
+  // 索引：每个面两个三角形，CCW绕序（从该面外部看是逆时针 = 法线朝外）
   const indices = [
-    // 底面 (v0,v2,v1, v0,v3,v2)
-    0,2,1, 0,3,2,
-    // 顶面 (v4,v5,v6, v4,v6,v7)
-    4,5,6, 4,6,7,
-    // 前面 (v0,v1,v5, v0,v5,v4)
-    0,1,5, 0,5,4,
-    // 后面 (v3,v2,v6, v3,v6,v7)
-    3,2,6, 3,6,7,
-    // 左面 (v0,v4,v7, v0,v7,v3)
-    0,4,7, 0,7,3,
-    // 右面 (v1,v2,v6, v1,v6,v5)
-    1,2,6, 1,6,5,
+    0,1,2, 0,2,3,   // ①底  v0→v1→v2, v0→v2→v3      从下方看CCW → -Y ✅
+    4,7,6, 4,6,5,   // ②顶  v4→v7→v6, v4→v6→v5      从上方看CCW → +Y ✅
+    0,4,5, 0,5,1,   // ③前  v0→v4→v5, v0→v5→v1      从前方看CCW → -Z ✅
+    3,2,6, 3,6,7,   // ④后  v3→v2→v6, v3→v6→v7      从后方看CCW → +Z ✅
+    0,3,7, 0,7,4,   // ⑤左  v0→v3→v7, v0→v7→v4      从左侧看CCW → -X ✅
+    1,5,6, 1,6,2,   // ⑥右  v1→v5→v6, v1→v6→v2      从右侧看CCW → +X ✅
   ];
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
@@ -121,9 +126,46 @@ function buildTaperedBox(bw, h, bd, tw, td) {
   return geo;
 }
 
-// ============================================================
-// 2. 几何工厂（7种类型）
-// ============================================================
+// 椭圆六棱台：底面和顶面是压扁的六边形
+// size: [底宽, 高, 底深, 顶宽, 顶深]
+function buildTaperedHex(bw, h, bd, tw, td) {
+  const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
+  const S3 = Math.sqrt(3)/2; // sin60 = cos30
+  // 底面6顶点 v0~v5 (y=0)，从上方看顺时针（从下方看CCW → -Y）
+  // 顶面6顶点 v6~v11 (y=h)，从上方看逆时针（→ +Y）
+  const verts = new Float32Array([
+    hw,0,0,              // v0 右
+    hw/2,0,hd*S3,        // v1 右后
+    -hw/2,0,hd*S3,       // v2 左后
+    -hw,0,0,             // v3 左
+    -hw/2,0,-hd*S3,      // v4 左前
+    hw/2,0,-hd*S3,       // v5 右前
+    thw,h,0,             // v6 右
+    thw/2,h,thd*S3,      // v7 右后
+    -thw/2,h,thd*S3,     // v8 左后
+    -thw,h,0,            // v9 左
+    -thw/2,h,-thd*S3,    // v10 左前
+    thw/2,h,-thd*S3,     // v11 右前
+  ]);
+  const indices = [
+    // 底面（以 v0 为公共顶点，CCW 从上方 → 法线朝上）
+    0,1,2, 0,2,3, 0,3,4, 0,4,5,
+    // 顶面（以 v6 为公共顶点，CW 从上方 → 法线朝下）
+    6,8,7, 6,9,8, 6,10,9, 6,11,10,
+    // 6个侧面（底边顶点→顶边对应顶点→顶边下一个顶点）
+    0,6,7, 0,7,1,   // 右后
+    1,7,8, 1,8,2,   // 后
+    2,8,9, 2,9,3,   // 左后
+    3,9,10, 3,10,4,  // 左前
+    4,10,11, 4,11,5, // 前
+    5,11,6, 5,6,0,   // 右前
+  ];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
 function createGeometry(node) {
   const s = node.size || [1, 1, 1];
   const seg = node.segments || [8, 1];
@@ -133,6 +175,9 @@ function createGeometry(node) {
     case 'TaperedBox':
       // size: [底部宽, 高, 底部深, 顶部宽, 顶部深]
       return buildTaperedBox(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6);
+    case 'TaperedHex':
+      // size: [底宽, 高, 底深, 顶宽, 顶深]
+      return buildTaperedHex(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6);
     case 'RoundedBox':
       // size: [width, height, depth, radius, segments]
       return new RoundedBoxGeometry(s[0], s[1]||s[0], s[2]||s[0], seg[0]||3, s[3]||0.08);
@@ -144,7 +189,9 @@ function createGeometry(node) {
       return new THREE.TorusGeometry(s[0], s[1]||0.05, seg[0]||8, seg[1]||12);
     case 'Lathe': {
       const profile = node.profile || [[0.5,0],[0.5,0.3],[0.6,0.3],[0.6,0.35],[0.55,0.4],[0.3,0.45],[0.1,0.4]];
-      const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
+      const sR = node.scaleR ?? 1;
+      const sH = node.scaleH ?? 1;
+      const pts = profile.map(p => new THREE.Vector2(p[0] * sR, p[1] * sH));
       return new THREE.LatheGeometry(pts, seg[0]||24);
     }
     case 'Extrude': {
@@ -194,9 +241,10 @@ function buildFromConfig(config, parent, showHelpers, nodeMap) {
     }
 
     const geo = createGeometry(node);
-    // NaN 诊断：检查几何体顶点
-    if (geo.attributes && geo.attributes.position) {
-      const p = geo.attributes.position;
+    const geo2 = createGeometry(node);
+    // NaN 诊断
+    if (geo2.attributes && geo2.attributes.position) {
+      const p = geo2.attributes.position;
       for (let i = 0; i < Math.min(p.count, 3); i++) {
         if (!isFinite(p.getX(i))) {
           console.warn('⚠️ NaN geometry from createGeometry:', node.name, node.type, JSON.stringify(node.size));
@@ -205,20 +253,20 @@ function buildFromConfig(config, parent, showHelpers, nodeMap) {
       }
     }
     // 安全居中：避免某些几何体 computeBoundingBox 产生 NaN
-    geo.computeBoundingBox();
-    const box = geo.boundingBox;
+    geo2.computeBoundingBox();
+    const box = geo2.boundingBox;
     if (box && isFinite(box.min.x) && isFinite(box.max.x)) {
       const cx = (box.min.x + box.max.x) / 2;
       const cy = (box.min.y + box.max.y) / 2;
       const cz = (box.min.z + box.max.z) / 2;
-      geo.translate(-cx, -cy, -cz);
+      geo2.translate(-cx, -cy, -cz);
     } else {
       console.warn('⚠️ NaN boundingBox for:', node.name, node.type, JSON.stringify(node.size));
     }
     const mat = (node.color)
       ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 })
       : getMaterial(node.materialId || 'default');
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(geo2, mat);
     mesh.name = node.name + '_mesh';
 
     const pos = adjustPos(node.position || [0,0,0], pivotComp);
@@ -306,50 +354,41 @@ const TANK_CONFIG = {
       type: 'Group',
       position: [0, 0, 0],
       children: [
-        // 下台型：底部宽大，顶部收窄（船形底盘）
         {
           name: '下车体',
           type: 'TaperedBox',
-          size: [0.90, 0.22, 1.70, 0.72, 1.50],
+          size: [1, 0.22, 1.5, 1, 1.8],
           position: [0, 0.11, 0],
           materialId: 'camo_green',
         },
-        // 上台型：底部匹配下车体顶部，上部略宽（上层结构）
         {
           name: '上车体',
           type: 'TaperedBox',
-          size: [0.72, 0.28, 1.50, 0.78, 1.10],
-          position: [0, 0.36, -0.08],
+          size: [1, 0.3, 1.8, 0.75, 1.2],
+          position: [0, 0.37, 0],
           materialId: 'camo_green',
         },
         {
           name: '发动机舱',
           type: 'Box',
-          size: [0.70, 0.14, 0.45],
-          position: [0, 0.50, -0.58],
+          size: [0.6, 0.14, 0.3],
+          position: [0, 0.46, -0.43],
           materialId: 'camo_dark',
+          color: '#323e23',
         },
         {
           name: '左翼子板',
           type: 'Box',
           size: [0.14, 0.05, 1.65],
-          position: [-0.50, 0.20, 0],
+          position: [-0.5, 0.2, 0],
           materialId: 'camo_dark',
         },
         {
           name: '右翼子板',
           type: 'Box',
           size: [0.14, 0.05, 1.65],
-          position: [0.50, 0.20, 0],
+          position: [0.5, 0.2, 0],
           materialId: 'camo_dark',
-        },
-        {
-          name: '前装甲板',
-          type: 'Box',
-          size: [0.78, 0.18, 0.05],
-          position: [0, 0.36, 0.52],
-          rotation: [-0.55, 0, 0],
-          materialId: 'camo_green',
         },
       ]
     },
@@ -360,53 +399,52 @@ const TANK_CONFIG = {
     {
       name: '炮塔总成',
       type: 'Group',
-      position: [0, 0.58, -0.05],
+      position: [0, 0, 0],
       children: [
         {
           name: '炮塔座圈',
           type: 'Torus',
-          size: [0.42, 0.04],
+          size: [0.25, 0.03],
           segments: [16, 8],
           position: [0, 0, 0],
-          rotation: [Math.PI/2, 0, 0],
+          rotation: [1.5708, 0, 0],
           materialId: 'steel',
         },
         {
           name: '炮塔主体',
-          type: 'Lathe',
-          profile: [[0.38,0],[0.40,0.05],[0.42,0.12],[0.38,0.25],[0.28,0.35],[0.12,0.40],[0.04,0.32]],
+          type: 'TaperedHex',
+          size: [0.8, 0.38, 1, 0.6, 0.7],
           segments: [24],
-          position: [0, 0.04, 0],
+          position: [0, 0.14, 0],
           materialId: 'camo_dark',
         },
         {
           name: '指挥塔',
           type: 'Cylinder',
-          size: [0.16, 0.10, 0.14],
+          size: [0.16, 0.1, 0.14],
           segments: [8],
-          position: [-0.10, 0.42, -0.05],
+          position: [-0.1, 0.38, -0.05],
           materialId: 'camo_dark',
         },
         {
           name: '左舱盖',
           type: 'Box',
           size: [0.14, 0.04, 0.14],
-          position: [-0.10, 0.48, -0.05],
+          position: [-0.1, 0.44, -0.05],
           materialId: 'camo_dark',
         },
         {
           name: '右舱盖',
           type: 'Box',
           size: [0.14, 0.04, 0.14],
-          position: [0.18, 0.42, -0.10],
+          position: [0.14, 0.35, -0.1],
           materialId: 'camo_dark',
         },
         // ---------- 武器 ----------
         {
           name: '炮管总成',
           type: 'Group',
-          position: [0, 0.22, 0.38],
-          rotation: [0, 0, 0],
+          position: [0, 0, 0],
           children: [
             {
               name: '炮盾',
@@ -419,17 +457,19 @@ const TANK_CONFIG = {
             {
               name: '炮管根部',
               type: 'Cylinder',
-              size: [0.07, 0.20, 0.07],
+              size: [0.07, 0.2, 0.07],
               segments: [8],
               position: [0, 0, 0.12],
+              rotation: [1.5708, 0, 0],
               materialId: 'barrel_steel',
             },
             {
               name: '主炮管',
               type: 'Cylinder',
-              size: [0.06, 0.70, 0.05],
+              size: [0.06, 0.7, 0.05],
               segments: [8],
               position: [0, 0, 0.55],
+              rotation: [1.5708, 0, 0],
               materialId: 'barrel_steel',
             },
             {
@@ -438,14 +478,16 @@ const TANK_CONFIG = {
               size: [0.08, 0.12, 0.07],
               segments: [8],
               position: [0, 0, 0.95],
+              rotation: [1.5708, 0, 0],
               materialId: 'barrel_steel',
             },
             {
               name: '同轴机枪',
               type: 'Cylinder',
-              size: [0.02, 0.30, 0.02],
+              size: [0.02, 0.3, 0.02],
               segments: [6],
-              position: [0.07, -0.04, 0.20],
+              position: [0.07, -0.04, 0.2],
+              rotation: [1.5708, 0, 0],
               materialId: 'dark_steel',
             },
           ]
@@ -453,13 +495,14 @@ const TANK_CONFIG = {
         {
           name: '车顶机枪',
           type: 'Group',
-          position: [0.16, 0.42, -0.06],
+          position: [0, 0, 0],
           children: [
             {
               name: '机枪座',
               type: 'Box',
               size: [0.04, 0.08, 0.04],
-              position: [0, 0.04, 0],
+              position: [0, -0.03, 0],
+              rotation: [1.5708, 0, 0],
               materialId: 'steel',
             },
             {
@@ -467,8 +510,16 @@ const TANK_CONFIG = {
               type: 'Cylinder',
               size: [0.015, 0.25, 0.012],
               segments: [6],
-              position: [0, 0.10, 0],
+              position: [0, 0.03, 0.2],
+              rotation: [1.5708, 0, 0],
               materialId: 'dark_steel',
+            },
+            {
+              name: '机枪机匣',
+              type: 'Box',
+              size: [0.085, 0.085, 0.145],
+              position: [0, 0.03, 0],
+              materialId: 'steel',
             },
           ]
         },
@@ -510,8 +561,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import GUI from 'lil-gui';
 
+const RIGHT_PANEL_W = 460; // 右侧面板总宽（部件树170 + 编辑面板290）
+function viewWidth() { return window.innerWidth - RIGHT_PANEL_W; }
 const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(viewWidth(), window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -522,7 +575,7 @@ document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#2A2A3A');
 
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.05, 50);
+const camera = new THREE.PerspectiveCamera(40, viewWidth()/window.innerHeight, 0.05, 50);
 camera.position.set(2.5, 2.0, 3.5);
 camera.lookAt(0, 0.8, 0);
 
@@ -568,17 +621,120 @@ let highlightLines = new Map();    // name → highlight LineSegments
 let guiFolderMap = new Map();      // 名称→GUI文件夹
 let clickStart = { x:0, y:0 };    // 用于区分点击与拖拽
 
+// --- 部件树面板 ---
+let ptCollapsed = new Set();       // 折叠的节点名称集合
+function refreshPartTree() {
+  const container = document.getElementById('part-tree');
+  if (!container) return;
+  container.innerHTML = '';
+  const cfg = MODEL_CONFIGS[currentModelType];
+  if (!cfg) return;
+  renderPartTree(cfg, container, 0);
+}
+function renderPartTree(cfg, parentEl, depth) {
+  const row = document.createElement('div');
+  row.className = 'pt-item';
+  if (selectedParts.has(cfg.name)) row.classList.add('selected');
+  const info = nodeMap.get(cfg.name);
+  const isVisible = info ? info.group.visible !== false : (cfg.visible !== false);
+  if (!isVisible) row.classList.add('hidden');
+  const hasChildren = cfg.children && cfg.children.length > 0;
+  const collapsed = ptCollapsed.has(cfg.name);
+  // 折叠按钮
+  const toggle = document.createElement('span');
+  toggle.className = 'pt-toggle' + (hasChildren ? '' : ' leaf');
+  toggle.textContent = hasChildren ? (collapsed ? '▶' : '▼') : '';
+  toggle.onclick = e => {
+    e.stopPropagation();
+    if (collapsed) ptCollapsed.delete(cfg.name);
+    else ptCollapsed.add(cfg.name);
+    refreshPartTree();
+  };
+  // 图标
+  const icon = document.createElement('span');
+  icon.className = 'pt-icon';
+  icon.textContent = hasChildren ? (cfg.type === 'Group' ? '⚙' : '📁') : '◼';
+  // 名称
+  const name = document.createElement('span');
+  name.textContent = cfg.name;
+  name.style.overflow = 'hidden';
+  name.style.textOverflow = 'ellipsis';
+  row.appendChild(toggle);
+  row.appendChild(icon);
+  row.appendChild(name);
+  row.onclick = e => {
+    e.stopPropagation();
+    if (e.ctrlKey || e.metaKey) toggleSelect(cfg.name);
+    else selectSingle(cfg.name);
+  };
+  parentEl.appendChild(row);
+  // 子节点
+  if (hasChildren && !collapsed) {
+    const childWrap = document.createElement('div');
+    childWrap.className = 'pt-children';
+    for (const c of cfg.children) renderPartTree(c, childWrap, depth + 1);
+    parentEl.appendChild(childWrap);
+  }
+}
+
 // --- 撤销系统 ---
 let undoStack = [];
 const MAX_UNDO = 50;
 const SAVE_KEY = 'tank_model_factory_save';
-// 全局快照函数：在 onChange 回调开头调用，保证每次参数修改前都拍照
+
+// 将 nodeMap 中的 3D 实时状态同步回 config 树（position/rotation/visible）
+function syncConfigFromScene(cfg) {
+  const n = nodeMap.get(cfg.name);
+  if (n) {
+    if (cfg.type === 'Group') {
+      // Group 也需要同步位置/旋转/可见性
+      cfg.position = [n.group.position.x, n.group.position.y, n.group.position.z].map(v=>+v.toFixed(4));
+      cfg.rotation = [n.group.rotation.x, n.group.rotation.y, n.group.rotation.z].map(v=>+v.toFixed(4));
+      cfg.visible = n.group.visible;
+    } else {
+      const cc = n.group.userData.appliedComp || [0,0,0];
+      cfg.position = [n.group.position.x-cc[0], n.group.position.y-cc[1], n.group.position.z-cc[2]].map(v=>+v.toFixed(4));
+      cfg.rotation = [n.rotTarget.rotation.x, n.rotTarget.rotation.y, n.rotTarget.rotation.z].map(v=>+v.toFixed(4));
+      cfg.visible = n.group.visible;
+    }
+  }
+  if (cfg.children) for (const c of cfg.children) syncConfigFromScene(c);
+}
+
+// 快照：先同步 3D→config，再深拷贝 config。一次拖拽只产生一个快照
+let _snapshotLock = false;
+
 function saveUndo(label) {
   if (!autoSnapshot || !modelRoot) return;
+  if (_snapshotLock) return;  // 拖拽中，快照已在 pointerdown 时拍过
+  syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
   const clone = JSON.parse(JSON.stringify(MODEL_CONFIGS[currentModelType]));
   undoStack.push(clone);
   if (undoStack.length > MAX_UNDO) undoStack.shift();
   console.log('📸 快照 #'+undoStack.length+' ('+label+')');
+}
+
+// pointerdown：操作开始前拍照 + 锁定，拖拽中 onChange 不再重复拍
+document.addEventListener('pointerdown', e => {
+  if (!modelRoot || !autoSnapshot) return;
+  if (e.target.closest('.lil-gui')) {
+    syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
+    const clone = JSON.parse(JSON.stringify(MODEL_CONFIGS[currentModelType]));
+    undoStack.push(clone);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    console.log('📸 快照 #'+undoStack.length+' (操作开始)');
+    _snapshotLock = true;
+  }
+});
+document.addEventListener('pointerup', () => { _snapshotLock = false; });
+
+function flushUndo() { /* 空函数，保留防止调用报错 */ }
+
+// 深拷贝恢复
+function deepRestore(target, source) {
+  Object.keys(target).forEach(k => delete target[k]);
+  const deepCopy = JSON.parse(JSON.stringify(source));
+  Object.assign(target, deepCopy);
 }
 let batchGuiFolder = null;  // 批量编辑面板引用
 let batchInfoObj = null;    // 批量编辑计数对象引用
@@ -692,6 +848,7 @@ function selectSingle(name) {
   focusPanel(name);
   updateBatchPanel();
   updateBreadcrumb();
+  refreshPartTree();
 }
 
 // 多选模式（切换）
@@ -708,6 +865,7 @@ function toggleSelect(name) {
   }
   updateBatchPanel();
   updateBreadcrumb();
+  refreshPartTree();
 }
 
 function removeAllHighlights() {
@@ -722,28 +880,23 @@ function deselectAll() {
   selectedParts.clear();
   updateBatchPanel();
   updateBreadcrumb();
+  refreshPartTree();
 }
 
 function focusPanel(name) {
+  // 1. 先关闭所有文件夹
   guiFolderMap.forEach(f => f.close());
+  // 2. 展开祖先路径
   const ancestors = [];
   expandPath(MODEL_CONFIGS[currentModelType], name, ancestors);
   for (const a of ancestors) { const f = guiFolderMap.get(a); if (f) f.open(); }
-  function expandDescendants(cfg) {
-    if (!cfg) return;
-    const f = guiFolderMap.get(cfg.name); if (f) f.open();
-    if (cfg.children) for (const c of cfg.children) expandDescendants(c);
-  }
-  function findNode(cfg, target) {
-    if (cfg.name === target) { expandDescendants(cfg); return true; }
-    if (cfg.children) for (const c of cfg.children) if (findNode(c, target)) return true;
-    return false;
-  }
-  findNode(MODEL_CONFIGS[currentModelType], name);
-  const folder = guiFolderMap.get(name);
-  if (folder) {
+  // 3. 只展开选中节点本身（不展开子孙）
+  const targetFolder = guiFolderMap.get(name);
+  if (targetFolder) targetFolder.open();
+  // 4. 滚动到选中位置
+  if (targetFolder) {
     try {
-      const el = folder.domElement || folder._title;
+      const el = targetFolder.domElement || targetFolder._title;
       if (el && el.scrollIntoView) {
         setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'center' }), 50);
       }
@@ -770,7 +923,7 @@ function getScreenBBox(mesh) {
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   for (const c of corners) {
     const w = c.applyMatrix4(mat).project(camera);
-    const sx = (w.x*0.5+0.5)*window.innerWidth;
+    const sx = (w.x*0.5+0.5)*viewWidth();
     const sy = (-w.y*0.5+0.5)*window.innerHeight;
     if (sx<minX) minX=sx; if (sy<minY) minY=sy;
     if (sx>maxX) maxX=sx; if (sy>maxY) maxY=sy;
@@ -810,7 +963,7 @@ function boxSelect(sx, sy, ex, ey) {
 function onClickSelect(e) {
   if (!modelRoot) return;
   const mouse = new THREE.Vector2();
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.x = (e.clientX / viewWidth()) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
@@ -945,6 +1098,7 @@ function generateName(cfg, prefix) {
 }
 
 function addChildNode(parentName) {
+  flushUndo(); saveUndo('addChild'); // 操作前保存快照
   const cfg = MODEL_CONFIGS[currentModelType];
   function findNode(n, target) {
     if (n.name === target) return n;
@@ -967,6 +1121,7 @@ function addChildNode(parentName) {
 }
 
 function deleteNode(targetName) {
+  flushUndo(); saveUndo('deleteNode'); // 操作前保存快照
   const cfg = MODEL_CONFIGS[currentModelType];
   const parent = findParentNode(cfg, targetName);
   if (!parent || !parent.children) { console.log('⚠️ 无法删除根节点'); return; }
@@ -979,6 +1134,7 @@ function deleteNode(targetName) {
 
 function renameNode(oldName, newName) {
   if (!newName || newName === oldName) return;
+  flushUndo(); saveUndo('renameNode'); // 操作前保存快照
   const cfg = MODEL_CONFIGS[currentModelType];
   function findNode(n, target) {
     if (n.name === target) return n;
@@ -996,6 +1152,7 @@ function renameNode(oldName, newName) {
 const TYPE_DEFAULTS = {
   Box: { size:[0.3,0.3,0.3] },
   TaperedBox: { size:[0.5,0.3,0.5,0.35,0.35] },
+  TaperedHex: { size:[0.5,0.3,0.5,0.35,0.35] },
   RoundedBox: { size:[0.3,0.3,0.3,0.06], segments:[3] },
   Cylinder: { size:[0.15,0.3,0.15], segments:[6] },
   Sphere: { size:[0.2], segments:[8,6] },
@@ -1006,6 +1163,7 @@ const TYPE_DEFAULTS = {
 };
 
 function switchType(nodeName, newType) {
+  flushUndo(); saveUndo('switchType'); // 操作前保存快照
   const cfg = MODEL_CONFIGS[currentModelType];
   function findNode(n, target) {
     if (n.name === target) return n;
@@ -1076,9 +1234,9 @@ function buildGUI() {
     _prevBatch[batchKey] = newValue;
     updateAllHelpers();
   }
-  batchGuiFolder.add(batchPos, 'dx', -2, 2, 0.001).name('ΔX').onChange(v => applyDelta('x', 'dx', v));
-  batchGuiFolder.add(batchPos, 'dy', -2, 2, 0.001).name('ΔY').onChange(v => applyDelta('y', 'dy', v));
-  batchGuiFolder.add(batchPos, 'dz', -2, 2, 0.001).name('ΔZ').onChange(v => applyDelta('z', 'dz', v));
+  batchGuiFolder.add(batchPos, 'dx', -2, 2, 0.001).name('ΔX').onChange(v => { saveUndo('batchDX'); applyDelta('x', 'dx', v); });
+  batchGuiFolder.add(batchPos, 'dy', -2, 2, 0.001).name('ΔY').onChange(v => { saveUndo('batchDY'); applyDelta('y', 'dy', v); });
+  batchGuiFolder.add(batchPos, 'dz', -2, 2, 0.001).name('ΔZ').onChange(v => { saveUndo('batchDZ'); applyDelta('z', 'dz', v); });
   // 重置偏移
   batchGuiFolder.add({ resetOffset:()=>{
     batchPos.dx=0; batchPos.dy=0; batchPos.dz=0;
@@ -1114,6 +1272,7 @@ function buildGUI() {
   });
   // 隐藏选中
   batchGuiFolder.add({ del:()=>{
+    flushUndo(); saveUndo('batchHide'); // 操作前保存快照
     for (const name of selectedParts) {
       const info = nodeMap.get(name);
       if (info && info.group) {
@@ -1133,6 +1292,7 @@ function buildGUI() {
   const globalF = gui.addFolder('🛠 全局操作');
   // 撤销
   globalF.add({ undo:()=>{
+    flushUndo(); // 强制入栈当前待定快照
     if (undoStack.length === 0) { console.log('⚠️ 没有可撤销的操作'); return; }
     autoSnapshot = false;
     const prev = undoStack.pop();
@@ -1140,10 +1300,6 @@ function buildGUI() {
     const fmCur2 = cfg.children?.[0]?.children?.[0];
     const fmPrev2 = prev.children?.[0]?.children?.[0];
     console.log('🔙 撤销: 当前 size=' + JSON.stringify(fmCur2?.size) + ' → 快照 size=' + JSON.stringify(fmPrev2?.size));
-    function deepRestore(target, source) {
-      Object.keys(target).forEach(k => delete target[k]);
-      Object.assign(target, source);
-    }
     deepRestore(cfg, prev);
     console.log('🔙 恢复后 size=' + JSON.stringify(cfg.children?.[0]?.children?.[0]?.size));
     rebuildModel();
@@ -1165,10 +1321,6 @@ function buildGUI() {
       const data = JSON.parse(raw);
       currentModelType = data.modelType || 'tank';
       const cfg = MODEL_CONFIGS[currentModelType];
-      function deepRestore(target, source) {
-        Object.keys(target).forEach(k => delete target[k]);
-        Object.assign(target, source);
-      }
       deepRestore(cfg, data.config);
       rebuildModel();
       console.log('📂 已从本地存储加载 (' + new Date(data.timestamp).toLocaleString() + ')');
@@ -1238,6 +1390,7 @@ function buildGUI() {
       for (const h of helpers) {
         if (h.userData._mesh === mesh) h.visible = v && showHelpersGlobal;
       }
+      refreshPartTree();
     });
 
     // --- 位置 (x,y,z) ---
@@ -1247,13 +1400,14 @@ function buildGUI() {
     posF.add(p, 'y', -2.5, 2.5, 0.005).name('Y').onChange(v => { saveUndo('posY'); group.position.y=v; updateAllHelpers(); });
     posF.add(p, 'z', -2.5, 2.5, 0.005).name('Z').onChange(v => { saveUndo('posZ'); group.position.z=v; updateAllHelpers(); });
 
-    // --- 旋转 (x,y,z) ---
+    // --- 旋转 (x,y,z) — 度数显示 ---
     if (configNode.type !== 'Group') {
-      const r = { x:rotTarget.rotation.x, y:rotTarget.rotation.y, z:rotTarget.rotation.z };
+      const DEG = 180 / Math.PI;
+      const r = { x: rotTarget.rotation.x * DEG, y: rotTarget.rotation.y * DEG, z: rotTarget.rotation.z * DEG };
       const rotF = folder.addFolder('🔄 旋转');
-      rotF.add(r, 'x', -Math.PI, Math.PI, 0.01).name('X').onChange(v => { saveUndo('rotX'); rotTarget.rotation.x=v; updateAllHelpers(); });
-      rotF.add(r, 'y', -Math.PI, Math.PI, 0.01).name('Y').onChange(v => { saveUndo('rotY'); rotTarget.rotation.y=v; updateAllHelpers(); });
-      rotF.add(r, 'z', -Math.PI, Math.PI, 0.01).name('Z').onChange(v => { saveUndo('rotZ'); rotTarget.rotation.z=v; updateAllHelpers(); });
+      rotF.add(r, 'x', -180, 180, 1).name('X (°)').onChange(v => { saveUndo('rotX'); rotTarget.rotation.x = v / DEG; updateAllHelpers(); });
+      rotF.add(r, 'y', -180, 180, 1).name('Y (°)').onChange(v => { saveUndo('rotY'); rotTarget.rotation.y = v / DEG; updateAllHelpers(); });
+      rotF.add(r, 'z', -180, 180, 1).name('Z (°)').onChange(v => { saveUndo('rotZ'); rotTarget.rotation.z = v / DEG; updateAllHelpers(); });
     }
 
     // --- 几何参数编辑（按类型区分）---
@@ -1288,6 +1442,15 @@ function buildGUI() {
         geoF.add(t, 'tw', 0.01, 3.0, 0.005).name('顶宽').onChange(v=>{saveUndo('TTw');configNode.size[3]=v;rebuild();});
         geoF.add(t, 'td', 0.01, 3.0, 0.005).name('顶深').onChange(v=>{saveUndo('TTd');configNode.size[4]=v;rebuild();});
       }
+      else if (configNode.type === 'TaperedHex') {
+        const sz = configNode.size || [0.5,0.3,0.5,0.35,0.35];
+        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6 };
+        geoF.add(t, 'bw', 0.01, 3.0, 0.005).name('底宽').onChange(v=>{saveUndo('THXbw');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('THXh');configNode.size[1]=v;rebuild();});
+        geoF.add(t, 'bd', 0.01, 3.0, 0.005).name('底深').onChange(v=>{saveUndo('THXbd');configNode.size[2]=v;rebuild();});
+        geoF.add(t, 'tw', 0.01, 3.0, 0.005).name('顶宽').onChange(v=>{saveUndo('THXtw');configNode.size[3]=v;rebuild();});
+        geoF.add(t, 'td', 0.01, 3.0, 0.005).name('顶深').onChange(v=>{saveUndo('THXtd');configNode.size[4]=v;rebuild();});
+      }
       else if (configNode.type === 'Cylinder') {
         const sz = configNode.size || [0.5,1,0.5];
         const c = { rT:sz[0], h:sz[1], rB:sz[2] };
@@ -1321,6 +1484,10 @@ function buildGUI() {
         const sg = configNode.segments || [24];
         const sm = { seg:sg[0] };
         geoF.add(sm, 'seg', 6, 64, 1).name('旋转段数').onChange(v=>{saveUndo('LHseg');configNode.segments[0]=v;rebuild();});
+        // 半径缩放 & 高度缩放
+        const sc = { sR: configNode.scaleR ?? 1, sH: configNode.scaleH ?? 1 };
+        geoF.add(sc, 'sR', 0.1, 3.0, 0.01).name('半径缩放').onChange(v=>{saveUndo('LHsR');configNode.scaleR=v;rebuild();});
+        geoF.add(sc, 'sH', 0.1, 3.0, 0.01).name('高度缩放').onChange(v=>{saveUndo('LHsH');configNode.scaleH=v;rebuild();});
         // 轮廓编辑：JSON 文本输入
         const prof = configNode.profile || [[0.5,0],[0.5,0.3],[0.6,0.4],[0.1,0.4]];
         const pStr = { txt: JSON.stringify(prof) };
@@ -1343,7 +1510,7 @@ function buildGUI() {
       }
 
       // --- 颜色编辑（hex color picker）---
-      if (mesh.material.color) {
+      if (mesh.material && mesh.material.color) {
         const colF = folder.addFolder('🎨 颜色');
         const hexStr = '#' + mesh.material.color.getHexString();
         const c = { color:hexStr };
@@ -1376,7 +1543,7 @@ function buildGUI() {
     }}, 'applyRename').name('✅ 确认重命名');
     // 类型切换（仅非 Group）
     if (configNode.type !== 'Group') {
-      const typeList = ['Box','TaperedBox','RoundedBox','Cylinder','Sphere','Torus','Lathe','Extrude'];
+      const typeList = ['Box','TaperedBox','TaperedHex','RoundedBox','Cylinder','Sphere','Torus','Lathe','Extrude'];
       editF.add({ type:configNode.type }, 'type', typeList).name('形状').onChange(v => {
         saveUndo('switchType');
         switchType(configNode.name, v);
@@ -1443,9 +1610,9 @@ document.getElementById('toggle-helpers').addEventListener('click', () => {
 // 13. 窗口缩放
 // ============================================================
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = viewWidth() / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(viewWidth(), window.innerHeight);
 });
 
 // ============================================================
@@ -1459,6 +1626,7 @@ window.addEventListener('keydown', e => {
   }
   if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
     e.preventDefault();
+    flushUndo(); // 强制入栈当前待定快照
     if (undoStack.length === 0) { console.log('⚠️ 没有可撤销的操作'); return; }
     autoSnapshot = false;
     const prev = undoStack.pop();
@@ -1466,7 +1634,6 @@ window.addEventListener('keydown', e => {
     const fmCur = cfg.children?.[0]?.children?.[0];
     const fmPrev = prev.children?.[0]?.children?.[0];
     console.log('🔙 撤销: 当前 size=' + JSON.stringify(fmCur?.size) + ' → 快照 size=' + JSON.stringify(fmPrev?.size));
-    function deepRestore(target, source) { Object.keys(target).forEach(k=>delete target[k]); Object.assign(target,source); }
     deepRestore(cfg, prev);
     console.log('🔙 恢复后 size=' + JSON.stringify(cfg.children?.[0]?.children?.[0]?.size));
     rebuildModel();
@@ -1483,6 +1650,7 @@ window.addEventListener('keydown', e => {
   // Delete — 隐藏选中部件
   if (e.key === 'Delete' && selectedParts.size > 0) {
     e.preventDefault();
+    flushUndo(); saveUndo('keyDel'); // 操作前保存快照
     for (const name of selectedParts) {
       const info = nodeMap.get(name);
       if (info && info.group) {

@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.36.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.37.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -231,6 +231,12 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.37.0 — 模型工厂修复 (model_factory.html)（2026-05-23）
+- **TaperedHex六棱台法线修复**：侧面索引绕序修正（法线朝外），底面/顶面改用公共顶点扇形三角化，消除全黑/透明问题
+- **Group位置保存修复**：`syncConfigFromScene` 不再跳过 Group 节点，炮塔总成/炮管总成的移动可正确保存到 localStorage
+- **Cylinder语法补全**：添加 TaperedHex 分支时遗漏 Cylinder 的 `else if` 条件头，导致 SyntaxError
+- **配置固化**：炮塔主体 TaperedHex + 下车体/上车体 TaperedBox + 18个部件参数更新
 
 ### v0.36.1 — 模型工厂 (model_factory.html)（2026-05-22）
 - **🏭 模型工厂**：独立通用程序化模型编辑器 `model_factory.html`，~1580行
@@ -794,12 +800,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`🎮 坦克运动demo v0.35.0 | 编辑器地图全链路修复+河流宽度空气墙+树木载入+巡逻卡住`
+2. 当前版本 console.log：`🎮 坦克运动demo v0.37.0 | 模型工厂TaperedHex六棱台法线修复+Group位置保存+Cylinder语法+配置固化`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.35.0）
+### 代码规模（截至 v0.37.0）
 - `index.html`：约 6680 行（主游戏引擎 + 编辑器地图全链路修复）
+- `model_factory.html`：约 1770 行（通用程序化模型编辑器 + TaperedHex六棱台 + Group位置保存）
 - `map_editor.html`：约 2850 行（地图编辑器 + 批量属性编辑 + 实体列表分类折叠）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
 - `models/pickups.js`：约 190 行（程序化倒角红箱）
