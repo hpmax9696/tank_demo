@@ -80,16 +80,16 @@
 }
 </script>
 
-
+<script type="module">
 
 // ============================================================
 // 1. 默认材质字典
 // ============================================================
 const MATERIAL_DEFS = {
   steel:       { color:0x6b6b7b, roughness:0.5,  metalness:0.8 },
-  dark_steel:  { color:0x4a4a5a, roughness:0.45, metalness:0.85 },
-  barrel_steel:{ color:0x3a3a44, roughness:0.35, metalness:0.9 },
-  rubber:      { color:0x2a2a2e, roughness:0.9,  metalness:0.05 },
+  dark_steel:  { color:0x4a4a5a, roughness:0.45, metalness:0.85, emissive:0x111111, emissiveIntensity:0.30 },
+  barrel_steel:{ color:0x3a3a44, roughness:0.35, metalness:0.9,  emissive:0x0a0a0a, emissiveIntensity:0.20 },
+  rubber:      { color:0x2a2a2e, roughness:0.9,  metalness:0.05, emissive:0x080808, emissiveIntensity:0.25 },
   camo_green:  { color:0x4a5c2e, roughness:0.75, metalness:0.1 },
   camo_dark:   { color:0x3d4f25, roughness:0.7,  metalness:0.1 },
   camo_desert: { color:0x8b7d4a, roughness:0.75, metalness:0.1 },
@@ -267,6 +267,11 @@ function buildFromConfig(config, parent, showHelpers, nodeMap) {
     const mat = (node.color)
       ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 })
       : getMaterial(node.materialId || 'default');
+    if (node.flatShading) {
+      mat.flatShading = true;
+      // 自定义几何体侧面三角形绕序虽经交叉积验证一致，但 DoubleSide 防止边界法线翻转导致黑面
+      if (node.type === 'TaperedBox' || node.type === 'TaperedHex') mat.side = THREE.DoubleSide;
+    }
     const mesh = new THREE.Mesh(geo2, mat);
     mesh.name = node.name + '_mesh';
 
@@ -529,6 +534,113 @@ const TANK_CONFIG = {
   ]
 };
 
+// ============================================================
+// T-34/85 v1.6 — 基于四视图AI生成的精确尺寸（2026-05-23）
+// Cylinder: size[rTop, height, rBot]  segments[圆周段]
+// TaperedHex: bd需×√3/2≈0.866换算实际前后距
+// 负重轮: rotation[0,0,π/2] 使圆柱侧立成轮盘
+// ============================================================
+const T34_85_V16_CONFIG = {
+  name: 'T-34/85 v1.6',
+  type: 'Group',
+  position: [0, 0.4, 0],
+  rotation: [0, 0, 0],
+  scale: [1, 1, 1],
+  children: [
+
+    // ======================== 车体 ========================
+    {
+      name: '车体',
+      type: 'Group',
+      position: [0, 0, 0],
+      children: [
+        { name: '下车体',      type: 'TaperedBox', size: [2.92, 0.9, 5.0, 2.92, 6.0],   position: [0, 0.95, -0.1],   materialId: 'camo_green', flatShading: true },
+        { name: '上车体',      type: 'TaperedBox', size: [2.60, 0.5, 6.0, 2.40, 5.8],   position: [0, 1.63, -0.1],   materialId: 'camo_green', flatShading: true },
+        { name: '发动机舱',    type: 'Box',        size: [2.6, 0.12, 2.2],               position: [0, 1.94, -1.8],   materialId: 'camo_dark',  flatShading: true },
+        { name: '左前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [-1.6, 1.92, 1.8], materialId: 'camo_green' },
+        { name: '右前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [1.6, 1.92, 1.8],  materialId: 'camo_green' },
+        { name: '左侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [-1.6, 1.92, -0.1],materialId: 'camo_green' },
+        { name: '右侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [1.6, 1.92, -0.1], materialId: 'camo_green' },
+        { name: '左外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [-1.6, 1.3, -2.4],  materialId: 'camo_green' },
+        { name: '右外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [1.6, 1.3, -2.4],   materialId: 'camo_green' },
+        { name: '左排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [-1.2, 1.72, -2.9], materialId: 'dark_steel' },
+        { name: '右排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [0.8, 1.72, -2.9],  materialId: 'dark_steel' },
+        { name: '前大灯',      type: 'Cylinder',   size: [0.08, 0.1, 0.08], segments:[12],position: [-1.6, 2.0, 2.3],   materialId: 'steel', rotation: [1.5708,0,0] },
+        { name: '前牵引缆绳',  type: 'Torus',      size: [0.25, 0.02],   segments:[8,16],position: [0, 1.35, 2.6],     materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        { name: '后散热格栅',  type: 'Box',        size: [2.2, 0.02, 0.35],              position: [0, 2.03, -2.85],  materialId: 'dark_steel' },
+      ]
+    },
+
+    // ======================== 左履带总成 ========================
+    {
+      name: '左履带总成',
+      type: 'Group',
+      position: [-1.7, 0, 0],
+      children: [
+        { name: '左负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 1.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '左负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 0.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '左负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -0.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '左负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -1.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '左负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -2.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '左主动轮',  type: 'Cylinder', size: [0.45, 0.15, 0.45],segments:[16], position: [0, 0.45, -2.9],materialId: 'dark_steel', rotation: [0,0,1.5708] },
+        { name: '左诱导轮',  type: 'Cylinder', size: [0.35, 0.15, 0.35],segments:[16], position: [0, 0.35, 1.9], materialId: 'dark_steel', rotation: [0,0,1.5708] },
+        { name: '左下履带',  type: 'Box',      size: [0.55, 0.08, 4.2],                position: [0, 0.06, -0.4], materialId: 'dark_steel' },
+        { name: '左上履带',  type: 'Box',      size: [0.55, 0.06, 4.2],                position: [0, 0.82, -0.4], materialId: 'dark_steel' },
+      ]
+    },
+
+    // ======================== 右履带总成 ========================
+    {
+      name: '右履带总成',
+      type: 'Group',
+      position: [1.7, 0, 0],
+      children: [
+        { name: '右负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 1.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '右负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 0.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '右负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -0.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '右负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -1.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '右负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -2.6], materialId: 'rubber', rotation: [0,0,1.5708] },
+        { name: '右主动轮',  type: 'Cylinder', size: [0.45, 0.15, 0.45],segments:[16], position: [0, 0.45, -2.9],materialId: 'dark_steel', rotation: [0,0,1.5708] },
+        { name: '右诱导轮',  type: 'Cylinder', size: [0.35, 0.15, 0.35],segments:[16], position: [0, 0.35, 1.9], materialId: 'dark_steel', rotation: [0,0,1.5708] },
+        { name: '右下履带',  type: 'Box',      size: [0.55, 0.08, 4.2],                position: [0, 0.06, -0.4], materialId: 'dark_steel' },
+        { name: '右上履带',  type: 'Box',      size: [0.55, 0.06, 4.2],                position: [0, 0.82, -0.4], materialId: 'dark_steel' },
+      ]
+    },
+
+    // ======================== 炮塔总成 ========================
+    {
+      name: '炮塔总成',
+      type: 'Group',
+      position: [0, 0, 0],
+      children: [
+        { name: '炮塔座圈',    type: 'Cylinder', size: [0.85, 0.08, 0.85],segments:[32],position: [0, 1.94, 0.8],  materialId: 'dark_steel' },
+        { name: '炮塔主体',    type: 'TaperedHex',size: [2.0, 0.72, 2.77, 1.6, 2.31],segments:[24], position: [0, 2.34, 0.8],  materialId: 'camo_dark', flatShading: true },
+        { name: '指挥塔',      type: 'Cylinder', size: [0.25, 0.3, 0.25], segments:[12],position: [-0.5, 2.85, 0.5],  materialId: 'camo_dark' },
+        { name: '装填手舱盖',  type: 'Box',      size: [0.4, 0.05, 0.5],               position: [0.6, 2.725, 1.2], materialId: 'dark_steel' },
+        // 炮管总成
+        {
+          name: '炮管总成',
+          type: 'Group',
+          position: [0, 0, 0],
+          children: [
+            { name: '炮盾',      type: 'Sphere',   size: [0.22],      segments:[12,8],  position: [0, 2.3, 2.0],   scale: [1, 0.7, 0.6], materialId: 'barrel_steel' },
+            { name: '炮管根部',  type: 'Cylinder', size: [0.11, 0.25, 0.11],segments:[12],position: [0, 2.3, 2.13],  materialId: 'barrel_steel', rotation: [1.5708,0,0] },
+            { name: '主炮管',    type: 'Cylinder', size: [0.06, 3.2, 0.06], segments:[12],position: [0, 2.3, 3.85],  materialId: 'barrel_steel', rotation: [1.5708,0,0] },
+            { name: '炮口加强段',type: 'Cylinder', size: [0.07, 0.12, 0.07],segments:[12],position: [0, 2.3, 5.51],  materialId: 'barrel_steel', rotation: [1.5708,0,0] },
+            { name: '同轴机枪',  type: 'Cylinder', size: [0.03, 0.15, 0.03],segments:[8], position: [-0.12, 2.25, 2.05],materialId: 'dark_steel', rotation: [1.5708,0,0] },
+          ]
+        },
+        // 炮塔附件
+        { name: '左扶手',      type: 'Cylinder', size: [0.02, 1.6, 0.02], segments:[8], position: [-1.05, 2.5, 0.8], materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        { name: '右扶手',      type: 'Cylinder', size: [0.02, 1.6, 0.02], segments:[8], position: [1.05, 2.5, 0.8],  materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        { name: '左烟雾弹架',  type: 'Box',      size: [0.12, 0.15, 0.3],              position: [-1.1, 2.4, 0.5],  materialId: 'dark_steel' },
+        { name: '右烟雾弹架',  type: 'Box',      size: [0.12, 0.15, 0.3],              position: [1.1, 2.4, 0.5],   materialId: 'dark_steel' },
+        { name: '天线基座',    type: 'Cylinder', size: [0.015, 1.0, 0.015],segments:[4], position: [-0.6, 3.2, 0.2],  materialId: 'dark_steel' },
+      ]
+    },
+  ]
+};
+
 // 建筑配置占位
 const BUILDING_CONFIG = {
   name: 'buildingRoot',
@@ -551,7 +663,7 @@ const ENEMY_CONFIG = {
   ]
 };
 
-const MODEL_CONFIGS = { tank:TANK_CONFIG, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG };
+const MODEL_CONFIGS = { tank:TANK_CONFIG, tank_v16:T34_85_V16_CONFIG, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG };
 let currentModelType = 'tank';
 
 // ============================================================
@@ -586,8 +698,9 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.update();
 
-// 光照
-scene.add(new THREE.AmbientLight(0x404060, 0.6));
+// 光照（v1.6改进: 增加HemisphereLight消除后视图死黑）
+scene.add(new THREE.AmbientLight(0x404060, 0.8));
+scene.add(new THREE.HemisphereLight(0x444455, 0x222233, 0.3));
 const dirLight = new THREE.DirectionalLight(0xFFF0E0, 2.0);
 dirLight.position.set(5, 10, 7);
 dirLight.castShadow = true;
@@ -596,6 +709,10 @@ scene.add(dirLight);
 const fillLight = new THREE.DirectionalLight(0x8888FF, 0.3);
 fillLight.position.set(-3, 4, -5);
 scene.add(fillLight);
+// v1.6-r3: 后部补光 — 从后上方照射车尾排气管/油箱
+const rearLight = new THREE.DirectionalLight(0xffffff, 0.4);
+rearLight.position.set(-3, 5, -8);
+scene.add(rearLight);
 
 // 地面
 scene.add(new THREE.GridHelper(5, 10, 0x666688, 0x444466));
@@ -1203,7 +1320,7 @@ function buildGUI() {
 
   // --- 模型切换 ---
   const modelFolder = gui.addFolder('📦 模型切换');
-  const modelOptions = ['tank', 'building', 'enemy'];
+  const modelOptions = { 'T-34/85 (当前版)':'tank', 'T-34/85 (v1.6 AI版)':'tank_v16', '🏠 建筑':'building', '👾 敌人':'enemy' };
   modelFolder.add({ model: currentModelType }, 'model', modelOptions)
     .name('选择模型')
     .onChange(v => {

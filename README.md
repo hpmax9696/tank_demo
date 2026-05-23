@@ -30,17 +30,17 @@ start-server.bat
 # Linux/Mac: 运行脚本
 chmod +x start-server.sh && ./start-server.sh
 
-# 然后浏览器访问 http://localhost:8080
+# 然后浏览器访问 http://127.0.0.1:8080
 ```
 
 **备选方案（手动）**：
 ```bash
 # 在项目目录下执行
-python -m http.server 8080
-# 然后浏览器访问 http://localhost:8080
+python -m http.server 8080 --bind 127.0.0.1
+# 然后浏览器访问 http://127.0.0.1:8080
 ```
 
-> **端口约定**：统一使用 **8080** 端口。
+> **端口约定**：统一使用 **8080** 端口，绑定 127.0.0.1。
 
 ### 操作说明
 
@@ -68,6 +68,8 @@ python -m http.server 8080
 ```
 坦克对战demo/
 ├── index.html             # 主入口文件（HTML + CSS + JS 游戏引擎）
+├── model_factory.html     # 🏭 通用程序化模型编辑器（含 T-34/85 v1.6）
+├── map_editor.html        # 🗺 地图编辑器（7阶段完成）
 ├── three.min.js           # Three.js 库（UMD 构建，~654KB，本地加载）
 ├── GLTFLoader.js          # GLTF 模型加载器（用于加载 .glb 文件）
 ├── fireSmokeParticles.js  # 粒子系统模块（火焰/烟雾/爆炸效果）
@@ -76,6 +78,10 @@ python -m http.server 8080
 ├── glb-test.html          # GLB 模型测试页
 ├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
 ├── README.md              # 本文件
+├── docs/                  # 📄 协作文档（T-34/85 v1.6 看图AI交互记录）
+│   ├── t34-85-v1.6-spec-for-vision-ai.md    # 对方AI规范文档
+│   ├── t34-85-v1.6-env-deps.md              # 环境依赖说明
+│   └── t34-85-v1.6-feedback-to-vision-ai.md # 4轮交互反馈
 ├── combat/                # PvE 战斗系统
 │   ├── enemyAI.js         # AI 状态机（PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
 │   └── scoreSystem.js     # 积分系统（localStorage 持久化）
@@ -236,6 +242,10 @@ fireSmokeParticles.js:
 - **删除T-34-85 v1.5模型**：移除 `createT34_85_v1_5()` 函数及 `T34_85_V15_CONFIG` 配置
 - **删除模型工厂切换接口**：移除 GUI 中的 `t34_v15` 选项、`currentTankVersion` 变量、版本切换代码
 - **ModelRegistry 清理**：移除 `t34-85_v1_5-green` 和 `t34-85_v1_5-desert` 注册
+- **T-34/85 v1.6 协作启动**：与看图AI基于四视图迭代程序化模型（r1~r4），模型工厂新增切换入口
+  - 新增 `docs/` 目录：规范文档+环境依赖+4轮交互反馈
+  - 环境改进：flatShading+DoubleSide、5灯光照栈、emissive自发光
+  - v1.6 当前 46 部件，侧视正梯形轮廓+炮塔前移 40%+椭球炮盾
 
 ### v0.37.0 — 模型工厂修复 (model_factory.html)（2026-05-23）
 - **TaperedHex六棱台法线修复**：侧面索引绕序修正（法线朝外），底面/顶面改用公共顶点扇形三角化，消除全黑/透明问题
@@ -267,22 +277,15 @@ fireSmokeParticles.js:
 - **坐标映射修复**：getTerrainHeight 编辑器高度图 half 100→150，与纹理 300×300 坐标系统一，消除河床 ~19m 偏移
 - **分段水面**：createRiverWater 使用 riverWaterLevels 分段水位替代单一全局水位，水面跟随河床起伏
 - **河流宽度**：convertBlueprintToMapConfig 传递 riverWidth，水面宽度匹配编辑器画笔半径
+- **空气墙修复**：碰撞半径 hw+1.5→hw+4，密度 ↑35；createBridge 不再清空 riverColliders
+- **树木载入**：createObstacles 消费 editorTrees（InstancedMesh 顺序修正）；编辑器实体边界 spawnR→±150；随机障碍物清零（JS falsy 陷阱修复）
+- **巡逻卡住**：enemyAI.js 卡住检测改用距巡逻点距离缩小替代绝对位移，消除敌人互推振荡
 - **水面不可见修复**：三角形绕序修正为逆时针（法线朝上），添加 `DoubleSide` 兜底；主游戏编辑器河流同步修复
 - **水面沉入河床**：`waterBaseLevel = maxOrigH - brushStrength × 0.6`，水面在凹槽内而非浮在地表
 - **锐角折叠修复**：贝塞尔预平滑（`subdivideSharpCorners`）在折角>40°处插入插值点，消除条带顶点交叉
 - **5项编辑器bug修复**：`isEdited`→`isEdited_w`、`t0`作用域提升、`adjustedWaterLevel`→`waterBaseLevel`、`polygonOffset` 深度冲突、水面采样点改用平滑路径
-- 修复范围：`map_editor.html` + `index.html` 河流水面相关函数（~150行修改）
-
-
-
-### v0.35.0 — 编辑器地图全链路修复（2026-05-21）
-- **坐标映射修复**：getTerrainHeight 编辑器高度图 half 100→150，与纹理 300×300 坐标系统一，消除河床 ~19m 偏移
-- **分段水面**：createRiverWater 使用 riverWaterLevels 分段水位替代单一全局水位，水面跟随河床起伏
-- **河流宽度**：convertBlueprintToMapConfig 传递 riverWidth，水面宽度匹配编辑器画笔半径
-- **空气墙修复**：碰撞半径 hw+1.5→hw+4，密度 ↑35；createBridge 不再清空 riverColliders
-- **树木载入**：createObstacles 消费 editorTrees（InstancedMesh 顺序修正）；编辑器实体边界 spawnR→±150；随机障碍物清零（JS falsy 陷阱修复）
-- **巡逻卡住**：enemyAI.js 卡住检测改用距巡逻点距离缩小替代绝对位移，消除敌人互推振荡
 - **日志清理**：精简河流/树木诊断输出，保留关键摘要
+- 修复范围：`map_editor.html` + `index.html`（~150行修改）
 
 ### v0.34.0 — 加载画面+编辑器地图对接+批量编辑+巡逻分散（2026-05-21）
 - **加载画面**：进入任意地图时显示黑色底+渐变色进度条+7步状态提示，解决干等问题
@@ -744,8 +747,8 @@ T-34/85 v6 真实照片对标重构 → 技术图纸修正 → 炮塔/履带/尾
 
 ### 运行方式
 1. 复制整个 `坦克对战demo/` 文件夹到目标电脑
-2. 在项目目录下启动本地服务器：`python -m http.server 8080`
-3. 浏览器访问 `http://localhost:8080`
+2. 在项目目录下启动本地服务器：`python -m http.server 8080 --bind 127.0.0.1`
+3. 浏览器访问 `http://127.0.0.1:8080`
 4. 修改代码后刷新浏览器（`Ctrl+F5` 强制刷新清除缓存）
 5. 所有现代浏览器均可运行（Chrome / Edge / Firefox）
 
@@ -825,7 +828,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ---
 
-## 当前版本关键参数（v0.35.0）
+## 当前版本关键参数（v0.37.1）
 
 | 参数 | 值 | 说明 |
 |------|-----|------|

@@ -72,7 +72,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 3700+ 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 6680 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus'
@@ -90,7 +90,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 模型工厂编辑器（model_factory.html）⭐ v0.37.1
 
-`model_factory.html` 是通用程序化模型编辑器，~1580行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
+`model_factory.html` 是通用程序化模型编辑器，~1770行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
 
 ```
 ├── 几何系统: buildTaperedBox() + 7种Three.js几何 + RoundedBoxGeometry
@@ -189,7 +189,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
 | 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
-| 地图编辑器 | `map_editor.html` ~2750行 | 6阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成 |
+| 地图编辑器 | `map_editor.html` ~2850行 | 6阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成 |
 | 编辑器世界 | 300×300 (空气墙200×200) | `map_editor.html` WORLD_SIZE/PLAY_SIZE |
 | 高度图精度 | 256×256 Float32Array | HM_RES |
 | 纹理预览 | 2048×2048 Canvas2D | TEX_RES |
@@ -197,6 +197,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 编辑器限帧 | 30fps | `animate()` FRAME_MS=1000/30 |
 | 蓝图存储 | localStorage `tank_map_editor_blueprints` | CRUD + 导入/导出 JSON |
 | 编辑器→主游戏 | `convertBlueprintToMapConfig()` | 离散高度图双线性插值 + `loadMapConfig()` 动态注入 |
+| 模型工厂光照(v1.6) | 5灯栈 | Ambient(0.8)+Hemisphere(0.3)+Dir主(2.0)+左补(0.3)+后补(0.4) |
+| TaperedBox flatShading | DoubleSide 兜底 | flatShading时自动启用，防止侧面黑面 |
+| emissive自发光 | dark_steel 0.30 / barrel_steel 0.20 / rubber 0.25 | 暗部保留轮廓 |
 | 水体走廊法 | 河床/湖底走廊法雕刻 + ease-out falloff | `carveRiverCorridor` / `carvePondBasin` (mouseup中) |
 | 分段水面剖面 | 每段水面 = min(前段, 本地形-strength×0.3)，单调不增 | `segWaterLevels[]` + `waterLevels` 记录 |
 | 网格单元水面 | 河流+湖泊统一用高度图网格四边形构建平坦水面 | `createWaterLayer()` cellSet → 每个单元格独立 surfaceLevel |
@@ -305,6 +308,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 19 | 编辑器树木不加载/聚集/位置错误 | ✅ v0.35.0 | editorTrees消费+InstancedMesh顺序修正+spawnR→150+falsy陷阱 |
 | 20 | 池塘水面悬空（WATER_LEVEL常量覆盖） | ✅ v0.36.0 | 游戏循环每帧`waterPlane.position.y=WATER_LEVEL`硬编码覆盖，修复：userData.baseY存储实际水面高度 |
 | 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
+| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.37.1+ | 与看图AI协作(4轮)，r4状态: 侧视正梯形轮廓+炮塔前移+5灯照明+emissive。下一步: 履带改为梯形齿Extrude+负重轮间距调整 |
 
 
 ---
@@ -358,6 +362,46 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 **道路+村落生成**：`generateRoadVillageSystem()` → 7步管线（主路8.5m→分支村路→广场圆盘→建筑集群→连接小路→树木填充→绿化带）
 
 **数据流**：编辑器内存 → localStorage蓝图表 → 导出JSON → `convertBlueprintToMapConfig()` → 主游戏离散高度图双线性插值加载
+
+---
+
+## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.37.1+, 进行中）
+
+### 背景
+
+我们邀请了另一台能识别图片的 AI（后称"对方AI"）基于 T-34/85 四视图（左/前/顶/后）生成零件清单，由我方填入 `model_factory.html` 的 `T34_85_V16_CONFIG`。经过 4 轮迭代（r1~r4），模型已具备基本可辨识的 T-34/85 轮廓。
+
+### 协作流程（家里接续时执行）
+
+```
+1. 对方AI 查看四视图 → 生成零件装配清单
+2. 我方将清单填入 model_factory.html 的 T34_85_V16_CONFIG
+3. 在模型工厂 GUI 下拉菜单切换到「T-34/85 (v1.6 AI版)」预览
+4. 我方截图或描述问题 → 写入 docs/t34-85-v1.6-feedback-to-vision-ai.md 反馈
+5. 对方AI 根据反馈生成修正清单 → 回到步骤2
+```
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `docs/t34-85-v1.6-spec-for-vision-ai.md` | 发给对方的规范文档（坐标/几何体/材质） |
+| `docs/t34-85-v1.6-env-deps.md` | 发给对方的环境依赖（Three.js r160 细节） |
+| `docs/t34-85-v1.6-feedback-to-vision-ai.md` | **4轮完整交互记录**（发给对方看的最新反馈） |
+| `model_factory.html` → `T34_85_V16_CONFIG` | v1.6 模型配置（约620行处） |
+| `model_factory.html` → GUI下拉菜单 | 切换入口：「T-34/85 (v1.6 AI版)」 |
+
+### 给对方AI的对话模板
+
+拿到对方AI的新一轮清单后，直接发给它（结合 docs/ 文件夹）即可。**发送反馈时附上** `t34-85-v1.6-feedback-to-vision-ai.md`（包含全部历史），让对方了解上下文。
+
+### 注意事项
+
+- 模型工厂预览前必须先 `preview_url`，遵循 CODEBUDDY.md 顶部 HTTP 服务规则
+- v1.6 仅用于模型工厂预览，暂不集成到主游戏 index.html
+- 对方 AI 提出的环境改进（光照/材质/flatShading）会影响两个坦克模型
+- 本次对话在 v1.6-r4 时移交，当前 config 对应 r4 修正清单
+- `model_factory.html` 文件末尾有 `git diff` 可以查看本次会话的全部改动
 
 
 
