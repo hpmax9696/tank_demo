@@ -80,7 +80,8 @@
 }
 </script>
 
-<script type="module">
+
+
 // ============================================================
 // 1. 默认材质字典
 // ============================================================
@@ -753,12 +754,17 @@ function rebuildModel() {
   nodeMap.clear();
   guiFolderMap.clear();
   modelRoot = new THREE.Group();
+
   const cfg = MODEL_CONFIGS[currentModelType];
-  buildFromConfig(cfg, modelRoot, showHelpersGlobal, nodeMap);
+  if (cfg) {
+    buildFromConfig(cfg, modelRoot, showHelpersGlobal, nodeMap);
+  }
+
   scene.add(modelRoot);
   updateTriCount();
   if (gui) { gui.destroy(); gui = null; }
   buildGUI();
+  refreshPartTree();
 }
 
 // ============================================================
@@ -1197,8 +1203,14 @@ function buildGUI() {
 
   // --- 模型切换 ---
   const modelFolder = gui.addFolder('📦 模型切换');
-  modelFolder.add({ model:currentModelType }, 'model', ['tank','building','enemy'])
-    .name('选择模型').onChange(v => { saveUndo('model'); currentModelType = v; rebuildModel(); });
+  const modelOptions = ['tank', 'building', 'enemy'];
+  modelFolder.add({ model: currentModelType }, 'model', modelOptions)
+    .name('选择模型')
+    .onChange(v => {
+      saveUndo('model');
+      currentModelType = v;
+      rebuildModel();
+    });
   modelFolder.open();
 
   // --- 全选（独立按钮）---

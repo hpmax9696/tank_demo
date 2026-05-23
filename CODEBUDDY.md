@@ -88,7 +88,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 └── 指向箭头: 透视投影 + behind 检测
 ```
 
-### 模型工厂编辑器（model_factory.html）⭐ v0.37.0
+### 模型工厂编辑器（model_factory.html）⭐ v0.37.1
 
 `model_factory.html` 是通用程序化模型编辑器，~1580行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
 
@@ -161,7 +161,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.37.0 — TaperedHex六棱台+Group位置保存+Cylinder语法+配置固化）
+## 关键参数（v0.37.1 — 清理废弃v1.5分支+Group位置保存+配置固化）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -309,7 +309,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.37.0 移交时）
+## 📋 待完成任务（截至 v0.37.1 移交时）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
