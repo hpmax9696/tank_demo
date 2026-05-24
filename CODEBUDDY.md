@@ -88,9 +88,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 └── 指向箭头: 透视投影 + behind 检测
 ```
 
-### 模型工厂编辑器（model_factory.html）⭐ v0.37.1
-
-`model_factory.html` 是通用程序化模型编辑器，~1770行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
+### 模型工厂编辑器（model_factory.html）⭐ v0.38.1
+`model_factory.html` 是通用程序化模型编辑器，~1922行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
 
 ```
 ├── 几何系统: buildTaperedBox() + 7种Three.js几何 + RoundedBoxGeometry
@@ -105,7 +104,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 └── 底盘: 双TaperedBox倒扣船形结构
 ```
 
-**导出流程**: 模型工厂调参 → Ctrl+S保存 → 📋输出姿态JSON → 固化到 `models/tank_procedural.js` → index.html 集成
+**导出流程**: 模型工厂调参 → `📥 导出JSON固化` 按钮下载配置 → 运行 `固化.ps1` → `Ctrl+F5` 验证
 
 **关键全局变量**:
 - `scene` — 主场景
@@ -161,7 +160,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.37.1 — 清理废弃v1.5分支+Group位置保存+配置固化）
+## 关键参数（v0.38.1 — 模型工厂清理优化+固化工作流）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -210,6 +209,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 编辑器地图对接 | splatMap纹理+waterLevel水位+riverColliders空气墙+巡逻分散 | `convertBlueprintToMapConfig()` + `createRiverWater()` |
 | 敌人批量属性编辑 | 多选敌人时属性面板批量写入HP/速度/视野等 | `syncEnemyConfigPanel()` (map_editor.html) |
 | 实体列表分类折叠 | 建筑/树木默认折叠，出生点/敌人展开 | `collapsedCategories` Set |
+| TrackChain 负重轮半径 | wheelR=0.40 | `model_factory.html` T34_85_V16_CONFIG |
+| TrackChain 主动轮/诱导轮Y | cyF=0.58, cyR=0.50 | `model_factory.html` T34_85_V16_CONFIG |
+| 负重轮zR1~zR5坐标(Z轴) | 1.40, 0.39, -0.74, -1.64, -2.55 | `model_factory.html` T34_85_V16_CONFIG |
+| 模型工厂视图 | 透视视图相机pos [5.0,3.5,6.0] | `model_factory.html` |
+| 固化脚本 | `固化.ps1` — 一行命令 JSON→源码 替换 | 项目根目录 |
+| 导出JSON固化按钮 | 一键下载完整嵌套配置JSON | `model_factory.html` |
 
 ## 常见修复模式
 
@@ -287,39 +292,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | # | 问题 | 优先级 | 详情 |
 |---|------|--------|------|
-| 1 | GLB丧尸模型系统 | ✅ v0.27.0 | 已完成清理（~300行GLB代码已移除） |
-| 2 | 丧尸程序化模型集成 | ✅ v0.27.0 | ZOMBIE_CONFIG+AnimationSystem已集成到enemies.js |
-| 3 | ZombieAIController 8状态机实现 | ✅ v0.28.0 | IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD 完成 |
-| 4 | 04a地图部署5只新程序化丧尸 | ✅ v0.27.0 | zm-01~zm-05 已部署，v0.28.0 扩展至30只 |
-| 5 | GLB修理箱172K tris过重 | ✅ v0.28.1 | 程序化倒角箱取代（~2.5K tris），pickups.js GLB代码已移除 |
-| 6 | 丧尸贴图颜色过深 | ✅ v0.28.1 | 基底#8B9B7E→#A9B89E，全部层提亮 |
-| 7 | 玩家机枪DPS太低（2×5=10） | ✅ v0.28.1 | 射速5→10发/秒，DPS 10→20，过热4→6s |
-| 8 | 大量丧尸draw call压力 | ✅ v0.28.1 | 3层LOD: near全骨架/medium冻结/far圆柱占位，远区-62% draw calls |
-| 9 | 河流生成功能性能灾难+河床不下陷+水面扭曲 | ✅ v0.32.0 | 性能优化(跳过几何体更新)+河床下切逻辑修复(targetH=原始地形-下切深度)+水面扭曲消除(矩形条带法) |
-| 10 | 河流水面不可见/浮在河床上方/锐角折叠 | ✅ v0.32.1 | 法线绕序修正+水面水位公式(地表-下切×60%)+贝塞尔预平滑(subdivideSharpCorners)+5项编辑器bug修复 |
-| 11 | 编辑器水体弯道重叠+河岸悬崖+端点深坑 | ✅ v0.32.2~v0.32.6 | 统一网格单元水面(无重叠)→走廊法(一致性)→ease-out falloff(宽缓河岸)→端点削波(渐变归零) |
-| 12 | 起伏地形河流水面溢出河岸 | ✅ v0.33.0 | 分段水面剖面(单调不增, 每段≤本地形) |
-| 13 | 桥梁倾斜/悬浮/撞悬崖 | ✅ v0.33.1 | 水平桥面+引道地形修整(挖方/填方) |
-| 14 | 编辑器地图纹理全绿+splatMap丢失 | ✅ v0.34.0 | convertBlueprintToMapConfig传递splatMap+generateSplatMap优先使用 |
-| 15 | 编辑器河流水面对齐河床 | ✅ v0.34.0 | 蓝图层传递waterLevel字段+createRiverWater优先使用 |
-| 16 | 编辑器地图河流空气墙缺失 | ✅ v0.35.0 | 碰撞半径hw+1.5→hw+4+密度↑35+bridge不覆盖 |
-| 17 | 多敌人同路线巡逻堵塞(17辆仅5辆移动) | ✅ v0.35.0 | 分散起始patrolIndex+距离缩小替代绝对位移卡住检测 |
-| 18 | 编辑器河床/纹理/水面三线坐标偏移~19m | ✅ v0.35.0 | getTerrainHeight half 100→150与纹理300统一 |
-| 19 | 编辑器树木不加载/聚集/位置错误 | ✅ v0.35.0 | editorTrees消费+InstancedMesh顺序修正+spawnR→150+falsy陷阱 |
-| 20 | 池塘水面悬空（WATER_LEVEL常量覆盖） | ✅ v0.36.0 | 游戏循环每帧`waterPlane.position.y=WATER_LEVEL`硬编码覆盖，修复：userData.baseY存储实际水面高度 |
 | 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
-| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.37.1+ | 已迭代13轮(r13)，含6段履带路径+10轮+六棱台炮塔+发烟筒+外挂油箱。剩余问题: 履带弧段不贴合(持续7轮)、待对齐四视图轮廓。**交接文件**:`docs/t34-85-v1.6-handoff-to-vision-ai.md` |
+| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.38.1+ | 含6段履带路径(r21)+10轮+六棱台炮塔+发烟筒+外挂油箱。剩余问题: 履带弧段不贴合、待对齐四视图轮廓。**交接文件**:`docs/t34-85-v1.6-handoff-to-vision-ai.md` |
+| 23 | 模型工厂TANK_CONFIG需固化到独立JS文件 | 🟡 v0.38.1+ | 固化.ps1+导出JSON按钮已备，待模型定型后执行固化 |
 
 
 ---
 
-## 📋 待完成任务（截至 v0.37.1 移交时）
+## 📋 待完成任务（截至 v0.38.1）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | 模型工厂撤销修复：Ctrl+Z逐步回退 | 🔴 紧急 | 未分配 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
 | 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 3 | 坦克程序化模型固化 | 🟡 中期 | 未分配 | 模型工厂调优完成→导出JSON→固化到models/tank_procedural.js→集成index.html |
+| 3 | 坦克程序化模型固化 | 🟡 中期 | v0.38.2+ | 固化.ps1+导出JSON按钮已就绪(v0.38.1)，待模型定型后一键执行固化 |
 | 4 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 5 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
@@ -365,7 +351,7 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 
 ---
 
-## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.37.1+, 进行中，r13）
+## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.38.1+, 进行中）
 
 ### 背景
 
@@ -414,6 +400,35 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 - v1.6 仅用于模型工厂预览，暂不集成到主游戏 index.html
 - 当前 config 对应 r13 状态，44 部件
 - 调试配色（红轮🔴/蓝链🔵/品红发烟筒🟣）暂留，最终移除
+
+---
+
+## 🔧 固化工作流（v0.38.1 新增）
+
+### 导出 → 固化 → 替换 三步流程
+
+```
+1. 模型工厂 GUI 调参 → Ctrl+S 保存
+2. 点击「📥 导出JSON固化」按钮 → 下载完整嵌套配置JSON
+3. 运行 固化.ps1 → 一键完成 JSON→源码 替换
+```
+
+### 固化.ps1 使用方法
+
+```powershell
+.\固化.ps1
+```
+
+脚本自动完成：
+- 读取下载的 JSON 配置
+- 替换 `model_factory.html` 中的 `T34_85_V16_CONFIG`
+- 替换 `model_factory.html` 中的 `TANK_CONFIG`（如有）
+
+### 注意事项
+
+- 固化前确保模型工厂 GUI 中的配置已调优完毕
+- 固化后需 `Ctrl+F5` 强制刷新验证
+- 固化.ps1 同时更新 `model_factory.html` 和 `models/tank_procedural.js`（如已建立映射）
 
 
 
