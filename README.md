@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.37.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.38.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -79,9 +79,11 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
 ├── README.md              # 本文件
 ├── docs/                  # 📄 协作文档（T-34/85 v1.6 看图AI交互记录）
-│   ├── t34-85-v1.6-spec-for-vision-ai.md    # 对方AI规范文档
+│   ├── t34-85-v1.6-spec-for-vision-ai.md    # 识图AI规范文档
 │   ├── t34-85-v1.6-env-deps.md              # 环境依赖说明
-│   └── t34-85-v1.6-feedback-to-vision-ai.md # 4轮交互反馈
+│   ├── t34-85-v1.6-feedback-to-vision-ai.md # r1~r13交互反馈
+│   ├── t34-85-v1.6-r13-params.md            # r13完整参数表
+│   └── t34-85-v1.6-handoff-to-vision-ai.md  # 识图AI交接文件
 ├── combat/                # PvE 战斗系统
 │   ├── enemyAI.js         # AI 状态机（PATROL/CHASE/ENGAGE/FLEE/STUNNED/DEAD）
 │   └── scoreSystem.js     # 积分系统（localStorage 持久化）
@@ -238,14 +240,24 @@ fireSmokeParticles.js:
 
 ## 完整版本历史
 
+### v0.38.0 — 履带系统重构 TrackChain r21（2026-05-24）
+- **TrackChain 6点+2弧精确几何模型**：用户设计理想拓扑，6个关键点(A~F) + BC/FA两段标准圆弧 + 4段线性插值
+- **负重轮间距比例修正**：b1~b5边缘间隙按 2:3:1:1 分配，b2→b3间距最大，符合真实T-34/85
+- **诱导轮/主动轮Y上调**：a1(cy=0.52→0.58)、c1(cy=0.45→0.50)，顶部与负重轮平齐(Y=0.80)
+- **wheelR半径修正**：Cylinder size[0]实为半径非直径，wheelR从0.20→0.40
+- **Z轴方向修正**：圆弧段 Z = center.z - r*cos(angle)（屏幕左=Z+方向取负）
+- **BC弧改为逆时针短弧**：12→11→10→9→8→7 (150°)，避免走顺时针长弧
+- **移除调试标记**：清理钟面Sprite和6点彩色球体+文字标签
+- **model_factory.html** TrackChain段数从8→6段，移除sin²调制等复杂逻辑
+
 ### v0.37.1 — 清理废弃分支（2026-05-23）
 - **删除T-34-85 v1.5模型**：移除 `createT34_85_v1_5()` 函数及 `T34_85_V15_CONFIG` 配置
 - **删除模型工厂切换接口**：移除 GUI 中的 `t34_v15` 选项、`currentTankVersion` 变量、版本切换代码
 - **ModelRegistry 清理**：移除 `t34-85_v1_5-green` 和 `t34-85_v1_5-desert` 注册
-- **T-34/85 v1.6 协作启动**：与看图AI基于四视图迭代程序化模型（r1~r4），模型工厂新增切换入口
-  - 新增 `docs/` 目录：规范文档+环境依赖+4轮交互反馈
-  - 环境改进：flatShading+DoubleSide、5灯光照栈、emissive自发光
-  - v1.6 当前 46 部件，侧视正梯形轮廓+炮塔前移 40%+椭球炮盾
+- **T-34/85 v1.6 迭代至 r13**：与看图AI协作13轮，模型工厂新增切换入口
+  - 新增 `docs/` 目录：规范文档+环境依赖+r1~r13交互反馈+参数表+交接文件
+  - 环境改进：正交/透视切换、背景调色盘、5灯光照栈+阴影、TrackChain绿线可视化
+  - v1.6 当前 44 部件，含6段履带路径+10个负重轮+六棱台炮塔+发烟筒+外挂油箱
 
 ### v0.37.0 — 模型工厂修复 (model_factory.html)（2026-05-23）
 - **TaperedHex六棱台法线修复**：侧面索引绕序修正（法线朝外），底面/顶面改用公共顶点扇形三角化，消除全黑/透明问题
@@ -812,15 +824,12 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.37.1）
+### 代码规模（截至 v0.38.0）
 - `index.html`：约 6680 行（主游戏引擎 + 编辑器地图全链路修复）
-- `model_factory.html`：约 1770 行（通用程序化模型编辑器 + TaperedHex六棱台 + Group位置保存）
+- `model_factory.html`：约 **2086 行**（通用程序化模型编辑器 + TrackChain r21 6点+2弧精确几何模型）
 - `map_editor.html`：约 2850 行（地图编辑器 + 批量属性编辑 + 实体列表分类折叠）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
-- `models/pickups.js`：约 190 行（程序化倒角红箱）
-- `zombie_prototype.html`：约 980 行（丧尸原型独立预览）
 - `combat/enemyAI.js`：约 535 行（AI状态机 + 卡住检测重写）
-- `combat/scoreSystem.js`：约 80 行（积分系统）
 - `fireSmokeParticles.js`：约 390 行（粒子系统）
 - `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
 - `models/buildings.js`：约 220 行（建筑模型）

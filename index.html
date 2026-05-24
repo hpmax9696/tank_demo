@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.37.1</title>
+    <title>坦克运动demo v0.38.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -383,7 +383,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.37.1</div>
+        <div class="menu-version">v0.38.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -398,11 +398,11 @@
         </div>
         <div class="menu-hint">单人: 键盘/手柄 &nbsp;│&nbsp; 双人: 1P键盘 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔗 v0.38.0 履带系统重构 — 6点+2弧精确几何模型(TrackChain r21)+负重轮间距2:3:1:1+诱导轮/主动轮Y上调+wheelR半径修正</div>
             <div class="cl-title">🗑 v0.37.1 清理废弃分支 — 删除T-34-85 v1.5模型代码和模型工厂切换接口</div>
             <div class="cl-title">🔧 v0.37.0 模型工厂修复 — TaperedHex六棱台法线修复(侧面/顶面/底面)+Group位置保存修复(syncConfigFromScene)+Cylinder语法补全+配置固化</div>
             <div class="cl-title">🏭 v0.36.1 模型工厂 — 通用程序化模型编辑器(增删改+7形状+TaperedBox+多选批量+撤销+视图)</div>
             <div class="cl-title">🌊 v0.36.0 水面修复 — 游戏循环WATER_LEVEL常量覆盖问题+椭圆形水面覆盖完整雕刻范围+堤岸修整</div>
-            <div class="cl-title">🔧 v0.35.0 编辑器地图全链路 — 河流水面/纹理/河床三线对齐(坐标修正)+分段水位+河宽传递+空气墙修复+树木载入+巡逻卡住重写</div>
         </div>
     </div>
 
@@ -5988,7 +5988,7 @@
             }
 
             el.textContent =
-                'v0.37.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.38.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -6401,7 +6401,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.37.1 | 清理废弃分支:删除T-34-85 v1.5模型代码和模型工厂切换接口');
+        console.log('🎮 坦克运动demo v0.38.0 | TrackChain r21: 6点+2弧精确几何模型+负重轮间距比例修正');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

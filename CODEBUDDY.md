@@ -308,7 +308,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 19 | 编辑器树木不加载/聚集/位置错误 | ✅ v0.35.0 | editorTrees消费+InstancedMesh顺序修正+spawnR→150+falsy陷阱 |
 | 20 | 池塘水面悬空（WATER_LEVEL常量覆盖） | ✅ v0.36.0 | 游戏循环每帧`waterPlane.position.y=WATER_LEVEL`硬编码覆盖，修复：userData.baseY存储实际水面高度 |
 | 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
-| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.37.1+ | 与看图AI协作(4轮)，r4状态: 侧视正梯形轮廓+炮塔前移+5灯照明+emissive。下一步: 履带改为梯形齿Extrude+负重轮间距调整 |
+| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.37.1+ | 已迭代13轮(r13)，含6段履带路径+10轮+六棱台炮塔+发烟筒+外挂油箱。剩余问题: 履带弧段不贴合(持续7轮)、待对齐四视图轮廓。**交接文件**:`docs/t34-85-v1.6-handoff-to-vision-ai.md` |
 
 
 ---
@@ -365,43 +365,55 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 
 ---
 
-## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.37.1+, 进行中）
+## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.37.1+, 进行中，r13）
 
 ### 背景
 
-我们邀请了另一台能识别图片的 AI（后称"对方AI"）基于 T-34/85 四视图（左/前/顶/后）生成零件清单，由我方填入 `model_factory.html` 的 `T34_85_V16_CONFIG`。经过 4 轮迭代（r1~r4），模型已具备基本可辨识的 T-34/85 轮廓。
+我们邀请了另一台能识别图片的 AI（"识图AI"）基于 T-34/85 四视图（左/前/顶/后）生成零件清单，由我方填入 `model_factory.html` 的 `T34_85_V16_CONFIG`。经 13 轮迭代（r1~r13），模型已具备可辨识的 T-34/85 轮廓。
 
-### 协作流程（家里接续时执行）
+### 协作流程
 
 ```
-1. 对方AI 查看四视图 → 生成零件装配清单
-2. 我方将清单填入 model_factory.html 的 T34_85_V16_CONFIG
-3. 在模型工厂 GUI 下拉菜单切换到「T-34/85 (v1.6 AI版)」预览
-4. 我方截图或描述问题 → 写入 docs/t34-85-v1.6-feedback-to-vision-ai.md 反馈
-5. 对方AI 根据反馈生成修正清单 → 回到步骤2
+1. 识图AI 查看正交五视图截图+参数表 → 发现偏差
+2. 识图AI 写出修改清单（含精确坐标）
+3. 我方填入 model_factory.html 的 T34_85_V16_CONFIG
+4. 我方在模型工厂 GUI 下拉菜单切换到「T-34/85 (v1.6 AI版)」预览
+5. 我方截图+导出参数表 → 发给识图AI
+6. 回到步骤1
 ```
 
 ### 关键文件
 
 | 文件 | 用途 |
 |------|------|
-| `docs/t34-85-v1.6-spec-for-vision-ai.md` | 发给对方的规范文档（坐标/几何体/材质） |
-| `docs/t34-85-v1.6-env-deps.md` | 发给对方的环境依赖（Three.js r160 细节） |
-| `docs/t34-85-v1.6-feedback-to-vision-ai.md` | **4轮完整交互记录**（发给对方看的最新反馈） |
-| `model_factory.html` → `T34_85_V16_CONFIG` | v1.6 模型配置（约620行处） |
+| `docs/t34-85-v1.6-spec-for-vision-ai.md` | 发给识图AI的规范文档（坐标/几何体/材质） |
+| `docs/t34-85-v1.6-env-deps.md` | 环境依赖说明（Three.js r160 细节） |
+| `docs/t34-85-v1.6-feedback-to-vision-ai.md` | r1~r13 全部交互反馈记录 |
+| `docs/t34-85-v1.6-r13-params.md` | **r13 当前完整参数表**（44部件坐标） |
+| `docs/t34-85-v1.6-handoff-to-vision-ai.md` | **🆕 识图AI交接文件**（项目背景+参数+问题+模板） |
+| `model_factory.html` → `T34_85_V16_CONFIG` | v1.6 模型配置（约707行处） |
 | `model_factory.html` → GUI下拉菜单 | 切换入口：「T-34/85 (v1.6 AI版)」 |
 
-### 给对方AI的对话模板
+### 新对话启动流程
 
-拿到对方AI的新一轮清单后，直接发给它（结合 docs/ 文件夹）即可。**发送反馈时附上** `t34-85-v1.6-feedback-to-vision-ai.md`（包含全部历史），让对方了解上下文。
+1. 将 `docs/t34-85-v1.6-handoff-to-vision-ai.md` 粘贴给识图 AI
+2. 同时附上 `docs/t34-85-v1.6-r13-params.md`（参数表）
+3. 识图AI 按交接文件中的"指令模板"格式发送修改清单
+4. 我方执行修改，输出反馈+参数表
+
+### 环境改进（已实现）
+
+- 📐 正交/透视切换（工程制图无畸变）
+- 🎨 背景调色盘（增强对比）
+- 🟢 TrackChain 绿线理论路径可视化
+- 🔍 Console 诊断（TrackChain 采样点坐标）
 
 ### 注意事项
 
 - 模型工厂预览前必须先 `preview_url`，遵循 CODEBUDDY.md 顶部 HTTP 服务规则
 - v1.6 仅用于模型工厂预览，暂不集成到主游戏 index.html
-- 对方 AI 提出的环境改进（光照/材质/flatShading）会影响两个坦克模型
-- 本次对话在 v1.6-r4 时移交，当前 config 对应 r4 修正清单
-- `model_factory.html` 文件末尾有 `git diff` 可以查看本次会话的全部改动
+- 当前 config 对应 r13 状态，44 部件
+- 调试配色（红轮🔴/蓝链🔵/品红发烟筒🟣）暂留，最终移除
 
 
 

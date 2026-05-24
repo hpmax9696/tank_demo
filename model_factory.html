@@ -64,6 +64,10 @@
   <button title="右视图" data-view="right">➡</button>
   <button title="顶视图" data-view="top">🔝</button>
   <button title="底视图" data-view="bottom">🔽</button>
+  <div class="sep"></div>
+  <button title="切换正交/透视" id="ortho-toggle" data-view="ortho">📐</button>
+  <div class="sep"></div>
+  <input type="color" id="bg-color" value="#878787" title="背景颜色" style="width:38px;height:38px;border:1px solid #555;border-radius:4px;cursor:pointer;background:transparent;padding:2px;">
 </div>
 <div id="path-breadcrumb">📍 未选中</div>
 <div id="selection-box"></div>
@@ -105,11 +109,11 @@ function getMaterial(matId) {
 // ============================================================
 // 1.5 台型几何体（顶底矩形不同大小）
 // ============================================================
-function buildTaperedBox(bw, h, bd, tw, td) {
+function buildTaperedBox(bw, h, bd, tw, td, ox=0, oz=0) {
   const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
   const verts = new Float32Array([
     -hw,0,-hd,  hw,0,-hd,  hw,0,hd,  -hw,0,hd,    // v0~v3 底面
-   -thw,h,-thd, thw,h,-thd, thw,h,thd, -thw,h,thd, // v4~v7 顶面
+   -thw+ox,h,-thd+oz, thw+ox,h,-thd+oz, thw+ox,h,thd+oz, -thw+ox,h,thd+oz, // v4~v7 顶面(+偏移)
   ]);
   // 索引：每个面两个三角形，CCW绕序（从该面外部看是逆时针 = 法线朝外）
   const indices = [
@@ -129,7 +133,7 @@ function buildTaperedBox(bw, h, bd, tw, td) {
 
 // 椭圆六棱台：底面和顶面是压扁的六边形
 // size: [底宽, 高, 底深, 顶宽, 顶深]
-function buildTaperedHex(bw, h, bd, tw, td) {
+function buildTaperedHex(bw, h, bd, tw, td, ox=0, oz=0) {
   const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
   const S3 = Math.sqrt(3)/2; // sin60 = cos30
   // 底面6顶点 v0~v5 (y=0)，从上方看顺时针（从下方看CCW → -Y）
@@ -141,12 +145,12 @@ function buildTaperedHex(bw, h, bd, tw, td) {
     -hw,0,0,             // v3 左
     -hw/2,0,-hd*S3,      // v4 左前
     hw/2,0,-hd*S3,       // v5 右前
-    thw,h,0,             // v6 右
-    thw/2,h,thd*S3,      // v7 右后
-    -thw/2,h,thd*S3,     // v8 左后
-    -thw,h,0,            // v9 左
-    -thw/2,h,-thd*S3,    // v10 左前
-    thw/2,h,-thd*S3,     // v11 右前
+    thw+ox,h,0+oz,       // v6 右(+偏移)
+    thw/2+ox,h,thd*S3+oz,  // v7 右后
+    -thw/2+ox,h,thd*S3+oz, // v8 左后
+    -thw+ox,h,0+oz,        // v9 左
+    -thw/2+ox,h,-thd*S3+oz,// v10 左前
+    thw/2+ox,h,-thd*S3+oz, // v11 右前
   ]);
   const indices = [
     // 底面（以 v0 为公共顶点，CCW 从上方 → 法线朝上）
@@ -174,11 +178,11 @@ function createGeometry(node) {
     case 'Box':
       return new THREE.BoxGeometry(s[0], s[1]||s[0], s[2]||s[0]);
     case 'TaperedBox':
-      // size: [底部宽, 高, 底部深, 顶部宽, 顶部深]
-      return buildTaperedBox(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6);
+      // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移]
+      return buildTaperedBox(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6, s[5]||0, s[6]||0);
     case 'TaperedHex':
-      // size: [底宽, 高, 底深, 顶宽, 顶深]
-      return buildTaperedHex(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6);
+      // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移]
+      return buildTaperedHex(s[0], s[1]||1, s[2]||s[0], s[3]!==undefined?s[3]:s[0]*0.6, s[4]!==undefined?s[4]:s[2]*0.6, s[5]||0, s[6]||0);
     case 'RoundedBox':
       // size: [width, height, depth, radius, segments]
       return new RoundedBoxGeometry(s[0], s[1]||s[0], s[2]||s[0], seg[0]||3, s[3]||0.08);
@@ -204,6 +208,268 @@ function createGeometry(node) {
     }
     default: return null;
   }
+}
+
+// TrackChain 履带链生成器
+function buildTrackChain(node, parentGroup, pivotComp = [0,0,0]) {
+  const tp = node.trackParams;
+  const g = new THREE.Group();
+  g.name = node.name;
+  if (node.position) {
+    const pos = [node.position[0]+pivotComp[0], node.position[1]+pivotComp[1], node.position[2]+pivotComp[2]];
+    g.position.set(...pos);
+  }
+  if (node.scale) g.scale.set(...node.scale);
+  g.visible = node.visible !== false;
+  parentGroup.add(g);
+
+  const cyF = tp.wheelCenterYFront, cyR = tp.wheelCenterYRear;
+  const rF = tp.wheelRadiusFront, rR = tp.wheelRadiusRear;
+  const zF = tp.wheelCenterZFront, zR = tp.wheelCenterZRear;
+
+  // r21: 6点+2弧精确几何模型（用户设计的理想拓扑）
+  const zR1 = 1.4;    // 负重轮1 Z (固定)
+  const zR2 = 0.39;   // 负重轮2 Z (l1=2份边距: 1.40-0.80-0.214)
+  const zR3 = -0.74;  // 负重轮3 Z (l2=3份边距, 最大间隙)
+  const zR4 = -1.64;  // 负重轮4 Z (l3=1份边距)
+  const zR5 = -2.55;  // 负重轮5 Z (l4=1份边距, 固定)
+  const wheelR = 0.40; // ⚠️ 修正：Cylinder size[0]=半径=0.4（不是直径！）
+
+  // 6个关键点坐标（与 getTrackPlateTransform 保持完全一致）
+  // ⚠️ 注意：Z轴在屏幕上方向与数学X轴相反（左=Z+），所以Z分量需取负
+  const pA = { z: zR - rR * Math.cos(Math.PI/2),           y: cyR + rR * Math.sin(Math.PI/2) };              // A: c1轮12点(+90°)
+  const pB = { z: zF - rF * Math.cos(Math.PI/2),           y: cyF + rF * Math.sin(Math.PI/2) };              // B: a1轮12点(+90°)
+  const angleC = -120 * Math.PI / 180;  // -120° (7点钟)
+  const pC = { z: zF - rF * Math.cos(angleC),             y: cyF + rF * Math.sin(angleC) };                 // C: a1轮7点
+  // D: b1轮6.5点钟位置(约-105°, 在轮子边沿的6点和7点之间)
+  const angleD = -105 * Math.PI / 180;  // -105° (6点半位置)
+  const pD = { z: zR1 - wheelR * Math.cos(angleD),        y: 0.40 + wheelR * Math.sin(angleD) };            // D: b1轮6.5点(边沿)
+  // E: b5轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
+  const angleE = -75 * Math.PI / 180;   // -75° (5点半)
+  const pE = { z: zR5 - wheelR * Math.cos(angleE),        y: 0.40 + wheelR * Math.sin(angleE) };            // E: b5轮5.5点(边沿)
+  // F: c1轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
+  const angleF = -75 * Math.PI / 180;   // -75° (5点半)
+  const pF = { z: zR - rR * Math.cos(angleF),             y: cyR + rR * Math.sin(angleF) };                 // F: c1轮5.5点(边沿)
+
+  // 6段长度
+  const lenAB = Math.sqrt((pB.z-pA.z)**2 + (pB.y-pA.y)**2);  // AB: 上支路(c1→a1)
+  const lenBC = (angleC + 2*Math.PI - Math.PI/2) * rF;        // BC: 前弧(绕a1, 逆时针短弧 12→11→10→9→8→7 = 150°)
+  const lenCD = Math.sqrt((pD.z-pC.z)**2 + (pD.y-pC.y)**2);  // CD: 下前斜线(a1→b1)
+  const lenDE = Math.abs(pE.z - pD.z);                         // DE: 下主干(b1→b5)
+  const lenEF = Math.sqrt((pF.z-pE.z)**2 + (pF.y-pE.y)**2);  // EF: 下后斜线(b5→c1)
+  const lenFA = (Math.PI/2 - angleF) * rR;                     // FA: 后弧(绕c1, -120°→90°=210°)
+
+  const totalLen = lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
+  const spacing = totalLen / (tp.count - 1);
+
+  const mat = (node.color)
+    ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 })
+    : getMaterial(node.materialId || 'dark_steel');
+
+  // 🔍 r21: 6点+2弧诊断
+  if (tp.showPath && !tp._diagnosed) {
+    tp._diagnosed = true;
+    console.log('========== TrackChain 诊断 [' + node.name + '] r21 6点+2弧精确几何版 ==========');
+    console.log('主动轮(c1): Z=' + zR + ' Y=' + cyR + ' r=' + rR);
+    console.log('诱导轮(a1): Z=' + zF + ' Y=' + cyF + ' r=' + rF);
+    console.log('负重轮1(b1): Z=' + zR1 + ' 负重轮5(b5): Z=' + zR5 + ' 半径=' + wheelR);
+    console.log('');
+    console.log('=== 6个关键点坐标 ===');
+    console.log('A(主动轮c1-12点): (' + pA.z.toFixed(2) + ', ' + pA.y.toFixed(2) + ')');
+    console.log('B(诱导轮a1-12点): (' + pB.z.toFixed(2) + ', ' + pB.y.toFixed(2) + ')');
+    console.log('C(诱导轮a1-' + (angleC*180/Math.PI).toFixed(0) + '°): (' + pC.z.toFixed(2) + ', ' + pC.y.toFixed(2) + ')');
+    console.log('D(负重轮b1-6.5点): (' + pD.z.toFixed(2) + ', ' + pD.y.toFixed(2) + ')');
+    console.log('E(负重轮b5-5.5点): (' + pE.z.toFixed(2) + ', ' + pE.y.toFixed(2) + ')');
+    console.log('F(主动轮c1-5.5点): (' + pF.z.toFixed(2) + ', ' + pF.y.toFixed(2) + ')');
+    console.log('');
+    console.log('=== 6段长度 ===');
+    console.log('AB(上支路c1→a1): ' + lenAB.toFixed(3));
+    console.log('BC(前弧绕a1):   ' + lenBC.toFixed(3) + ' (角度: ' + (angleC*180/Math.PI).toFixed(0) + '°→90°)');
+    console.log('CD(下前斜线a1→b1): ' + lenCD.toFixed(3));
+    console.log('DE(下主干b1→b5):  ' + lenDE.toFixed(3) + ' (Y=' + pD.y.toFixed(2) + '恒定)');
+    console.log('EF(下后斜线b5→c1): ' + lenEF.toFixed(3));
+    console.log('FA(后弧绕c1):     ' + lenFA.toFixed(3) + ' (角度: ' + (angleF*180/Math.PI).toFixed(0) + '°→90°)');
+    console.log('总长=' + totalLen.toFixed(3) + ' 间距=' + spacing.toFixed(4) + ' count=' + tp.count);
+
+    // 段端点验证
+    const segEnds = [lenAB, lenAB+lenBC, lenAB+lenBC+lenCD, lenAB+lenBC+lenCD+lenDE,
+      lenAB+lenBC+lenCD+lenDE+lenEF, totalLen];
+    console.log('');
+    console.log('=== 段端点验证 ===');
+    segEnds.forEach((d, i) => {
+      const p = getTrackPlateTransform(d, tp);
+      const names = ['A', 'B', 'C', 'D', 'E', 'F(=A)'];
+      console.log(names[i] + ' dist=' + d.toFixed(2) + ' pos=(' + p.pos.z.toFixed(2) + ', ' + p.pos.y.toFixed(2) + ')');
+    });
+
+    // 弧段细分：BC前弧 + FA后弧
+    console.log('');
+    console.log('=== BC前弧细分(绕诱导轮) ===');
+    for (let j = 0; j <= 8; j++) {
+      const ld = j / 8 * lenBC;
+      const d = lenAB + ld;
+      const p = getTrackPlateTransform(d, tp);
+      const angle = angleC + (j / 8) * (Math.PI/2 - angleC);
+      console.log('  sub' + j + ' dist=' + d.toFixed(2) + ' angle=' + (angle * 180 / Math.PI).toFixed(0) + '° pos=(' + p.pos.z.toFixed(2) + ', ' + p.pos.y.toFixed(2) + ')');
+    }
+    console.log('');
+    console.log('=== FA后弧细分(绕主动轮) ===');
+    for (let j = 0; j <= 8; j++) {
+      const ld = j / 8 * lenFA;
+      const d = lenAB + lenBC + lenCD + lenDE + lenEF + ld;
+      const p = getTrackPlateTransform(d, tp);
+      const angle = angleF + (j / 8) * (Math.PI/2 - angleF);
+      console.log('  sub' + j + ' dist=' + d.toFixed(2) + ' angle=' + (angle * 180 / Math.PI).toFixed(0) + '° pos=(' + p.pos.z.toFixed(2) + ', ' + p.pos.y.toFixed(2) + ')');
+    }
+
+    // 闭合验证
+    console.log('');
+    const p0 = getTrackPlateTransform(0, tp);
+    const pEnd = getTrackPlateTransform(totalLen - 0.001, tp);
+    const cerr = Math.abs(pEnd.pos.z - p0.pos.z) + Math.abs(pEnd.pos.y - p0.pos.y);
+    console.log('闭合误差: |ΔZ|+|ΔY|=' + cerr.toFixed(4) + (cerr < 0.01 ? ' ✅' : ' ❌ 需修复'));
+    console.log('========== 诊断结束 ==========');
+  }
+
+  for (let i = 0; i < tp.count; i++) {
+    const dist = i * spacing;
+    const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(tp.plateWidth, tp.plateHeight, tp.plateDepth),
+      mat
+    );
+    plate.position.set(pp.x, pp.y, pp.z);
+    plate.rotation.set(rot.x, rot.y, rot.z);
+    plate.castShadow = true;
+    plate.receiveShadow = true;
+    g.add(plate);
+  }
+
+  // 🆕 TrackChain 理论路径可视化（调试用，绿色Line）
+  if (tp.showPath) {
+    const pathPts = [];
+    const steps = 200;
+    for (let i = 0; i <= steps; i++) {
+      const d = (i / steps) * totalLen;
+      const { pos: pp } = getTrackPlateTransform(d, tp);
+      pathPts.push(new THREE.Vector3(pp.x, pp.y, pp.z));
+    }
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(pathPts);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 });
+    const line = new THREE.Line(lineGeo, lineMat);
+    line.name = node.name + '_path';
+    g.add(line);
+  }
+
+  nodeMap.set(node.name, { group: g, mesh: null, configNode: node, rotTarget: g });
+}
+
+function getTrackPlateTransform(dist, tp) {
+  // r21: 6点+2弧精确几何模型（用户设计的理想拓扑）
+  const cyF = tp.wheelCenterYFront, cyR = tp.wheelCenterYRear;
+  const rF = tp.wheelRadiusFront, rR = tp.wheelRadiusRear;
+  const zF = tp.wheelCenterZFront, zR = tp.wheelCenterZRear;
+
+  const zR1 = 1.4;    // 负重轮1 Z
+  const zR5 = -2.55;   // 负重轮5 Z
+  const wheelR = 0.40; // ⚠️ 修正：Cylinder size[0]=半径=0.4（不是直径！）
+
+  // ========== 6个关键点的精确坐标（基于用户确认的拓扑）==========
+  // ⚠️ Z轴修正：屏幕左边=Z+，所以 Z = center.z - r*cos(angle)
+  // A: 主动轮(c1)12点钟位置 (+90°)
+  const pA = { z: zR - rR * Math.cos(Math.PI/2),           y: cyR + rR * Math.sin(Math.PI/2) };              // (-3.30, 0.75)
+  // B: 诱导轮(a1)12点钟位置 (+90°)
+  const pB = { z: zF - rF * Math.cos(Math.PI/2),           y: cyF + rF * Math.sin(Math.PI/2) };              // (+2.10, 0.74)
+  // C: 诱导轮(a1)7点钟位置 (-120°, 左下方)
+  const angleC = -120 * Math.PI / 180;  // -120° (7点钟)
+  const pC = { z: zF - rF * Math.cos(angleC),             y: cyF + rF * Math.sin(angleC) };
+  // D: 第1负重轮(b1)边沿切点 (6.5点钟位置, -105°)
+  const angleD = -105 * Math.PI / 180;  // -105° (6点半)
+  const pD = { z: zR1 - wheelR * Math.cos(angleD),        y: 0.40 + wheelR * Math.sin(angleD) };            // D: b1轮6.5点(边沿)
+  // E: 第5负重轮(b5)底部切点 (6点, 正下方)
+  const angleE = -75 * Math.PI / 180;   // -75° (5点半, 在5-6点之间)
+  const pE = { z: zR5 - wheelR * Math.cos(angleE),        y: 0.40 + wheelR * Math.sin(angleE) };            // E: b5轮5.5点(边沿)
+  // F: c1轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
+  const angleF = -75 * Math.PI / 180;   // -75° (5点半)
+  const pF = { z: zR - rR * Math.cos(angleF),             y: cyR + rR * Math.sin(angleF) };                 // F: c1轮5.5点(边沿)
+
+  // ========== 6段长度计算 ==========
+  const lenAB = Math.sqrt((pB.z-pA.z)**2 + (pB.y-pA.y)**2);  // AB: 上支路(主动轮顶→诱导轮顶)
+  const lenBC = (angleC + 2*Math.PI - Math.PI/2) * rF;        // BC: 前弧(绕诱导轮, 逆时针短弧 12→11→10→9→8→7 = 150°)
+  const lenCD = Math.sqrt((pD.z-pC.z)**2 + (pD.y-pC.y)**2);  // CD: 下前斜线(诱导轮底→轮1底)
+  const lenDE = Math.abs(pE.z - pD.z);                         // DE: 下支路主干(Y恒定=0.20)
+  const lenEF = Math.sqrt((pF.z-pE.z)**2 + (pF.y-pE.y)**2);  // EF: 下后斜线(轮5底→主动轮底)
+  const lenFA = (Math.PI/2 - angleF) * rR;                     // FA: 后弧(绕主动轮, -120°→90°=210°)
+
+  const totalLen = lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
+
+  let pos = { x: 0, y: 0, z: 0 };
+  let rot = { x: 0, y: 0, z: 0 };
+  let d = dist;
+
+  // 段1: AB 上支路 (线性插值)
+  if (d <= lenAB) {
+    const t = d / lenAB;
+    pos.z = pA.z + t * (pB.z - pA.z);
+    pos.y = pA.y + t * (pB.y - pA.y);
+    rot.x = 0;
+    return { pos, rot };
+  }
+  d -= lenAB;
+
+  // 段2: BC 前弧 (绕诱导轮, 逆时针短弧: 12→11→10→9→8→7)
+  // ⚠️ Z轴修正: Z = centerZ - r*cos(angle)
+  // 角度从 +90°(12点) 增加到 +240°(= -120°+360°, 7点的等效角度), 走150°逆时针短弧
+  if (d <= lenBC) {
+    const angle = Math.PI/2 + (d / lenBC) * (angleC + 2*Math.PI - Math.PI/2);  // 90° → 240° (逆时针)
+    pos.z = zF - rF * Math.cos(angle);
+    pos.y = cyF + rF * Math.sin(angle);
+    rot.x = angle - Math.PI/2;
+    return { pos, rot };
+  }
+  d -= lenBC;
+
+  // 段3: CD 下支路前斜线 (线性插值)
+  if (d <= lenCD) {
+    const t = d / lenCD;
+    pos.z = pC.z + t * (pD.z - pC.z);
+    pos.y = pC.y + t * (pD.y - pC.y);
+    rot.x = 0;
+    return { pos, rot };
+  }
+  d -= lenCD;
+
+  // 段4: DE 下支路主干 (Y恒定=0.20, 切于各负重轮底部)
+  if (d <= lenDE) {
+    const t = d / lenDE;
+    pos.z = pD.z + t * (pE.z - pD.z);
+    pos.y = pD.y;
+    rot.x = 0;
+    return { pos, rot };
+  }
+  d -= lenDE;
+
+  // 段5: EF 下支路后斜线 (线性插值)
+  if (d <= lenEF) {
+    const t = d / lenEF;
+    pos.z = pE.z + t * (pF.z - pE.z);
+    pos.y = pE.y + t * (pF.y - pE.y);
+    rot.x = 0;
+    return { pos, rot };
+  }
+  d -= lenEF;
+
+  // 段6: FA 后弧 (绕主动轮, 标准圆弧 cos/sin)
+  // ⚠️ Z轴修正: Z = centerZ - r*cos(angle)
+  if (d <= lenFA) {
+    const angle = angleF + (d / lenFA) * (Math.PI/2 - angleF);  // -120° → 90°
+    pos.z = zR - rR * Math.cos(angle);
+    pos.y = cyR + rR * Math.sin(angle);
+    rot.x = angle - Math.PI/2;
+    return { pos, rot };
+  }
+
+  return { pos, rot };
 }
 
 // ============================================================
@@ -238,6 +504,11 @@ function buildFromConfig(config, parent, showHelpers, nodeMap) {
       if (node.children) {
         for (const c of node.children) buildNode(c, g);
       }
+      return;
+    }
+
+    if (node.type === 'TrackChain') {
+      buildTrackChain(node, parentObj, pivotComp);
       return;
     }
 
@@ -554,20 +825,24 @@ const T34_85_V16_CONFIG = {
       type: 'Group',
       position: [0, 0, 0],
       children: [
-        { name: '下车体',      type: 'TaperedBox', size: [2.92, 0.9, 5.0, 2.92, 6.0],   position: [0, 0.95, -0.1],   materialId: 'camo_green', flatShading: true },
-        { name: '上车体',      type: 'TaperedBox', size: [2.60, 0.5, 6.0, 2.40, 5.8],   position: [0, 1.63, -0.1],   materialId: 'camo_green', flatShading: true },
-        { name: '发动机舱',    type: 'Box',        size: [2.6, 0.12, 2.2],               position: [0, 1.94, -1.8],   materialId: 'camo_dark',  flatShading: true },
-        { name: '左前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [-1.6, 1.92, 1.8], materialId: 'camo_green' },
-        { name: '右前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [1.6, 1.92, 1.8],  materialId: 'camo_green' },
-        { name: '左侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [-1.6, 1.92, -0.1],materialId: 'camo_green' },
-        { name: '右侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [1.6, 1.92, -0.1], materialId: 'camo_green' },
-        { name: '左外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [-1.6, 1.3, -2.4],  materialId: 'camo_green' },
-        { name: '右外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [1.6, 1.3, -2.4],   materialId: 'camo_green' },
-        { name: '左排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [-1.2, 1.72, -2.9], materialId: 'dark_steel' },
-        { name: '右排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [0.8, 1.72, -2.9],  materialId: 'dark_steel' },
-        { name: '前大灯',      type: 'Cylinder',   size: [0.08, 0.1, 0.08], segments:[12],position: [-1.6, 2.0, 2.3],   materialId: 'steel', rotation: [1.5708,0,0] },
-        { name: '前牵引缆绳',  type: 'Torus',      size: [0.25, 0.02],   segments:[8,16],position: [0, 1.35, 2.6],     materialId: 'dark_steel', rotation: [1.5708,0,0] },
-        { name: '后散热格栅',  type: 'Box',        size: [2.2, 0.02, 0.35],              position: [0, 2.03, -2.85],  materialId: 'dark_steel' },
+        // P1(r14): 下车体顶宽2.92→2.60, 前视图侧面内倾(楔形车体)
+        { name: '下车体',      type: 'TaperedBox', size: [2.92, 0.6, 5.0, 2.60, 6.0, 0, -1.5], position: [0, 0.95, -0.1],   materialId: 'camo_green', flatShading: true },
+        // P0(r13): 上车体中心Y=1.50, 底=1.25(与下车体顶衔接), 顶=1.75
+        { name: '上车体',      type: 'TaperedBox', size: [2.60, 0.5, 6.0, 2.40, 5.8, 0, -1.5], position: [0, 1.50, -0.1],   materialId: 'camo_green', flatShading: true },
+        // P0(r13): 发动机舱衔接上车体顶部(Y=1.75)
+        { name: '发动机舱',    type: 'Box',        size: [2.6, 0.12, 2.2],               position: [0, 1.75, -1.8],   materialId: 'camo_dark',  flatShading: true },
+        { name: '左前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [-1.6, 1.73, 1.8], materialId: 'camo_green' },
+        { name: '右前翼子板',  type: 'Box',        size: [0.3, 0.08, 1.2],               position: [1.6, 1.73, 1.8],  materialId: 'camo_green' },
+        { name: '左侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [-1.6, 1.73, -0.1],materialId: 'camo_green' },
+        { name: '右侧翼子板',  type: 'Box',        size: [0.25, 0.06, 4.5],              position: [1.6, 1.73, -0.1], materialId: 'camo_green' },
+        // P3: 外挂油箱 X=±1.45(紧贴车体侧面)
+        { name: '左外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [-1.45, 1.3, -2.4], materialId: 'camo_green', rotation: [1.5708,0,0] },
+        { name: '右外挂油箱',  type: 'Cylinder',   size: [0.18, 1.1, 0.18], segments:[12],position: [1.45, 1.3, -2.4],  materialId: 'camo_green', rotation: [1.5708,0,0] },
+        { name: '左排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [-1.2, 1.55, -2.9], materialId: 'dark_steel' },
+        { name: '右排气管',    type: 'Cylinder',   size: [0.06, 0.35, 0.06],segments:[8], position: [0.8, 1.55, -2.9],  materialId: 'dark_steel' },
+        { name: '前大灯',      type: 'Cylinder',   size: [0.08, 0.1, 0.08], segments:[12],position: [-1.6, 1.80, 2.3],  materialId: 'steel', rotation: [1.5708,0,0] },
+        { name: '前牵引缆绳',  type: 'Torus',      size: [0.25, 0.02],   segments:[8,16],position: [0, 1.15, 2.6],     materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        { name: '后散热格栅',  type: 'Box',        size: [2.2, 0.02, 0.35],              position: [0, 1.83, -2.85],  materialId: 'dark_steel' },
       ]
     },
 
@@ -577,15 +852,19 @@ const T34_85_V16_CONFIG = {
       type: 'Group',
       position: [-1.7, 0, 0],
       children: [
-        { name: '左负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 1.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '左负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 0.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '左负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -0.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '左负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -1.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '左负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -2.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '左主动轮',  type: 'Cylinder', size: [0.45, 0.15, 0.45],segments:[16], position: [0, 0.45, -2.9],materialId: 'dark_steel', rotation: [0,0,1.5708] },
-        { name: '左诱导轮',  type: 'Cylinder', size: [0.35, 0.15, 0.35],segments:[16], position: [0, 0.35, 1.9], materialId: 'dark_steel', rotation: [0,0,1.5708] },
-        { name: '左下履带',  type: 'Box',      size: [0.55, 0.08, 4.2],                position: [0, 0.06, -0.4], materialId: 'dark_steel' },
-        { name: '左上履带',  type: 'Box',      size: [0.55, 0.06, 4.2],                position: [0, 0.82, -0.4], materialId: 'dark_steel' },
+        { name: '左负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4, 1.40], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '左负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4, 0.39], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '左负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-0.74], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '左负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-1.64], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '左负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-2.55], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        // P4: 主动轮 Z -2.90→-3.30(避免与负重轮5穿透)
+        // P1(r17): 主动轮缩小(r=0.30)不接地(cy=0.45)
+        { name: '左主动轮',  type: 'Cylinder', size: [0.30, 0.15, 0.30],segments:[16], position: [0, 0.50, -3.30], materialId:'dark_steel', color:'#ff3333', rotation: [0,0,1.5708] },
+        // P1(r17): 诱导轮缩小(r=0.22)不接地(cy=0.52)
+        { name: '左诱导轮',  type: 'Cylinder', size: [0.22, 0.15, 0.22],segments:[16], position: [0, 0.58, 2.10],  materialId:'dark_steel', color:'#ff3333', rotation: [0,0,1.5708] },
+        // P4: trackParams同步: wheelCenterZFront 1.9→2.1, wheelCenterZRear -2.9→-3.3
+        { name: '左履带链',  type:'TrackChain', position:[0,0,0], materialId:'dark_steel', color:'#0066ff',
+          trackParams:{ plateWidth:0.55, plateHeight:0.06, plateDepth:0.08, count:110, wheelRadiusFront:0.22, wheelRadiusRear:0.30, wheelCenterZFront:2.1, wheelCenterZRear:-3.3, wheelCenterYFront:0.58, wheelCenterYRear:0.50, upperY:0.80, showPath:true } },
       ]
     },
 
@@ -595,15 +874,15 @@ const T34_85_V16_CONFIG = {
       type: 'Group',
       position: [1.7, 0, 0],
       children: [
-        { name: '右负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 1.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '右负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, 0.4],  materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '右负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -0.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '右负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -1.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '右负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4],  segments:[16], position: [0, 0.4, -2.6], materialId: 'rubber', rotation: [0,0,1.5708] },
-        { name: '右主动轮',  type: 'Cylinder', size: [0.45, 0.15, 0.45],segments:[16], position: [0, 0.45, -2.9],materialId: 'dark_steel', rotation: [0,0,1.5708] },
-        { name: '右诱导轮',  type: 'Cylinder', size: [0.35, 0.15, 0.35],segments:[16], position: [0, 0.35, 1.9], materialId: 'dark_steel', rotation: [0,0,1.5708] },
-        { name: '右下履带',  type: 'Box',      size: [0.55, 0.08, 4.2],                position: [0, 0.06, -0.4], materialId: 'dark_steel' },
-        { name: '右上履带',  type: 'Box',      size: [0.55, 0.06, 4.2],                position: [0, 0.82, -0.4], materialId: 'dark_steel' },
+        { name: '右负重轮1', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4, 1.40], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右负重轮2', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4, 0.39], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右负重轮3', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-0.74], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右负重轮4', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-1.64], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右负重轮5', type: 'Cylinder', size: [0.4, 0.12, 0.4], segments:[16], position: [0, 0.4,-2.55], materialId:'rubber', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右主动轮',  type: 'Cylinder', size: [0.30, 0.15, 0.30],segments:[16], position: [0, 0.50, -3.30], materialId:'dark_steel', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右诱导轮',  type: 'Cylinder', size: [0.22, 0.15, 0.22],segments:[16], position: [0, 0.58, 2.10],  materialId:'dark_steel', color:'#ff3333', rotation: [0,0,1.5708] },
+        { name: '右履带链',  type:'TrackChain', position:[0,0,0], materialId:'dark_steel', color:'#0066ff',
+          trackParams:{ plateWidth:0.55, plateHeight:0.06, plateDepth:0.08, count:110, wheelRadiusFront:0.22, wheelRadiusRear:0.30, wheelCenterZFront:2.1, wheelCenterZRear:-3.3, wheelCenterYFront:0.58, wheelCenterYRear:0.50, upperY:0.80, showPath:true } },
       ]
     },
 
@@ -611,12 +890,12 @@ const T34_85_V16_CONFIG = {
     {
       name: '炮塔总成',
       type: 'Group',
-      position: [0, 0, 0],
+      position: [0, -0.1, 0],  // P0: 回滚r11的-0.4→r10的-0.1
       children: [
-        { name: '炮塔座圈',    type: 'Cylinder', size: [0.85, 0.08, 0.85],segments:[32],position: [0, 1.94, 0.8],  materialId: 'dark_steel' },
-        { name: '炮塔主体',    type: 'TaperedHex',size: [2.0, 0.72, 2.77, 1.6, 2.31],segments:[24], position: [0, 2.34, 0.8],  materialId: 'camo_dark', flatShading: true },
-        { name: '指挥塔',      type: 'Cylinder', size: [0.25, 0.3, 0.25], segments:[12],position: [-0.5, 2.85, 0.5],  materialId: 'camo_dark' },
-        { name: '装填手舱盖',  type: 'Box',      size: [0.4, 0.05, 0.5],               position: [0.6, 2.725, 1.2], materialId: 'dark_steel' },
+        { name: '炮塔座圈',    type: 'Cylinder', size: [0.90, 0.08, 0.90],segments:[32],position: [0, 1.94, 0.8],  materialId: 'dark_steel' },
+        { name: '炮塔主体',    type: 'TaperedHex',size: [1.85, 0.78, 2.77, 1.45, 2.20],segments:[24], position: [0, 2.37, 0.8],  materialId: 'camo_dark', flatShading: true },
+        { name: '指挥塔',      type: 'Cylinder', size: [0.25, 0.3, 0.25], segments:[12],position: [-0.5, 2.88, 0.5],  materialId: 'camo_dark' },
+        { name: '装填手舱盖',  type: 'Box',      size: [0.4, 0.05, 0.5],               position: [0.6, 2.755, 1.2], materialId: 'dark_steel' },
         // 炮管总成
         {
           name: '炮管总成',
@@ -631,11 +910,12 @@ const T34_85_V16_CONFIG = {
           ]
         },
         // 炮塔附件
-        { name: '左扶手',      type: 'Cylinder', size: [0.02, 1.6, 0.02], segments:[8], position: [-1.05, 2.5, 0.8], materialId: 'dark_steel', rotation: [1.5708,0,0] },
-        { name: '右扶手',      type: 'Cylinder', size: [0.02, 1.6, 0.02], segments:[8], position: [1.05, 2.5, 0.8],  materialId: 'dark_steel', rotation: [1.5708,0,0] },
-        { name: '左烟雾弹架',  type: 'Box',      size: [0.12, 0.15, 0.3],              position: [-1.1, 2.4, 0.5],  materialId: 'dark_steel' },
-        { name: '右烟雾弹架',  type: 'Box',      size: [0.12, 0.15, 0.3],              position: [1.1, 2.4, 0.5],   materialId: 'dark_steel' },
-        { name: '天线基座',    type: 'Cylinder', size: [0.015, 1.0, 0.015],segments:[4], position: [-0.6, 3.2, 0.2],  materialId: 'dark_steel' },
+        { name: '左扶手',      type: 'Cylinder', size: [0.02, 1.2, 0.02], segments:[8], position: [-0.85, 2.68, 0.8], materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        { name: '右扶手',      type: 'Cylinder', size: [0.02, 1.2, 0.02], segments:[8], position: [0.85, 2.68, 0.8],  materialId: 'dark_steel', rotation: [1.5708,0,0] },
+        // P1(r13): 发烟筒 Z→+1.8(超出炮塔Z范围根治穿模), X→±0.95(>炮塔该高处半宽0.911)
+        { name: '左烟雾弹架',  type: 'Cylinder', size: [0.06, 0.4, 0.06], segments:[8], position: [-0.95, 2.33, 1.8],  materialId: 'dark_steel', rotation: [1.5708,0.15,0], color:'#ff00ff' },
+        { name: '右烟雾弹架',  type: 'Cylinder', size: [0.06, 0.4, 0.06], segments:[8], position: [0.95, 2.33, 1.8],   materialId: 'dark_steel', rotation: [1.5708,-0.15,0], color:'#ff00ff' },
+        { name: '天线基座',    type: 'Cylinder', size: [0.015, 1.0, 0.015],segments:[4], position: [-0.6, 3.23, 0.2],  materialId: 'dark_steel' },
       ]
     },
   ]
@@ -664,7 +944,7 @@ const ENEMY_CONFIG = {
 };
 
 const MODEL_CONFIGS = { tank:TANK_CONFIG, tank_v16:T34_85_V16_CONFIG, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG };
-let currentModelType = 'tank';
+let currentModelType = 'tank_v16';
 
 // ============================================================
 // 7. Three.js 初始化
@@ -686,11 +966,28 @@ renderer.toneMappingExposure = 1.2;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#2A2A3A');
+scene.background = new THREE.Color(0x878787);  // r19: 默认背景色改为rgb(135,135,135)增强对比度
 
 const camera = new THREE.PerspectiveCamera(40, viewWidth()/window.innerHeight, 0.05, 50);
-camera.position.set(2.5, 2.0, 3.5);
+camera.position.set(6.0, 0.8, 0);  // r19: 默认右侧视角(侧视图)
 camera.lookAt(0, 0.8, 0);
+
+// 正交摄像机（工程制图风格，无透视近大远小）
+const ORTHO_FRUSTUM = 3.0; // 半高（世界单位），控制正交视野大小
+function createOrthoCamera() {
+  const aspect = viewWidth() / window.innerHeight;
+  return new THREE.OrthographicCamera(
+    -ORTHO_FRUSTUM * aspect, ORTHO_FRUSTUM * aspect,
+    ORTHO_FRUSTUM, -ORTHO_FRUSTUM,
+    0.05, 50
+  );
+}
+let orthoCamera = createOrthoCamera();
+orthoCamera.position.copy(camera.position);
+orthoCamera.lookAt(0, 0.8, 0);
+
+let useOrtho = true; // r19: 默认正交视图(工程制图风格)
+function activeCamera() { return useOrtho ? orthoCamera : camera; }
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0.8, 0);
@@ -704,7 +1001,10 @@ scene.add(new THREE.HemisphereLight(0x444455, 0x222233, 0.3));
 const dirLight = new THREE.DirectionalLight(0xFFF0E0, 2.0);
 dirLight.position.set(5, 10, 7);
 dirLight.castShadow = true;
-dirLight.shadow.mapSize.set(1024, 1024);
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.left = -8; dirLight.shadow.camera.right = 8;
+dirLight.shadow.camera.top = 8; dirLight.shadow.camera.bottom = -8;
+dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 30;
 scene.add(dirLight);
 const fillLight = new THREE.DirectionalLight(0x8888FF, 0.3);
 fillLight.position.set(-3, 4, -5);
@@ -717,8 +1017,8 @@ scene.add(rearLight);
 // 地面
 scene.add(new THREE.GridHelper(5, 10, 0x666688, 0x444466));
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(5, 5),
-  new THREE.ShadowMaterial({ opacity:0.3 })
+  new THREE.PlaneGeometry(20, 20),
+  new THREE.ShadowMaterial({ opacity:0.35 })
 );
 ground.rotation.x = -Math.PI/2;
 ground.position.y = 0;
@@ -1045,7 +1345,7 @@ function getScreenBBox(mesh) {
   ];
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   for (const c of corners) {
-    const w = c.applyMatrix4(mat).project(camera);
+    const w = c.applyMatrix4(mat).project(activeCamera());
     const sx = (w.x*0.5+0.5)*viewWidth();
     const sy = (-w.y*0.5+0.5)*window.innerHeight;
     if (sx<minX) minX=sx; if (sy<minY) minY=sy;
@@ -1089,7 +1389,7 @@ function onClickSelect(e) {
   mouse.x = (e.clientX / viewWidth()) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, camera);
+  raycaster.setFromCamera(mouse, activeCamera());
   const targets = [];
   nodeMap.forEach((info, name) => {
     if (info.mesh && info.group.visible) targets.push(info.mesh);
@@ -1525,9 +1825,9 @@ function buildGUI() {
     // --- 位置 (x,y,z) ---
     const p = { x:group.position.x, y:group.position.y, z:group.position.z };
     const posF = folder.addFolder('📍 位置');
-    posF.add(p, 'x', -2.5, 2.5, 0.005).name('X').onChange(v => { saveUndo('posX'); group.position.x=v; updateAllHelpers(); });
-    posF.add(p, 'y', -2.5, 2.5, 0.005).name('Y').onChange(v => { saveUndo('posY'); group.position.y=v; updateAllHelpers(); });
-    posF.add(p, 'z', -2.5, 2.5, 0.005).name('Z').onChange(v => { saveUndo('posZ'); group.position.z=v; updateAllHelpers(); });
+    posF.add(p, 'x', -10, 10, 0.005).name('X').onChange(v => { saveUndo('posX'); group.position.x=v; updateAllHelpers(); });
+    posF.add(p, 'y', -10, 10, 0.005).name('Y').onChange(v => { saveUndo('posY'); group.position.y=v; updateAllHelpers(); });
+    posF.add(p, 'z', -10, 10, 0.005).name('Z').onChange(v => { saveUndo('posZ'); group.position.z=v; updateAllHelpers(); });
 
     // --- 旋转 (x,y,z) — 度数显示 ---
     if (configNode.type !== 'Group') {
@@ -1547,45 +1847,51 @@ function buildGUI() {
       if (configNode.type === 'Box') {
         const sz = configNode.size || [1,1,1];
         const b = { w:sz[0], h:sz[1], d:sz[2] };
-        geoF.add(b, 'w', 0.01, 3.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('BoxW');configNode.size[0]=v;rebuild();});
-        geoF.add(b, 'h', 0.01, 3.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('BoxH');configNode.size[1]=v;rebuild();});
-        geoF.add(b, 'd', 0.01, 3.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('BoxD');configNode.size[2]=v;rebuild();});
+        geoF.add(b, 'w', 0.01, 10.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('BoxW');configNode.size[0]=v;rebuild();});
+        geoF.add(b, 'h', 0.01, 10.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('BoxH');configNode.size[1]=v;rebuild();});
+        geoF.add(b, 'd', 0.01, 10.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('BoxD');configNode.size[2]=v;rebuild();});
       }
       else if (configNode.type === 'RoundedBox') {
         const sz = configNode.size || [1,1,1,0.08];
         const b = { w:sz[0], h:sz[1], d:sz[2], r:sz[3]||0.08 };
-        geoF.add(b, 'w', 0.01, 3.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('RBoxW');configNode.size[0]=v;rebuild();});
-        geoF.add(b, 'h', 0.01, 3.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('RBoxH');configNode.size[1]=v;rebuild();});
-        geoF.add(b, 'd', 0.01, 3.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('RBoxD');configNode.size[2]=v;rebuild();});
+        geoF.add(b, 'w', 0.01, 10.0, 0.005).name('宽 (W)').onChange(v=>{saveUndo('RBoxW');configNode.size[0]=v;rebuild();});
+        geoF.add(b, 'h', 0.01, 10.0, 0.005).name('高 (H)').onChange(v=>{saveUndo('RBoxH');configNode.size[1]=v;rebuild();});
+        geoF.add(b, 'd', 0.01, 10.0, 0.005).name('深 (D)').onChange(v=>{saveUndo('RBoxD');configNode.size[2]=v;rebuild();});
         geoF.add(b, 'r', 0.01, 0.5, 0.005).name('圆角').onChange(v=>{saveUndo('RBoxR');configNode.size[3]=v;rebuild();});
         const sg = configNode.segments || [3];
         geoF.add({ s:sg[0] }, 's', 1, 6, 1).name('圆角段').onChange(v=>{saveUndo('RBoxSeg');configNode.segments[0]=v;rebuild();});
       }
       else if (configNode.type === 'TaperedBox') {
-        // size: [底部宽, 高, 底部深, 顶部宽, 顶部深]
+        // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移]
         const sz = configNode.size || [0.5,0.3,0.5,0.35,0.35];
-        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6 };
-        geoF.add(t, 'bw', 0.01, 3.0, 0.005).name('底宽').onChange(v=>{saveUndo('TBw');configNode.size[0]=v;rebuild();});
-        geoF.add(t, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('TH');configNode.size[1]=v;rebuild();});
-        geoF.add(t, 'bd', 0.01, 3.0, 0.005).name('底深').onChange(v=>{saveUndo('TBd');configNode.size[2]=v;rebuild();});
-        geoF.add(t, 'tw', 0.01, 3.0, 0.005).name('顶宽').onChange(v=>{saveUndo('TTw');configNode.size[3]=v;rebuild();});
-        geoF.add(t, 'td', 0.01, 3.0, 0.005).name('顶深').onChange(v=>{saveUndo('TTd');configNode.size[4]=v;rebuild();});
+        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6, ox:sz[5]||0, oz:sz[6]||0 };
+        geoF.add(t, 'bw', 0.01, 10.0, 0.005).name('底宽').onChange(v=>{saveUndo('TBw');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'h', 0.01, 10.0, 0.005).name('高度').onChange(v=>{saveUndo('TH');configNode.size[1]=v;rebuild();});
+        geoF.add(t, 'bd', 0.01, 10.0, 0.005).name('底深').onChange(v=>{saveUndo('TBd');configNode.size[2]=v;rebuild();});
+        geoF.add(t, 'tw', 0.01, 10.0, 0.005).name('顶宽').onChange(v=>{saveUndo('TTw');configNode.size[3]=v;rebuild();});
+        geoF.add(t, 'td', 0.01, 10.0, 0.005).name('顶深').onChange(v=>{saveUndo('TTd');configNode.size[4]=v;rebuild();});
+        const offF = geoF.addFolder('↗ 顶面偏移');
+        offF.add(t, 'ox', -5, 5, 0.005).name('X偏移').onChange(v=>{saveUndo('TBXoff');configNode.size[5]=v;rebuild();});
+        offF.add(t, 'oz', -5, 5, 0.005).name('Z偏移').onChange(v=>{saveUndo('TBZoff');configNode.size[6]=v;rebuild();});
       }
       else if (configNode.type === 'TaperedHex') {
         const sz = configNode.size || [0.5,0.3,0.5,0.35,0.35];
-        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6 };
-        geoF.add(t, 'bw', 0.01, 3.0, 0.005).name('底宽').onChange(v=>{saveUndo('THXbw');configNode.size[0]=v;rebuild();});
-        geoF.add(t, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('THXh');configNode.size[1]=v;rebuild();});
-        geoF.add(t, 'bd', 0.01, 3.0, 0.005).name('底深').onChange(v=>{saveUndo('THXbd');configNode.size[2]=v;rebuild();});
-        geoF.add(t, 'tw', 0.01, 3.0, 0.005).name('顶宽').onChange(v=>{saveUndo('THXtw');configNode.size[3]=v;rebuild();});
-        geoF.add(t, 'td', 0.01, 3.0, 0.005).name('顶深').onChange(v=>{saveUndo('THXtd');configNode.size[4]=v;rebuild();});
+        const t = { bw:sz[0], h:sz[1], bd:sz[2], tw:sz[3]||sz[0]*0.6, td:sz[4]||sz[2]*0.6, ox:sz[5]||0, oz:sz[6]||0 };
+        geoF.add(t, 'bw', 0.01, 10.0, 0.005).name('底宽').onChange(v=>{saveUndo('THXbw');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'h', 0.01, 10.0, 0.005).name('高度').onChange(v=>{saveUndo('THXh');configNode.size[1]=v;rebuild();});
+        geoF.add(t, 'bd', 0.01, 10.0, 0.005).name('底深').onChange(v=>{saveUndo('THXbd');configNode.size[2]=v;rebuild();});
+        geoF.add(t, 'tw', 0.01, 10.0, 0.005).name('顶宽').onChange(v=>{saveUndo('THXtw');configNode.size[3]=v;rebuild();});
+        geoF.add(t, 'td', 0.01, 10.0, 0.005).name('顶深').onChange(v=>{saveUndo('THXtd');configNode.size[4]=v;rebuild();});
+        const offF = geoF.addFolder('↗ 顶面偏移');
+        offF.add(t, 'ox', -5, 5, 0.005).name('X偏移').onChange(v=>{saveUndo('THXoff');configNode.size[5]=v;rebuild();});
+        offF.add(t, 'oz', -5, 5, 0.005).name('Z偏移').onChange(v=>{saveUndo('THZoff');configNode.size[6]=v;rebuild();});
       }
       else if (configNode.type === 'Cylinder') {
         const sz = configNode.size || [0.5,1,0.5];
         const c = { rT:sz[0], h:sz[1], rB:sz[2] };
-        geoF.add(c, 'rT', 0.005, 2.0, 0.005).name('顶半径').onChange(v=>{saveUndo('CylR');configNode.size[0]=v;rebuild();});
-        geoF.add(c, 'h', 0.01, 3.0, 0.005).name('高度').onChange(v=>{saveUndo('CylH');configNode.size[1]=v;rebuild();});
-        geoF.add(c, 'rB', 0.005, 2.0, 0.005).name('底半径').onChange(v=>{saveUndo('CylRB');configNode.size[2]=v;rebuild();});
+        geoF.add(c, 'rT', 0.005, 5.0, 0.005).name('顶半径').onChange(v=>{saveUndo('CylR');configNode.size[0]=v;rebuild();});
+        geoF.add(c, 'h', 0.01, 10.0, 0.005).name('高度').onChange(v=>{saveUndo('CylH');configNode.size[1]=v;rebuild();});
+        geoF.add(c, 'rB', 0.005, 5.0, 0.005).name('底半径').onChange(v=>{saveUndo('CylRB');configNode.size[2]=v;rebuild();});
         const sg = configNode.segments || [6];
         const sm = { seg:sg[0] };
         geoF.add(sm, 'seg', 3, 32, 1).name('边数').onChange(v=>{saveUndo('CylSeg');configNode.segments[0]=v;rebuild();});
@@ -1593,7 +1899,7 @@ function buildGUI() {
       else if (configNode.type === 'Sphere') {
         const sz = configNode.size || [0.5];
         const s = { r:sz[0] };
-        geoF.add(s, 'r', 0.005, 2.0, 0.005).name('半径').onChange(v=>{saveUndo('SphR');configNode.size[0]=v;rebuild();});
+        geoF.add(s, 'r', 0.005, 5.0, 0.005).name('半径').onChange(v=>{saveUndo('SphR');configNode.size[0]=v;rebuild();});
         const sg = configNode.segments || [8,6];
         const sm = { w:sg[0], h:sg[1] };
         geoF.add(sm, 'w', 3, 32, 1).name('经线').onChange(v=>{saveUndo('SphW');configNode.segments[0]=v;rebuild();});
@@ -1602,7 +1908,7 @@ function buildGUI() {
       else if (configNode.type === 'Torus') {
         const sz = configNode.size || [0.5,0.05];
         const t = { R:sz[0], r:sz[1]||0.05 };
-        geoF.add(t, 'R', 0.01, 2.0, 0.005).name('主半径').onChange(v=>{saveUndo('TorR');configNode.size[0]=v;rebuild();});
+        geoF.add(t, 'R', 0.01, 5.0, 0.005).name('主半径').onChange(v=>{saveUndo('TorR');configNode.size[0]=v;rebuild();});
         geoF.add(t, 'r', 0.005, 0.5, 0.002).name('管半径').onChange(v=>{saveUndo('Torr');configNode.size[1]=v;rebuild();});
         const sg = configNode.segments || [8,12];
         const sm = { rad:sg[0], tub:sg[1] };
@@ -1615,8 +1921,8 @@ function buildGUI() {
         geoF.add(sm, 'seg', 6, 64, 1).name('旋转段数').onChange(v=>{saveUndo('LHseg');configNode.segments[0]=v;rebuild();});
         // 半径缩放 & 高度缩放
         const sc = { sR: configNode.scaleR ?? 1, sH: configNode.scaleH ?? 1 };
-        geoF.add(sc, 'sR', 0.1, 3.0, 0.01).name('半径缩放').onChange(v=>{saveUndo('LHsR');configNode.scaleR=v;rebuild();});
-        geoF.add(sc, 'sH', 0.1, 3.0, 0.01).name('高度缩放').onChange(v=>{saveUndo('LHsH');configNode.scaleH=v;rebuild();});
+        geoF.add(sc, 'sR', 0.1, 5.0, 0.01).name('半径缩放').onChange(v=>{saveUndo('LHsR');configNode.scaleR=v;rebuild();});
+        geoF.add(sc, 'sH', 0.1, 5.0, 0.01).name('高度缩放').onChange(v=>{saveUndo('LHsH');configNode.scaleH=v;rebuild();});
         // 轮廓编辑：JSON 文本输入
         const prof = configNode.profile || [[0.5,0],[0.5,0.3],[0.6,0.4],[0.1,0.4]];
         const pStr = { txt: JSON.stringify(prof) };
@@ -1627,7 +1933,7 @@ function buildGUI() {
       }
       else if (configNode.type === 'Extrude') {
         const d = { depth:configNode.extrudeDepth||0.5, bevel:configNode.bevelThickness||0.02 };
-        geoF.add(d, 'depth', 0.01, 3.0, 0.01).name('挤出深度').onChange(v=>{saveUndo('ExtD');configNode.extrudeDepth=v;rebuild();});
+        geoF.add(d, 'depth', 0.01, 10.0, 0.01).name('挤出深度').onChange(v=>{saveUndo('ExtD');configNode.extrudeDepth=v;rebuild();});
         geoF.add(d, 'bevel', 0, 0.1, 0.002).name('倒角').onChange(v=>{saveUndo('ExtB');configNode.bevelThickness=v;rebuild();});
         // 形状编辑
         const shp = configNode.shape || [[-0.5,-0.2],[0.5,-0.2],[0.5,0.2],[-0.5,0.2]];
@@ -1739,9 +2045,16 @@ document.getElementById('toggle-helpers').addEventListener('click', () => {
 // 13. 窗口缩放
 // ============================================================
 window.addEventListener('resize', () => {
-  camera.aspect = viewWidth() / window.innerHeight;
+  const w = viewWidth(), h = window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(viewWidth(), window.innerHeight);
+  const aspect = w / h;
+  orthoCamera.left = -ORTHO_FRUSTUM * aspect;
+  orthoCamera.right = ORTHO_FRUSTUM * aspect;
+  orthoCamera.top = ORTHO_FRUSTUM;
+  orthoCamera.bottom = -ORTHO_FRUSTUM;
+  orthoCamera.updateProjectionMatrix();
+  renderer.setSize(w, h);
 });
 
 // ============================================================
@@ -1825,16 +2138,38 @@ let currentView = 'persp';
 let viewAnim = null; // { startPos, endPos, startTarget, endTarget, startTime, duration }
 
 function switchView(viewName) {
+  // 正交切换按钮特殊处理
+  if (viewName === 'ortho') {
+    useOrtho = !useOrtho;
+    const src = activeCamera();
+    // 同步位置
+    if (useOrtho) {
+      orthoCamera.position.copy(camera.position);
+      orthoCamera.quaternion.copy(camera.quaternion);
+      orthoCamera.zoom = 1;
+      orthoCamera.updateProjectionMatrix();
+    } else {
+      camera.position.copy(orthoCamera.position);
+      camera.quaternion.copy(orthoCamera.quaternion);
+    }
+    // 切换 OrbitControls 到当前摄像机
+    controls.object = activeCamera();
+    controls.update();
+    document.getElementById('ortho-toggle').classList.toggle('active', useOrtho);
+    document.getElementById('ortho-toggle').title = useOrtho ? '切换透视 (当前: 正交)' : '切换正交 (当前: 透视)';
+    return;
+  }
   const preset = VIEW_PRESETS[viewName];
   if (!preset) return;
   currentView = viewName;
   // 更新按钮 active 状态
-  document.querySelectorAll('#view-toolbar button').forEach(b => {
+  document.querySelectorAll('#view-toolbar button[data-view]:not(#ortho-toggle)').forEach(b => {
     b.classList.toggle('active', b.dataset.view === viewName);
   });
   const dur = 500; // ms
+  const cam = activeCamera();
   viewAnim = {
-    startPos: camera.position.clone(),
+    startPos: cam.position.clone(),
     endPos: new THREE.Vector3(...preset.pos),
     startTarget: controls.target.clone(),
     endTarget: new THREE.Vector3(...preset.target),
@@ -1847,8 +2182,17 @@ function switchView(viewName) {
 document.querySelectorAll('#view-toolbar button').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
-// 初始高亮
-switchView('persp');
+// 初始高亮 - r19: 默认正交侧视图
+useOrtho = true;
+document.getElementById('ortho-toggle').classList.add('active');
+document.getElementById('ortho-toggle').title = '切换透视 (当前: 正交)';
+controls.object = orthoCamera;
+switchView('right');
+
+// 背景颜色选择器
+document.getElementById('bg-color').addEventListener('input', e => {
+  scene.background = new THREE.Color(e.target.value);
+});
 
 // ============================================================
 // 16. 渲染循环
@@ -1860,12 +2204,13 @@ function animate() {
     const elapsed = performance.now() - viewAnim.startTime;
     const t = Math.min(elapsed / viewAnim.duration, 1);
     const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOutQuad
-    camera.position.lerpVectors(viewAnim.startPos, viewAnim.endPos, ease);
+    const cam = activeCamera();
+    cam.position.lerpVectors(viewAnim.startPos, viewAnim.endPos, ease);
     controls.target.lerpVectors(viewAnim.startTarget, viewAnim.endTarget, ease);
     if (t >= 1) viewAnim = null;
   }
   controls.update();
-  renderer.render(scene, camera);
+  renderer.render(scene, activeCamera());
 }
 animate();
 
