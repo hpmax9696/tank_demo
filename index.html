@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.39.0</title>
+    <title>坦克运动demo v0.39.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -404,7 +404,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.39.0</div>
+        <div class="menu-version">v0.39.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -419,11 +419,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">🎯 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
+            <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
+            <div class="cl-title">🎮 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
             <div class="cl-title">🧹 v0.38.1 模型工厂清理优化 — 删除旧版坦克+一键JSON导出固化+透视相机拉远+固化脚本+TrackChain诊断清理</div>
             <div class="cl-title">🔗 v0.38.0 履带系统重构 — 6点+2弧精确几何模型(TrackChain r21)+负重轮间距2:3:1:1+诱导轮/主动轮Y上调+wheelR半径修正</div>
             <div class="cl-title">🗑 v0.37.1 清理废弃分支 — 删除T-34-85 v1.5模型代码和模型工厂切换接口</div>
-            <div class="cl-title">🔧 v0.37.0 模型工厂修复 — TaperedHex六棱台法线修复(侧面/顶面/底面)+Group位置保存修复(syncConfigFromScene)+Cylinder语法补全+配置固化</div>
         </div>
     </div>
 
@@ -1504,19 +1504,23 @@
         window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
         window.addEventListener('mousedown', (e) => {
-            if (e.button === 0 && gameMode !== 'menu') mouseDown = true;
+            if (e.button === 0 && gameMode !== 'menu') { mouseDown = true; mouseFireRequested = true; }
         });
         window.addEventListener('mouseup', (e) => {
             if (e.button === 0) mouseDown = false;
         });
-        window.addEventListener('blur', () => { mouseDown = false; });
+        window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = false; });
 
+        let prevMouseX = 0, prevMouseY = 0;
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX; mouseY = e.clientY;
             if (gameMode !== 'menu') {
                 crosshairEl.style.left = mouseX + 'px';
                 crosshairEl.style.top = mouseY + 'px';
+                const dmx = Math.abs(mouseX - prevMouseX), dmy = Math.abs(mouseY - prevMouseY);
+                if (dmx > 3 || dmy > 3) useGamepad = false;
             }
+            prevMouseX = mouseX; prevMouseY = mouseY;
         });
 
         // ==================== 玩家工厂 ====================
@@ -2778,8 +2782,8 @@
                         if ((dx * dx + dz * dz) < r2) { visible = true; break; }
                     }
                 }
-                if (obstacleMeshes[bldIdx].visible !== visible) {
-                    obstacleMeshes[bldIdx].visible = visible;
+                if (o.groupRef && o.groupRef.visible !== visible) {
+                    o.groupRef.visible = visible;
                 }
                 bldIdx++;
             }
@@ -2965,6 +2969,7 @@
             }
             // --- 清理旧的建筑 Group ---
             obstacleMeshes.forEach(g => {
+                if (g.isInstancedMesh) return;
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             });
@@ -3016,7 +3021,7 @@
                 obsCfg.safeRadius != null ? obsCfg.safeRadius : SAFE_ZONE_RADIUS,
                 obsCfg.count != null ? obsCfg.count : OBSTACLE_COUNT, roadExcludeFn);
 
-            const conePts = [], spherePts = [], oakPts = [];
+            const conePts = [], spherePts = [], oakPts = [], bldPts = [];
             for (let i = 0; i < points.length; i++) {
                 const p = points[i];
                 if (!isVersusMap) {
@@ -3027,7 +3032,6 @@
                         if (Math.sqrt((pxPond*pxPond)/(pondClear*pondClear) + (pzPond*pzPond)/(pondClearZ*pondClearZ)) < 1.0) continue;
                     }
                     if (isInRiver(p.x, p.z)) continue;
-                    // 编辑器河流排除（isInRiver 仅对参数化河流有效，编辑器地图需手动检测）
                     const rvPts = currentMapData && currentMapData.terrain ? currentMapData.terrain.riverPoints : null;
                     if (rvPts && rvPts.length >= 2) {
                         const rvHw = ((currentMapData.terrain.riverWidth || 10) * 0.5) + 2;
@@ -3038,14 +3042,13 @@
                         }
                         if (inEditRiver) continue;
                     }
-                    // 额外排除道路区域
                     if (_villageSystem && isOnRoad(p.x, p.z, _villageSystem.roadAreas)) continue;
                 }
-                // 纯树木分配：锥形树35%、球形树30%、橡树35%
                 const r = Math.random();
                 if (r < 0.35) { conePts.push(p); }
                 else if (r < 0.65) { spherePts.push(p); }
-                else { oakPts.push(p); }
+                else if (r < 0.85) { oakPts.push(p); }
+                else { bldPts.push({ x: p.x, z: p.z }); }
             }
 
             // --- 阶段1.5：编辑器树木放置（在 InstancedMesh 创建之前加入，确保正确 count）---
@@ -3104,6 +3107,7 @@
                 crownIM.instanceMatrix.needsUpdate = true;
                 targetScene.add(trunkIM);
                 targetScene.add(crownIM);
+                obstacleMeshes.push(trunkIM, crownIM);
                 window._treeIMs.push(trunkIM, crownIM);
             }
 
@@ -3143,6 +3147,7 @@
                 crownIM.instanceMatrix.needsUpdate = true;
                 targetScene.add(trunkIM);
                 targetScene.add(crownIM);
+                obstacleMeshes.push(trunkIM, crownIM);
                 window._treeIMs.push(trunkIM, crownIM);
             }
 
@@ -3182,6 +3187,7 @@
                 crownIM.instanceMatrix.needsUpdate = true;
                 targetScene.add(trunkIM);
                 targetScene.add(crownIM);
+                obstacleMeshes.push(trunkIM, crownIM);
                 window._treeIMs.push(trunkIM, crownIM);
             }
 
@@ -3192,11 +3198,14 @@
                 ? _villageSystem.villages.flatMap(v => (v.buildings || []))
                 : [];
             const allBlds = cfgBuildings.length > 0 ? cfgBuildings : villageBlds;
-            
-            if (allBlds.length > 0) {
+
+            const randomBlds = (!cfgBuildings || cfgBuildings.length === 0) && (!villageBlds || villageBlds.length === 0) ? bldPts : [];
+            const effectiveBlds = allBlds.length > 0 ? allBlds : randomBlds;
+
+            if (effectiveBlds.length > 0) {
                 // 编辑器实体边界：编辑器世界300×300（高度图覆盖±150），随机障碍物用spawnRadius
                 const bldBoundary = (cfgBuildings.length > 0) ? 150 : spawnR * 0.92;
-                for (const bld of allBlds) {
+                for (const bld of effectiveBlds) {
                     // 简单边界/障碍物重检查
                     if (Math.abs(bld.x) > bldBoundary || Math.abs(bld.z) > bldBoundary) continue;
                     if (!isVersusMap) {
@@ -3301,6 +3310,7 @@
             }
             if (reloadBarGroup) reloadBarGroup.visible = false;
             tankGroup.position.set(0, 0, 0);
+            tankGroup.rotation.order = 'YXZ';
             tankGroup.rotation.set(0, 0, 0);
             // 隐藏损毁效果（血量重置）
             if (player1 && player1.damageEffects) player1.damageEffects.hide();
@@ -3519,6 +3529,7 @@
         let gamepadFireReady = true; // 扳机松开后才允许再次开炮
         let mouseFireReady = true;
         let mouseDown = false;
+        let mouseFireRequested = false;
         let mouseX = window.innerWidth / 2;
         let mouseY = window.innerHeight / 2;
         let aimPoint = new THREE.Vector3();
@@ -3607,15 +3618,25 @@
 
             const gp = getGamepad();
             const now = performance.now();
-            useGamepad = (gp && gp.axes[4] !== undefined && gp.axes[3] !== undefined &&
-                (Math.abs(gp.axes[4]) > 0.08 || Math.abs(gp.axes[3]) > 0.08)) ||
-                (now - lastGamepadTime < 500);
+            if (gp && (Math.abs(gp.axes[0]) > 0.08 || Math.abs(gp.axes[1]) > 0.08 ||
+                       Math.abs(gp.axes[2] || 0) > 0.08 || Math.abs(gp.axes[4] || 0) > 0.08 ||
+                       Math.abs(gp.axes[3] || 0) > 0.08 || Math.abs(gp.axes[5] || 0) > 0.08)) {
+                useGamepad = true;
+                lastGamepadTime = now;
+            }
+            if (keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD']) {
+                useGamepad = false;
+            }
 
             const barrelPos = getBarrelWorldPos(player);
 
             if (useGamepad && gp) {
-                const gpx = gp.axes[4] || 0;
-                const gpy = gp.axes[3] || 0;
+                const gpxA = gp.axes[2] || 0;
+                const gpxB = gp.axes[4] || 0;
+                const gpx = Math.abs(gpxA) > Math.abs(gpxB) ? gpxA : gpxB;
+                const gpyA = gp.axes[3] || 0;
+                const gpyB = gp.axes[5] || 0;
+                const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
                 const turretSpeed = stickToTarget(-gpx) * turretAngVel;
                 player.turretYaw += turretSpeed * dt;
                 if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
@@ -3632,52 +3653,108 @@
                 const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
 
                 let targetAim = null;
+                let hitObs = false;
                 if (groundHits.length > 0) targetAim = groundHits[0].point.clone();
                 if (obsHits.length > 0 && (!targetAim || obsHits[0].distance < targetAim.distanceTo(camera.position))) {
                     targetAim = obsHits[0].point.clone();
+                    hitObs = true;
                 }
 
                 aimValid = false;
                 if (targetAim) {
-                    targetAim.y = getGroundHeight(targetAim.x, targetAim.z);
+                    if (!hitObs) targetAim.y = getGroundHeight(targetAim.x, targetAim.z);
                     aimPoint.copy(targetAim);
-
-                    const tankFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(player.group.quaternion);
-                    const tankWorldYaw = Math.atan2(tankFwd.x, tankFwd.z);
-                    const diffWorld = targetAim.clone().sub(new THREE.Vector3(player.state.x, 0, player.state.z));
-                    let worldYaw = Math.atan2(diffWorld.x, diffWorld.z);
-                    let relYaw = worldYaw - tankWorldYaw;
-                    while (relYaw > Math.PI) relYaw -= Math.PI * 2;
-                    while (relYaw < -Math.PI) relYaw += Math.PI * 2;
-                    relYaw = Math.max(-Math.PI, Math.min(Math.PI, relYaw));
 
                     const diff = targetAim.clone().sub(barrelPos);
                     const horizDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
                     const flightTime = horizDist / SHELL_SPEED;
                     const gravityDrop = 0.5 * SHELL_GRAVITY * flightTime * flightTime;
-                    const targetElev = -Math.atan2(diff.y + gravityDrop, horizDist);
+                    const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
+                    const worldDir = worldTarget.clone().sub(barrelPos).normalize();
+
+                    const invQ = player.group.quaternion.clone().invert();
+                    const localDir = worldDir.clone().applyQuaternion(invQ);
+                    const targetYaw = Math.atan2(localDir.x, localDir.z);
+                    const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
                     const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-                    player.turretYaw = moveToward(player.turretYaw, relYaw, turretAngVel * dt);
+                    player.turretYaw = moveToward(player.turretYaw, targetYaw, turretAngVel * dt);
+                    if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+                    if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
                     player.barrelElevation = moveToward(player.barrelElevation, clampedElev, barrelAngVel * dt);
 
                     const dist = diff.length();
-                    const turretDiff = Math.abs(player.turretYaw - relYaw);
+                    const turretDiff = Math.abs(player.turretYaw - targetYaw);
                     const elevDiff = Math.abs(player.barrelElevation - clampedElev);
 
                     if (dist <= 150 && turretDiff < 0.05 && elevDiff < 0.04) {
                         const obsDir = diff.clone().normalize();
                         const obsRc = new THREE.Raycaster();
                         obsRc.set(barrelPos, obsDir);
-                        obsRc.far = dist;
+                        obsRc.far = dist + 1.0;
                         const obsInt = obsRc.intersectObjects(obstacleMeshes, true);
-                        if (obsInt.length === 0) aimValid = true;
+
+                        if (obsInt.length === 0) {
+                            aimValid = true;
+                        } else if (hitObs) {
+                            const blockers = obsInt.filter(h => h.distance < dist - 1.5);
+                            if (blockers.length === 0) aimValid = true;
+                        }
+
+                        if (aimValid && !hitObs) {
+                            const barrelDir = getBarrelWorldDir(player);
+                            const horizSpeed = SHELL_SPEED * Math.sqrt(barrelDir.x * barrelDir.x + barrelDir.z * barrelDir.z);
+                            const totalTime = horizDist / Math.max(horizSpeed, 1);
+                            const steps = 12;
+                            const dt = totalTime / steps;
+                            for (let si = 1; si < steps - 1; si++) {
+                                const t = si * dt;
+                                const x = barrelPos.x + barrelDir.x * SHELL_SPEED * t;
+                                const y = barrelPos.y + barrelDir.y * SHELL_SPEED * t - 0.5 * SHELL_GRAVITY * t * t;
+                                const z = barrelPos.z + barrelDir.z * SHELL_SPEED * t;
+                                if (y < getGroundHeight(x, z) - 0.5) {
+                                    aimValid = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (aimValid) {
+                            const shellR = 0.18;
+                            for (let ji = obstacleData.length - 1; ji >= 0; ji--) {
+                                const od = obstacleData[ji];
+                                const oX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                                const oZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                                const oR = (od.radius || 0.55) + shellR;
+                                const oY = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : getGroundHeight(od.x, od.z);
+                                const oH = od.height || 1.5;
+
+                                const dx = oX - barrelPos.x;
+                                const dz = oZ - barrelPos.z;
+                                const along = dx * obsDir.x + dz * obsDir.z;
+                                if (along < -oR || along > dist + oR) continue;
+                                const perp = Math.sqrt(Math.max(0, dx * dx + dz * dz - along * along));
+                                if (perp > oR) continue;
+                                const yAt = barrelPos.y + obsDir.y * along;
+                                if (yAt < oY - 0.3 || yAt > oY + oH + 0.3) continue;
+                                if (hitObs && Math.abs(along - dist) < 3.0) continue;
+                                aimValid = false;
+                                break;
+                            }
+                        }
                     }
                 }
             }
 
             player.barrelElevation = Math.max(maxUp, Math.min(maxDown, player.barrelElevation));
-            crosshairEl.style.color = aimValid ? '#00ff00' : '#ff3333';
+            if (useGamepad) {
+                crosshairEl.style.display = 'none';
+                document.body.style.cursor = '';
+            } else {
+                crosshairEl.style.display = 'block';
+                document.body.style.cursor = 'none';
+                crosshairEl.style.color = aimValid ? '#00ff00' : '#ff3333';
+            }
         }
 
         function updateTrajectoryLine(player) {
@@ -3694,7 +3771,7 @@
                 scene.add(trajDot);
             }
 
-            if (!useGamepad && !(gameMode === 'versus' && player === player2) || !player || player.dead) {
+            if (!player || player.dead) {
                 trajLine.visible = false;
                 trajDot.visible = false;
                 return;
@@ -3715,6 +3792,28 @@
             const points = [];
             const rc = new THREE.Raycaster();
             let hitPoint = null;
+            let hitGround = false;
+
+            const hitTargets = [...obstacleMeshes];
+            const enemyDefs = [];
+            if (gameMode === 'combat') {
+                for (const en of enemies) {
+                    if (!en || !en.visible) continue;
+                    if (en.ai && en.ai.state === 'dead') continue;
+                    hitTargets.push(en);
+                    const isZombie = (en.cfg && en.cfg.type === 'zombie');
+                    const eR = isZombie ? 0.4 : 1.0;
+                    const eH = isZombie ? 1.8 : 0.8;
+                    enemyDefs.push({ x: en.position.x, z: en.position.z, y: en.position.y, radius: eR, height: eH, groupRef: en });
+                }
+            }
+            if (gameMode === 'versus') {
+                const foe = player === player1 ? player2 : player1;
+                if (foe && !foe.dead && foe.group) {
+                    hitTargets.push(foe.group);
+                    enemyDefs.push({ x: foe.state.x, z: foe.state.z, y: foe.group.position.y, radius: TANK_HALF_W, height: 0.8, groupRef: foe.group });
+                }
+            }
 
             for (let i = 0; i <= samples; i++) {
                 const t = i * dt;
@@ -3723,16 +3822,73 @@
                 const z = barrelPos.z + barrelDir.z * SPEED * t;
 
                 const p = new THREE.Vector3(x, y, z);
-                if (i > 0) {
+
+                const groundH = getGroundHeight(x, z);
+                if (y < groundH && i > 0) {
                     const prev = points[points.length - 1];
+                    const prevGH = getGroundHeight(prev.x, prev.z);
+                    if (prev.y > prevGH) {
+                        const frac = (prev.y - prevGH) / ((prev.y - prevGH) + (groundH - y));
+                        hitPoint = prev.clone().lerp(p, frac);
+                        hitGround = true;
+                        points.push(hitPoint);
+                        break;
+                    }
+                }
+
+                if (i > 0 && !hitGround) {
+                    const prev = points[points.length - 1];
+                    // 细线射线检测（Mesh表面命中）
                     rc.set(prev.clone(), p.clone().sub(prev).normalize());
                     rc.far = p.distanceTo(prev);
-                    const hits = rc.intersectObjects(obstacleMeshes, true);
+                    const hits = rc.intersectObjects(hitTargets, true);
                     if (hits.length > 0) {
                         hitPoint = hits[0].point.clone();
                         points.push(hitPoint);
                         break;
                     }
+                    // 炮弹体积检测（边缘擦过）
+                    const shellR = 0.18;
+                    const segLen = p.distanceTo(prev);
+                    const segDir = new THREE.Vector3().subVectors(p, prev).normalize();
+                    for (let ji = obstacleData.length - 1; ji >= 0; ji--) {
+                        const od = obstacleData[ji];
+                        const oX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                        const oZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                        const oR = (od.radius || 0.55) + shellR;
+                        const oY = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : getGroundHeight(od.x, od.z);
+                        const oH = od.height || 1.5;
+                        const dx = oX - prev.x;
+                        const dz = oZ - prev.z;
+                        const proj = dx * segDir.x + dz * segDir.z;
+                        if (proj < -oR || proj > segLen + oR) continue;
+                        const perp = Math.sqrt(Math.max(0, dx * dx + dz * dz - proj * proj));
+                        if (perp > oR) continue;
+                        const fracT = Math.max(0, Math.min(1, proj / Math.max(segLen, 0.001)));
+                        const projY = prev.y + (p.y - prev.y) * fracT;
+                        if (projY < oY - 0.3 || projY > oY + oH + 0.3) continue;
+                        hitPoint = prev.clone().addScaledVector(segDir, Math.max(0, Math.min(segLen, proj)));
+                        points.push(hitPoint);
+                        break;
+                    }
+                    if (hitPoint) break;
+                    for (let ei = enemyDefs.length - 1; ei >= 0; ei--) {
+                        const ed = enemyDefs[ei];
+                        const eR = ed.radius + shellR;
+                        const ex = ed.x - prev.x;
+                        const ez = ed.z - prev.z;
+                        const eproj = ex * segDir.x + ez * segDir.z;
+                        if (eproj < -eR || eproj > segLen + eR) continue;
+                        const eperp = Math.sqrt(Math.max(0, ex * ex + ez * ez - eproj * eproj));
+                        if (eperp > eR) continue;
+                        const efrac = Math.max(0, Math.min(1, eproj / Math.max(segLen, 0.001)));
+                        const ey = prev.y + (p.y - prev.y) * efrac;
+                        if (ey < ed.y - 0.3 || ey > ed.y + ed.height + 0.3) continue;
+                        hitPoint = prev.clone().addScaledVector(segDir, Math.max(0, Math.min(segLen, eproj)));
+                        points.push(hitPoint);
+                        break;
+                    }
+                    if (hitPoint) break;
                 }
                 points.push(p);
             }
@@ -3876,7 +4032,9 @@
             // ── 坦克3D更新 ──
             const groundY = getGroundHeight(tankState.x, tankState.z);
             tankGroup.position.set(tankState.x, groundY, tankState.z);
-            tankGroup.rotation.set(-(tankPitch + terrainPitch + recoilP), Math.PI / 2 - tankState.yaw, -terrainRoll);
+            if (!tankGroup.rotation.order || tankGroup.rotation.order !== 'YXZ') tankGroup.rotation.order = 'YXZ';
+            tankGroup.rotation.set(tankPitch + recoilP - terrainPitch, Math.PI / 2 - tankState.yaw, -terrainRoll);
+            tankGroup.updateMatrixWorld();
             // 同步 player1.state，fireShell 依赖它
             if (player1) {
                 player1.state.x = tankState.x;
@@ -3900,18 +4058,21 @@
             const _t1 = performance.now();  // perf: 物理阶段结束
             perfAcc.physics += _t1 - _t0;
 
-            // ── 开炮（键盘空格 / 手柄RT扳机） ──
-            const fireNow = isFirePressed();
-            if (fireNow && (gameMode === 'single' || gameMode === 'combat') && gamepadFireReady && mouseFireReady) {
-                fireShell();
-                gamepadFireReady = false;
-                mouseFireReady = false;
-                mouseDown = false;
+            // ── 开炮（鼠标左键 / 手柄RT扳机） ──
+            if (gameMode === 'single' || gameMode === 'combat') {
+                if (mouseFireRequested && mouseFireReady) {
+                    fireShell();
+                    mouseFireReady = false;
+                    mouseFireRequested = false;
+                }
+                const fireNow = isFirePressed();
+                if (fireNow && gamepadFireReady) {
+                    fireShell();
+                    gamepadFireReady = false;
+                }
+                if (!fireNow) gamepadFireReady = true;
             }
-            if (!fireNow) {
-                gamepadFireReady = true;
-                mouseFireReady = true;
-            }
+            if (!mouseDown) mouseFireReady = true;
 
             updateTrajectoryLine(player1);
 
@@ -4934,9 +5095,13 @@
 
             if (p === player2) {
                 const gp = getGamepad();
-                if (gp && gp.axes[4] !== undefined && gp.axes[3] !== undefined) {
-                    const gpx = gp.axes[4] || 0;
-                    const gpy = gp.axes[3] || 0;
+                if (gp) {
+                    const gpxA = gp.axes[2] || 0;
+                    const gpxB = gp.axes[4] || 0;
+                    const gpx = Math.abs(gpxA) > Math.abs(gpxB) ? gpxA : gpxB;
+                    const gpyA = gp.axes[3] || 0;
+                    const gpyB = gp.axes[5] || 0;
+                    const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
                     const turretSpeed = stickToTarget(-gpx) * turretAngVel;
                     p.turretYaw += turretSpeed * dt;
                     if (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
@@ -4954,29 +5119,31 @@
                 const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
 
                 let targetAim = null;
+                let hitObsVs = false;
                 if (groundHits.length > 0) targetAim = groundHits[0].point.clone();
                 if (obsHits.length > 0 && (!targetAim || obsHits[0].distance < targetAim.distanceTo(cam.position))) {
                     targetAim = obsHits[0].point.clone();
+                    hitObsVs = true;
                 }
 
                 if (targetAim) {
-                    targetAim.y = getGroundHeight(targetAim.x, targetAim.z);
+                    if (!hitObsVs) targetAim.y = getGroundHeight(targetAim.x, targetAim.z);
                     const diff = targetAim.clone().sub(barrelPos);
-                    const tankFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(p.group.quaternion);
-                    const tankWorldYaw = Math.atan2(tankFwd.x, tankFwd.z);
-                    const diffWorld = targetAim.clone().sub(new THREE.Vector3(p.state.x, 0, p.state.z));
-                    let worldYaw = Math.atan2(diffWorld.x, diffWorld.z);
-                    let relYaw = worldYaw - tankWorldYaw;
-                    while (relYaw > Math.PI) relYaw -= Math.PI * 2;
-                    while (relYaw < -Math.PI) relYaw += Math.PI * 2;
-                    const clampedYaw = Math.max(-Math.PI, Math.min(Math.PI, relYaw));
-                    p.turretYaw = moveToward(p.turretYaw, clampedYaw, turretAngVel * dt);
-
                     const horizDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
                     const flightTime = horizDist / SHELL_SPEED;
                     const gravityDrop = 0.5 * SHELL_GRAVITY * flightTime * flightTime;
-                    const targetElev = -Math.atan2(diff.y + gravityDrop, horizDist);
+                    const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
+                    const worldDir = worldTarget.clone().sub(barrelPos).normalize();
+
+                    const invQ = p.group.quaternion.clone().invert();
+                    const localDir = worldDir.clone().applyQuaternion(invQ);
+                    const targetYaw = Math.atan2(localDir.x, localDir.z);
+                    const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
                     const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
+
+                    p.turretYaw = moveToward(p.turretYaw, targetYaw, turretAngVel * dt);
+                    if (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+                    if (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
                     p.barrelElevation = moveToward(p.barrelElevation, clampedElev, barrelAngVel * dt);
                 }
             }
@@ -5052,7 +5219,9 @@
             p.prevForwardSpeed=v;
             const pgY=getGroundHeight(p.state.x,p.state.z);
             p.group.position.set(p.state.x,pgY,p.state.z);
-            p.group.rotation.set(-(p.pitch+tPitch+recoilP),Math.PI/2-p.state.yaw,-tRoll);
+            if (!p.group.rotation.order || p.group.rotation.order !== 'YXZ') p.group.rotation.order = 'YXZ';
+            p.group.rotation.set(p.pitch + recoilP - tPitch, Math.PI/2-p.state.yaw, -tRoll);
+            p.group.updateMatrixWorld();
             updateAimingForVs(p, dt);
             if (p.turretPivot) p.turretPivot.rotation.y = p.turretYaw;
             if (p.barrelPivot) {
@@ -5800,8 +5969,8 @@
             // 同步 tankState 到 player1（供 updateObstacleVisibility 主逻辑使用）
             tankState.x = player1.state.x; tankState.z = player1.state.z;
             updateEngineSound(Math.max(Math.abs(player1.currentLeftSpeed),Math.abs(player1.currentRightSpeed),Math.abs(player2.currentLeftSpeed),Math.abs(player2.currentRightSpeed)));
+            if(mouseFireRequested&&player1.fireReady){fireShell(player1);player1.fireReady=false;mouseFireRequested=false;}
             const p1fire=mouseDown;
-            if(p1fire&&player1.fireReady){fireShell(player1);player1.fireReady=false;mouseDown=false;}
             if(!p1fire)player1.fireReady=true;
             const gp=getGamepad();const p2fire=gp&&gp.buttons[7]&&gp.buttons[7].value>.3;
             if(p2fire&&player2.fireReady){fireShell(player2);player2.fireReady=false;}
@@ -6219,7 +6388,7 @@
             }
 
             el.textContent =
-                'v0.39.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.39.1  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -6236,6 +6405,7 @@
             lastGamepadTime = 0;
             mouseDown = false;
             mouseFireReady = true;
+            mouseFireRequested = false;
             gamepadFireReady = true;
             if (trajLine) { trajLine.visible = false; }
             if (trajDot) { trajDot.visible = false; }
@@ -6642,7 +6812,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.39.0 | WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线');
+        console.log('🎮 坦克运动demo v0.39.1 | 四元数瞄准+树IM射线+建筑恢复+地形截断+壳体积容差+手柄双轴粘滞+快速开炮');
 
         // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
         if (typeof THREE.FBXLoader !== 'undefined') {

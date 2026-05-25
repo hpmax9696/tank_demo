@@ -2,18 +2,6 @@
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
-## ⚠️ 每轮任务简报必须报告上下文用量（AI 必读）
-
-完成每轮开发任务后，必须在最终回复末尾（预览/结果之后）报告当前对话的上下文使用情况，格式：
-
-```
-📊 上下文用量: ~XX.XK/500K tokens（约 XX%）| 余量: ~YY.YK
-```
-
-当余量 < 50K tokens 时主动提示用户："上下文即将耗尽，建议开启新对话继续开发。"
-
-**目的**：让用户知晓何时需要切换新对话，避免长对话导致 token 耗尽丢失上下文。
-
 ## ⚠️ 每次提供预览前必须执行（AI 必读）
 
 提供 `preview_url` 之前，必须先确保 HTTP 服务符合以下规则，否则会出现 `chrome-error://chromewebdata/` 错误：
@@ -83,10 +71,10 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 ├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
 ├── 输入系统: getDriveInput() — WASD驾驶模型 + 手柄左摇杆
-├── 瞄准系统: updateAiming() — 鼠标Raycaster瞄准 + 手柄右摇杆瞄准 + 重力补偿
+├── 瞄准系统: updateAiming() — 世界方向→坦克本地四元数逆变换 + 重力补偿 + 地形坡度补偿
+├── 准星系统: 四阶段判定（障碍物射线→地形高度采样→坦克俯仰校正→shellR体积容差）│ 绿/红
 ├── 火炮系统: fireShell() — 炮弹沿barrelPivot世界朝向飞出/曳光弹
-├── 准星系统: 十字准星(crosshair CSS) + 绿/红颜色判定(射程/遮挡/角度)
-├── 弹道预测线: updateTrajectoryLine() — 手柄模式抛物线弧线+障碍截断
+├── 弹道预测线: updateTrajectoryLine() — 全模式启用/抛物线+地形截断+敌坦截断+障碍物shellR边缘
 ├── 游戏循环: gameLoop() / versusGameLoop()
 ├── 摄像机: 第三人称追尾视角 + 双人分屏 (far=300m)
 └── 指向箭头: 透视投影 + behind 检测
@@ -164,7 +152,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.39.0 — WASD驾驶+鼠标瞄准+炮塔炮管+重力补偿）
+## 关键参数（v0.39.1 — 瞄准/操控全面修复 + 手柄粘滞切换 + 预测线全模式）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -179,6 +167,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 炮管俯仰速度 | ~20°/s (0.3491 rad/s) | `barrelAngVel` |
 | 炮管俯仰范围 | -10° ~ +25° | `maxUp`/`maxDown` |
 | 准星有效射程 | 150 单位 | `updateAiming()` |
+| 准星判定 | 四阶段（障碍物射线→抛物线地形采样→shellR 0.18m体积→目标跳回） | — |
+| 弹道预测线 | 全模式启用 + 抛物线 + 地形截断 + shellR边缘 + 敌人 + 丧尸 | — |
+| 手柄模式 | 粘滞切换（WASD/鼠标才回键鼠）+ 双轴映射(axes[2/4]=X, [3/5]=Y) | — |
 | 伤害值 | 20 HP | `SHELL_DAMAGE` |
 | 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
 | 摄像机远截面 | 300 | `camera.far` |
@@ -302,6 +293,21 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
 | 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.38.1+ | 含6段履带路径(r21)+10轮+六棱台炮塔+发烟筒+外挂油箱。剩余问题: 履带弧段不贴合、待对齐四视图轮廓。**交接文件**:`docs/t34-85-v1.6-handoff-to-vision-ai.md` |
 | 23 | 模型工厂TANK_CONFIG需固化到独立JS文件 | 🟡 v0.38.1+ | 固化.ps1+导出JSON按钮已备，待模型定型后执行固化 |
+| 24 | 障碍物碰撞：obstacleData与obstacleMeshes索引不同步 | 🔵 远期 | obstacleMeshes 已加入树木InstancedMesh（v0.39.1），但updateObstacleVisibility改用o.groupRef.visible跳过索引问题。重建地图需注意isInstancedMesh跳过 |
+
+## 已修复问题（v0.39.1 — 瞄准/操控/预测线全面修复）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 树木InstancedMesh加入obstacleMeshes — 射线/瞄准/遮挡全部检测树木 | v0.39.1 |
+| 2 | Poisson采样恢复随机建筑分配（锥形35%/球形30%/橡树20%/建筑15%） | v0.39.1 |
+| 3 | rotation.order = 'YXZ' — 地形俯仰在坦克自身坐标系中生效 | v0.39.1 |
+| 4 | 瞄准逻辑重写：世界方向→坦克本地四元数逆变换（正确处理pitch+roll+yaw） | v0.39.1 |
+| 5 | 准星四阶段判定：障碍物射线→地形高度采样→shellR体积容差→目标跳回 | v0.39.1 |
+| 6 | 弹道预测线：全模式启用（键鼠+手柄）+ 地形碰撞 + 障碍物shellR边缘 + 敌人截断 | v0.39.1 |
+| 7 | 手柄双轴映射（axes[2,4]=X, axes[3,5]=Y）+ 粘滞切换（不回退鼠标） | v0.39.1 |
+| 8 | 快速点击不放炮修复 — mouseFireRequested锁存 | v0.39.1 |
+| 9 | updateMatrixWorld() 在rotation设置后立即调用 | v0.39.1 |
 
 
 ---
