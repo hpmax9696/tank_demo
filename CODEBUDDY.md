@@ -72,17 +72,21 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 6680 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 6800 行，采用以下模块化结构：
 
 ```
-├── 状态机: gameMode = 'menu' | 'single' | 'versus'
+├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat'
 ├── 玩家工厂: createPlayer() — 创建坦克实例
 ├── 场景初始化: initScene() — 渲染器/光照/雾/地面/坦克/障碍物
 ├── 天空系统: 已移除（v0.24.5，陡视角不可见，节省性能）
 ├── 地面系统: createGround() — 分段地形 + 地貌纹理
 ├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
-├── 火炮系统: 炮弹(圆柱+锥体Group)/曳光弹/炮口焰/碎片/disposeShellMesh()
+├── 输入系统: getDriveInput() — WASD驾驶模型 + 手柄左摇杆
+├── 瞄准系统: updateAiming() — 鼠标Raycaster瞄准 + 手柄右摇杆瞄准 + 重力补偿
+├── 火炮系统: fireShell() — 炮弹沿barrelPivot世界朝向飞出/曳光弹
+├── 准星系统: 十字准星(crosshair CSS) + 绿/红颜色判定(射程/遮挡/角度)
+├── 弹道预测线: updateTrajectoryLine() — 手柄模式抛物线弧线+障碍截断
 ├── 游戏循环: gameLoop() / versusGameLoop()
 ├── 摄像机: 第三人称追尾视角 + 双人分屏 (far=300m)
 └── 指向箭头: 透视投影 + behind 检测
@@ -160,7 +164,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.38.1 — 模型工厂清理优化+固化工作流）
+## 关键参数（v0.39.0 — WASD驾驶+鼠标瞄准+炮塔炮管+重力补偿）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -169,9 +173,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 障碍物可见半径 | 55 单位 | `OBS_RADIUS` |
 | 坦克最高速度 | 4.0 单位/秒 | `MAX_SPEED` |
 | 炮弹初速 | 33.0 单位/秒 | `SHELL_SPEED` |
-| 炮弹仰角 | `terrainPitch + player.pitch + recoilPitch + 0.10` rad | 发射代码（v0.25.3） |
 | 炮弹重力 | 1.0 单位/秒² | `SHELL_GRAVITY` |
 | 装填时间 | 2.0 秒 | `RELOAD_TIME` |
+| 炮塔旋转速度 | ~30°/s (0.5236 rad/s) | `turretAngVel` |
+| 炮管俯仰速度 | ~20°/s (0.3491 rad/s) | `barrelAngVel` |
+| 炮管俯仰范围 | -10° ~ +25° | `maxUp`/`maxDown` |
+| 准星有效射程 | 150 单位 | `updateAiming()` |
 | 伤害值 | 20 HP | `SHELL_DAMAGE` |
 | 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
 | 摄像机远截面 | 300 | `camera.far` |
@@ -299,15 +306,16 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.38.1）
+## 📋 待完成任务（截至 v0.39.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | 模型工厂撤销修复：Ctrl+Z逐步回退 | 🔴 紧急 | 未分配 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
+| 1 | 模型工厂撤销修复：Ctrl+Z逐步回退 | 🔴 紧急 | 未分配 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退 |
 | 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 3 | 坦克程序化模型固化 | 🟡 中期 | v0.38.2+ | 固化.ps1+导出JSON按钮已就绪(v0.38.1)，待模型定型后一键执行固化 |
-| 4 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 5 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 3 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
+| 4 | 坦克程序化模型固化 | 🟡 中期 | v0.39.1+ | 固化.ps1+导出JSON按钮已就绪，待模型定型后一键执行固化 |
+| 5 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 6 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
 ---
 
