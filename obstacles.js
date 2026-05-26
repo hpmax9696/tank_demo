@@ -1,21 +1,3 @@
-function mergeGroupGeometry(group) {
-    const geometries = [];
-    group.traverse(c => {
-        if (c.isMesh && c.geometry) {
-            const clonedGeo = c.geometry.clone();
-            clonedGeo.translate(c.position.x, c.position.y, c.position.z);
-            clonedGeo.rotateX(c.rotation.x);
-            clonedGeo.rotateY(c.rotation.y);
-            clonedGeo.rotateZ(c.rotation.z);
-            clonedGeo.scale(c.scale.x, c.scale.y, c.scale.z);
-            geometries.push(clonedGeo);
-        }
-    });
-    if (geometries.length === 0) return new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    if (geometries.length === 1) return geometries[0];
-    return THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
-}
-
 function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints, excludeFn) {
     const cellSize = minDist / Math.sqrt(2);
     const gridSize = Math.ceil(2 * totalRadius / cellSize) + 1;
@@ -122,10 +104,6 @@ function updateObstacleVisibility(extraPositions) {
         if (o.groupRef && o.groupRef.visible !== visible) {
             o.groupRef.visible = visible;
         }
-        const im = o.imBungalow || o.imVilla || o.imApartment;
-        if (im && im.visible !== visible) {
-            im.visible = visible;
-        }
         bldIdx++;
     }
 }
@@ -139,6 +117,7 @@ function disposeTreeInstance(od) {
     if (imCrown) imCrown.setMatrixAt(idx, hideMat);
     if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
     if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
+    od.destroyed = true;
 }
 
 function updateGrassVisibility(extraPositions) {
@@ -510,17 +489,6 @@ function createObstacles(targetScene = scene) {
     const randomBlds = (!cfgBuildings || cfgBuildings.length === 0) && (!villageBlds || villageBlds.length === 0) ? bldPts : [];
     const effectiveBlds = allBlds.length > 0 ? allBlds : randomBlds;
 
-    if (window._buildingIMs) {
-        for (const im of window._buildingIMs) {
-            if (im.parent) im.parent.remove(im);
-            im.geometry.dispose();
-            im.material.dispose();
-        }
-        window._buildingIMs = [];
-    }
-    window._buildingIMs = [];
-
-    const validBlds = [];
     if (effectiveBlds.length > 0) {
         const bldBoundary = (cfgBuildings.length > 0) ? 150 : spawnR * 0.92;
         for (const bld of effectiveBlds) {
@@ -541,93 +509,36 @@ function createObstacles(targetScene = scene) {
             if (!spawns.length && (bld.x * bld.x + bld.z * bld.z < SAFE_ZONE_RADIUS ** 2)) tooCloseToSpawn = true;
             if (tooCloseToSpawn) continue;
 
-            validBlds.push(bld);
-        }
-    }
-
-    if (validBlds.length > 0) {
-        const bungalowGroup = window.ModelRegistry.getModel('buildings', 'bungalow')();
-        const villaGroup = window.ModelRegistry.getModel('buildings', 'villa')();
-        const apartmentGroup = window.ModelRegistry.getModel('buildings', 'apartment')();
-
-        const bungalowGeo = mergeGroupGeometry(bungalowGroup);
-        const villaGeo = mergeGroupGeometry(villaGroup);
-        const apartmentGeo = mergeGroupGeometry(apartmentGroup);
-
-        const bungalowMat = bungalowGroup.children[0].material;
-        const villaMat = villaGroup.children[0].material;
-        const apartmentMat = apartmentGroup.children[0].material;
-
-        const bungalowIM = new THREE.InstancedMesh(bungalowGeo, bungalowMat, validBlds.length);
-        const villaIM = new THREE.InstancedMesh(villaGeo, villaMat, validBlds.length);
-        const apartmentIM = new THREE.InstancedMesh(apartmentGeo, apartmentMat, validBlds.length);
-
-        bungalowIM.castShadow = true;
-        bungalowIM.receiveShadow = true;
-        villaIM.castShadow = true;
-        villaIM.receiveShadow = true;
-        apartmentIM.castShadow = true;
-        apartmentIM.receiveShadow = true;
-
-        const dummy = new THREE.Object3D();
-        const bungalowUd = bungalowGroup.userData;
-        const villaUd = villaGroup.userData;
-        const apartmentUd = apartmentGroup.userData;
-
-        const weights = [10, 10, 7];
-        const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-        for (let i = 0; i < validBlds.length; i++) {
-            const bld = validBlds[i];
-            const rand = Math.random() * totalWeight;
-            let typeIdx = 0;
-            let cumWeight = weights[0];
-            while (rand > cumWeight && typeIdx < weights.length - 1) {
-                typeIdx++;
-                cumWeight += weights[typeIdx];
-            }
-
-            let ud, im;
-            if (typeIdx === 0) { ud = bungalowUd; im = bungalowIM; }
-            else if (typeIdx === 1) { ud = villaUd; im = villaIM; }
-            else { ud = apartmentUd; im = apartmentIM; }
-
+            const makeFn = window.ModelRegistry.randomBuildingMaker();
+            const group = makeFn();
+            const ud = group.userData;
             const baseHeightM = ud.height * METERS_PER_UNIT;
             const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
             const s = targetHeightM / baseHeightM;
+            group.scale.setScalar(s);
             const obsY = getTerrainHeight(bld.x, bld.z);
-            const rotY = (bld.angle || 0) + (Math.random() - 0.5) * 0.2;
-
-            dummy.position.set(bld.x, obsY, bld.z);
-            dummy.rotation.set(0, rotY, 0);
-            dummy.scale.setScalar(s);
-            dummy.updateMatrix();
-
-            im.setMatrixAt(i, dummy.matrix);
-
+            group.position.set(bld.x, obsY, bld.z);
+            group.rotation.y = (bld.angle || 0) + (Math.random() - 0.5) * 0.2;
+            group.visible = false;
+            group.name = `bld-${bldIdx++}`;
+            targetScene.add(group);
+            obstacleMeshes.push(group);
             obstacleData.push({
                 x: bld.x, z: bld.z, radius: ud.radius * s, height: ud.height * s,
-                color: ud.color, blades: null,
-                type: 'building', imIndex: i, imType: typeIdx,
-                imBungalow: typeIdx === 0 ? bungalowIM : null,
-                imVilla: typeIdx === 1 ? villaIM : null,
-                imApartment: typeIdx === 2 ? apartmentIM : null
+                color: ud.color, blades: ud.blades || null,
+                type: 'building', groupRef: group
             });
         }
-
-        bungalowIM.instanceMatrix.needsUpdate = true;
-        villaIM.instanceMatrix.needsUpdate = true;
-        apartmentIM.instanceMatrix.needsUpdate = true;
-
-        targetScene.add(bungalowIM);
-        targetScene.add(villaIM);
-        targetScene.add(apartmentIM);
-
-        obstacleMeshes.push(bungalowIM, villaIM, apartmentIM);
-        window._buildingIMs.push(bungalowIM, villaIM, apartmentIM);
     }
 
     const totalTrees = conePts.length + spherePts.length + oakPts.length;
+
+    if (window._obstacleGrid) {
+        window._obstacleGrid.clear();
+    } else {
+        window._obstacleGrid = new SpatialGrid(10);
+    }
+    window._obstacleGrid.insertAll(obstacleData);
 
     updateObstacleVisibility();
     updateGrassVisibility();

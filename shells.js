@@ -267,8 +267,13 @@ function checkChainExplosion(explosionPos) {
     const chainRadius = EXPLOSION_RADIUS;
     const chainRadiusSq = chainRadius * chainRadius;
 
-    for (let i = obstacleData.length - 1; i >= 0; i--) {
-        const od = obstacleData[i];
+    const nearbyObstacles = window._obstacleGrid ? 
+        window._obstacleGrid.queryByDistance(explosionPos.x, explosionPos.z, chainRadius) : 
+        obstacleData;
+
+    for (let i = nearbyObstacles.length - 1; i >= 0; i--) {
+        const od = nearbyObstacles[i];
+        if (od.destroyed) continue;
         if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
 
         const dx = explosionPos.x - od.x;

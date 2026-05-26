@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.41.0</title>
+    <title>坦克运动demo v0.41.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -404,7 +404,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.41.0</div>
+        <div class="menu-version">v0.41.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -419,11 +419,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">⚡ v0.41.1 碰撞检测空间分区+摧毁状态修复 — spatialGrid.js网格分区(10m单元)+障碍物destroyed标记+已摧毁物体不再参与碰撞</div>
             <div class="cl-title">📦 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
             <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
             <div class="cl-title">🎮 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
             <div class="cl-title">🧹 v0.38.1 模型工厂清理优化 — 删除旧版坦克+一键JSON导出固化+透视相机拉远+固化脚本+TrackChain诊断清理</div>
-            <div class="cl-title">🔗 v0.38.0 履带系统重构 — 6点+2弧精确几何模型(TrackChain r21)+负重轮间距2:3:1:1+诱导轮/主动轮Y上调+wheelR半径修正</div>
         </div>
     </div>
 
@@ -476,6 +476,7 @@
     <script src="shells.js"></script>
     <script src="mg.js"></script>
     <script src="bars.js"></script>
+    <script src="spatialGrid.js"></script>
     <script src="obstacles.js"></script>
     <!-- Preetham 大气散射天空（基于 Three.js Sky 组件，适配全局 THREE） -->
     <!-- Sky.js 已移除（v0.24.5：陡视角看不到天空，省性能） -->
@@ -1513,15 +1514,6 @@
                 }
                 window._treeIMs = [];
             }
-            // 清除建筑 InstancedMesh
-            if (window._buildingIMs) {
-                for (const im of window._buildingIMs) {
-                    if (im.parent) im.parent.remove(im);
-                    im.geometry.dispose();
-                    im.material.dispose();
-                }
-                window._buildingIMs = [];
-            }
             // 清除建筑 Group
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
@@ -2409,8 +2401,12 @@
         // ==================== 碰撞检测 ====================
         function checkCollision(x, z, halfW) {
             const hw = halfW !== undefined ? halfW : TANK_HALF_W;
-            // 障碍物碰撞
-            for (const obs of obstacleData) {
+            // 障碍物碰撞 - 使用空间网格优化
+            const checkObs = window._obstacleGrid ? 
+                window._obstacleGrid.queryByDistance(x, z, hw + 2) : 
+                obstacleData;
+            for (const obs of checkObs) {
+                if (obs.destroyed) continue;
                 const dx = x - obs.x;
                 const dz = z - obs.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
@@ -2593,8 +2589,12 @@
 
                         if (aimValid) {
                             const shellR = 0.18;
-                            for (let ji = obstacleData.length - 1; ji >= 0; ji--) {
-                                const od = obstacleData[ji];
+                            const checkObs = window._obstacleGrid ? 
+                                window._obstacleGrid.queryByDistance(player1.state.x, player1.state.z, 100) : 
+                                obstacleData;
+                            for (let ji = checkObs.length - 1; ji >= 0; ji--) {
+                                const od = checkObs[ji];
+                                if (od.destroyed) continue;
                                 const oX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
                                 const oZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
                                 const oR = (od.radius || 0.55) + shellR;
@@ -2723,8 +2723,11 @@
                     const shellR = 0.18;
                     const segLen = p.distanceTo(prev);
                     const segDir = new THREE.Vector3().subVectors(p, prev).normalize();
-                    for (let ji = obstacleData.length - 1; ji >= 0; ji--) {
-                        const od = obstacleData[ji];
+                    const checkObs = window._obstacleGrid ? 
+                        window._obstacleGrid.queryByDistance(p.x, p.z, 50) : 
+                        obstacleData;
+                    for (let ji = checkObs.length - 1; ji >= 0; ji--) {
+                        const od = checkObs[ji];
                         const oX = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
                         const oZ = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
                         const oR = (od.radius || 0.55) + shellR;
@@ -2990,8 +2993,12 @@
                 const shellR = 0.18;
                 const moveVec = new THREE.Vector3().subVectors(s.mesh.position, prevPos);
                 const moveLen = moveVec.length();
-                for (let j = obstacleData.length - 1; j >= 0; j--) {
-                    const od = obstacleData[j];
+                const checkObs = window._obstacleGrid ? 
+                    window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, moveLen + 2) : 
+                    obstacleData;
+                for (let j = checkObs.length - 1; j >= 0; j--) {
+                    const od = checkObs[j];
+                    if (od.destroyed) continue;
                     if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
                     const obsRadius = od.radius || 0.55;
                     const combinedR = shellR + obsRadius;
@@ -3144,8 +3151,12 @@
                     hPos.y = Math.max(hPos.y, getGroundHeight(hPos.x, hPos.z));
                     spawnHeExplosion(hPos);
                     playHeExplosionSound();
-                    for (let j = obstacleData.length - 1; j >= 0; j--) {
-                        const od = obstacleData[j];
+                    const checkObs = window._obstacleGrid ? 
+                        window._obstacleGrid.queryByDistance(hPos.x, hPos.z, HE_SPLASH + 2) : 
+                        obstacleData;
+                    for (let j = checkObs.length - 1; j >= 0; j--) {
+                        const od = checkObs[j];
+                        if (od.destroyed) continue;
                         const ox = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
                         const oz = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
                         const dx = hPos.x - ox, dz = hPos.z - oz;
@@ -3160,7 +3171,9 @@
                                 obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
                                 const mi = obstacleMeshes.indexOf(obs);
                                 if (mi >= 0) obstacleMeshes.splice(mi, 1);
-                            } else if (od.type && od.type !== 'building') {
+                            } else if (od.type === 'building') {
+                                disposeBuildingInstance(od);
+                            } else if (od.type) {
                                 disposeTreeInstance(od);
                             }
                             obstacleData.splice(j, 1);
@@ -4740,7 +4753,11 @@
                 if(s.tracerLight)s.tracerLight.position.copy(s.mesh.position);
                 if(s.glowTail){const vd=s.vel.clone().normalize();s.glowTail.position.copy(s.mesh.position).addScaledVector(vd,-0.18);}
                 let hit=false;const sR=.18, mv=new THREE.Vector3().subVectors(s.mesh.position,prevPos), mvL=mv.length();
-                for(let j=obstacleData.length-1;j>=0;j--){const od=obstacleData[j];
+                const checkObs = window._obstacleGrid ? 
+                    window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, mvL + 2) : 
+                    obstacleData;
+                for(let j=checkObs.length-1;j>=0;j--){const od=checkObs[j];
+                    if(od.destroyed)continue;
                     if(od.type==='building'&&od.groupRef&&!od.groupRef.visible)continue;
                     const oR=od.radius||.55, cR=sR+oR, oT=od.height||1.5;
                     const oX=(od.type==='building'&&od.groupRef)?od.groupRef.position.x:od.x;
@@ -4773,8 +4790,12 @@
                             else{spawnHitSparks(s.mesh.position.clone());}}}}
                 const heDet=(s.type==='he'&&(hit||s.mesh.position.y<getGroundHeight(s.mesh.position.x,s.mesh.position.z)));
                 if(heDet){const hP=s.mesh.position.clone();hP.y=Math.max(hP.y,getGroundHeight(hP.x,hP.z));spawnHeExplosion(hP);playHeExplosionSound();
-                    for (let j = obstacleData.length - 1; j >= 0; j--) {
-                        const od = obstacleData[j];
+                    const checkObs = window._obstacleGrid ? 
+                        window._obstacleGrid.queryByDistance(hP.x, hP.z, HE_SPLASH + 2) : 
+                        obstacleData;
+                    for (let j = checkObs.length - 1; j >= 0; j--) {
+                        const od = checkObs[j];
+                        if (od.destroyed) continue;
                         const ox = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
                         const oz = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
                         const dx = hP.x - ox, dz = hP.z - oz;
@@ -4788,7 +4809,9 @@
                                 od.groupRef.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
                                 const mi = obstacleMeshes.indexOf(od.groupRef);
                                 if (mi >= 0) obstacleMeshes.splice(mi, 1);
-                            } else if (od.type && od.type !== 'building') {
+                            } else if (od.type === 'building') {
+                                disposeBuildingInstance(od);
+                            } else if (od.type) {
                                 disposeTreeInstance(od);
                             }
                             obstacleData.splice(j, 1);
@@ -5014,13 +5037,6 @@
                 }
                 window._treeIMs = [];
             }
-            if (window._buildingIMs) {
-                for (const im of window._buildingIMs) {
-                    if (im.parent) im.parent.remove(im);
-                    im.geometry.dispose(); im.material.dispose();
-                }
-                window._buildingIMs = [];
-            }
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
@@ -5094,7 +5110,7 @@
             }
 
             el.textContent =
-                'v0.41.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.41.1  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5417,7 +5433,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('📦 坦克运动demo v0.41.0 | 模块化重构(audio/input/shells/mg/bars/obstacles)+树木销毁修复+倒车转弯修复+弹种切换音效+弹种持久化');
+        console.log('⚡ 坦克运动demo v0.41.1 | 碰撞检测空间分区(spatialGrid)+已摧毁障碍物标记+碰撞检测跳过已摧毁物体');
 
 
     </script>

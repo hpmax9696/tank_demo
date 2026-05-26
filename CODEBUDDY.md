@@ -163,7 +163,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.41.0 — 模块化重构 + 树木销毁修复 + 倒车转弯修复）
+## 关键参数（v0.41.1 — 碰撞检测空间分区 + 摧毁状态修复）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|

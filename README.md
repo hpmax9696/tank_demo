@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.41.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.41.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,12 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.41.1 — 碰撞检测空间分区+摧毁状态修复（2026-05-26）
+- **空间分区碰撞检测**：新增 spatialGrid.js（10m单元网格），所有碰撞检测改用局部查询替代全量遍历
+- **摧毁状态标记**：树木 disposeTreeInstance() 添加 `od.destroyed = true` 标记
+- **碰撞检测过滤**：坦克/炮弹/HE爆炸/链式爆炸检测均跳过 `od.destroyed` 的障碍物
+- **建筑InstancedMesh尝试**：尝试将建筑改为InstancedMesh后因子网格合并冲突回退
 
 ### v0.41.0 — 架构拆分+bug修复（2026-05-26）
 - **模块化重构**：将 index.html 拆分为 6 个独立模块（audio.js/input.js/shells.js/mg.js/bars.js/obstacles.js）
@@ -859,12 +865,14 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 
 ### 调试建议
 1. 打开开发者工具（F12）查看 Console 日志
-2. 当前版本 console.log：`📦 坦克运动demo v0.41.0 | 模块化重构(audio/input/shells/mg/bars/obstacles)+树木销毁修复+倒车转弯修复+弹种切换音效+弹种持久化`
+2. 当前版本 console.log：`⚡ 坦克运动demo v0.41.1 | 碰撞检测空间分区(spatialGrid)+已摧毁障碍物标记+碰撞检测跳过已摧毁物体`
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.39.1）
-- `index.html`：约 6950 行（主游戏引擎 + 四元数瞄准 + 四阶段准星 + prediction line 全模式）
+### 代码规模（截至 v0.41.1）
+- `index.html`：约 5436 行（主游戏引擎，已拆分6个模块）
+- `audio.js`：~223行 | `input.js`：~55行 | `shells.js`：~300行 | `mg.js`：~180行
+- `bars.js`：~75行 | `obstacles.js`：~620行 | `spatialGrid.js`：~99行（新增）
 - `model_factory.html`：约 **1922 行**（通用程序化模型编辑器 + 模型工厂清理优化）
 - `map_editor.html`：约 2850 行（地图编辑器 + 批量属性编辑 + 实体列表分类折叠）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
