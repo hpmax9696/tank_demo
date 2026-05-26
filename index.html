@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.42.0</title>
+    <title>坦克运动demo v0.42.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13,6 +13,89 @@
             background: #1a1a2e;
             user-select: none;
             -webkit-user-select: none;
+        }
+
+        /* ========== 游戏结束画面 ========== */
+        #game-over-overlay {
+            position: fixed; inset: 0;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: rgba(20, 20, 25, 0.92);
+            z-index: 110;
+            backdrop-filter: blur(8px);
+        }
+        #game-over-overlay.active {
+            display: flex;
+        }
+        #game-over-overlay .go-title {
+            font-size: 3rem; font-weight: bold;
+            color: #ff4444;
+            text-shadow: 0 0 30px rgba(255,68,68,0.5);
+            margin-bottom: 0.5rem;
+        }
+        #game-over-overlay .go-subtitle {
+            font-size: 1.2rem;
+            color: #aaa;
+            margin-bottom: 2.5rem;
+        }
+        #game-over-overlay .go-stats {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 24px 40px;
+            min-width: 360px;
+        }
+        #game-over-overlay .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        #game-over-overlay .stat-row:last-child {
+            border-bottom: none;
+        }
+        #game-over-overlay .stat-label {
+            color: #888;
+            font-size: 0.95rem;
+        }
+        #game-over-overlay .stat-value {
+            color: #f5954a;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        #game-over-overlay .stat-value.highlight {
+            color: #4ade80;
+        }
+        #game-over-overlay .stat-value.danger {
+            color: #f87171;
+        }
+        #game-over-overlay .death-list {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        #game-over-overlay .death-title {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        #game-over-overlay .death-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.9rem;
+        }
+        #game-over-overlay .death-num {
+            color: #555;
+            width: 24px;
+        }
+        #game-over-overlay .death-cause {
+            color: #f87171;
+        }
+        #game-over-overlay .go-hint {
+            margin-top: 2rem;
+            color: #555;
+            font-size: 0.85rem;
         }
 
         /* ========== 主菜单 ========== */
@@ -404,7 +487,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.42.0</div>
+        <div class="menu-version">v0.42.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -419,13 +502,29 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">💀 v0.42.1 游戏结束画面+战斗统计 — 生命耗尽显示游戏结束蒙版+详细统计面板（积分/击杀/时间/伤害）+死亡记录（每条命被什么敌人杀死）+ESC返回菜单</div>
             <div class="cl-title">⚡ v0.42.0 双人模式+桥梁修复 — 双人模式光标显示优化+炮口瞄准修复+桥梁位置修复（编辑器桥梁动态对齐河流）+火焰粒子视锥裁剪修复+坦克碰撞体积调整</div>
             <div class="cl-title">📦 v0.41.1 碰撞检测空间分区+摧毁状态修复 — spatialGrid.js网格分区(10m单元)+障碍物destroyed标记+已摧毁物体不再参与碰撞</div>
             <div class="cl-title">🔧 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
             <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
-            <div class="cl-title">🎮 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
-            <div class="cl-title">🧹 v0.38.1 模型工厂清理优化 — 删除旧版坦克+一键JSON导出固化+透视相机拉远+固化脚本+TrackChain诊断清理</div>
         </div>
+    </div>
+
+    <!-- ========== 游戏结束画面 ========== -->
+    <div id="game-over-overlay">
+        <div class="go-title">💀 游戏结束</div>
+        <div class="go-subtitle">GAME OVER</div>
+        <div class="go-stats" id="go-stats">
+            <div class="stat-row"><span class="stat-label">获取积分</span><span class="stat-value highlight" id="go-score">0</span></div>
+            <div class="stat-row"><span class="stat-label">击杀敌人</span><span class="stat-value" id="go-kills">0</span></div>
+            <div class="stat-row"><span class="stat-label">存活时间</span><span class="stat-value" id="go-time">00:00</span></div>
+            <div class="stat-row"><span class="stat-label">造成伤害</span><span class="stat-value" id="go-damage">0 HP</span></div>
+            <div class="death-list">
+                <div class="death-title">死亡记录</div>
+                <div id="go-deaths"></div>
+            </div>
+        </div>
+        <div class="go-hint">按 ESC 返回菜单</div>
     </div>
 
     <!-- ========== 加载画面 ========== -->
@@ -1189,6 +1288,9 @@
             if (e.code === 'Escape') {
                 if (previewContainer.classList.contains('active')) {
                     exitPreviewMode();
+                } else if (document.getElementById('game-over-overlay').classList.contains('active')) {
+                    hideGameOverScreen();
+                    returnToMenu();
                 } else if (gameMode !== 'menu') {
                     returnToMenu();
                 }
@@ -2802,7 +2904,8 @@
             const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
             visibilityTimer += dt;
 
-            const { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = getDriveInput();
+            const isGameOver = gameMode === 'combat' && combatData && combatData.lives <= 0;
+            const { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = isGameOver ? { left: 0, right: 0, forward: 0, strafe: 0 } : getDriveInput();
 
             // ── 履带速度缓动（加速 / 制动 / 惯性滑行） ──
             // 左履带
@@ -2920,16 +3023,18 @@
                 player1.state.x = tankState.x;
                 player1.state.z = tankState.z;
                 player1.state.yaw = tankState.yaw;
-                updateAiming(player1, dt);
-                if (player1.turretPivot) {
-                    player1.turretPivot.rotation.y = player1.turretYaw;
-                }
-                if (player1.barrelPivot) {
-                    player1.barrelPivot.rotation.x = player1.barrelElevation;
-                }
-                if (player1.mgGroup) {
-                    player1.mgGroup.rotation.y = player1.mgYaw;
-                    player1.mgGroup.rotation.x = player1.mgElev;
+                if (!isGameOver) {
+                    updateAiming(player1, dt);
+                    if (player1.turretPivot) {
+                        player1.turretPivot.rotation.y = player1.turretYaw;
+                    }
+                    if (player1.barrelPivot) {
+                        player1.barrelPivot.rotation.x = player1.barrelElevation;
+                    }
+                    if (player1.mgGroup) {
+                        player1.mgGroup.rotation.y = player1.mgYaw;
+                        player1.mgGroup.rotation.x = player1.mgElev;
+                    }
                 }
             }
 
@@ -2943,7 +3048,7 @@
             perfAcc.physics += _t1 - _t0;
 
             // ── 开炮（鼠标左键 / 手柄RT扳机） ──
-            if (gameMode === 'single' || gameMode === 'combat') {
+            if ((gameMode === 'single' || gameMode === 'combat') && !isGameOver) {
                 if (mouseFireRequested && mouseFireReady) {
                     fireShell();
                     mouseFireReady = false;
@@ -3109,6 +3214,7 @@
                         // 简易碰撞：半径 1.0（装甲车半宽~1m）+ 炮弹 0.18
                         if (eDist < 1.2 && s.mesh.position.y < 1.5) {
                             const dmg = (combatData && combatData.playerCannonDamage) || 40;
+                            if (combatData) combatData.damageDealt += dmg;
                             const killed = window.EnemyAI.onEnemyDamaged(enemy, dmg, player1);
                             window.EnemyAI.shareAggro(enemy, player1, enemies, 40);
                             const hitPos = s.mesh.position.clone();
@@ -3132,7 +3238,10 @@
                                     spawnFragments(ep2, '#8B7D4A');
                                     spawnExplosion(ep2);
                                     playExplosionSound();
-                                    if (combatData) combatData.score += (enemy.cfg.score || 100);
+                                    if (combatData) {
+                                        combatData.score += (enemy.cfg.score || 100);
+                                        combatData.kills++;
+                                    }
                                     spawnPickup(enemy);
                                     const deadEnemy = enemy;
                                     setTimeout(() => {
@@ -3218,7 +3327,10 @@
                                         const ep3 = en.position.clone(); ep3.y += 0.8;
                                         spawnFragments(ep3, '#8B7D4A');
                                         spawnExplosion(ep3, true);
-                                        if (combatData) combatData.score += (en.cfg.score || 100);
+                                        if (combatData) {
+                                            combatData.score += (en.cfg.score || 100);
+                                            combatData.kills++;
+                                        }
                                         spawnPickup(en);
                                         const dead = en;
                                         setTimeout(() => {
@@ -3479,7 +3591,10 @@
                                     // 倒地动画结束 → 直接移除实例，无爆炸（v0.26.13fix: +deathAnimDone防重复）
                                     enemy.ai.deathAnimDone = true;
                                     enemy.visible = false;
-                                    if (combatData) combatData.score += (enemy.cfg.score || 50);
+                                    if (combatData) {
+                                        combatData.score += (enemy.cfg.score || 50);
+                                        combatData.kills++;
+                                    }
                                     spawnPickup(enemy);
                                     const deadEnemy = enemy;
                                     setTimeout(() => {
@@ -3641,16 +3756,15 @@
                                         spawnFragments(pep, '#4a5c2e');
                                         playExplosionSound();
                                         player1.group.visible = false;
-                                        if (combatData) combatData.lives--;
+                                        if (combatData) {
+                                            combatData.lives--;
+                                            combatData.deaths.push({ type: 'flame', enemy: enemy.cfg.type === 'assault-vehicle' ? '装甲突击车' : '未知敌人' });
+                                        }
                                         if (combatData && combatData.lives > 0) {
                                             hintBar.textContent = '💀 你被击毁了! 剩余命数:' + combatData.lives + ' | 3秒后重生...';
                                             setTimeout(() => respawnPlayer(), 3000);
                                         } else {
-                                            hintBar.textContent = '💀 游戏结束! 最终得分:' + (combatData ? combatData.score : 0) + ' | 按ESC返回菜单';
-                                            const finalScore = combatData ? combatData.score : 0;
-                                            if (window.ScoreSystem) {
-                                                window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
-                                            }
+                                            showGameOverScreen();
                                         }
                                     }
                                 }
@@ -3739,16 +3853,15 @@
                                             spawnFragments(pep, '#4a5c2e');
                                             playExplosionSound();
                                             player1.group.visible = false;
-                                            if (combatData) combatData.lives--;
+                                            if (combatData) {
+                                                combatData.lives--;
+                                                combatData.deaths.push({ type: 'melee', enemy: '丧尸' });
+                                            }
                                             if (combatData && combatData.lives > 0) {
                                                 hintBar.textContent = '💀 你被丧尸击倒了! 剩余命数:' + combatData.lives + ' | 3秒后重生...';
                                                 setTimeout(() => respawnPlayer(), 3000);
                                             } else {
-                                                hintBar.textContent = '💀 游戏结束! 最终得分:' + (combatData ? combatData.score : 0) + ' | 按ESC返回菜单';
-                                                const finalScore = combatData ? combatData.score : 0;
-                                                if (window.ScoreSystem) {
-                                                    window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
-                                                }
+                                                showGameOverScreen();
                                             }
                                         }
                                     }
@@ -4320,6 +4433,10 @@
                 lives: pcfg.lives || 3,
                 phase: 'combat',
                 playerCannonDamage: pcfg.cannonDamage || 40,
+                kills: 0,
+                damageDealt: 0,
+                startTime: Date.now(),
+                deaths: [],
             };
 
             // 创建敌人（04a地图30只丧尸是最重的步骤）
@@ -4664,6 +4781,50 @@
                 }
             }
             hintBar.textContent = '⚔️ 战斗继续 | 剩余命数:' + combatData.lives + ' | 得分:' + combatData.score;
+        }
+
+        function showGameOverScreen() {
+            const finalScore = combatData ? combatData.score : 0;
+            if (window.ScoreSystem) {
+                window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', finalScore);
+            }
+            
+            const goOverlay = document.getElementById('game-over-overlay');
+            const goScore = document.getElementById('go-score');
+            const goKills = document.getElementById('go-kills');
+            const goTime = document.getElementById('go-time');
+            const goDamage = document.getElementById('go-damage');
+            const goDeaths = document.getElementById('go-deaths');
+            
+            goScore.textContent = finalScore;
+            goKills.textContent = combatData ? combatData.kills : 0;
+            
+            const elapsed = combatData ? Math.floor((Date.now() - combatData.startTime) / 1000) : 0;
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            goTime.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            goDamage.textContent = (combatData ? combatData.damageDealt : 0) + ' HP';
+            
+            goDeaths.innerHTML = '';
+            const deaths = combatData ? combatData.deaths : [];
+            for (let i = 0; i < deaths.length; i++) {
+                const deathItem = document.createElement('div');
+                deathItem.className = 'death-item';
+                deathItem.innerHTML = `<span class="death-num">${i + 1}.</span><span class="death-cause">${deaths[i].enemy}</span>`;
+                goDeaths.appendChild(deathItem);
+            }
+            if (deaths.length === 0) {
+                goDeaths.innerHTML = '<div class="death-item"><span class="death-num">-</span><span class="death-cause">无记录</span></div>';
+            }
+            
+            goOverlay.classList.add('active');
+            hintBar.textContent = '';
+        }
+
+        function hideGameOverScreen() {
+            const goOverlay = document.getElementById('game-over-overlay');
+            goOverlay.classList.remove('active');
         }
 
         function versusGameLoop() {
@@ -5200,7 +5361,7 @@
             }
 
             el.textContent =
-                'v0.42.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.42.1  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5523,7 +5684,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.42.0 | 双人模式+桥梁修复+火焰粒子+坦克碰撞体积');
+        console.log('⚡ 坦克运动demo v0.42.1 | 游戏结束画面+战斗统计面板+死亡记录');
 
 
     </script>
