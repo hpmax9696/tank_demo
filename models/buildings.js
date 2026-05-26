@@ -18,8 +18,7 @@
         const h = 0.72;   // 主体高度
         const rH = 0.32;  // 屋顶高度
 
-        const wallColors = ['#E8D5B7','#D4C5A9','#F0DCC0','#C9B896'];
-        const wallM = new THREE.MeshStandardMaterial({ color: wallColors[Math.floor(Math.random()*4)], roughness:0.85 });
+        const wallM = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness:0.85 });
         const roofM = new THREE.MeshStandardMaterial({ color: '#A0522D', roughness: 0.8 });
         const trimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
         const winM  = new THREE.MeshStandardMaterial({ color:'#AACCFF', emissive:'#224466', emissiveIntensity:0.1 });

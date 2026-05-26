@@ -1513,6 +1513,15 @@
                 }
                 window._treeIMs = [];
             }
+            // 清除建筑 InstancedMesh
+            if (window._buildingIMs) {
+                for (const im of window._buildingIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose();
+                    im.material.dispose();
+                }
+                window._buildingIMs = [];
+            }
             // 清除建筑 Group
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
@@ -5005,6 +5014,13 @@
                 }
                 window._treeIMs = [];
             }
+            if (window._buildingIMs) {
+                for (const im of window._buildingIMs) {
+                    if (im.parent) im.parent.remove(im);
+                    im.geometry.dispose(); im.material.dispose();
+                }
+                window._buildingIMs = [];
+            }
             obstacleMeshes.forEach(g => {
                 if (g.parent) g.parent.remove(g);
                 g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
@@ -5078,7 +5094,7 @@
             }
 
             el.textContent =
-                'v0.39.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.41.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
