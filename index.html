@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.39.1</title>
+    <title>坦克运动demo v0.41.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -404,7 +404,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.39.1</div>
+        <div class="menu-version">v0.41.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -419,11 +419,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">📦 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
             <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
             <div class="cl-title">🎮 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
             <div class="cl-title">🧹 v0.38.1 模型工厂清理优化 — 删除旧版坦克+一键JSON导出固化+透视相机拉远+固化脚本+TrackChain诊断清理</div>
             <div class="cl-title">🔗 v0.38.0 履带系统重构 — 6点+2弧精确几何模型(TrackChain r21)+负重轮间距2:3:1:1+诱导轮/主动轮Y上调+wheelR半径修正</div>
-            <div class="cl-title">🗑 v0.37.1 清理废弃分支 — 删除T-34-85 v1.5模型代码和模型工厂切换接口</div>
         </div>
     </div>
 
@@ -471,11 +471,14 @@
 
     <!-- Three.js UMD 构建，本地加载，无需网络 -->
     <script src="three.min.js"></script>
-    <!-- GLTFLoader（全局版本，从 node_modules/three/examples/js/ 提取）用于加载 .glb 模型 -->
-    <script src="GLTFLoader.js"></script>
+    <script src="audio.js"></script>
+    <script src="input.js"></script>
+    <script src="shells.js"></script>
+    <script src="mg.js"></script>
+    <script src="bars.js"></script>
+    <script src="obstacles.js"></script>
     <!-- Preetham 大气散射天空（基于 Three.js Sky 组件，适配全局 THREE） -->
     <!-- Sky.js 已移除（v0.24.5：陡视角看不到天空，省性能） -->
-    <!-- FBXLoader 已移除 CDN 依赖（Edge 追踪防护会拦截），如需要请下载到 fbxLibs/ 目录 -->
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
     <script src="fireSmokeParticles.js"></script>
     <!-- 模型系统 -->
@@ -1156,308 +1159,16 @@
             const idx = splat[sy * 256 + sx];
             return TERRAIN_TYPE_NAMES[Math.min(idx, 5)];
         }
-        let audioCtx = null;
-        let engineNodes = null;   // { osc, gain, noiseNode, noiseGain }
-        let audioStarted = false;
+        // spawnHitSparks 等 → shells.js
 
-        function initAudio() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
 
-        function ensureAudio() {
-            if (!audioCtx) initAudio();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
-
-        function startEngineSound() {
-            ensureAudio();
-            if (engineNodes) return;
-            // 低频引擎轰鸣（锯齿波 + 次谐波）
-            const osc1 = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc1.type = 'sawtooth'; osc1.frequency.value = 35;
-            osc2.type = 'sawtooth'; osc2.frequency.value = 70;
-            gain.gain.value = 0;
-            osc1.connect(gain); osc2.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc1.start(); osc2.start();
-
-            // 履带咔嗒声（白噪声 → 带通滤波）
-            const bufSize = audioCtx.sampleRate * 2;
-            const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-            const data = noiseBuf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-            const noiseSrc = audioCtx.createBufferSource();
-            noiseSrc.buffer = noiseBuf;
-            noiseSrc.loop = true;
-            const bpFilter = audioCtx.createBiquadFilter();
-            bpFilter.type = 'bandpass';
-            bpFilter.frequency.value = 600;
-            bpFilter.Q.value = 2;
-            const noiseGain = audioCtx.createGain();
-            noiseGain.gain.value = 0;
-            noiseSrc.connect(bpFilter);
-            bpFilter.connect(noiseGain);
-            noiseGain.connect(audioCtx.destination);
-            noiseSrc.start();
-
-            engineNodes = { osc1, osc2, gain, noiseGain, bpFilter };
-        }
-
-        function updateEngineSound(speed) {
-            if (!engineNodes) return;
-            const absSpeed = Math.abs(speed);
-            const vol = Math.min(0.05, absSpeed * 0.0125);
-            engineNodes.gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.1);
-            const freq = 30 + absSpeed * 6;
-            engineNodes.osc1.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
-            engineNodes.osc2.frequency.setTargetAtTime(freq * 2, audioCtx.currentTime, 0.1);
-            // 履带声
-            engineNodes.noiseGain.gain.setTargetAtTime(
-                Math.min(0.03, absSpeed * 0.0075), audioCtx.currentTime, 0.08);
-            engineNodes.bpFilter.frequency.setTargetAtTime(
-                400 + absSpeed * 80, audioCtx.currentTime, 0.08);
-        }
-
-        function stopEngineSound() {
-            if (!engineNodes) return;
-            engineNodes.gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
-            engineNodes.noiseGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
-            setTimeout(() => {
-                if (engineNodes) {
-                    try { engineNodes.osc1.stop(); } catch(e){}
-                    try { engineNodes.osc2.stop(); } catch(e){}
-                    engineNodes = null;
-                }
-            }, 500);
-        }
-
-        function playFireSound() {
-            ensureAudio();
-            const now = audioCtx.currentTime;
-            // 低频炮击声
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(120, now);
-            osc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
-            gain.gain.setValueAtTime(0.35, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(now); osc.stop(now + 0.45);
-            // 高频爆鸣
-            const bufSize = Math.floor(audioCtx.sampleRate * 0.2);
-            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.03));
-            const src = audioCtx.createBufferSource(); src.buffer = buf;
-            const g2 = audioCtx.createGain(); g2.gain.value = 0.3;
-            src.connect(g2); g2.connect(audioCtx.destination);
-            src.start(now);
-        }
-
-        function playExplosionSound() {
-            ensureAudio();
-            const now = audioCtx.currentTime;
-            const bufSize = Math.floor(audioCtx.sampleRate * 0.6);
-            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.1));
-            const src = audioCtx.createBufferSource(); src.buffer = buf;
-            const gain = audioCtx.createGain(); gain.gain.value = 0.4;
-            const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
-            lp.frequency.setValueAtTime(800, now);
-            lp.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-            src.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
-            src.start(now);
-        }
-
-        function playHitSound() {
-            ensureAudio();
-            const now = audioCtx.currentTime;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(600, now);
-            osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(now); osc.stop(now + 0.25);
-        }
-
-        function playMGShotSound() {
-            // "突突突" 三连低音方波脉冲
-            ensureAudio();
-            if (audioCtx.state !== 'running') audioCtx.resume();
-            const now = audioCtx.currentTime;
-            for (let p = 0; p < 3; p++) {
-                const t = now + p * 0.04;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(200, t);
-                osc.frequency.exponentialRampToValueAtTime(50, t + 0.03);
-                gain.gain.setValueAtTime(0.1, t);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-                const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
-                lp.frequency.setValueAtTime(500, t);
-                lp.frequency.exponentialRampToValueAtTime(100, t + 0.03);
-                osc.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(t); osc.stop(t + 0.03);
-            }
-        }
-
-        function playPickupSound() {
-            // v0.26.5: 拾取道具音效（清脆叮铃，区别于枪炮）
-            ensureAudio();
-            if (audioCtx.state !== 'running') return;
-            const now = audioCtx.currentTime;
-            // 上升音阶叮铃声
-            const osc1 = audioCtx.createOscillator();
-            const osc2 = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc1.type = 'sine'; osc2.type = 'sine';
-            osc1.frequency.setValueAtTime(880, now);
-            osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
-            osc2.frequency.setValueAtTime(660, now + 0.06);
-            osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.18);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-            osc1.start(now); osc1.stop(now + 0.3);
-            osc2.start(now); osc2.stop(now + 0.3);
-        }
-
-        function spawnHitSparks(pos) {
-            playHitSound();
-            _spawnSparkParticles(pos);
-        }
-
-        // MG命中：仅视觉火花，不发声
-        function spawnSilentHitSparks(pos) {
-            _spawnSparkParticles(pos);
-        }
-
-        function _spawnSparkParticles(pos) {
-            for (let i = 0; i < 10; i++) {
-                const size = 0.03 + Math.random() * 0.06;
-                const geo = new THREE.SphereGeometry(size, 4, 4);
-                const mat = new THREE.MeshBasicMaterial({ color: '#ffcc44', transparent: true, opacity: 1 });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.copy(pos);
-                scene.add(mesh);
-                const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 3,
-                    Math.random() * 2,
-                    (Math.random() - 0.5) * 3
-                );
-                fragments.push({
-                    mesh, vel,
-                    life: 0.4 + Math.random() * 0.3,
-                    rotSpeed: new THREE.Vector3(0, 0, 0)
-                });
-            }
-        }
-
-        // ── 地面命中音效（炮弹击中地面时的闷响） ──
-        function playGroundHitSound() {
-            ensureAudio();
-            const now = audioCtx.currentTime;
-            const bufSize = Math.floor(audioCtx.sampleRate * 0.25);
-            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(audioCtx.sampleRate*0.04));
-            const src = audioCtx.createBufferSource(); src.buffer = buf;
-            const gain = audioCtx.createGain(); gain.gain.value = 0.25;
-            const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
-            lp.frequency.setValueAtTime(400, now);
-            lp.frequency.exponentialRampToValueAtTime(60, now + 0.2);
-            src.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
-            src.start(now);
-        }
-
-        // ── 地面命中碎片飞溅（土块） ──
-        function spawnGroundDebris(pos) {
-            const gy = getGroundHeight(pos.x, pos.z) + 0.05;
-            for (let i = 0; i < 15; i++) {
-                const geo = new THREE.SphereGeometry(0.02 + Math.random() * 0.05, 3, 3);
-                const mat = new THREE.MeshBasicMaterial({
-                    color: new THREE.Color().setHSL(0.1, 0.25, 0.2 + Math.random() * 0.3),
-                    transparent: true, opacity: 1
-                });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.copy(pos); mesh.position.y = gy + 0.05;
-                scene.add(mesh);
-                const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 4,
-                    1 + Math.random() * 3,
-                    (Math.random() - 0.5) * 4
-                );
-                groundDebris.push({
-                    mesh, vel,
-                    life: 0.6 + Math.random() * 0.5,
-                    maxLife: 0.6 + Math.random() * 0.5
-                });
-            }
-        }
-
-        // ── 地面焦痕（炮弹着弹点，3秒渐消，贴合地形坡度） ──
-        function spawnScorchMark(pos) {
-            const gy = getGroundHeight(pos.x, pos.z);
-            // 🔧 v0.25.2: 加大法线采样偏移+polygonOffset+法线偏移，修复坡面焦痕不可见/半圆问题
-            const d = 0.5;  // 采样间距加大，避免微地形噪声干扰法线计算
-            const hx = getGroundHeight(pos.x + d, pos.z);
-            const hz = getGroundHeight(pos.x, pos.z + d);
-            const terrainNormal = new THREE.Vector3(-(hx - gy) / d, 1.0, -(hz - gy) / d).normalize();
-            const geo = new THREE.CircleGeometry(0.45 + Math.random() * 0.25, 16);
-            const mat = new THREE.MeshBasicMaterial({
-                color: '#1a1a1a',
-                transparent: true,
-                opacity: 0.65,
-                side: THREE.DoubleSide,
-                depthWrite: false,
-                polygonOffset: true,
-                polygonOffsetFactor: -4,
-                polygonOffsetUnit: -4
-            });
-            const mark = new THREE.Mesh(geo, mat);
-            // 将圆面的默认法线(0,0,1)旋转到地形法线方向
-            const quat = new THREE.Quaternion().setFromUnitVectors(
-                new THREE.Vector3(0, 0, 1),
-                terrainNormal
-            );
-            mark.setRotationFromQuaternion(quat);
-            // 沿法线方向偏移，避免z-fighting（加大偏移量适配陡坡）
-            mark.position.copy(pos).addScaledVector(terrainNormal, 0.06);
-            scene.add(mark);
-            scorchMarks.push({ mesh: mark, life: 2.5 + Math.random() * 0.5, maxLife: 3.0 });
-        }
-
-        function playDebrisSound() {
-            ensureAudio();
-            const now = audioCtx.currentTime;
-            for (let i = 0; i < 6; i++) {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = 600 + Math.random() * 1800;
-                const t = now + Math.random() * 0.2;
-                gain.gain.setValueAtTime(0.08, t);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(t); osc.stop(t + 0.07);
-            }
-        }
+        // spawnGroundDebris/spawnScorchMark → shells.js
 
         // ==================== 状态机 ====================
         let gameMode = 'menu'; // 'menu' | 'single' | 'versus'
         let animationId = null;
 
-        // ==================== 键盘输入 ====================
-        const keys = {};
+        // ==================== 键盘输入（事件监听） ====================
         window.addEventListener('keydown', (e) => {
             keys[e.code] = true;
             // H键：切换阴影开/关（对照实验，测量阴影对渲染耗时的影响）
@@ -1467,28 +1178,11 @@
                 renderer.shadowMap.enabled = shadowEnabled;
                 console.log('🔦 阴影已' + (shadowEnabled ? '开启' : '关闭') + '（H键切换）| 对比渲染耗时变化');
             }
-            if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
-                // 预览模式下切换动画
-                if (previewContainer.classList.contains('active') && previewAnimActions.length > 1) {
-                    e.preventDefault();
-                    // 停止当前动画
-                    previewAnimActions[previewAnimIndex].stop();
-                    // 切换到上一个/下一个
-                    if (e.code === 'ArrowLeft') {
-                        previewAnimIndex = (previewAnimIndex - 1 + previewAnimActions.length) % previewAnimActions.length;
-                    } else {
-                        previewAnimIndex = (previewAnimIndex + 1) % previewAnimActions.length;
-                    }
-                    // 播放新动画
-                    previewAnimActions[previewAnimIndex].reset().play();
-                    const clip = previewAnimActions[previewAnimIndex].getClip();
-                    const name = clip.name || ('动作' + (previewAnimIndex + 1));
-                    const allNames = previewAnimActions.map((a, i) => {
-                        const cn = a.getClip().name || ('动作' + (i+1));
-                        return (i === previewAnimIndex ? '▶' + cn + '◀' : cn);
-                    }).join(', ');
-                    previewLabel.textContent = '左右方向键切换动画 | 动画: [' + allNames + '] | 当前: ' + name;
-                }
+            if (e.code === 'KeyQ' && gameMode !== 'menu') {
+                currentShellType = (currentShellType === 'ap') ? 'he' : 'ap';
+                playSwitchSound();
+                if (player1 && !player1.dead) player1.reloadTimer = RELOAD_TIME;
+                console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
             }
             if (e.code === 'Escape') {
                 if (previewContainer.classList.contains('active')) {
@@ -1501,7 +1195,6 @@
                 e.preventDefault();
             }
         });
-        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
         window.addEventListener('mousedown', (e) => {
             if (e.button === 0 && gameMode !== 'menu') { mouseDown = true; mouseFireRequested = true; }
@@ -1511,7 +1204,6 @@
         });
         window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = false; });
 
-        let prevMouseX = 0, prevMouseY = 0;
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX; mouseY = e.clientY;
             if (gameMode !== 'menu') {
@@ -1534,10 +1226,12 @@
                 currentLeftSpeed: 0, currentRightSpeed: 0,
                 prevForwardSpeed: 0, pitch: 0, recoilPitch: 0,
                 turretYaw: 0, barrelElevation: 0.05,
+                mgYaw: 0, mgElev: 0, mgLockTarget: null,
                 hp: 100, maxHp: 100, dead: false,
                 reloadTimer: 0,
                 hpBarGroup: null, hpBarFill: null,
                 reloadBarGroup: null, reloadBarFill: null,
+                shellLabel: null,
                 camoColor, isP1,
                 fireReady: true
             };
@@ -1565,7 +1259,7 @@
         let sunLight = null;  // 主方向光引用（用于H键切换阴影）
         let shadowEnabled = true;  // 阴影开关状态
         let groundPlane;
-        let shells = [], fragments = [], muzzleLights = [];
+        let shells = [], fragments = [], muzzleLights = [], ringFX = [];
         let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
         let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
         let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
@@ -1574,10 +1268,7 @@
         const PICKUP_RADIUS = 3.0;  // 拾取判定距离（宽松，坦克半宽~1.7m）
         let combatData = null;  // 战斗模式运行时数据 { score, lives, phase }
         let combatShakeTimer = 0;  // 受击屏幕震动计时器
-        let mgBullets = [];  // PvE 近防机枪子弹数组
-        let mgTimer = 0;  // 机枪射速计时器
-        let mgHeat = 0;  // 机枪热量累积
-        let mgOverheated = false;  // 机枪过热状态
+        // mgBullets, mgTimer, mgHeat, mgOverheated → mg.js
         let totalDistance = 0;   // 坦克行驶总里程（单位）
 
         // 游戏参数
@@ -1585,7 +1276,7 @@
         const MAX_SPEED = 4.0;
         const TRACK_ACCEL = 6.0, TRACK_DECEL = 10.0, TRACK_COAST = 3.5;
         const PITCH_GAIN = 0.015, PITCH_MAX = 0.09, PITCH_SMOOTH = 8.0;
-        const RECOIL_PITCH = -0.08, RECOIL_DECAY = 5.0;
+        // RECOIL_PITCH 等火炮物理常量 → shells.js
         const MAX_SLOPE = 0.52; // 最大爬坡度 ~30°，超过此坡度时自动降速
         const WORLD_HALF = 100;
         const OBSTACLE_COUNT = 350;
@@ -1594,21 +1285,9 @@
         const GRASS_CELL_SIZE = 40;     // 草丛空间分块大小（米）
         const GRASS_VISIBLE_RADIUS = 95; // 草丛可见半径（略大于障碍物半径）
         const POINT_A_X = 0, POINT_A_Z = 0;  // 单人模式出生点（地图原点）
-        const SHELL_SPEED = 33.0, SHELL_GRAVITY = 1.0;  // 低重力平射弹道，远距离也能命中
-        const RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
-        const FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
-        const SHELL_DAMAGE = 20;
+        // 炮弹/高爆弹常量 → shells.js
 
-        // ==================== PvE 近防机枪参数 (v0.26.1) ====================
-        const MG_DETECT_RANGE = 35;      // 自动检测范围
-        const MG_RANGE = 25;             // 有效射程
-        const MG_DAMAGE = 2;             // 单发伤害
-        const MG_FIRE_RATE = 10;         // 射速 发/秒
-        const MG_FIRE_INTERVAL = 1 / MG_FIRE_RATE;
-        const MG_OVERHEAT_TIME = 6.0;    // 连续射击过热时间
-        const MG_COOLDOWN_TIME = 2.0;    // 过热冷却时间
-        const MG_BULLET_SPEED = 250;     // 子弹飞行速度 单位/秒
-        const MG_BULLET_LIFE = 0.12;     // 子弹存活时间
+        // MG 常量/变量/函数 → mg.js
 
         // ==================== 地形系统（从 currentMapData 读取配置） ====================
         const WATER_LEVEL = -1.0;  // 默认水位 Y
@@ -2625,41 +2304,7 @@
             console.log('🏭 T-34/85 v1.6 程序化模型已构建');
         }
 
-        function createBarsForPlayer(player) {
-            // 装填条（右方悬浮）——透明通道+高渲染序，确保在水面之上
-            const barRenderOrder = 999;
-            player.reloadBarGroup = new THREE.Group();
-            const bgGeo = new THREE.PlaneGeometry(0.18, 0.72);
-            const bgMat = new THREE.MeshBasicMaterial({ color: '#444', side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 1 });
-            const rbBg = new THREE.Mesh(bgGeo, bgMat);
-            rbBg.renderOrder = barRenderOrder;
-            player.reloadBarGroup.add(rbBg);
-            const fillGeo = new THREE.PlaneGeometry(0.14, 0.66);
-            player.reloadBarFill = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: '#ffff00', side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 1 }));
-            player.reloadBarFill.renderOrder = barRenderOrder + 1; player.reloadBarFill.position.z = 0.001;
-            player.reloadBarGroup.add(player.reloadBarFill);
-            player.reloadBarGroup.visible = false;
-            scene.add(player.reloadBarGroup);
-
-            // 血量条（左方悬浮）——透明通道+高渲染序
-            player.hpBarGroup = new THREE.Group();
-            const hpBgGeo = new THREE.PlaneGeometry(0.18, 0.72);
-            const hpBgMat = new THREE.MeshBasicMaterial({ color: '#444', side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 1 });
-            const hpBg = new THREE.Mesh(hpBgGeo, hpBgMat);
-            hpBg.renderOrder = barRenderOrder;
-            player.hpBarGroup.add(hpBg);
-            const hpFillGeo = new THREE.PlaneGeometry(0.14, 0.66);
-            player.hpBarFill = new THREE.Mesh(hpFillGeo, new THREE.MeshBasicMaterial({ color: '#00ff00', side: THREE.DoubleSide, depthTest: false, depthWrite: false, transparent: true, opacity: 1 }));
-            player.hpBarFill.renderOrder = barRenderOrder + 1; player.hpBarFill.position.z = 0.001;
-            player.hpBarGroup.add(player.hpBarFill);
-            player.hpBarGroup.visible = false;
-            scene.add(player.hpBarGroup);
-
-            // 损毁效果（血量 < 50 时显示火焰和烟雾）
-            player.damageEffects = new window.DamageEffects(player.group);
-            scene.add(player.damageEffects.firePoints);
-            scene.add(player.damageEffects.smokePoints);
-        }
+        // createBarsForPlayer → bars.js
 
         // 创建单人模式坦克（T-34/85 模型）
         function createTank() {
@@ -2674,583 +2319,9 @@
             createPlayerHitFlashOverlay(tankGroup);
         }
 
-        // ==================== 泊松盘采样 ====================
-        function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints, excludeFn) {
-            const cellSize = minDist / Math.sqrt(2);
-            const gridSize = Math.ceil(2 * totalRadius / cellSize) + 1;
-            const grid = new Array(gridSize * gridSize).fill(-1);
-            const points = [];
-            const active = [];
-
-            function worldToGrid(x, z) {
-                const gx = Math.floor((x - cx + totalRadius) / cellSize);
-                const gz = Math.floor((z - cz + totalRadius) / cellSize);
-                return { gx, gz };
-            }
-            function gridIdx(gx, gz) {
-                return gz * gridSize + gx;
-            }
-            function inSafeZone(x, z) {
-                return (x - cx) ** 2 + (z - cz) ** 2 < safeRadius ** 2;
-            }
-            function inExcluded(x, z) {
-                return excludeFn ? excludeFn(x, z) : false;
-            }
-            function inBounds(x, z) {
-                return Math.abs(x - cx) < totalRadius && Math.abs(z - cz) < totalRadius;
-            }
-            function hasConflict(x, z, gx, gz) {
-                for (let dx = -2; dx <= 2; dx++) {
-                    for (let dz = -2; dz <= 2; dz++) {
-                        const nx = gx + dx, nz = gz + dz;
-                        if (nx < 0 || nx >= gridSize || nz < 0 || nz >= gridSize) continue;
-                        const idx = grid[gridIdx(nx, nz)];
-                        if (idx === -1) continue;
-                        const p = points[idx];
-                        if ((x - p.x) ** 2 + (z - p.z) ** 2 < minDist ** 2) return true;
-                    }
-                }
-                return false;
-            }
-
-            // 第一个点
-            let first = null;
-            for (let a = 0; a < 200; a++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = safeRadius + minDist + Math.random() * (totalRadius - safeRadius - minDist);
-                const tx = cx + Math.cos(angle) * dist;
-                const tz = cz + Math.sin(angle) * dist;
-                if (inBounds(tx, tz) && !inSafeZone(tx, tz) && !inExcluded(tx, tz)) {
-                    first = { x: tx, z: tz };
-                    break;
-                }
-            }
-            if (!first) {
-                first = { x: cx + safeRadius + minDist, z: cz };
-            }
-
-            points.push(first);
-            active.push(0);
-            const { gx: fgx, gz: fgz } = worldToGrid(first.x, first.z);
-            grid[gridIdx(fgx, fgz)] = 0;
-
-            while (active.length > 0 && points.length < maxPoints) {
-                const ai = Math.floor(Math.random() * active.length);
-                const bi = active[ai];
-                const base = points[bi];
-                let found = false;
-
-                for (let k = 0; k < 30; k++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = minDist + Math.random() * minDist;
-                    const nx = base.x + Math.cos(angle) * dist;
-                    const nz = base.z + Math.sin(angle) * dist;
-
-                    if (!inBounds(nx, nz) || inSafeZone(nx, nz) || inExcluded(nx, nz)) continue;
-                    const { gx, gz } = worldToGrid(nx, nz);
-                    if (hasConflict(nx, nz, gx, gz)) continue;
-
-                    const np = { x: nx, z: nz };
-                    points.push(np);
-                    const ni = points.length - 1;
-                    active.push(ni);
-                    grid[gridIdx(gx, gz)] = ni;
-                    found = true;
-                    break;
-                }
-                if (!found) active.splice(ai, 1);
-            }
-
-            return points;
-        }
-
-        // ==================== 障碍物生成（使用模型注册表） ====================
-
-        // ==================== 障碍物遮挡物的动态可见更新 ====================
-        function updateObstacleVisibility(extraPositions) {
-            const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
-            let bldIdx = 0;  // obstacleMeshes 中建筑索引（obstacleData 前面是树木）
-            for (let i = 0; i < obstacleData.length; i++) {
-                const o = obstacleData[i];
-                if (o.type !== 'building') continue;
-                let visible = false;
-                const dx0 = tankState.x - o.x, dz0 = tankState.z - o.z;
-                if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
-                if (!visible && extraPositions) {
-                    for (const ep of extraPositions) {
-                        const dx = ep.x - o.x, dz = ep.z - o.z;
-                        if ((dx * dx + dz * dz) < r2) { visible = true; break; }
-                    }
-                }
-                if (o.groupRef && o.groupRef.visible !== visible) {
-                    o.groupRef.visible = visible;
-                }
-                bldIdx++;
-            }
-        }
-
-        // ==================== 草丛距离剔除 ====================
-        function updateGrassVisibility(extraPositions) {
-            if (grassInstances.length === 0) return;
-            const r2 = GRASS_VISIBLE_RADIUS * GRASS_VISIBLE_RADIUS;
-            for (const im of grassInstances) {
-                const cx = im.userData.cx, cz = im.userData.cz;
-                let visible = false;
-                // 主坦克
-                const dx0 = tankState.x - cx, dz0 = tankState.z - cz;
-                if ((dx0 * dx0 + dz0 * dz0) < r2) visible = true;
-                // 额外位置（对战模式中的其他玩家）
-                if (!visible && extraPositions) {
-                    for (const ep of extraPositions) {
-                        const dx = ep.x - cx, dz = ep.z - cz;
-                        if ((dx * dx + dz * dz) < r2) { visible = true; break; }
-                    }
-                }
-                if (im.visible !== visible) im.visible = visible;
-            }
-        }
-
-        // ==================== 辅助：销毁单个树木实例（挪到地下模拟移除） ====================
-        function disposeTreeInstance(od) {
-            if (!od.type || od.type === 'building' || od.imIndex == null) return;
-            const imTrunk = od.imTrunk, imCrown = od.imCrown, idx = od.imIndex;
-            const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
-            hideMat.setPosition(0, -999, 0);
-            if (imTrunk) imTrunk.setMatrixAt(idx, hideMat);
-            if (imCrown) imCrown.setMatrixAt(idx, hideMat);
-            if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
-            if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
-        }
-
-        // 创建半透明树木替身 Group（用于遮挡视线时显示，opacity=0.3 与建筑统一）
-        function createTransparentTreeGhost(od) {
-            const tm = window.TreeModels && window.TreeModels[od.type];
-            if (!tm) return null;
-            const s = od.height / tm.baseHeight;
-            const obsY = isVersusMap ? 0 : getTerrainHeight(od.x, od.z);
-            const targetScene = scene;
-            const group = new THREE.Group();
-
-            // 树干 — 半透明
-            const trunkGeo = tm.trunkGeo;
-            const trunkMat = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9, transparent: true, opacity: 0.3, depthWrite: false });
-            const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-            trunkMesh.position.set(od.x, obsY + tm.trunkOffsetY * s, od.z);
-            trunkMesh.scale.setScalar(s);
-            trunkMesh.castShadow = false;
-            trunkMesh.receiveShadow = false;
-            group.add(trunkMesh);
-
-            // 树冠 — 半透明，颜色与原始树冠一致
-            const crownGeo = tm.crownGeo;
-            const crownColor = od.color || tm.color || '#3B7A3B';
-            const crownMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
-            const crownMesh = new THREE.Mesh(crownGeo, crownMat);
-            crownMesh.position.set(od.x, obsY + tm.crownOffsetY * s, od.z);
-            crownMesh.scale.setScalar(s);
-            crownMesh.castShadow = false;
-            crownMesh.receiveShadow = false;
-            group.add(crownMesh);
-
-            targetScene.add(group);
-            return group;
-        }
-
-        // ==================== 道路+村落生成系统 ====================
-
-        // 判断点是否在道路区域内（坐标系：局部OBB检查）
-        function isOnRoad(px, pz, roadAreas) {
-            if (!roadAreas) return false;
-            for (const a of roadAreas) {
-                const dx = px - a.cx, dz = pz - a.cz;
-                const cosA = Math.cos(-a.angle), sinA = Math.sin(-a.angle);
-                const rx = dx * cosA - dz * sinA;
-                const rz = dx * sinA + dz * cosA;
-                if (Math.abs(rx) < a.rx && Math.abs(rz) < a.rz) return true;
-            }
-            return false;
-        }
-
-        // 道路可视化：主路+村路+广场+连接小路
-        // 道路数据来自地图配置 (currentMapData.roadSystem)，由地图编辑器生成
-        // 修复：使用贴合地形的自定义几何体替代 PlaneGeometry（避免路面悬空/扎地）
-        let _roadMat = null, _pathMat = null, _plazaGeo = null;
-        function createRoadMeshes(roadSegments, villages, targetScene) {
-            cleanupRoadMeshes();
-            if (!_roadMat) _roadMat = new THREE.MeshStandardMaterial({ color: '#7B6B5A', roughness: 0.95, metalness: 0.0 });
-            if (!_pathMat) _pathMat = new THREE.MeshStandardMaterial({ color: '#A09080', roughness: 0.9, metalness: 0.0 });
-
-            // 创建贴合地形的道路网格：沿路面长度采样地形高度，每个顶点独立 Y
-            function makeRoadMesh(x1, z1, x2, z2, width, offset, material) {
-                const dx = x2 - x1, dz = z2 - z1;
-                const len = Math.sqrt(dx * dx + dz * dz);
-                if (len < 0.01) return null;
-                const ux = dx / len, uz = dz / len;
-                const px = -uz, pz = ux; // 垂直方向
-                const halfW = width / 2;
-
-                // 顶点：3列×2行（沿长度3个采样点，宽度2边）
-                const positions = new Float32Array(6 * 3);
-                const tVals = [0, 0.5, 1];
-                let idx = 0;
-                for (let i = 0; i < 3; i++) {
-                    const wx = x1 + dx * tVals[i];
-                    const wz = z1 + dz * tVals[i];
-                    const h = getTerrainHeight(wx, wz) + offset;
-                    // 左沿
-                    positions[idx++] = wx - px * halfW;
-                    positions[idx++] = h;
-                    positions[idx++] = wz - pz * halfW;
-                    // 右沿
-                    positions[idx++] = wx + px * halfW;
-                    positions[idx++] = h;
-                    positions[idx++] = wz + pz * halfW;
-                }
-                // 索引：2个三角形×2个分段
-                const indices = [0, 2, 1, 1, 2, 3, 2, 4, 3, 3, 4, 5];
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                geo.setIndex(indices);
-                geo.computeVertexNormals();
-                const mesh = new THREE.Mesh(geo, material);
-                mesh.receiveShadow = true;
-                mesh.userData.isRoad = true;
-                return mesh;
-            }
-
-            // 主路和村路
-            for (const seg of roadSegments) {
-                const mesh = makeRoadMesh(seg.x1, seg.z1, seg.x2, seg.z2, seg.width, 0.04, _roadMat);
-                if (mesh) { targetScene.add(mesh); _roadMeshes.push(mesh); }
-            }
-
-            // 村庄广场 + 连接小路
-            if (villages && villages.length > 0) {
-                if (!_plazaGeo) { _plazaGeo = new THREE.CircleGeometry(1, 12); _plazaGeo._sharedCloned = true; }
-                for (const vil of villages) {
-                    // --- 广场 ---
-                    const py = getTerrainHeight(vil.plazaX, vil.plazaZ) + 0.05;
-                    const plaza = new THREE.Mesh(_plazaGeo, _roadMat);
-                    plaza.rotation.x = -Math.PI / 2;
-                    plaza.scale.setScalar(vil.plazaRadius);
-                    plaza.position.set(vil.plazaX, py, vil.plazaZ);
-                    plaza.receiveShadow = true;
-                    plaza.userData.isRoad = true;
-                    targetScene.add(plaza);
-                    _roadMeshes.push(plaza);
-
-                    // --- 建筑到广场的连接小路（同样贴合地形）---
-                    for (const conn of (vil.connectors || [])) {
-                        const cw = conn.width || 1.2;
-                        const cMesh = makeRoadMesh(conn.x1, conn.z1, conn.x2, conn.z2, cw, 0.06, _pathMat);
-                        if (cMesh) { targetScene.add(cMesh); _roadMeshes.push(cMesh); }
-                    }
-                }
-            }
-        }
-
-        function cleanupRoadMeshes() {
-            for (const m of _roadMeshes) {
-                if (m.parent) m.parent.remove(m);
-                if (m.geometry && !m.geometry._sharedCloned) m.geometry.dispose();
-            }
-            _roadMeshes = [];
-        }
-
-        function createObstacles(targetScene = scene) {
-            // --- 清理旧的 InstancedMesh 树木 ---
-            if (window._treeIMs) {
-                for (const im of window._treeIMs) {
-                    if (im.parent) im.parent.remove(im);
-                    im.geometry.dispose();
-                    im.material.dispose();
-                }
-                window._treeIMs = [];
-            }
-            // --- 清理旧的建筑 Group ---
-            obstacleMeshes.forEach(g => {
-                if (g.isInstancedMesh) return;
-                if (g.parent) g.parent.remove(g);
-                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-            });
-            obstacleMeshes = [];
-            obstacleData = [];
-            occludedObstacles = [];
-            hiddenTreeInstances = [];
-            transparentTreeGroups.forEach(g => {
-                if (g.parent) g.parent.remove(g);
-                g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-            });
-            transparentTreeGroups = [];
-            for (const transpMat of transparentMatPool.values()) {
-                transpMat.dispose();
-            }
-            transparentMatPool.clear();
-
-            // --- 清理旧的道路网格 ---
-            cleanupRoadMeshes();
-            _villageSystem = null;
-
-            // --- 阶段0：道路+村落系统（从地图配置读取，不再独立生成）---
-            const is02a = (selectedMapId === 'test_map_02a');
-            const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
-            const spawnR = obsCfg.spawnRadius || SPAWN_RADIUS;
-            const roadSystem = currentMapData && currentMapData.roadSystem;
-            let _roadAreas = [];
-            if (roadSystem && roadSystem.roadSegments && roadSystem.roadSegments.length > 0) {
-                // 构建 roadAreas（用于泊松采样排除道路区域）
-                for (const seg of roadSystem.roadSegments) {
-                    const len = Math.sqrt((seg.x2 - seg.x1) ** 2 + (seg.z2 - seg.z1) ** 2);
-                    const angle = Math.atan2(seg.z2 - seg.z1, seg.x2 - seg.x1);
-                    _roadAreas.push({ cx: (seg.x1 + seg.x2) / 2, cz: (seg.z1 + seg.z2) / 2, rx: len / 2 + 1, rz: seg.width / 2 + 1.5, angle });
-                }
-                createRoadMeshes(roadSystem.roadSegments, roadSystem.villages || [], targetScene);
-                _villageSystem = { roadSegments: roadSystem.roadSegments, villages: roadSystem.villages || [], roadAreas: _roadAreas };
-
-            } else {
-                _villageSystem = null;
-            }
-
-            // --- 阶段1：泊松采样（排除道路区域，仅分配树木） ---
-            const roadExcludeFn = _villageSystem
-                ? ((px, pz) => isOnRoad(px, pz, _villageSystem.roadAreas))
-                : null;
-
-            const points = poissonDiskSampling(0, 0, spawnR,
-                obsCfg.minDist != null ? obsCfg.minDist : POISSON_MIN_DIST,
-                obsCfg.safeRadius != null ? obsCfg.safeRadius : SAFE_ZONE_RADIUS,
-                obsCfg.count != null ? obsCfg.count : OBSTACLE_COUNT, roadExcludeFn);
-
-            const conePts = [], spherePts = [], oakPts = [], bldPts = [];
-            for (let i = 0; i < points.length; i++) {
-                const p = points[i];
-                if (!isVersusMap) {
-                    const pond = _getPond();
-                    if (pond) {
-                        const pxPond = p.x - pond.cx, pzPond = p.z - pond.cz;
-                        const pondClear = pond.rx + 2.0, pondClearZ = pond.rz + 2.0;
-                        if (Math.sqrt((pxPond*pxPond)/(pondClear*pondClear) + (pzPond*pzPond)/(pondClearZ*pondClearZ)) < 1.0) continue;
-                    }
-                    if (isInRiver(p.x, p.z)) continue;
-                    const rvPts = currentMapData && currentMapData.terrain ? currentMapData.terrain.riverPoints : null;
-                    if (rvPts && rvPts.length >= 2) {
-                        const rvHw = ((currentMapData.terrain.riverWidth || 10) * 0.5) + 2;
-                        let inEditRiver = false;
-                        for (let ri = 0; ri < rvPts.length - 1; ri++) {
-                            const d = pointToSegmentDist2D(p.x, p.z, rvPts[ri].x, rvPts[ri].z, rvPts[ri+1].x, rvPts[ri+1].z);
-                            if (d <= rvHw) { inEditRiver = true; break; }
-                        }
-                        if (inEditRiver) continue;
-                    }
-                    if (_villageSystem && isOnRoad(p.x, p.z, _villageSystem.roadAreas)) continue;
-                }
-                const r = Math.random();
-                if (r < 0.35) { conePts.push(p); }
-                else if (r < 0.65) { spherePts.push(p); }
-                else if (r < 0.85) { oakPts.push(p); }
-                else { bldPts.push({ x: p.x, z: p.z }); }
-            }
-
-            // --- 阶段1.5：编辑器树木放置（在 InstancedMesh 创建之前加入，确保正确 count）---
-            const editorTrees = obsCfg.editorTrees || [];
-            if (editorTrees.length > 0) {
-                console.log('🌲 编辑器树木: ' + editorTrees.length + ' 棵（随机障碍物已关闭）');
-                let skipped = 0;
-                const treeBoundary = 150;
-                for (const et of editorTrees) {
-                    if (Math.abs(et.x) > treeBoundary || Math.abs(et.z) > treeBoundary) { skipped++; continue; }
-                    const tp = { x: et.x, z: et.z };
-                    if (et.type === 'oak') oakPts.push(tp);
-                    else if (et.type === 'sphere') spherePts.push(tp);
-                    else conePts.push(tp);
-                }
-                if (skipped > 0) console.log('  ⚠️ ' + skipped + '棵超出高度图范围±150被跳过');
-            }
-
-            // --- 阶段2：批量创建 InstancedMesh（树木） ---
-            window._treeIMs = [];
-            const dummy = new THREE.Object3D();
-
-            // 锥形树
-            if (conePts.length > 0) {
-                const tm = window.TreeModels.conical;
-                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, conePts.length);
-                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, conePts.length);
-                crownIM.castShadow = true; crownIM.receiveShadow = true;
-
-                for (let i = 0; i < conePts.length; i++) {
-                    const p = conePts[i];
-                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
-                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
-                    const s = targetHeightM / baseHeightM;
-                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
-                    const rotY = Math.random() * Math.PI * 2;
-
-                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
-                    dummy.rotation.set(0, rotY, 0);
-                    dummy.scale.setScalar(s);
-                    dummy.updateMatrix();
-                    trunkIM.setMatrixAt(i, dummy.matrix);
-
-                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
-                    dummy.updateMatrix();
-                    crownIM.setMatrixAt(i, dummy.matrix);
-
-                    obstacleData.push({
-                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
-                        color: tm.color, type: 'conical',
-                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
-                    });
-                }
-                trunkIM.instanceMatrix.needsUpdate = true;
-                crownIM.instanceMatrix.needsUpdate = true;
-                targetScene.add(trunkIM);
-                targetScene.add(crownIM);
-                obstacleMeshes.push(trunkIM, crownIM);
-                window._treeIMs.push(trunkIM, crownIM);
-            }
-
-            // 球形树
-            if (spherePts.length > 0) {
-                const tm = window.TreeModels.spherical;
-                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, spherePts.length);
-                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, spherePts.length);
-                crownIM.castShadow = true; crownIM.receiveShadow = true;
-
-                for (let i = 0; i < spherePts.length; i++) {
-                    const p = spherePts[i];
-                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
-                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
-                    const s = targetHeightM / baseHeightM;
-                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
-                    const rotY = Math.random() * Math.PI * 2;
-
-                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
-                    dummy.rotation.set(0, rotY, 0);
-                    dummy.scale.setScalar(s);
-                    dummy.updateMatrix();
-                    trunkIM.setMatrixAt(i, dummy.matrix);
-
-                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
-                    dummy.updateMatrix();
-                    crownIM.setMatrixAt(i, dummy.matrix);
-
-                    obstacleData.push({
-                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
-                        color: tm.color, type: 'spherical',
-                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
-                    });
-                }
-                trunkIM.instanceMatrix.needsUpdate = true;
-                crownIM.instanceMatrix.needsUpdate = true;
-                targetScene.add(trunkIM);
-                targetScene.add(crownIM);
-                obstacleMeshes.push(trunkIM, crownIM);
-                window._treeIMs.push(trunkIM, crownIM);
-            }
-
-            // 橡树（扁椭球树冠，深绿色，较粗壮）
-            if (oakPts.length > 0) {
-                const tm = window.TreeModels.oak;
-                const trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, oakPts.length);
-                trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-                const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, oakPts.length);
-                crownIM.castShadow = true; crownIM.receiveShadow = true;
-
-                for (let i = 0; i < oakPts.length; i++) {
-                    const p = oakPts[i];
-                    const baseHeightM = tm.baseHeight * METERS_PER_UNIT;
-                    const targetHeightM = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
-                    const s = targetHeightM / baseHeightM;
-                    const obsY = isVersusMap ? 0 : getTerrainHeight(p.x, p.z);
-                    const rotY = Math.random() * Math.PI * 2;
-
-                    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
-                    dummy.rotation.set(0, rotY, 0);
-                    dummy.scale.setScalar(s);
-                    dummy.updateMatrix();
-                    trunkIM.setMatrixAt(i, dummy.matrix);
-
-                    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
-                    dummy.updateMatrix();
-                    crownIM.setMatrixAt(i, dummy.matrix);
-
-                    obstacleData.push({
-                        x: p.x, z: p.z, radius: tm.radius * s, height: tm.baseHeight * s,
-                        color: tm.color, type: 'oak',
-                        imTrunk: trunkIM, imCrown: crownIM, imIndex: i
-                    });
-                }
-                trunkIM.instanceMatrix.needsUpdate = true;
-                crownIM.instanceMatrix.needsUpdate = true;
-                targetScene.add(trunkIM);
-                targetScene.add(crownIM);
-                obstacleMeshes.push(trunkIM, crownIM);
-                window._treeIMs.push(trunkIM, crownIM);
-            }
-
-            // --- 阶段3：建筑放置（来自地图配置：编辑器实体或预计算村庄建筑） ---
-            let bldIdx = 0;
-            const cfgBuildings = obsCfg.buildings || [];
-            const villageBlds = (_villageSystem && _villageSystem.villages)
-                ? _villageSystem.villages.flatMap(v => (v.buildings || []))
-                : [];
-            const allBlds = cfgBuildings.length > 0 ? cfgBuildings : villageBlds;
-
-            const randomBlds = (!cfgBuildings || cfgBuildings.length === 0) && (!villageBlds || villageBlds.length === 0) ? bldPts : [];
-            const effectiveBlds = allBlds.length > 0 ? allBlds : randomBlds;
-
-            if (effectiveBlds.length > 0) {
-                // 编辑器实体边界：编辑器世界300×300（高度图覆盖±150），随机障碍物用spawnRadius
-                const bldBoundary = (cfgBuildings.length > 0) ? 150 : spawnR * 0.92;
-                for (const bld of effectiveBlds) {
-                    // 简单边界/障碍物重检查
-                    if (Math.abs(bld.x) > bldBoundary || Math.abs(bld.z) > bldBoundary) continue;
-                    if (!isVersusMap) {
-                        if (isInRiver(bld.x, bld.z)) continue;
-                        const pond = _getPond();
-                        if (pond) {
-                            const pxPond = bld.x - pond.cx, pzPond = bld.z - pond.cz;
-                            if (Math.sqrt((pxPond * pxPond) / ((pond.rx + 3) ** 2) + (pzPond * pzPond) / ((pond.rz + 3) ** 2)) < 1.0) continue;
-                        }
-                    }
-                    let tooCloseToSpawn = false;
-                    const spawns = (currentMapData && Array.isArray(currentMapData.spawnPoints)) ? currentMapData.spawnPoints : [];
-                    for (const sp of spawns) {
-                        if ((bld.x - sp.x) ** 2 + (bld.z - sp.z) ** 2 < SAFE_ZONE_RADIUS ** 2) { tooCloseToSpawn = true; break; }
-                    }
-                    if (!spawns.length && (bld.x * bld.x + bld.z * bld.z < SAFE_ZONE_RADIUS ** 2)) tooCloseToSpawn = true;
-                    if (tooCloseToSpawn) continue;
-
-                    const makeFn = window.ModelRegistry.randomBuildingMaker();
-                    const group = makeFn();
-                    const ud = group.userData;
-                    const baseHeightM = ud.height * METERS_PER_UNIT;
-                    const targetHeightM = ud.targetHeightMinM + Math.random() * (ud.targetHeightMaxM - ud.targetHeightMinM);
-                    const s = targetHeightM / baseHeightM;
-                    group.scale.setScalar(s);
-                    const obsY = getTerrainHeight(bld.x, bld.z);
-                    group.position.set(bld.x, obsY, bld.z);
-                    group.rotation.y = (bld.angle || 0) + (Math.random() - 0.5) * 0.2;
-                    group.visible = false;
-                    group.name = `bld-${bldIdx++}`;
-                    targetScene.add(group);
-                    obstacleMeshes.push(group);
-                    obstacleData.push({
-                        x: bld.x, z: bld.z, radius: ud.radius * s, height: ud.height * s,
-                        color: ud.color, blades: ud.blades || null,
-                        type: 'building', groupRef: group
-                    });
-                }
-            }
-
-            const totalTrees = conePts.length + spherePts.length + oakPts.length;
-
-            updateObstacleVisibility();
-            updateGrassVisibility();
-        }
+        // poissonDiskSampling, updateObstacleVisibility, updateGrassVisibility,
+        // createTransparentTreeGhost, isOnRoad, createRoadMeshes,
+        // cleanupRoadMeshes, createObstacles → obstacles.js
 
         // ==================== 运动状态 ====================
         const tankState = {
@@ -3270,6 +2341,14 @@
         function moveToward(current, target, maxDelta) {
             if (Math.abs(target - current) <= maxDelta) return target;
             return current + Math.sign(target - current) * maxDelta;
+        }
+
+        function angleMoveToward(current, target, maxDelta) {
+            let diff = target - current;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            if (Math.abs(diff) <= maxDelta) return target;
+            return current + Math.sign(diff) * maxDelta;
         }
 
         function resetTank() {
@@ -3293,6 +2372,8 @@
             // 清除炮口焰
             muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); });
             muzzleLights = [];
+            ringFX.forEach(rf => { scene.remove(rf.mesh); rf.mesh.geometry.dispose(); rf.mesh.material.dispose(); });
+            ringFX = [];
             // 清除所有爆炸效果
             explosions.forEach(e => { e.dispose(); });
             explosions = [];
@@ -3350,167 +2431,9 @@
             return { hit: false, pushX: 0, pushZ: 0 };
         }
 
-        // ==================== 火炮系统 ====================
-        // 炮弹清理辅助：兼容 Mesh 和 Group
-        function disposeShellMesh(mesh) {
-            mesh.traverse(child => {
-                if (child.geometry) child.geometry.dispose();
-                if (child.material) child.material.dispose();
-            });
-        }
-        function fireShell(player) {
-            if (!player && player1) player = player1; // 单人模式向后兼容
-            if (player.reloadTimer > 0 || player.dead) return;
-            player.reloadTimer = RELOAD_TIME;
-            player.recoilPitch = RECOIL_PITCH; // 后坐力：车体后仰
-            playFireSound();
-
-            const barrelTipLocal = player._barrelTipLocal || new THREE.Vector3(0, 0, 3.72);
-            const barrelTipWorld = barrelTipLocal.clone().applyMatrix4(player.barrelPivot ? player.barrelPivot.matrixWorld : player.group.matrixWorld);
-            const worldQ = new THREE.Quaternion();
-            if (player.barrelPivot) {
-                player.barrelPivot.getWorldQuaternion(worldQ);
-            } else {
-                player.group.getWorldQuaternion(worldQ);
-            }
-            const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(worldQ);
-
-            const flashLight = new THREE.PointLight('#ffcc44', 15, 8, 2);
-            flashLight.position.copy(barrelTipWorld); scene.add(flashLight);
-            muzzleLights.push({ light: flashLight, life: 0.15 });
-
-            const f1 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({ color:'#ffaa00', transparent:true, opacity:0.9 }));
-            f1.position.copy(barrelTipWorld); scene.add(f1); muzzleLights.push({ light: f1, life: 0.25 });
-
-            const f2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color:'#ff6600', transparent:true, opacity:0.7 }));
-            f2.position.copy(barrelTipWorld); scene.add(f2); muzzleLights.push({ light: f2, life: 0.35 });
-
-            // ── 曳光弹：炮弹主体(圆柱身+锥形弹头) + 拖尾光球 ──
-            const shellGroup = new THREE.Group();
-            const shellMat = new THREE.MeshStandardMaterial({ color:'#ffcc00', roughness:0.05, metalness:0.3, emissive:'#ff9900', emissiveIntensity:2.5 });
-            // 弹体：圆柱
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.18, 8), shellMat);
-            body.rotation.x = Math.PI/2; body.castShadow = true;
-            shellGroup.add(body);
-            // 弹头：锥体
-            const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 8), shellMat);
-            tip.rotation.x = Math.PI/2; tip.position.z = 0.13; tip.castShadow = true;
-            shellGroup.add(tip);
-            shellGroup.position.copy(barrelTipWorld);
-            scene.add(shellGroup);
-
-            // 拖尾光球（在炮弹后方，模拟曳光弹尾迹）
-            const glowTail = new THREE.Mesh(
-                new THREE.SphereGeometry(0.12, 8, 8),
-                new THREE.MeshBasicMaterial({ color:'#ff8800', transparent:true, opacity:0.60, depthWrite:false })
-            );
-            glowTail.position.copy(barrelTipWorld);
-            glowTail.renderOrder = 999;
-            glowTail.material.depthTest = true;
-            scene.add(glowTail);
-
-            const vel = new THREE.Vector3(
-                forward.x * SHELL_SPEED,
-                forward.y * SHELL_SPEED,
-                forward.z * SHELL_SPEED
-            );
-            shells.push({ mesh: shellGroup, vel, owner: player, glowTail });
-        }
-
-        function spawnFragments(pos, color) {
-            playDebrisSound();
-            const fragMat = new THREE.MeshStandardMaterial({
-                color, roughness: 0.6, metalness: 0.1
-            });
-
-            for (let i = 0; i < FRAG_COUNT; i++) {
-                const size = 0.08 + Math.random() * 0.2;
-                const geo = new THREE.BoxGeometry(
-                    size * (0.5 + Math.random()),
-                    size * (0.5 + Math.random()),
-                    size * (0.5 + Math.random())
-                );
-                const mesh = new THREE.Mesh(geo, fragMat);
-                mesh.position.copy(pos);
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                scene.add(mesh);
-
-                const angle = Math.random() * Math.PI * 2;
-                const upBias = 0.3 + Math.random() * 0.7;
-                const speed = FRAG_SPEED * (0.4 + Math.random() * 0.6);
-                const vel = new THREE.Vector3(
-                    Math.cos(angle) * speed * (1 - upBias),
-                    speed * upBias * 1.5,
-                    Math.sin(angle) * speed * (1 - upBias)
-                );
-
-                fragments.push({
-                    mesh,
-                    vel,
-                    life: FRAG_LIFE * (0.7 + Math.random() * 0.3),
-                    rotSpeed: new THREE.Vector3(
-                        (Math.random() - 0.5) * 10,
-                        (Math.random() - 0.5) * 10,
-                        (Math.random() - 0.5) * 10
-                    )
-                });
-            }
-        }
-
-        // ==================== 坦克爆炸效果 & 殉爆系统 ====================
-        const EXPLOSION_RADIUS = 3.5;  // 殉爆半径（米）
-        const EXPLOSION_COLOR_TANK = '#ff6600';
-
-        // 生成坦克死亡时的大型爆炸火焰烟雾
-        // skipChain=true 时不触发连锁爆炸，防止无限递归
-        function spawnExplosion(pos, skipChain) {
-            const effect = new window.ExplosionEffects();
-            scene.add(effect.firePoints);
-            scene.add(effect.smokePoints);
-            effect.trigger(pos.clone());
-            explosions.push(effect);
-
-            // 只有初始爆炸（非殉爆连锁的爆炸）才触发殉爆检查，防止无限递归
-            if (!skipChain) {
-                checkChainExplosion(pos);
-            }
-        }
-
-        // 殉爆系统：坦克爆炸时引爆近距离的树木/建筑物，但不会伤害敌方坦克
-        function checkChainExplosion(explosionPos) {
-            const chainRadius = EXPLOSION_RADIUS;
-            const chainRadiusSq = chainRadius * chainRadius;
-
-            // 从后往前遍历 obstacleData（含树木+建筑），避免删除时索引问题
-            for (let i = obstacleData.length - 1; i >= 0; i--) {
-                const od = obstacleData[i];
-                // 建筑需检查可见性；树木 InstancedMesh 始终可见
-                if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
-
-                const dx = explosionPos.x - od.x;
-                const dz = explosionPos.z - od.z;
-                const distSq = dx * dx + dz * dz;
-
-                if (distSq < chainRadiusSq) {
-                    const obsCenter = new THREE.Vector3(od.x, 0, od.z);
-                    obsCenter.y += (od.height || 1.5) / 2;
-                    spawnFragments(obsCenter, od.color);
-                    playExplosionSound();
-
-                    if (od.type === 'building' && od.groupRef) {
-                        const obs = od.groupRef;
-                        obs.parent.remove(obs);
-                        obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                        const meshIdx = obstacleMeshes.indexOf(obs);
-                        if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
-                    } else if (od.type && od.type !== 'building') {
-                        disposeTreeInstance(od);
-                    }
-                    obstacleData.splice(i, 1);
-                }
-            }
-        }
+        // ==================== 火炮系统 → shells.js ====================
+        // disposeShellMesh, fireShell, spawnFragments, spawnExplosion,
+        // spawnHeExplosion, checkChainExplosion 已提取
 
         // ==================== 游戏循环 ====================
         const clock = new THREE.Clock();
@@ -3523,77 +2446,17 @@
         // ==================== 性能探针 ====================
         // 四阶段累加：physics(物理), combat(战斗), updates(杂项更新), render(渲染)
         let perfAcc = { physics:0, combat:0, updates:0, render:0, frames:0 };
-        let perfDisplay = { physics:0, combat:0, updates:0, render:0, total:0 };  // 最近报告的快照
+        let perfDisplay = { physics:0, combat:0, updates:0, render:0, total:0 };
 
-        // ── 手柄 ──
-        let gamepadFireReady = true; // 扳机松开后才允许再次开炮
-        let mouseFireReady = true;
-        let mouseDown = false;
-        let mouseFireRequested = false;
-        let mouseX = window.innerWidth / 2;
-        let mouseY = window.innerHeight / 2;
+        let currentShellType = 'ap';
         let aimPoint = new THREE.Vector3();
         let aimValid = true;
         let aimRaycaster = new THREE.Raycaster();
         let groundMesh = null;
-        let useGamepad = false;
-        let lastGamepadTime = 0;
         let trajLine = null;
         let trajDot = null;
         let turretAngVel = 0.5236;
         let barrelAngVel = 0.3491;
-
-        function getGamepad() {
-            const gps = navigator.getGamepads();
-            for (const gp of gps) {
-                if (gp && gp.connected) return gp;
-            }
-            return null;
-        }
-
-        function stickToTarget(value) {
-            // 摇杆推到底 → 全速；中等 → 2/3速；轻推 → 1/3速
-            const abs = Math.abs(value);
-            const sign = Math.sign(value);
-            if (abs > 0.8) return sign;        // 3档 = 100%
-            if (abs > 0.5) return sign * 0.66; // 2档 = 66%
-            if (abs > 0.2) return sign * 0.33; // 1档 = 33%
-            return 0;
-        }
-
-        function getDriveInput() {
-            let forward = 0, strafe = 0;
-
-            if (keys['KeyW']) forward += 1;
-            if (keys['KeyS']) forward -= 1;
-            if (keys['KeyA']) strafe -= 1;
-            if (keys['KeyD']) strafe += 1;
-
-            const gp = getGamepad();
-            if (gp) {
-                const gpFwd = stickToTarget(-gp.axes[1]);
-                const gpStr = stickToTarget(gp.axes[0]);
-                if (Math.abs(gpFwd) > Math.abs(forward)) forward = gpFwd;
-                if (Math.abs(gpStr) > Math.abs(strafe)) strafe = gpStr;
-                if (Math.abs(gp.axes[0]) > 0.05 || Math.abs(gp.axes[1]) > 0.05) {
-                    lastGamepadTime = performance.now();
-                }
-            }
-
-            let targetLeft = forward + strafe;
-            let targetRight = forward - strafe;
-            targetLeft = Math.max(-1, Math.min(1, targetLeft));
-            targetRight = Math.max(-1, Math.min(1, targetRight));
-
-            return { left: targetLeft, right: targetRight, forward, strafe };
-        }
-
-        function isFirePressed() {
-            if (mouseDown) return true;
-            const gp = getGamepad();
-            if (gp && gp.buttons[7] && gp.buttons[7].value > 0.3) { lastGamepadTime = performance.now(); return true; }
-            return false;
-        }
 
         function getBarrelWorldPos(player) {
             const tipLocal = player._barrelTipLocal || new THREE.Vector3(0, 0, 3.72);
@@ -3678,10 +2541,10 @@
                     const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
                     const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-                    player.turretYaw = moveToward(player.turretYaw, targetYaw, turretAngVel * dt);
+                    player.turretYaw = angleMoveToward(player.turretYaw, targetYaw, turretAngVel * dt);
                     if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
                     if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
-                    player.barrelElevation = moveToward(player.barrelElevation, clampedElev, barrelAngVel * dt);
+                    player.barrelElevation = angleMoveToward(player.barrelElevation, clampedElev, barrelAngVel * dt);
 
                     const dist = diff.length();
                     const turretDiff = Math.abs(player.turretYaw - targetYaw);
@@ -4047,6 +2910,10 @@
                 if (player1.barrelPivot) {
                     player1.barrelPivot.rotation.x = player1.barrelElevation;
                 }
+                if (player1.mgGroup) {
+                    player1.mgGroup.rotation.y = player1.mgYaw;
+                    player1.mgGroup.rotation.x = player1.mgElev;
+                }
             }
 
             // ── 履带轮动画（使用当前实际速度驱动） ──
@@ -4073,6 +2940,19 @@
                 if (!fireNow) gamepadFireReady = true;
             }
             if (!mouseDown) mouseFireReady = true;
+
+            const gp = getGamepad();
+            if (gp && gp.buttons[5] && gp.buttons[5].value > 0.3 && gameMode !== 'menu') {
+                if (!_gpRbPressed) {
+                    _gpRbPressed = true;
+                    currentShellType = (currentShellType === 'ap') ? 'he' : 'ap';
+                    playSwitchSound();
+                    if (player1 && !player1.dead) player1.reloadTimer = RELOAD_TIME;
+                    console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
+                }
+            } else {
+                _gpRbPressed = false;
+            }
 
             updateTrajectoryLine(player1);
 
@@ -4249,6 +3129,78 @@
                     }
                 }
 
+                const heDetonated = (s.type === 'he' && (hit || s.mesh.position.y < getGroundHeight(s.mesh.position.x, s.mesh.position.z)));
+                if (heDetonated) {
+                    const hPos = s.mesh.position.clone();
+                    hPos.y = Math.max(hPos.y, getGroundHeight(hPos.x, hPos.z));
+                    spawnHeExplosion(hPos);
+                    playHeExplosionSound();
+                    for (let j = obstacleData.length - 1; j >= 0; j--) {
+                        const od = obstacleData[j];
+                        const ox = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                        const oz = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                        const dx = hPos.x - ox, dz = hPos.z - oz;
+                        const dy = hPos.y - ((od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z)));
+                        const combinedR = HE_SPLASH + (od.radius || 0.55);
+                        if (dx * dx + dz * dz < combinedR * combinedR && Math.abs(dy) < (od.height || 1.5) + 1.0) {
+                            const op = new THREE.Vector3(ox, ((od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z))) + (od.height || 1.5) / 2, oz);
+                            spawnFragments(op, od.color);
+                            if (od.type === 'building' && od.groupRef) {
+                                const obs = od.groupRef;
+                                obs.parent.remove(obs);
+                                obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                const mi = obstacleMeshes.indexOf(obs);
+                                if (mi >= 0) obstacleMeshes.splice(mi, 1);
+                            } else if (od.type && od.type !== 'building') {
+                                disposeTreeInstance(od);
+                            }
+                            obstacleData.splice(j, 1);
+                        }
+                    }
+                    if (gameMode === 'combat') {
+                        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                            const en = enemies[ei]; if (!en || en.ai.state === 'dead') continue;
+                            const ep2 = en.position, edx = hPos.x - ep2.x, edz = hPos.z - ep2.z, edy = hPos.y - ep2.y;
+                            const eDist = Math.sqrt(edx * edx + edz * edz + edy * edy);
+                            if (eDist < HE_SPLASH + 1.0) {
+                                const isArmored = (en.cfg && en.cfg.type === 'assault-vehicle');
+                                if (isArmored && eDist > 0.3) continue;
+                                const dmg = isArmored ? HE_DAMAGE : Math.round(HE_DAMAGE * Math.max(0.3, 1 - eDist / HE_SPLASH));
+                                const killed = window.EnemyAI.onEnemyDamaged(en, Math.max(1, dmg), player1);
+                                window.EnemyAI.shareAggro(en, player1, enemies, 20);
+                                if (killed) {
+                                    en.ai.state = 'dead';
+                                    if (en.cfg && en.cfg.type !== 'zombie') {
+                                        en.visible = false;
+                                        const ep3 = en.position.clone(); ep3.y += 0.8;
+                                        spawnFragments(ep3, '#8B7D4A');
+                                        spawnExplosion(ep3, true);
+                                        if (combatData) combatData.score += (en.cfg.score || 100);
+                                        spawnPickup(en);
+                                        const dead = en;
+                                        setTimeout(() => {
+                                            if (dead.parent) dead.parent.remove(dead);
+                                            dead.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                            const idx2 = enemies.indexOf(dead);
+                                            if (idx2 >= 0) enemies.splice(idx2, 1);
+                                        }, 300);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (gameMode === 'versus' && s.owner) {
+                        const opp = s.owner === player1 ? player2 : player1;
+                        if (opp && !opp.dead) {
+                            const odx = hPos.x - opp.state.x, odz = hPos.z - opp.state.z;
+                            if (Math.sqrt(odx * odx + odz * odz) < HE_SPLASH + TANK_HALF_W) {
+                                opp.hp -= HE_DAMAGE;
+                                if (opp.hp <= 0) { opp.dead = true; opp.hp = 0; }
+                            }
+                        }
+                    }
+                }
+
                 // 删除条件
                 const distRef = gameMode === 'versus' && s.owner ? s.owner : { state: tankState };
                 const refX = distRef.state ? distRef.state.x : tankState.x;
@@ -4260,7 +3212,8 @@
                     // 🆕 地面命中效果（非障碍物/坦克碰撞，且炮弹低于地形）
                     if (!hit && s.mesh.position.y < shellGroundY) {
                         const impactPos = s.mesh.position.clone();
-                        playGroundHitSound();
+                        impactPos.y = shellGroundY;
+                        if (s.type !== 'he') playGroundHitSound();
                         spawnGroundDebris(impactPos);
                         spawnScorchMark(impactPos);
                     }
@@ -4320,6 +3273,35 @@
                     muzzleLights.splice(i, 1);
                 }
             }
+            for (let i = ringFX.length - 1; i >= 0; i--) {
+                const rf = ringFX[i];
+                rf.life -= dt;
+                rf.mesh.material.opacity = Math.max(0, rf.life / rf.maxLife);
+                if (rf.isShockwave) {
+                    const t = 1 - rf.life / rf.maxLife;
+                    const s = 0.06 + (rf.targetScale - 0.06) * t;
+                    rf.mesh.scale.set(s, s, s);
+                    rf.mesh.material.opacity = Math.max(0, 0.7 * (1 - t * t));
+                }
+                if (rf.isFrag) {
+                    if (rf.mesh.userData && rf.mesh.userData.vel) {
+                        rf.mesh.userData.vel.y -= 9.8 * dt;
+                        rf.mesh.position.x += rf.mesh.userData.vel.x * dt;
+                        rf.mesh.position.y += rf.mesh.userData.vel.y * dt;
+                        rf.mesh.position.z += rf.mesh.userData.vel.z * dt;
+                        rf.mesh.rotation.x += rf.mesh.userData.rot.x * dt;
+                        rf.mesh.rotation.y += rf.mesh.userData.rot.y * dt;
+                    }
+                    const gy = getGroundHeight(rf.mesh.position.x, rf.mesh.position.z) + 0.05;
+                    if (rf.mesh.position.y < gy) { rf.mesh.position.y = gy; if (rf.mesh.userData) rf.mesh.userData.vel = new THREE.Vector3(0,0,0); }
+                }
+                if (rf.life <= 0) {
+                    scene.remove(rf.mesh);
+                    rf.mesh.geometry.dispose();
+                    rf.mesh.material.dispose();
+                    ringFX.splice(i, 1);
+                }
+            }
             const _t2 = performance.now();  // perf: 炮弹/碎片/炮口焰阶段结束
             perfAcc.combat += _t2 - _t1;
 
@@ -4330,22 +3312,8 @@
             }
             // 同步全局引用（向后兼容）
             reloadTimer = player1 ? player1.reloadTimer : 0;
-            // 战斗模式：使用 updateBarsForCamera 同时更新装填条和血量条（与双人模式一致）
-            if (gameMode === 'combat' && player1) {
+            if (player1) {
                 updateBarsForCamera(player1, camera);
-            } else if (reloadBarGroup && reloadBarFill) {
-                const rightX = Math.cos(tankState.yaw + Math.PI / 2);
-                const rightZ = Math.sin(tankState.yaw + Math.PI / 2);
-                reloadBarGroup.position.set(
-                    tankState.x + rightX * 0.8,
-                    groundY + 0.7,
-                    tankState.z + rightZ * 0.8
-                );
-                reloadBarGroup.lookAt(camera.position);
-                const progress = Math.max(0.01, 1 - reloadTimer / RELOAD_TIME);
-                reloadBarFill.scale.y = progress;
-                reloadBarFill.position.y = -0.36 + 0.33 * progress;
-                reloadBarFill.material.color.setRGB(1, progress >= 1 ? 1 : 0, 0);
             }
 
             // 障碍物动态可见性 + 草丛距离剔除 + 风车叶片旋转
@@ -4918,151 +3886,7 @@
 
         // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
         // ⚡ v0.24.9 优化：用透明材质池替代每帧 clone/dispose，消除 GPU 材质编译开销
-        function handleObstacleOcclusion() {
-            // --- 清理半透明树木替身 Group ---
-            for (const ttg of transparentTreeGroups) {
-                if (ttg.parent) ttg.parent.remove(ttg);
-                ttg.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-            }
-            transparentTreeGroups = [];
-
-            // --- 还原之前被隐藏的树木实例 ---
-            for (const hti of hiddenTreeInstances) {
-                hti.imTrunk.setMatrixAt(hti.index, hti.matrixTrunk);
-                hti.imCrown.setMatrixAt(hti.index, hti.matrixCrown);
-                hti.imTrunk.instanceMatrix.needsUpdate = true;
-                hti.imCrown.instanceMatrix.needsUpdate = true;
-            }
-            hiddenTreeInstances = [];
-
-            // --- 还原之前被半透明的建筑 ---
-            for (const obs of occludedObstacles) {
-                obs.traverse(child => {
-                    if (child.isMesh && child.userData._origMat) {
-                        child.material = child.userData._origMat;  // 还原共享原始材质
-                        child.userData._origMat = null;
-                    }
-                });
-            }
-            occludedObstacles = [];
-
-            // 摄像机到坦克的水平线段（2D），预过滤只保留线段附近8m内的障碍物
-            const camPos = camera.position;
-            const tankPos = tankGroup.position;
-            const cam2x = camPos.x, cam2z = camPos.z;
-            const tank2x = tankPos.x, tank2z = tankPos.z;
-            const dx = tank2x - cam2x, dz = tank2z - cam2z;
-            const lineLen = Math.sqrt(dx * dx + dz * dz);
-            if (lineLen < 0.01) return; // 摄像机太近，跳过
-            const lx = dx / lineLen, lz = dz / lineLen; // 线段方向单位向量
-
-            const nearObstacles = [];
-            // 收集附近建筑
-            for (let i = 0; i < obstacleMeshes.length; i++) {
-                const obs = obstacleMeshes[i];
-                if (!obs.visible) continue;
-                const ox = obs.position.x - cam2x;
-                const oz = obs.position.z - cam2z;
-                const proj = ox * lx + oz * lz;
-                if (proj < -2 || proj > lineLen + 2) continue;
-                const perp = Math.abs(ox * lz - oz * lx);
-                if (perp > 8) continue;
-                nearObstacles.push(obs);
-            }
-
-            // 收集附近树木 InstancedMesh（去重）
-            const treeIMSet = new Set();
-            if (window._treeIMs && window._treeIMs.length > 0) {
-                for (const od of obstacleData) {
-                    if (od.type === 'building') continue;
-                    const ox = od.x - cam2x;
-                    const oz = od.z - cam2z;
-                    const proj = ox * lx + oz * lz;
-                    if (proj < -2 || proj > lineLen + 2) continue;
-                    const perp = Math.abs(ox * lz - oz * lx);
-                    if (perp > 3) continue; // 树冠半径约0.35m，3m容差足够
-                    // 将该树木的树干和树冠 InstancedMesh 加入检测
-                    if (od.imTrunk) treeIMSet.add(od.imTrunk);
-                    if (od.imCrown) treeIMSet.add(od.imCrown);
-                }
-                for (const im of treeIMSet) {
-                    nearObstacles.push(im);
-                }
-            }
-
-            if (nearObstacles.length === 0) return;
-
-            // 射线检测（建筑Group + 树木InstancedMesh）
-            const dir3 = new THREE.Vector3().subVectors(tankPos, camPos).normalize();
-            occluderRaycaster.set(camPos, dir3);
-            occluderRaycaster.far = lineLen + 2;
-            const intersects = occluderRaycaster.intersectObjects(nearObstacles, true);
-
-            const hitRoots = new Set();
-            const hitTreeIds = new Set(); // 命中的树木 obstacleData 索引
-            for (const hit of intersects) {
-                const hitObj = hit.object;
-                if (hitObj.isInstancedMesh) {
-                    // 树木 InstancedMesh 命中 → 记录 instanceId + IM 引用
-                    const iid = hit.instanceId;
-                    hitTreeIds.add(JSON.stringify([iid, hitObj.uuid]));
-                } else {
-                    // 建筑 Group 命中 → 找根 Group
-                    let obj = hitObj;
-                    while (obj && !obstacleMeshes.includes(obj)) {
-                        obj = obj.parent;
-                    }
-                    if (obj) hitRoots.add(obj);
-                }
-            }
-
-            // 处理建筑遮挡：半透明
-            for (const obs of hitRoots) {
-                occludedObstacles.push(obs);
-                obs.traverse(child => {
-                    if (child.isMesh && child.material && !child.userData._origMat) {
-                        child.userData._origMat = child.material;
-                        const origMat = child.material;
-                        let transpMat = transparentMatPool.get(origMat);
-                        if (!transpMat) {
-                            transpMat = origMat.clone();
-                            transpMat.transparent = true;
-                            transpMat.opacity = 0.3;
-                            transpMat.needsUpdate = true;
-                            transparentMatPool.set(origMat, transpMat);
-                        }
-                        child.material = transpMat;
-                    }
-                });
-            }
-
-            // 处理树木遮挡：隐藏实例 + 创建半透明替身 Group
-            if (hitTreeIds.size > 0) {
-                for (const od of obstacleData) {
-                    if (od.type === 'building') continue;
-                    if (!od.imTrunk || !od.imCrown || od.imIndex == null) continue;
-                    const key = JSON.stringify([od.imIndex, od.imTrunk.uuid]);
-                    const key2 = JSON.stringify([od.imIndex, od.imCrown.uuid]);
-                    if (hitTreeIds.has(key) || hitTreeIds.has(key2)) {
-                        // 保存原始矩阵后隐藏实例
-                        const mT = new THREE.Matrix4();
-                        const mC = new THREE.Matrix4();
-                        od.imTrunk.getMatrixAt(od.imIndex, mT);
-                        od.imCrown.getMatrixAt(od.imIndex, mC);
-                        hiddenTreeInstances.push({
-                            imTrunk: od.imTrunk, imCrown: od.imCrown,
-                            index: od.imIndex,
-                            matrixTrunk: mT.clone(),
-                            matrixCrown: mC.clone()
-                        });
-                        disposeTreeInstance(od);
-                        // 创建半透明替身 Group（与建筑统一为 opacity:0.3 半透明）
-                        const ghost = createTransparentTreeGhost(od);
-                        if (ghost) transparentTreeGroups.push(ghost);
-                    }
-                }
-            }
-        }
+        // handleObstacleOcclusion → obstacles.js
 
         // ==================== 菜单与状态切换 ====================
         // ==================== 双人对战系统 ====================
@@ -5141,10 +3965,10 @@
                     const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
                     const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-                    p.turretYaw = moveToward(p.turretYaw, targetYaw, turretAngVel * dt);
+                    p.turretYaw = angleMoveToward(p.turretYaw, targetYaw, turretAngVel * dt);
                     if (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
                     if (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
-                    p.barrelElevation = moveToward(p.barrelElevation, clampedElev, barrelAngVel * dt);
+                    p.barrelElevation = angleMoveToward(p.barrelElevation, clampedElev, barrelAngVel * dt);
                 }
             }
 
@@ -5234,25 +4058,7 @@
             if(p.reloadTimer>0){p.reloadTimer-=dt;if(p.reloadTimer<0)p.reloadTimer=0;}
         }
 
-        function togglePlayerBars(p, visible) {
-            if (p.reloadBarGroup) p.reloadBarGroup.visible = visible;
-            if (p.hpBarGroup) p.hpBarGroup.visible = visible;
-        }
-
-        function updateBarsForCamera(p, cam) {
-            const bo=0.8;
-            const by=getGroundHeight(p.state.x,p.state.z)+0.7;
-            if(p.reloadBarGroup){const rx=Math.cos(p.state.yaw+Math.PI/2),rz=Math.sin(p.state.yaw+Math.PI/2);
-                p.reloadBarGroup.position.set(p.state.x+rx*bo,by,p.state.z+rz*bo);p.reloadBarGroup.lookAt(cam.position);
-                const pg=Math.max(.01,1-p.reloadTimer/RELOAD_TIME);
-                p.reloadBarFill.scale.y=pg;p.reloadBarFill.position.y=-.36+.33*pg;
-                p.reloadBarFill.material.color.setRGB(1,pg>=1?1:0,0);}
-            if(p.hpBarGroup){const lx=Math.cos(p.state.yaw-Math.PI/2),lz=Math.sin(p.state.yaw-Math.PI/2);
-                p.hpBarGroup.position.set(p.state.x+lx*bo,by,p.state.z+lz*bo);p.hpBarGroup.lookAt(cam.position);
-                const hr=Math.max(.01,p.hp/p.maxHp);
-                p.hpBarFill.scale.y=hr;p.hpBarFill.position.y=-.36+.33*hr;
-                p.hpBarFill.material.color.setRGB(hr<.5?1:2-hr*2, hr<.5?hr*2:1, 0);}
-        }
+        // togglePlayerBars / updateBarsForCamera → bars.js
 
         function showVersusResult(winner) {
             versusResult.style.display='block';
@@ -5337,7 +4143,7 @@
 
         function enterVersusMode() {
             loadMapConfig('test_map_01b');
-            gameMode='versus';isVersusMap=true;
+            gameMode='versus';isVersusMap=true;currentShellType='ap';
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
@@ -5384,6 +4190,7 @@
         // ==================== PvE 战斗模式 ====================
         async function enterCombatMode() {
             gameMode = 'combat'; isVersusMap = false;
+            currentShellType = 'ap';
             updateLoadingProgress(8, '准备战斗场景...');
             await raf();
 
@@ -5413,6 +4220,7 @@
             shells.forEach(s => { scene.remove(s.mesh); disposeShellMesh(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } }); shells = [];
             fragments.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }); fragments = [];
             muzzleLights.forEach(ml => { scene.remove(ml.light); if (ml.light.geometry) ml.light.geometry.dispose(); if (ml.light.material) ml.light.material.dispose(); }); muzzleLights = [];
+            ringFX.forEach(rf => { scene.remove(rf.mesh); rf.mesh.geometry.dispose(); rf.mesh.material.dispose(); }); ringFX = [];
             explosions.forEach(exp => exp.dispose()); explosions = [];
             scorchMarks.forEach(sc => { scene.remove(sc.mesh); sc.mesh.geometry.dispose(); sc.mesh.material.dispose(); }); scorchMarks = [];
             groundDebris.forEach(gd => { scene.remove(gd.mesh); gd.mesh.geometry.dispose(); gd.mesh.material.dispose(); }); groundDebris = [];
@@ -5437,6 +4245,7 @@
             createBarsForPlayer(player1);
             player1.reloadBarGroup.visible = true;
             player1.hpBarGroup.visible = true;
+            if (player1.shellLabel) player1.shellLabel.visible = true;
             tankGroup = player1.group; tankHull = player1.hull;
             leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
             reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
@@ -5445,6 +4254,7 @@
             combatShakeTimer = 0;
             mgBullets.forEach(b => { scene.remove(b.mesh); b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } }); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
             mgBullets = []; mgTimer = 0; mgHeat = 0; mgOverheated = false;
+            if (player1) player1.mgLockTarget = null;
             combatData = {
                 score: 0,
                 lives: pcfg.lives || 3,
@@ -5750,166 +4560,7 @@
             }
         }
 
-        // ==================== PvE 近防机枪系统 (v0.26.1) ====================
-
-        function createMGBullet(origin, targetPos, travelDist) {
-            const dir = new THREE.Vector3().subVectors(targetPos, origin).normalize();
-            // v0.26.1fix: 增大子弹尺寸 (0.015→0.06半径, 0.12→0.30长度) 可见性提升 16x
-            const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.30, 6);
-            const mat = new THREE.MeshBasicMaterial({ color: 0xffff44, transparent: true, opacity: 1 });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.copy(origin);
-            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-            mesh.setRotationFromQuaternion(q);
-            // 拖尾光球（更大更亮）
-            const trailGeo = new THREE.SphereGeometry(0.08, 6, 3);
-            const trailMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
-            const trail = new THREE.Mesh(trailGeo, trailMat);
-            trail.position.set(0, -0.16, 0);
-            mesh.add(trail);
-            scene.add(mesh);
-            return { mesh, vel: dir.clone().multiplyScalar(MG_BULLET_SPEED), origin: origin.clone(),
-                life: MG_BULLET_LIFE, maxLife: MG_BULLET_LIFE, travelDist: travelDist, travelled: 0 };
-        }
-
-        function updateMGAutoTarget(player, dt) {
-            if (!player || player.dead) { mgHeat = Math.max(0, mgHeat - dt * 2); if (mgHeat <= 0) mgOverheated = false; return; }
-            if (gameMode === 'versus') return;  // 双人对战禁用机枪
-
-            // 找最近敌人
-            let nearestEnemy = null, nearestDist = Infinity;
-            const pPos = player.group.position;
-            for (const enemy of enemies) {
-                if (!enemy || !enemy.ai || enemy.ai.state === 'dead') continue;
-                const d = pPos.distanceTo(enemy.position);
-                if (d < MG_DETECT_RANGE && d < nearestDist) { nearestDist = d; nearestEnemy = enemy; }
-            }
-            if (!nearestEnemy || nearestDist > MG_RANGE) {
-                mgHeat = Math.max(0, mgHeat - dt * 2);
-                if (mgHeat <= 0) mgOverheated = false;
-                return;
-            }
-            if (mgOverheated) { mgHeat = Math.max(0, mgHeat - dt); if (mgHeat <= 0) mgOverheated = false; return; }
-
-            mgTimer -= dt;
-            if (mgTimer > 0) return;
-            mgTimer = MG_FIRE_INTERVAL;
-            mgHeat += MG_FIRE_INTERVAL;
-            if (mgHeat >= MG_OVERHEAT_TIME) { mgOverheated = true; mgHeat = MG_OVERHEAT_TIME; return; }
-
-            // v0.26.3fix: 机枪发射音效（从命中回调移到发射代码，隔墙开枪也有声）
-            playMGShotSound();
-
-            // 发射点：高射机枪枪口 → 从 mgGroup 中 MG枪口制退器 末端计算
-            const mgOrigin = new THREE.Vector3(0, 0, 0.58);
-            if (player.mgGroup) {
-                player.mgGroup.localToWorld(mgOrigin);
-            } else {
-                player.group.localToWorld(mgOrigin);
-            }
-
-            // 射线检测（排除玩家坦克自身，防止子弹被自己挡住）
-            // v0.35.1fix: 显式加入 groundPlane 确保地形遮挡生效
-            const epos = nearestEnemy.position.clone();
-            const dir = new THREE.Vector3().subVectors(epos, mgOrigin).normalize();
-            const raycaster = new THREE.Raycaster(mgOrigin, dir, 0, MG_RANGE);
-            // v0.26.4fix3: 排除玩家坦克 group 的所有子节点，防止自瞄射线命中自身
-            const excludeList = [];
-            if (player && player.group) player.group.traverse(c => { if (c.isMesh || c.isGroup) excludeList.push(c); });
-            const hitTargets = [...scene.children];
-            if (groundPlane && !hitTargets.includes(groundPlane)) hitTargets.push(groundPlane);
-            const hits = raycaster.intersectObjects(hitTargets, true).filter(h => !excludeList.includes(h.object));
-
-            let hitDist = Math.min(MG_RANGE, nearestDist);
-            let hitEnemyFound = false;
-            for (const hit of hits) {
-                let obj = hit.object;
-                while (obj) {
-                    let foundEnemy = false;
-                    for (const en of enemies) {
-                        if (obj === en || obj === en.userData?.turretPivot || obj === en.userData?.hpBarGroup) {
-                            foundEnemy = true;
-                            if (en.hp !== undefined && en.ai && en.ai.state !== 'dead') {
-                                const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1);
-                                window.EnemyAI.shareAggro(en, player1, enemies, 40);
-                                const hitWorldPos = hit.point.clone();
-                                spawnSilentHitSparks(hitWorldPos);  // MG命中只显示火花，不发声
-                                if (killed) {
-                                    const isZombie = (en.cfg && en.cfg.type === 'zombie');
-                                    if (isZombie) {
-                                        // 丧尸：不立即隐藏/爆炸，走死亡动画流程
-                                        en.ai.state = 'dead';
-                                        // 加分和掉落由 gameLoop 死亡动画处理，此处不重复执行
-                                    } else {
-                                        en.ai.state = 'dead';
-                                        en.visible = false;
-                                        if (en.userData.flameEffect) {
-                                            en.userData.flameEffect.active = false;
-                                            en.userData.flameEffect.points.visible = false;
-                                        }
-                                        const ep = en.position.clone(); ep.y += 0.8;
-                                        spawnFragments(ep, '#8B7D4A');
-                                        spawnExplosion(ep);
-                                        playExplosionSound();
-                                        if (combatData) combatData.score += (en.cfg.score || 100);
-                                        spawnPickup(en);
-                                        const deadEnemy = en;
-                                        setTimeout(() => {
-                                            if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                                            deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                            if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
-                                            const idx = enemies.indexOf(deadEnemy);
-                                            if (idx >= 0) enemies.splice(idx, 1);
-                                        }, 300);
-                                        if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
-                                            setTimeout(() => {
-                                                if (combatData) {
-                                                    const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
-                                                    hintBar.textContent = '🎉 已清场! 得分:' + combatData.score +
-                                                        (result.isNewHigh ? ' 🏆新纪录!' : '') + ' | 按ESC返回菜单';
-                                                }
-                                            }, 1500);
-                                        }
-                                    }
-                                }
-                            }
-                            hitEnemyFound = true;
-                            break;
-                        }
-                    }
-                    if (hitEnemyFound) { hitDist = hit.distance; break; }
-                    obj = obj.parent;
-                }
-                if (hitEnemyFound) break;
-                // 命中非敌人障碍物 → 子弹被阻挡
-                hitDist = Math.min(hitDist, hit.distance);
-            }
-
-            const bullet = createMGBullet(mgOrigin, epos, hitDist);
-            mgBullets.push(bullet);
-        }
-
-        function updateMGBullets(dt) {
-            for (let i = mgBullets.length - 1; i >= 0; i--) {
-                const b = mgBullets[i];
-                b.life -= dt;
-                if (b.life <= 0 || b.travelled >= b.travelDist) {
-                    scene.remove(b.mesh);
-                    b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } });
-                    b.mesh.geometry.dispose(); b.mesh.material.dispose();
-                    mgBullets.splice(i, 1);
-                    continue;
-                }
-                const step = b.vel.clone().multiplyScalar(dt);
-                b.mesh.position.add(step);
-                b.travelled += step.length();
-                const lr = Math.max(0, b.life / b.maxLife);
-                b.mesh.material.opacity = lr;
-                if (b.mesh.children.length > 0 && b.mesh.children[0].material) b.mesh.children[0].material.opacity = 0.7 * lr;
-            }
-        }
-
-        // ==================== PvE 近防机枪系统结束 ====================
+        // ==================== PvE 近防机枪系统 → mg.js ====================
 
         function cleanupEnemies() {
             for (const enemy of enemies) {
@@ -5922,7 +4573,6 @@
                 enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
             }
             enemies = [];
-            // 清除丧尸 GLB 挂起队列（这些 group 已被 remove，不应再升级）
 
         }
 
@@ -5936,6 +4586,7 @@
             player1.state.x = sx; player1.state.z = sz; player1.state.yaw = sy;
             player1.hp = player1.maxHp || player1.userData.maxHp || 100;
             player1.dead = false;
+            player1.mgLockTarget = null;
             player1.group.visible = true;
             player1.group.position.set(sx, getGroundHeight(sx, sz), sz);
             player1.group.rotation.set(0, Math.PI / 2 - sy, 0);
@@ -6111,10 +4762,44 @@
                                 spawnExplosion(ep);
                                 setTimeout(()=>showVersusResult(s.owner),2000);}
                             else{spawnHitSparks(s.mesh.position.clone());}}}}
+                const heDet=(s.type==='he'&&(hit||s.mesh.position.y<getGroundHeight(s.mesh.position.x,s.mesh.position.z)));
+                if(heDet){const hP=s.mesh.position.clone();hP.y=Math.max(hP.y,getGroundHeight(hP.x,hP.z));spawnHeExplosion(hP);playHeExplosionSound();
+                    for (let j = obstacleData.length - 1; j >= 0; j--) {
+                        const od = obstacleData[j];
+                        const ox = (od.type === 'building' && od.groupRef) ? od.groupRef.position.x : od.x;
+                        const oz = (od.type === 'building' && od.groupRef) ? od.groupRef.position.z : od.z;
+                        const dx = hP.x - ox, dz = hP.z - oz;
+                        const cR = HE_SPLASH + (od.radius || 0.55);
+                        if (dx * dx + dz * dz < cR * cR) {
+                            const opy = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z));
+                            const op = new THREE.Vector3(ox, opy + (od.height || 1.5) / 2, oz);
+                            spawnFragments(op, od.color);
+                            if (od.type === 'building' && od.groupRef) {
+                                od.groupRef.parent.remove(od.groupRef);
+                                od.groupRef.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                const mi = obstacleMeshes.indexOf(od.groupRef);
+                                if (mi >= 0) obstacleMeshes.splice(mi, 1);
+                            } else if (od.type && od.type !== 'building') {
+                                disposeTreeInstance(od);
+                            }
+                            obstacleData.splice(j, 1);
+                        }
+                    }
+                    if (gameMode === 'versus' && s.owner) {
+                        const opp = s.owner === player1 ? player2 : player1;
+                        if (opp && !opp.dead) {
+                            const odx = hP.x - opp.state.x, odz = hP.z - opp.state.z;
+                            if (Math.sqrt(odx * odx + odz * odz) < HE_SPLASH + TANK_HALF_W) {
+                                opp.hp -= HE_DAMAGE;
+                                if (opp.hp <= 0) { opp.dead = true; opp.hp = 0; }
+                            }
+                        }
+                    }
+                }
                 const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
                 const sgy=getGroundHeight(s.mesh.position.x,s.mesh.position.z);
                 if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50){
-                    if(!hit&&s.mesh.position.y<sgy){const ip=s.mesh.position.clone();playGroundHitSound();spawnGroundDebris(ip);spawnScorchMark(ip);}
+                    if(!hit&&s.mesh.position.y<sgy){const ip=s.mesh.position.clone();ip.y=sgy;if(s.type!=='he')playGroundHitSound();spawnGroundDebris(ip);spawnScorchMark(ip);}
                     scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
             for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
                 f.mesh.position.x+=f.vel.x*dt;f.mesh.position.y+=f.vel.y*dt;f.mesh.position.z+=f.vel.z*dt;
@@ -6127,6 +4812,10 @@
                 if(ml.light.isPointLight)ml.light.intensity=Math.max(0,ml.light.intensity*(1-dt*10));
                 else if(ml.light.isMesh){ml.light.scale.multiplyScalar(1+dt*8);ml.light.material.opacity=Math.max(0,ml.life/.35);}
                 if(ml.life<=0){scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();muzzleLights.splice(i,1);}}
+            for(let i=ringFX.length-1;i>=0;i--){const rf=ringFX[i];rf.life-=dt;rf.mesh.material.opacity=Math.max(0,rf.life/rf.maxLife);
+                if(rf.isShockwave){const t=1-rf.life/rf.maxLife;const s=.06+(rf.targetScale-.06)*t;rf.mesh.scale.set(s,s,s);rf.mesh.material.opacity=Math.max(0,.7*(1-t*t));}
+                if(rf.isFrag){if(rf.mesh.userData&&rf.mesh.userData.vel){rf.mesh.userData.vel.y-=9.8*dt;rf.mesh.position.x+=rf.mesh.userData.vel.x*dt;rf.mesh.position.y+=rf.mesh.userData.vel.y*dt;rf.mesh.position.z+=rf.mesh.userData.vel.z*dt;rf.mesh.rotation.x+=rf.mesh.userData.rot.x*dt;rf.mesh.rotation.y+=rf.mesh.userData.rot.y*dt;}const gy=getGroundHeight(rf.mesh.position.x,rf.mesh.position.z)+.05;if(rf.mesh.position.y<gy){rf.mesh.position.y=gy;if(rf.mesh.userData)rf.mesh.userData.vel=new THREE.Vector3(0,0,0);}}
+                if(rf.life<=0){scene.remove(rf.mesh);rf.mesh.geometry.dispose();rf.mesh.material.dispose();ringFX.splice(i,1);}}
         }
 
         // ==================== 菜单与状态切换 ====================
@@ -6234,7 +4923,7 @@
                 await enterCombatMode();
                 return;
             }
-            gameMode='single';isVersusMap=false;
+            gameMode='single';isVersusMap=false;currentShellType='ap';
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
             crosshairEl.style.display = 'block';
@@ -6276,6 +4965,7 @@
             updateObstacleVisibility();
             if(reloadBarGroup)reloadBarGroup.visible=true;
             if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
+            if(player1&&player1.shellLabel)player1.shellLabel.visible=true;
             placeCamera();
             handleObstacleOcclusion();
             initAudio();startEngineSound();
@@ -6432,8 +5122,6 @@
         let previewScene = null, previewCamera = null, previewRenderer = null;
         let previewModel = null;
         let previewAnimId = null;
-        let previewMixer = null, previewClock = null; // 动画混合器+时钟（GLB骨骼动画播放）
-        let previewAnimActions = [], previewAnimIndex = 0; // 多动画切换
         // 轨道旋转状态
         let previewTheta = 0, previewPhi = Math.PI / 4, previewRadius = 5;
         let previewIsDragging = false, previewPrevMouse = { x: 0, y: 0 };
@@ -6511,9 +5199,6 @@
 
             // 动画循环
             function previewLoop() {
-                if (previewMixer && previewClock) {
-                    previewMixer.update(previewClock.getDelta());
-                }
                 updatePreviewCamera();
                 previewRenderer.render(previewScene, previewCamera);
                 previewAnimId = requestAnimationFrame(previewLoop);
@@ -6533,8 +5218,7 @@
                 grass: { id: 'grass', label: '草丛', models: [] },
                 enemies: { id: 'enemies', label: '敌方单位', models: [] },
                 pickups: { id: 'pickups', label: '战利品', models: [] },
-                special: { id: 'special', label: '特殊物件', models: [] },
-                glb: { id: 'glb', label: 'GLB模型', models: [] }
+                special: { id: 'special', label: '特殊物件', models: [] }
             };
 
             // 程序化模型
@@ -6544,11 +5228,6 @@
                     catMap[m.category].models.push({ cat: m.category, name: m.name, label: m.name, catLabel: m.categoryLabel });
                 }
             }
-
-            // GLB 模型
-            catMap.glb.models.push({ cat: 'glb', name: 't34-green', label: 'T-34/85 绿色 (1P)', value: 'glb/t34-green' });
-            catMap.glb.models.push({ cat: 'glb', name: 't34-yellow', label: 'T-34/85 黄色 (2P)', value: 'glb/t34-yellow' });
-            catMap.glb.models.push({ cat: 'glb', name: 'toolbox-red', label: '维修工具箱 (红色)', value: 'glb/toolbox-red' });
 
             // 过滤空分类，构建分类数据
             previewCatData = Object.values(catMap).filter(c => c.models.length > 0);
@@ -6601,13 +5280,6 @@
         }
 
         function loadPreviewModel(m) {
-            // 移除旧模型 + 清理动画混合器
-            if (previewMixer) {
-                previewMixer.stopAllAction();
-                previewMixer = null;
-                previewClock = null;
-            }
-            previewAnimActions = []; previewAnimIndex = 0;
             if (previewModel && previewModel.parent) {
                 previewModel.parent.remove(previewModel);
                 previewModel.traverse(c => {
@@ -6617,96 +5289,15 @@
             }
             previewModel = null;
 
-            // GLB 模型分支
-            if (m.cat === 'glb') {
-                const GLB_PATH_MAP = {
-                    't34-green': 'models/glb/t34-85_textured.glb',
-                    't34-yellow': 'models/glb/t34-85_textured_yellow.glb',
-                    'toolbox-red': 'models/glb/红色维修工具箱减面.glb'
-                };
-                const glbPath = GLB_PATH_MAP[m.name];
-                if (!glbPath) {
-                    previewLabel.textContent = '未知GLB模型: ' + m.name;
-                    return;
-                }
-
-                const loader = new THREE.GLTFLoader();
-                loader.load(glbPath, (gltf) => {
-                    const model = gltf.scene;
-                    // 仅从Mesh几何体计算包围盒（排除骨骼Armature干扰）
-                    const origBbox = new THREE.Box3();
-                    const tmpVec = new THREE.Vector3();
-                    model.traverse(c => {
-                        if (c.isMesh && c.geometry) {
-                            c.geometry.computeBoundingBox();
-                            if (c.geometry.boundingBox) {
-                                c.updateMatrix(); // 确保mesh自身矩阵最新
-                                const bb = c.geometry.boundingBox;
-                                // 将几何体包围盒的8个角点用mesh矩阵变换到模型空间
-                                for (let xi = 0; xi <= 1; xi++) {
-                                    for (let yi = 0; yi <= 1; yi++) {
-                                        for (let zi = 0; zi <= 1; zi++) {
-                                            tmpVec.set(
-                                                xi ? bb.max.x : bb.min.x,
-                                                yi ? bb.max.y : bb.min.y,
-                                                zi ? bb.max.z : bb.min.z
-                                            );
-                                            tmpVec.applyMatrix4(c.matrix);
-                                            origBbox.expandByPoint(tmpVec);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    const sz = new THREE.Vector3(); origBbox.getSize(sz);
-                    console.log('📏 模型原始Mesh几何体包围盒:', '宽=' + sz.x.toFixed(2), '高=' + sz.y.toFixed(2), '深=' + sz.z.toFixed(2),
-                        '| minY=' + origBbox.min.y.toFixed(2), 'maxY=' + origBbox.max.y.toFixed(2));
-                    // 统一按高度(Y)缩放到 1.5 米，底面贴地
-                    const targetH = 1.5;
-                    const s = (sz.y > 0.001) ? (targetH / sz.y) : 1.0;
-                    model.scale.setScalar(s);
-                    // 手动计算缩放后包围盒（避免Three.js世界矩阵未更新问题）
-                    const minY2 = origBbox.min.y * s;
-                    const maxY2 = origBbox.max.y * s;
-                    const centerX2 = (origBbox.min.x + origBbox.max.x) * 0.5 * s;
-                    const centerZ2 = (origBbox.min.z + origBbox.max.z) * 0.5 * s;
-                    console.log('📏 缩放后包围盒:', 'minY=' + minY2.toFixed(4), 'maxY=' + maxY2.toFixed(4), 'height=' + (maxY2 - minY2).toFixed(4));
-                    model.position.set(-centerX2, -minY2, -centerZ2);
-                    model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-                    console.log('📏 缩放后: s=' + s.toFixed(4), '| 最终高度≈' + (sz.y * s).toFixed(2));
-                    previewModel = model;
-                    previewScene.add(model);
-
-                    // 如果模型包含骨骼动画
-                    if (gltf.animations && gltf.animations.length > 0) {
-                        previewMixer = new THREE.AnimationMixer(model);
-                        previewClock = new THREE.Clock();
-                        // 创建所有动画动作（暂不自动播放，避免骨骼姿态改变导致脚抬离地面）
-                        previewAnimActions = gltf.animations.map(clip => previewMixer.clipAction(clip));
-                        previewAnimIndex = 0;
-                        const names = gltf.animations.map((a, i) => (a.name || '动作' + (i+1))).join(', ');
-                        if (gltf.animations.length > 1) {
-                            previewLabel.textContent = '按 ← → 切换动画 | 滚轮缩放 | 动画: [' + names + '] | 当前: ' + (gltf.animations[0].name || '动作1');
-                        } else {
-                            previewLabel.textContent = '按 → 播放动画 | 拖拽旋转 | 滚轮缩放 | GLB ' + m.name + ' (' + (gltf.animations[0].name || '含动画') + ')';
-                        }
-                    } else {
-                        previewLabel.textContent = '拖拽鼠标旋转模型 | 滚轮缩放 | 当前: GLB ' + m.name;
-                    }
-                }, undefined, (err) => {
-                    console.warn('预览GLB加载失败:', err.message);
-                    previewLabel.textContent = 'GLB 模型加载失败';
-                });
-                return;
-            }
-
             // 程序化模型分支
             const fn = window.ModelRegistry.getModel(m.cat, m.name);
             if (!fn) return;
 
-            const detectedCamo = m.name.includes('desert') ? 'desert' : 'green';
+            const detectedCamo = m.name.includes('黄色') ? 'desert' : 'green';
             previewModel = fn({ camoColor: detectedCamo });
+            if (m.cat === 'tanks' && window.T34V16Builder && window.T34V16Builder.addTankWheelBolts) {
+                window.T34V16Builder.addTankWheelBolts(previewModel);
+            }
             // 统一按高度(Y)缩放到 1.5 米，底面贴地
             const bbox = new THREE.Box3().setFromObject(previewModel);
             const sz = new THREE.Vector3(); bbox.getSize(sz);
@@ -6757,8 +5348,6 @@
 
         function exitPreviewMode() {
             if (previewAnimId) { cancelAnimationFrame(previewAnimId); previewAnimId = null; }
-            if (previewMixer) { previewMixer.stopAllAction(); previewMixer = null; previewClock = null; }
-            previewAnimActions = []; previewAnimIndex = 0;
             if (previewRenderer && previewRenderer.domElement) {
                 previewRenderer.domElement.removeEventListener('mousedown', onPreviewMouseDown);
                 previewRenderer.domElement.removeEventListener('wheel', onPreviewWheel);
@@ -6812,46 +5401,9 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('🎮 坦克运动demo v0.39.1 | 四元数瞄准+树IM射线+建筑恢复+地形截断+壳体积容差+手柄双轴粘滞+快速开炮');
+        console.log('📦 坦克运动demo v0.41.0 | 模块化重构(audio/input/shells/mg/bars/obstacles)+树木销毁修复+倒车转弯修复+弹种切换音效+弹种持久化');
 
-        // ==================== FBX 模型诊断（仅在 FBXLoader 可用时运行）====================
-        if (typeof THREE.FBXLoader !== 'undefined') {
-            console.log('🔬 开始加载 FBX 模型以检查层级结构...');
-            const fbxLoader = new THREE.FBXLoader();
-            fbxLoader.load('models/fbx/t34-85_textured.fbx', function(fbxGroup) {
-                console.log('✅ FBX 加载成功！层级结构如下：');
-                fbxGroup.name = 'fbx-root';
-                function printHierarchy(obj, depth) {
-                    const indent = '  '.repeat(depth);
-                    const name = obj.name || '[unnamed]';
-                    const type = obj.type || 'unknown';
-                    const pos = obj.position ? `pos=(${obj.position.x.toFixed(2)},${obj.position.y.toFixed(2)},${obj.position.z.toFixed(2)})` : '';
-                    const children = obj.children ? obj.children.length : 0;
-                    const meshInfo = obj.isMesh ? ` geo=${obj.geometry?.type||'?'} verts=${obj.geometry?.attributes?.position?.count||0}` : '';
-                    console.log(`${indent}├─ "${name}" [${type}] ${pos} children=${children}${meshInfo}`);
-                    if (obj.children) {
-                        for (const child of obj.children) {
-                            printHierarchy(child, depth + 1);
-                        }
-                    }
-                }
-                printHierarchy(fbxGroup, 0);
-                const bbox = new THREE.Box3().setFromObject(fbxGroup);
-                const size = new THREE.Vector3(); bbox.getSize(size);
-                console.log(`📦 FBX 包围盒: min=(${bbox.min.x.toFixed(2)},${bbox.min.y.toFixed(2)},${bbox.min.z.toFixed(2)}) max=(${bbox.max.x.toFixed(2)},${bbox.max.y.toFixed(2)},${bbox.max.z.toFixed(2)})`);
-                console.log(`📐 FBX 尺寸: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
-                const meshes = [];
-                fbxGroup.traverse(c => { if (c.isMesh && c.name) meshes.push(c.name); });
-                console.log(`🎯 FBX 命名网格列表 (${meshes.length}个): ${meshes.join(', ')}`);
-                console.log('🔬 FBX 诊断完成，请将以上层级信息贴给我');
-            }, function(progress) {
-                if (progress.total) console.log(`📥 FBX 加载进度: ${Math.round(progress.loaded/progress.total*100)}%`);
-            }, function(err) {
-                console.error('❌ FBX 加载失败:', err);
-            });
-        } else {
-            console.log('⚠️ THREE.FBXLoader 不可用（CDN 可能被 Edge 追踪防护拦截），跳过 FBX 诊断');
-        }
+
     </script>
 </body>
 </html>

@@ -58,9 +58,23 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 核心架构
 
+### 游戏引擎（模块化拆分后）
+
+项目已从单一 `index.html` 拆分为多个独立模块：
+
+| 文件 | 行数 | 功能 |
+|------|:----:|------|
+| `index.html` | ~5064 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机） |
+| `audio.js` | ~223 | 音频系统（引擎声/开火/爆炸/命中/换弹音效） |
+| `input.js` | ~55 | 输入处理（WASD驾驶+手柄+倒车转向修正） |
+| `shells.js` | ~267 | 炮弹系统（发射/爆炸/溅射伤害/HE冲击波） |
+| `mg.js` | ~180 | 机枪系统（自动锁敌/弹道/过热） |
+| `bars.js` | ~75 | UI元素（血条/装填条/HUD） |
+| `obstacles.js` | ~594 | 环境对象（树木/建筑/InstancedMesh管理） |
+
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 6800 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 5064 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat'
@@ -68,12 +82,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 ├── 场景初始化: initScene() — 渲染器/光照/雾/地面/坦克/障碍物
 ├── 天空系统: 已移除（v0.24.5，陡视角不可见，节省性能）
 ├── 地面系统: createGround() — 分段地形 + 地貌纹理
-├── 障碍物系统: createObstacles() — 泊松盘采样 + LOD 可见性
 ├── 物理系统: updatePlayerPhysics() — 差速驱动/碰撞/俯仰
-├── 输入系统: getDriveInput() — WASD驾驶模型 + 手柄左摇杆
 ├── 瞄准系统: updateAiming() — 世界方向→坦克本地四元数逆变换 + 重力补偿 + 地形坡度补偿
 ├── 准星系统: 四阶段判定（障碍物射线→地形高度采样→坦克俯仰校正→shellR体积容差）│ 绿/红
-├── 火炮系统: fireShell() — 炮弹沿barrelPivot世界朝向飞出/曳光弹
 ├── 弹道预测线: updateTrajectoryLine() — 全模式启用/抛物线+地形截断+敌坦截断+障碍物shellR边缘
 ├── 游戏循环: gameLoop() / versusGameLoop()
 ├── 摄像机: 第三人称追尾视角 + 双人分屏 (far=300m)
@@ -152,7 +163,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.39.1 — 瞄准/操控全面修复 + 手柄粘滞切换 + 预测线全模式）
+## 关键参数（v0.41.0 — 模块化重构 + 树木销毁修复 + 倒车转弯修复）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|

@@ -625,8 +625,4 @@
         return group;
     }
 
-    window.ModelRegistry.register('tanks', 't34-85-green',  (opts) =>
-        createT34_85({ ...opts, camoColor: 'green' }));
-    window.ModelRegistry.register('tanks', 't34-85-desert', (opts) =>
-        createT34_85({ ...opts, camoColor: 'desert' }));
 })();

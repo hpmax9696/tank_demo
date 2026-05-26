@@ -1,4 +1,4 @@
-// T-34/85 v1.6 动画坦克构建器
+﻿// T-34/85 v1.6 动画坦克构建器
 // 与 model_factory.html 共用同一套几何体逻辑
 // 额外输出：turretPivot(炮塔旋转) + barrelPivot(炮管俯仰) + 负重轮引用
 (function() {
@@ -16,18 +16,75 @@ const MATERIAL_DEFS = {
   default:     { color:0x888888, roughness:0.6,  metalness:0.2 }
 };
 
-function getMaterial(matId) {
-  const def = MATERIAL_DEFS[matId] || MATERIAL_DEFS.default;
-  return new THREE.MeshStandardMaterial(Object.assign({}, def));
+let _camoJungleTex = null, _camoDesertTex = null;
+
+function generateCamoTexture(type) {
+  if (type === 'jungle' && _camoJungleTex) return _camoJungleTex;
+  if (type === 'desert' && _camoDesertTex) return _camoDesertTex;
+  const size = 512;
+  const cv = document.createElement('canvas');
+  cv.width = size; cv.height = size;
+  const ctx = cv.getContext('2d');
+  var bg, c1, c2, c3;
+  if (type === 'desert') {
+    bg = '#e8d8b0'; c1 = '#d4b88e'; c2 = '#c4a458'; c3 = '#efe0c0';
+  } else {
+    bg = '#9aab70'; c1 = '#8c9e66'; c2 = '#7a8858'; c3 = '#aabb78';
+  }
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size);
+  var count = 40 + Math.floor(Math.random() * 20);
+  for (var i = 0; i < count; i++) {
+    var colors = [c1, c2, c3];
+    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    ctx.globalAlpha = 0.7 + Math.random() * 0.3;
+    ctx.beginPath();
+    var cx = Math.random() * size, cy = Math.random() * size;
+    var rx = 30 + Math.random() * 80, ry = 20 + Math.random() * 60;
+    var angle = Math.random() * Math.PI * 2;
+    ctx.ellipse(cx, cy, rx, ry, angle, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  count = 10 + Math.floor(Math.random() * 10);
+  for (var i = 0; i < count; i++) {
+    if (type === 'desert') {
+      ctx.fillStyle = '#b49658';
+    } else {
+      ctx.fillStyle = '#708048';
+    }
+    ctx.globalAlpha = 0.5 + Math.random() * 0.3;
+    ctx.beginPath();
+    var cx = Math.random() * size, cy = Math.random() * size;
+    var rx = 5 + Math.random() * 25, ry = 3 + Math.random() * 15;
+    ctx.ellipse(cx, cy, rx, ry, Math.random() * Math.PI * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  var tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  if (type === 'jungle') _camoJungleTex = tex;
+  else _camoDesertTex = tex;
+  return tex;
+}
+
+function getMaterial(matId, camoType) {
+  var def = MATERIAL_DEFS[matId] || MATERIAL_DEFS.default;
+  var mat = new THREE.MeshStandardMaterial(Object.assign({}, def));
+  if (camoType && (matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert')) {
+    mat.map = generateCamoTexture(camoType);
+  }
+  return mat;
 }
 
 function buildTaperedBox(bw, h, bd, tw, td, ox, oz) {
   ox = ox || 0; oz = oz || 0;
   const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
-  const verts = [], indices = [];
+  const verts = [], uvs = [], indices = [];
   let vi = 0;
   function quad(a, b, c, d) {
     verts.push(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2], d[0],d[1],d[2]);
+    uvs.push(0,0, 1,0, 1,1, 0,1);
     indices.push(vi, vi+1, vi+2, vi, vi+2, vi+3);
     vi += 4;
   }
@@ -39,6 +96,7 @@ function buildTaperedBox(bw, h, bd, tw, td, ox, oz) {
   quad([hw,0,-hd], [thw+ox,h,-thd+oz], [thw+ox,h,thd+oz], [hw,0,hd]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
@@ -48,15 +106,17 @@ function buildTaperedHex(bw, h, bd, tw, td, ox, oz) {
   ox = ox || 0; oz = oz || 0;
   const hw = bw/2, hd = bd/2, thw = tw/2, thd = td/2;
   const S3 = Math.sqrt(3)/2;
-  const verts = [], indices = [];
+  const verts = [], uvs = [], indices = [];
   let vi = 0;
   function quad(a, b, c, d) {
     verts.push(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2], d[0],d[1],d[2]);
+    uvs.push(0,0, 1,0, 1,1, 0,1);
     indices.push(vi, vi+1, vi+2, vi, vi+2, vi+3);
     vi += 4;
   }
   function hexFan(p0,p1,p2,p3,p4,p5) {
     verts.push(p0[0],p0[1],p0[2],p1[0],p1[1],p1[2],p2[0],p2[1],p2[2],p3[0],p3[1],p3[2],p4[0],p4[1],p4[2],p5[0],p5[1],p5[2]);
+    uvs.push(0.5,0.5, 1,0.5, 1,1, 0.5,1, 0,1, 0,0.5);
     indices.push(vi,vi+1,vi+2, vi,vi+2,vi+3, vi,vi+3,vi+4, vi,vi+4,vi+5);
     vi += 6;
   }
@@ -70,6 +130,7 @@ function buildTaperedHex(bw, h, bd, tw, td, ox, oz) {
   quad([hw/2,0,-hd*S3], [thw/2+ox,h,-thd*S3+oz], [thw+ox,h,0+oz],          [hw,0,0]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
@@ -88,10 +149,11 @@ function buildBentBox(w, h, d, bendAngle, segments) {
     const rh = r - h;
     tY.push(r - rh * c); tZ.push(rh * s);
   }
-  const verts = [], indices = [];
+  const verts = [], uvs = [], indices = [];
   let vi = 0;
   function quad(a, b, c, d) {
     verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+    uvs.push(0,0, 1,0, 1,1, 0,1);
     indices.push(vi, vi+1, vi+2, vi, vi+2, vi+3);
     vi += 4;
   }
@@ -105,6 +167,7 @@ function buildBentBox(w, h, d, bendAngle, segments) {
   quad([hw, bY[n], bZ[n]], [-hw, bY[n], bZ[n]], [-hw, tY[n], tZ[n]], [hw, tY[n], tZ[n]]);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
@@ -178,7 +241,7 @@ function getTrackPlateTransform(dist, tp) {
   return {pos,rot};
 }
 
-function buildTrackChain(node, parentGroup, wheelGroups) {
+function buildTrackChain(node, parentGroup, wheelGroups, isDesert) {
   const tp = node.trackParams;
   const g = new THREE.Group();
   g.name = node.name;
@@ -189,10 +252,29 @@ function buildTrackChain(node, parentGroup, wheelGroups) {
   const cyF = tp.wheelCenterYFront, cyR = tp.wheelCenterYRear;
   const rF = tp.wheelRadiusFront, rR = tp.wheelRadiusRear;
   const zF = tp.wheelCenterZFront, zR = tp.wheelCenterZRear;
-  const lenAB = Math.sqrt((tp.wheelCenterZFront - tp.wheelCenterZRear)**2 + (tp.wheelCenterYFront - tp.wheelCenterYRear)**2);
-  const totalLen = lenAB + (Math.PI*rF + Math.PI*rR) + 3.0;
+  const wheelR = 0.40;
+  const pA = { z: zR - rR * Math.cos(Math.PI/2), y: cyR + rR * Math.sin(Math.PI/2) };
+  const pB = { z: zF - rF * Math.cos(Math.PI/2), y: cyF + rF * Math.sin(Math.PI/2) };
+  const angleC = -120 * Math.PI / 180;
+  const pC = { z: zF - rF * Math.cos(angleC), y: cyF + rF * Math.sin(angleC) };
+  const angleD = -105 * Math.PI / 180;
+  const pD = { z: 1.4 - wheelR * Math.cos(angleD), y: 0.40 + wheelR * Math.sin(angleD) };
+  const angleE = -75 * Math.PI / 180;
+  const pE = { z: -2.55 - wheelR * Math.cos(angleE), y: 0.40 + wheelR * Math.sin(angleE) };
+  const angleF = -75 * Math.PI / 180;
+  const pF = { z: zR - rR * Math.cos(angleF), y: cyR + rR * Math.sin(angleF) };
+  const lenAB = Math.sqrt((pB.z-pA.z)**2 + (pB.y-pA.y)**2);
+  const lenBC = (angleC + 2*Math.PI - Math.PI/2) * rF;
+  const lenCD = Math.sqrt((pD.z-pC.z)**2 + (pD.y-pC.y)**2);
+  const lenDE = Math.abs(pE.z - pD.z);
+  const lenEF = Math.sqrt((pF.z-pE.z)**2 + (pF.y-pE.y)**2);
+  const lenFA = (Math.PI/2 - angleF) * rR;
+  const totalLen = lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
   const spacing = totalLen / (tp.count - 1);
-  const mat = (node.color) ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 }) : getMaterial(node.materialId || 'dark_steel');
+  const camoType = isDesert ? 'desert' : 'jungle';
+  const matId = node.materialId || 'dark_steel';
+  const isCamo = (matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert');
+  const mat = (node.color && !isCamo) ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 }) : getMaterial(matId, camoType);
   for (let i = 0; i < tp.count; i++) {
     const dist = i * spacing;
     const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
@@ -222,7 +304,7 @@ function buildFromConfig(node, parentObj, wheelList, isDesert) {
     return g;
   }
   if (node.type === 'TrackChain') {
-    buildTrackChain(node, parentObj, wheelList);
+    buildTrackChain(node, parentObj, wheelList, isDesert);
     return null;
   }
   const geo = createGeometry(node);
@@ -233,7 +315,10 @@ function buildFromConfig(node, parentObj, wheelList, isDesert) {
     const cx = (box.min.x + box.max.x) / 2, cy = (box.min.y + box.max.y) / 2, cz = (box.min.z + box.max.z) / 2;
     geo.translate(-cx, -cy, -cz);
   }
-  const mat = (node.color) ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 }) : getMaterial(node.materialId || 'default');
+  const camoType = isDesert ? 'desert' : 'jungle';
+  const matId = node.materialId || 'default';
+  const isCamo = (matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert');
+  const mat = (node.color && !isCamo) ? new THREE.MeshStandardMaterial({ color:node.color, roughness:0.65, metalness:0.15 }) : getMaterial(matId, camoType);
   if (node.flatShading) {
     mat.flatShading = true;
   }
@@ -347,7 +432,57 @@ function buildAnimatedT34_85(options) {
   return { group: tankRoot, turretPivot, barrelPivot, leftWheels, rightWheels, mgGroup, barrelTipLocal };
 }
 
-const T34_85_V16_CONFIG = {"name": "T-34/85 v1.6","type": "Group","position": [0,-0.15,0],"rotation": [0,0,0],"scale": [0.5,0.5,0.5],"children": [{"name": "车体","type": "Group","position": [0,0,0],"children": [{"name": "下车体","type": "TaperedBox","size": [2,0.4,4.04,2,6,0,-0.05],"position": [0,0.85,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "上车体","type": "TaperedBox","size": [2.6,0.7,6,1.935,3.465,0,-0.45],"position": [0,1.4,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "发动机舱","type": "Box","size": [1.8,0.12,0.6],"position": [0,1.8,-1.3],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "左前翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [-1.2,1.08,2.7],"materialId": "camo_green","rotation": [0.4887,0,3.1416],"visible": true,"segments": [32]},{"name": "右前翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [1.2,1.08,2.7],"materialId": "camo_green","rotation": [0.4887,0,3.1416],"visible": true,"segments": [32]},{"name": "左侧翼子板","type": "Box","size": [0.3,0.06,4.8],"position": [-1.35,1.23,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "右侧翼子板","type": "Box","size": [0.3,0.06,4.8],"position": [1.35,1.23,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "左外挂油箱","type": "Cylinder","size": [0.18,1.1,0.18],"segments": [12],"position": [-1.25,1.505,-1.5],"materialId": "camo_green","rotation": [1.5708,0,0],"visible": true},{"name": "右外挂油箱","type": "Cylinder","size": [0.18,1.1,0.18],"segments": [12],"position": [1.25,1.505,-1.5],"materialId": "camo_green","rotation": [1.5708,0,0],"visible": true},{"name": "左排气管","type": "Cylinder","size": [0.06,0.35,0.06],"segments": [8],"position": [-0.8,1.5,-2.7],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "右排气管","type": "Cylinder","size": [0.06,0.35,0.06],"segments": [8],"position": [0.8,1.5,-2.7],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "前大灯","type": "Cylinder","size": [0.08,0.1,0.08],"segments": [12],"position": [-1.35,1.34,2.3],"materialId": "steel","rotation": [1.5708,0,0],"visible": true},{"name": "前牵引缆绳","type": "Torus","size": [0.25,0.02],"segments": [8,16],"position": [0,1.15,2.6],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "后散热格栅","type": "Box","size": [1.8,0.12,0.5],"position": [0,1.8,-1.9],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "右后翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [1.2,1.08,-2.9],"materialId": "default","rotation": [-0.4712,0,3.1416],"visible": true,"segments": [32],"color": "#4a5c2e"},{"name": "左后翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [-1.2,1.08,-2.9],"materialId": "default","rotation": [-0.4887,0,3.1416],"visible": true,"segments": [32],"color": "#4a5c2e"}],"rotation": [0,0,0],"visible": true},{"name": "左履带总成","type": "Group","position": [-1.2,0.3,0.5],"children": [{"name": "左负重轮1","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,1.4],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮2","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,0.39],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮3","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-0.74],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮4","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-1.64],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮5","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-2.55],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左主动轮","type": "Cylinder","size": [0.3,0.15,0.3],"segments": [16],"position": [0,0.5,-3.3],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左诱导轮","type": "Cylinder","size": [0.22,0.15,0.22],"segments": [16],"position": [0,0.58,2.1],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左履带链","type": "TrackChain","position": [0,0,0],"materialId": "dark_steel","color": "#2a2a2a","trackParams": {"plateWidth": 0.55,"plateHeight": 0.06,"plateDepth": 0.08,"count": 110,"wheelRadiusFront": 0.22,"wheelRadiusRear": 0.3,"wheelCenterZFront": 2.1,"wheelCenterZRear": -3.3,"wheelCenterYFront": 0.58,"wheelCenterYRear": 0.5,"upperY": 0.8,"showPath": true},"rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "右履带总成","type": "Group","position": [1.2,0.3,0.5],"children": [{"name": "右负重轮1","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,1.4],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮2","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,0.39],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮3","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-0.74],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮4","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-1.64],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮5","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-2.55],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右主动轮","type": "Cylinder","size": [0.3,0.15,0.3],"segments": [16],"position": [0,0.5,-3.3],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右诱导轮","type": "Cylinder","size": [0.22,0.15,0.22],"segments": [16],"position": [0,0.58,2.1],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右履带链","type": "TrackChain","position": [0,0,0],"materialId": "dark_steel","color": "#2a2a2a","trackParams": {"plateWidth": 0.55,"plateHeight": 0.06,"plateDepth": 0.08,"count": 110,"wheelRadiusFront": 0.22,"wheelRadiusRear": 0.3,"wheelCenterZFront": 2.1,"wheelCenterZRear": -3.3,"wheelCenterYFront": 0.58,"wheelCenterYRear": 0.5,"upperY": 0.8,"showPath": true},"rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "炮塔总成","type": "Group","position": [0,-0.15,-0.5],"children": [{"name": "炮塔座圈","type": "Cylinder","size": [0.9,0.08,0.9],"segments": [32],"position": [0,1.94,0.8],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "炮塔主体","type": "TaperedHex","size": [1.85,0.78,2.77,1.45,2.2],"segments": [24],"position": [0,2.37,0.8],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "指挥塔","type": "Cylinder","size": [0.25,0.2,0.25],"segments": [12],"position": [0.4,2.86,0.8],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "装填手舱盖","type": "Box","size": [0.4,0.05,0.5],"position": [-0.2,2.755,0.55],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "炮管总成","type": "Group","position": [0,0,0],"children": [{"name": "炮盾","type": "Sphere","size": [0.22],"segments": [12,8],"position": [0,2.3,2],"scale": [1,0.7,0.6],"materialId": "barrel_steel","rotation": [0,0,0],"visible": true},{"name": "炮管根部","type": "Cylinder","size": [0.11,0.25,0.11],"segments": [12],"position": [0,2.3,2.13],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "主炮管","type": "Cylinder","size": [0.06,3.2,0.06],"segments": [12],"position": [0,2.3,3.85],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "炮口加强段","type": "Cylinder","size": [0.07,0.12,0.07],"segments": [12],"position": [0,2.3,5.51],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "同轴机枪","type": "Cylinder","size": [0.03,0.15,0.03],"segments": [8],"position": [-0.12,2.25,2.05],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "高射机枪","type": "Group","position": [-0.2,2.77,0.9],"rotation": [0,0,0],"children": [{"name": "MG枪座底板","type": "Box","size": [0.18,0.02,0.16],"position": [0,0,0],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪座支柱","type": "Cylinder","size": [0.04,0.25,0.04],"segments": [8],"position": [0,0.1,0],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪身","type": "Box","size": [0.07,0.09,0.18],"position": [0,0.27,0.01],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪管","type": "Cylinder","size": [0.012,0.5,0.012],"segments": [8],"position": [0,0.295,0.28],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "MG枪口制退器","type": "Cylinder","size": [0.022,0.04,0.022],"segments": [8],"position": [0,0.295,0.55],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "MG弹链箱","type": "Box","size": [0.09,0.07,0.13],"position": [-0.07,0.26,-0.01],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "MG准星座","type": "Box","size": [0.03,0.025,0.05],"position": [0,0.305,0.14],"materialId": "steel","rotation": [0,0,0],"visible": true},{"name": "MG盾牌","type": "BentBox","size": [0.2,0.02,0.815,3.141592653589793],"position": [0,0.09,0],"materialId": "default","rotation": [0,-1.5708,1.5708],"visible": true,"segments": [32],"color": "#2c361b"}],"visible": true},{"name": "左扶手","type": "Cylinder","size": [0.02,1.2,0.02],"segments": [8],"position": [-0.75,2.68,0.8],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "右扶手","type": "Cylinder","size": [0.02,1.2,0.02],"segments": [8],"position": [0.75,2.68,0.8],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "左烟雾弹架","type": "Cylinder","size": [0.06,0.4,0.06],"segments": [8],"position": [-0.57,2.6,1.34],"materialId": "dark_steel","rotation": [0.5411,0.15,0.2967],"color": "#4a5c2e","visible": true},{"name": "右烟雾弹架","type": "Cylinder","size": [0.06,0.4,0.06],"segments": [8],"position": [0.57,2.6,1.34],"materialId": "dark_steel","rotation": [0.5411,-0.1571,-0.2967],"color": "#4a5c2e","visible": true},{"name": "天线基座","type": "Cylinder","size": [0.015,1,0.015],"segments": [4],"position": [-0.4,3.23,0.2],"materialId": "dark_steel","rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true}],"visible": true};
+const T34_85_V16_CONFIG = {"name": "T-34/85 v1.6","type": "Group","position": [0,-0.15,0],"rotation": [0,0,0],"scale": [0.5,0.5,0.5],"children": [{"name": "车体","type": "Group","position": [0,0,0],"children": [{"name": "下车体","type": "TaperedBox","size": [2,0.4,4.04,2,6,0,-0.05],"position": [0,0.85,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "上车体","type": "TaperedBox","size": [2.6,0.7,6,1.935,3.465,0,-0.45],"position": [0,1.4,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "发动机舱","type": "Box","size": [1.8,0.12,0.6],"position": [0,1.8,-1.3],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "左前翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [-1.2,1.08,2.7],"materialId": "camo_green","rotation": [0.4887,0,3.1416],"visible": true,"segments": [32]},{"name": "右前翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [1.2,1.08,2.7],"materialId": "camo_green","rotation": [0.4887,0,3.1416],"visible": true,"segments": [32]},{"name": "左侧翼子板","type": "Box","size": [0.3,0.06,4.8],"position": [-1.35,1.23,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "右侧翼子板","type": "Box","size": [0.3,0.06,4.8],"position": [1.35,1.23,-0.1],"materialId": "camo_green","rotation": [0,0,0],"visible": true},{"name": "左外挂油箱","type": "Cylinder","size": [0.18,1.1,0.18],"segments": [12],"position": [-1.25,1.505,-1.5],"materialId": "camo_green","rotation": [1.5708,0,0],"visible": true},{"name": "右外挂油箱","type": "Cylinder","size": [0.18,1.1,0.18],"segments": [12],"position": [1.25,1.505,-1.5],"materialId": "camo_green","rotation": [1.5708,0,0],"visible": true},{"name": "左排气管","type": "Cylinder","size": [0.06,0.35,0.06],"segments": [8],"position": [-0.8,1.5,-2.7],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "右排气管","type": "Cylinder","size": [0.06,0.35,0.06],"segments": [8],"position": [0.8,1.5,-2.7],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "前大灯","type": "Cylinder","size": [0.08,0.1,0.08],"segments": [12],"position": [-1.35,1.34,2.3],"materialId": "steel","rotation": [1.5708,0,0],"visible": true},{"name": "前牵引缆绳","type": "Torus","size": [0.25,0.02],"segments": [8,16],"position": [0,1.15,2.6],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "后散热格栅","type": "Box","size": [1.8,0.12,0.5],"position": [0,1.8,-1.9],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "右后翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [1.2,1.08,-2.9],"materialId": "camo_green","rotation": [-0.4712,0,3.1416],"visible": true,"segments": [32],"color": "#4a5c2e"},{"name": "左后翼子板","type": "BentBox","size": [0.6,0.06,0.96,1.06],"position": [-1.2,1.08,-2.9],"materialId": "camo_green","rotation": [-0.4887,0,3.1416],"visible": true,"segments": [32],"color": "#4a5c2e"}],"rotation": [0,0,0],"visible": true},{"name": "左履带总成","type": "Group","position": [-1.2,0.3,0.5],"children": [{"name": "左负重轮1","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,1.4],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮2","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,0.39],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮3","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-0.74],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮4","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-1.64],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左负重轮5","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-2.55],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左主动轮","type": "Cylinder","size": [0.3,0.15,0.3],"segments": [16],"position": [0,0.5,-3.3],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左诱导轮","type": "Cylinder","size": [0.22,0.15,0.22],"segments": [16],"position": [0,0.58,2.1],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "左履带链","type": "TrackChain","position": [0,0,0],"materialId": "dark_steel","color": "#2a2a2a","trackParams": {"plateWidth": 0.55,"plateHeight": 0.06,"plateDepth": 0.08,"count": 110,"wheelRadiusFront": 0.22,"wheelRadiusRear": 0.3,"wheelCenterZFront": 2.1,"wheelCenterZRear": -3.3,"wheelCenterYFront": 0.58,"wheelCenterYRear": 0.5,"upperY": 0.8,"showPath": true},"rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "右履带总成","type": "Group","position": [1.2,0.3,0.5],"children": [{"name": "右负重轮1","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,1.4],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮2","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,0.39],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮3","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-0.74],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮4","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-1.64],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右负重轮5","type": "Cylinder","size": [0.4,0.12,0.4],"segments": [16],"position": [0,0.4,-2.55],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右主动轮","type": "Cylinder","size": [0.3,0.15,0.3],"segments": [16],"position": [0,0.5,-3.3],"materialId": "dark_steel","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右诱导轮","type": "Cylinder","size": [0.22,0.15,0.22],"segments": [16],"position": [0,0.58,2.1],"materialId": "rubber","color": "#707070","rotation": [0,0,1.5708],"visible": true},{"name": "右履带链","type": "TrackChain","position": [0,0,0],"materialId": "dark_steel","color": "#2a2a2a","trackParams": {"plateWidth": 0.55,"plateHeight": 0.06,"plateDepth": 0.08,"count": 110,"wheelRadiusFront": 0.22,"wheelRadiusRear": 0.3,"wheelCenterZFront": 2.1,"wheelCenterZRear": -3.3,"wheelCenterYFront": 0.58,"wheelCenterYRear": 0.5,"upperY": 0.8,"showPath": true},"rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "炮塔总成","type": "Group","position": [0,-0.15,-0.5],"children": [{"name": "炮塔座圈","type": "Cylinder","size": [0.9,0.08,0.9],"segments": [32],"position": [0,1.94,0.8],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "炮塔主体","type": "TaperedHex","size": [1.85,0.78,2.77,1.45,2.2],"segments": [24],"position": [0,2.37,0.8],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "指挥塔","type": "Cylinder","size": [0.25,0.2,0.25],"segments": [12],"position": [0.4,2.86,0.8],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "装填手舱盖","type": "Box","size": [0.4,0.05,0.5],"position": [-0.2,2.755,0.55],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "炮管总成","type": "Group","position": [0,0,0],"children": [{"name": "炮盾","type": "Sphere","size": [0.22],"segments": [12,8],"position": [0,2.3,2],"scale": [1,0.7,0.6],"materialId": "barrel_steel","rotation": [0,0,0],"visible": true},{"name": "炮管根部","type": "Cylinder","size": [0.11,0.25,0.11],"segments": [12],"position": [0,2.3,2.13],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "主炮管","type": "Cylinder","size": [0.06,3.2,0.06],"segments": [12],"position": [0,2.3,3.85],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "炮口加强段","type": "Cylinder","size": [0.07,0.12,0.07],"segments": [12],"position": [0,2.3,5.51],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "同轴机枪","type": "Cylinder","size": [0.03,0.15,0.03],"segments": [8],"position": [-0.12,2.25,2.05],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true}],"rotation": [0,0,0],"visible": true},{"name": "高射机枪","type": "Group","position": [-0.2,2.77,0.9],"rotation": [0,0,0],"children": [{"name": "MG枪座底板","type": "Box","size": [0.18,0.02,0.16],"position": [0,0,0],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪座支柱","type": "Cylinder","size": [0.04,0.25,0.04],"segments": [8],"position": [0,0.1,0],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪身","type": "Box","size": [0.07,0.09,0.18],"position": [0,0.27,0.01],"materialId": "dark_steel","rotation": [0,0,0],"visible": true},{"name": "MG枪管","type": "Cylinder","size": [0.012,0.5,0.012],"segments": [8],"position": [0,0.295,0.28],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "MG枪口制退器","type": "Cylinder","size": [0.022,0.04,0.022],"segments": [8],"position": [0,0.295,0.55],"materialId": "barrel_steel","rotation": [1.5708,0,0],"visible": true},{"name": "MG弹链箱","type": "Box","size": [0.09,0.07,0.13],"position": [-0.07,0.26,-0.01],"materialId": "camo_dark","rotation": [0,0,0],"visible": true},{"name": "MG准星座","type": "Box","size": [0.03,0.025,0.05],"position": [0,0.305,0.14],"materialId": "steel","rotation": [0,0,0],"visible": true},{"name": "MG盾牌","type": "BentBox","size": [0.2,0.02,0.815,3.141592653589793],"position": [0,0.09,0],"materialId": "camo_dark","rotation": [0,-1.5708,1.5708],"visible": true,"segments": [32],"color": "#2c361b"}],"visible": true},{"name": "左扶手","type": "Cylinder","size": [0.02,1.2,0.02],"segments": [8],"position": [-0.75,2.68,0.8],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "右扶手","type": "Cylinder","size": [0.02,1.2,0.02],"segments": [8],"position": [0.75,2.68,0.8],"materialId": "dark_steel","rotation": [1.5708,0,0],"visible": true},{"name": "左烟雾弹架","type": "Cylinder","size": [0.06,0.4,0.06],"segments": [8],"position": [-0.57,2.6,1.34],"materialId": "dark_steel","rotation": [0.5411,0.15,0.2967],"color": "#4a5c2e","visible": true},{"name": "右烟雾弹架","type": "Cylinder","size": [0.06,0.4,0.06],"segments": [8],"position": [0.57,2.6,1.34],"materialId": "dark_steel","rotation": [0.5411,-0.1571,-0.2967],"color": "#4a5c2e","visible": true},{"name": "天线基座","type": "Cylinder","size": [0.015,1,0.015],"segments": [4],"position": [-0.4,3.23,0.2],"materialId": "dark_steel","rotation": [0,0,0],"visible": true}],"rotation": [0,0,0],"visible": true}],"visible": true};
 
-window.T34V16Builder = { buildAnimatedT34_85, T34_85_V16_CONFIG };
+window.T34V16Builder = { buildAnimatedT34_85, T34_85_V16_CONFIG, generateCamoTexture };
+
+function addTankWheelBolts(tankGroup) {
+  const boltMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.35, metalness: 0.8 });
+  const wheelNames = [
+    '左诱导轮', '右诱导轮',
+    '左负重轮1', '左负重轮2', '左负重轮3', '左负重轮4', '左负重轮5',
+    '右负重轮1', '右负重轮2', '右负重轮3', '右负重轮4', '右负重轮5',
+    '左主动轮', '右主动轮'
+  ];
+  const boltCounts = {
+    '左诱导轮': 5, '右诱导轮': 5,
+    '左主动轮': 7, '右主动轮': 7
+  };
+  tankGroup.traverse(function(obj) {
+    if (!obj.isMesh) return;
+    const name = obj.name;
+    const idx = wheelNames.indexOf(name);
+    if (idx === -1) return;
+    const count = boltCounts[name] || 7;
+    const existing = [];
+    obj.children.forEach(function(c) { if (c.userData && c.userData.isBolt) existing.push(c); });
+    for (var i = 0; i < existing.length; i++) {
+      existing[i].parent.remove(existing[i]);
+      if (existing[i].geometry) existing[i].geometry.dispose();
+    }
+    const geo = obj.geometry;
+    if (!geo || !geo.boundingBox) return;
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    const radius = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) / 2;
+    const thickness = bb.max.y - bb.min.y;
+    const boltR = radius * 0.55;
+    const isLeft = name.indexOf('左') === 0;
+    const boltY = isLeft ? (thickness / 2 + 0.015) : -(thickness / 2 + 0.015);
+    for (var i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const boltGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.035, 6);
+      const bolt = new THREE.Mesh(boltGeo, boltMat);
+      bolt.userData = { isBolt: true };
+      bolt.position.set(Math.cos(angle) * boltR, boltY, Math.sin(angle) * boltR);
+      obj.add(bolt);
+    }
+  });
+}
+window.T34V16Builder.addTankWheelBolts = addTankWheelBolts;
+
+window.ModelRegistry.register('tanks', 'T-34/85 v1.6 绿色', (opts) =>
+    T34V16Builder.buildAnimatedT34_85({ ...opts, camoColor: 'green' }).group);
+window.ModelRegistry.register('tanks', 'T-34/85 v1.6 黄色', (opts) =>
+    T34V16Builder.buildAnimatedT34_85({ ...opts, camoColor: 'desert' }).group);
 })();
