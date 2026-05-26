@@ -1,7 +1,7 @@
 var RECOIL_PITCH = -0.08, RECOIL_DECAY = 5.0;
 var SHELL_SPEED = 33.0, SHELL_GRAVITY = 1.0;
 var RELOAD_TIME = 2.0, SHELL_MAX_DIST = 300.0;
-var FRAG_COUNT = 12, FRAG_LIFE = 3.0, FRAG_SPEED = 6.0;
+var FRAG_COUNT = 8, FRAG_LIFE = 1.5, FRAG_SPEED = 3.0;
 var SHELL_DAMAGE = 20;
 var HE_DAMAGE = 12, HE_SPLASH = 2.0;
 var EXPLOSION_RADIUS = 3.5;
@@ -164,11 +164,11 @@ function spawnFragments(pos, color) {
     });
 
     for (let i = 0; i < FRAG_COUNT; i++) {
-        const size = 0.08 + Math.random() * 0.2;
+        const size = 0.05 + Math.random() * 0.1;
         const geo = new THREE.BoxGeometry(
-            size * (0.5 + Math.random()),
-            size * (0.5 + Math.random()),
-            size * (0.5 + Math.random())
+            size * (0.6 + Math.random() * 0.4),
+            size * (0.6 + Math.random() * 0.4),
+            size * (0.6 + Math.random() * 0.4)
         );
         const mesh = new THREE.Mesh(geo, fragMat);
         mesh.position.copy(pos);
@@ -177,22 +177,22 @@ function spawnFragments(pos, color) {
         scene.add(mesh);
 
         const angle = Math.random() * Math.PI * 2;
-        const upBias = 0.3 + Math.random() * 0.7;
-        const speed = FRAG_SPEED * (0.4 + Math.random() * 0.6);
+        const upBias = 0.2 + Math.random() * 0.4;
+        const speed = FRAG_SPEED * (0.5 + Math.random() * 0.5);
         const vel = new THREE.Vector3(
             Math.cos(angle) * speed * (1 - upBias),
-            speed * upBias * 1.5,
+            speed * upBias * 1.2,
             Math.sin(angle) * speed * (1 - upBias)
         );
 
         fragments.push({
             mesh,
             vel,
-            life: FRAG_LIFE * (0.7 + Math.random() * 0.3),
+            life: FRAG_LIFE * (0.8 + Math.random() * 0.2),
             rotSpeed: new THREE.Vector3(
-                (Math.random() - 0.5) * 10,
-                (Math.random() - 0.5) * 10,
-                (Math.random() - 0.5) * 10
+                (Math.random() - 0.5) * 6,
+                (Math.random() - 0.5) * 6,
+                (Math.random() - 0.5) * 6
             )
         });
     }
@@ -295,7 +295,15 @@ function checkChainExplosion(explosionPos) {
             } else if (od.type && od.type !== 'building') {
                 disposeTreeInstance(od);
             }
-            obstacleData.splice(i, 1);
+            // 找到 od 在 obstacleData 中的真实索引并移除
+            const realIdx = obstacleData.indexOf(od);
+            if (realIdx >= 0) {
+                obstacleData.splice(realIdx, 1);
+            }
+            // 从空间网格中移除
+            if (window._obstacleGrid) {
+                window._obstacleGrid.remove(od);
+            }
         }
     }
 }

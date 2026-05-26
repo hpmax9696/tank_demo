@@ -869,7 +869,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.41.1）
+### 代码规模（截至 v0.42.0）
 - `index.html`：约 5436 行（主游戏引擎，已拆分6个模块）
 - `audio.js`：~223行 | `input.js`：~55行 | `shells.js`：~300行 | `mg.js`：~180行
 - `bars.js`：~75行 | `obstacles.js`：~620行 | `spatialGrid.js`：~99行（新增）

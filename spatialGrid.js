@@ -38,6 +38,18 @@ class SpatialGrid {
         }
     }
 
+    remove(obj) {
+        if (obj.x === undefined || obj.z === undefined) return;
+        const key = this._getKey(obj.x, obj.z);
+        const cell = this.cells.get(key);
+        if (cell) {
+            const idx = cell.indexOf(obj);
+            if (idx >= 0) {
+                cell.splice(idx, 1);
+            }
+        }
+    }
+
     query(x, z, radius = 1) {
         const result = new Set();
         const keys = this._getSurroundingKeys(x, z, radius);

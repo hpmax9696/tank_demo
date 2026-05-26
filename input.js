@@ -32,7 +32,7 @@ function stickToTarget(value) {
     return 0;
 }
 
-function getDriveInput() {
+function getDriveInput(useGamepad = true) {
     let forward = 0, strafe = 0;
 
     if (keys['KeyW']) forward += 1;
@@ -40,14 +40,16 @@ function getDriveInput() {
     if (keys['KeyA']) strafe -= 1;
     if (keys['KeyD']) strafe += 1;
 
-    const gp = getGamepad();
-    if (gp) {
-        const gpFwd = stickToTarget(-gp.axes[1]);
-        const gpStr = stickToTarget(gp.axes[0]);
-        if (Math.abs(gpFwd) > Math.abs(forward)) forward = gpFwd;
-        if (Math.abs(gpStr) > Math.abs(strafe)) strafe = gpStr;
-        if (Math.abs(gp.axes[0]) > 0.05 || Math.abs(gp.axes[1]) > 0.05) {
-            lastGamepadTime = performance.now();
+    if (useGamepad) {
+        const gp = getGamepad();
+        if (gp) {
+            const gpFwd = stickToTarget(-gp.axes[1]);
+            const gpStr = stickToTarget(gp.axes[0]);
+            if (Math.abs(gpFwd) > Math.abs(forward)) forward = gpFwd;
+            if (Math.abs(gpStr) > Math.abs(strafe)) strafe = gpStr;
+            if (Math.abs(gp.axes[0]) > 0.05 || Math.abs(gp.axes[1]) > 0.05) {
+                lastGamepadTime = performance.now();
+            }
         }
     }
 

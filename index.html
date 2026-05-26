@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.41.1</title>
+    <title>坦克运动demo v0.42.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -404,7 +404,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.41.1</div>
+        <div class="menu-version">v0.42.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -419,8 +419,9 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
-            <div class="cl-title">⚡ v0.41.1 碰撞检测空间分区+摧毁状态修复 — spatialGrid.js网格分区(10m单元)+障碍物destroyed标记+已摧毁物体不再参与碰撞</div>
-            <div class="cl-title">📦 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
+            <div class="cl-title">⚡ v0.42.0 双人模式+桥梁修复 — 双人模式光标显示优化+炮口瞄准修复+桥梁位置修复（编辑器桥梁动态对齐河流）+火焰粒子视锥裁剪修复+坦克碰撞体积调整</div>
+            <div class="cl-title">📦 v0.41.1 碰撞检测空间分区+摧毁状态修复 — spatialGrid.js网格分区(10m单元)+障碍物destroyed标记+已摧毁物体不再参与碰撞</div>
+            <div class="cl-title">🔧 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
             <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
             <div class="cl-title">🎮 v0.39.0 操作方式重构 — WASD驾驶+鼠标瞄准+炮塔旋转/炮管俯仰+重力补偿+绿红准星+手柄弹道预测线</div>
             <div class="cl-title">🧹 v0.38.1 模型工厂清理优化 — 删除旧版坦克+一键JSON导出固化+透视相机拉远+固化脚本+TrackChain诊断清理</div>
@@ -1245,7 +1246,7 @@
         let reloadTimer = 0, reloadBarGroup = null, reloadBarFill = null;
         // 通用
         let player1 = null, player2 = null; // 双人模式玩家
-        const TANK_HALF_W = 0.55;
+        const TANK_HALF_W = 1.2;
         const ENEMY_HALF_W = 0.85; // 装甲突击车含履带/铲斗实际半宽
         // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
         const METERS_PER_UNIT = 8 / 1.70;
@@ -1307,7 +1308,7 @@
         function _getBasin() { return _t('basin', null); }
         function _getBridge() {
             if (currentMapData && currentMapData.bridges) return currentMapData.bridges[0];
-            return { cx: 0, halfW: 4, deckH: 0.35 };
+            return null;
         }
         function _getWaterLevel(type) {
             if (currentMapData && currentMapData.waters && currentMapData.waters[type])
@@ -1324,7 +1325,8 @@
             return r.hwBase + r.hwVar * Math.sin(x / r.hwPeriod + r.hwPhase);
         }
         function isOnBridge(x) {
-            const b = _getBridge(); return x >= b.cx - b.halfW && x <= b.cx + b.halfW;
+            const b = _getBridge(); if (!b) return false;
+            return x >= b.cx - b.halfW && x <= b.cx + b.halfW;
         }
         function isOnBridgeSurface(x, z) {
             if (!isOnBridge(x)) return false;
@@ -2203,8 +2205,9 @@
                 // 编辑器桥梁：直接从 bridges 数据渲染
                 editorBridges.forEach(b => {
                     const bCX = b.cx, bHW = b.halfW || 4;
-                    const spanZ = 10;  // 跨越宽度
-                    const bz = 0; // 简化：桥在 z=0 附近
+                    const bz = riverCenterZ(bCX); // 根据河流位置确定桥的 z 坐标
+                    const bhw = riverHalfWidth(bCX);
+                    const spanZ = (bhw + 0.8) * 2;  // 跨越宽度
                     const matDeck = new THREE.MeshStandardMaterial({ color: '#8B7355', roughness: 0.7, metalness: 0.1 });
                     const matRail = new THREE.MeshStandardMaterial({ color: '#6B5340', roughness: 0.6, metalness: 0.2 });
                     const deck = new THREE.Mesh(new THREE.BoxGeometry(bHW * 2, BRIDGE_DECK_H, spanZ), matDeck);
@@ -2843,7 +2846,7 @@
             }
             const limitedV = v * slopeFactor;
             let newX = tankState.x + forwardX * limitedV * dt;
-            let newZ = tankState.z + forwardZ * v * dt;
+            let newZ = tankState.z + forwardZ * limitedV * dt;
 
             for (let iter = 0; iter < 3; iter++) {
                 const result = checkCollision(newX, newZ);
@@ -2873,8 +2876,10 @@
             // 桥梁护栏碰撞（桥面上防止坦克侧向坠河）
             if (isOnBridgeSurface(newX, newZ)) {
                 const b = _getBridge();
-                const railLimit = b.halfW - 0.25;
-                newX = Math.max(-railLimit + TANK_HALF_W, Math.min(railLimit - TANK_HALF_W, newX));
+                if (b) {
+                    const railLimit = b.halfW - 0.25;
+                    newX = Math.max(-railLimit + TANK_HALF_W, Math.min(railLimit - TANK_HALF_W, newX));
+                }
             }
             tankState.x = newX;
             tankState.z = newZ;
@@ -3052,7 +3057,15 @@
                         } else if (od.type && od.type !== 'building') {
                             disposeTreeInstance(od);
                         }
-                        obstacleData.splice(j, 1);
+                        // 找到 od 在 obstacleData 中的真实索引并移除
+                        const realIdx = obstacleData.indexOf(od);
+                        if (realIdx >= 0) {
+                            obstacleData.splice(realIdx, 1);
+                        }
+                        // 从空间网格中移除
+                        if (window._obstacleGrid) {
+                            window._obstacleGrid.remove(od);
+                        }
                         hit = true; break;
                     }
                 }
@@ -3064,7 +3077,7 @@
                         const edx = s.mesh.position.x - enemy.state.x;
                         const edz = s.mesh.position.z - enemy.state.z;
                         const eDist = Math.sqrt(edx*edx + edz*edz);
-                        if (eDist < TANK_HALF_W + 0.2 && s.mesh.position.y < 1.0) {
+                        if (eDist < TANK_HALF_W + 0.2 && s.mesh.position.y < 1.8) {
                             enemy.hp -= SHELL_DAMAGE;
                             if (enemy.hp < 0) enemy.hp = 0;
                             hit = true;
@@ -3176,7 +3189,15 @@
                             } else if (od.type) {
                                 disposeTreeInstance(od);
                             }
-                            obstacleData.splice(j, 1);
+                            // 找到 od 在 obstacleData 中的真实索引并移除
+                            const realIdx = obstacleData.indexOf(od);
+                            if (realIdx >= 0) {
+                                obstacleData.splice(realIdx, 1);
+                            }
+                            // 从空间网格中移除
+                            if (window._obstacleGrid) {
+                                window._obstacleGrid.remove(od);
+                            }
                         }
                     }
                     if (gameMode === 'combat') {
@@ -3389,10 +3410,9 @@
             if (player1 && player1.damageEffects) {
                 if (!player1.dead && player1.hp < 50) {
                     if (!player1.damageEffects.active) player1.damageEffects.show();
-                    // 传入包含 y 坐标的位置对象
                     player1.damageEffects.update(dt, { x: player1.state.x, y: getGroundHeight(player1.state.x, player1.state.z), z: player1.state.z });
-                } else {
-                    if (player1.damageEffects.active) player1.damageEffects.hide();
+                } else if (player1.damageEffects.active) {
+                    player1.damageEffects.hide();
                 }
             }
 
@@ -3917,7 +3937,7 @@
         function getInputForPlayer(pNum) {
             let l=0,r=0;
             if (pNum===1) {
-                const di = getDriveInput();
+                const di = getDriveInput(false);
                 return {left:di.left, right:di.right};
             } else {
                 const gp=getGamepad();
@@ -3957,10 +3977,24 @@
                     p.barrelElevation = Math.max(maxUp, Math.min(maxDown, newElev));
                 }
             } else if (groundMesh && gameMode === 'versus') {
+                // 只在鼠标在1P区域时更新P1的瞄准
+                const halfCssW = Math.floor(window.innerWidth / 2);
+                const isMouseInP1Area = mouseX < halfCssW;
+                if (!isMouseInP1Area) {
+                    p.barrelElevation = Math.max(maxUp, Math.min(maxDown, p.barrelElevation));
+                    return;
+                }
+                
                 const barrelPos = getBarrelWorldPos(p);
-                const screenCenter = new THREE.Vector2(0, 0);
                 const cam = camera;
-                aimRaycaster.setFromCamera(screenCenter, cam);
+                // 使用1P分屏区域的尺寸计算NDC坐标
+                const p1MouseX = mouseX;
+                const p1MouseY = mouseY;
+                const mouseNDC = new THREE.Vector2(
+                    (p1MouseX / halfCssW) * 2 - 1,
+                    -(p1MouseY / window.innerHeight) * 2 + 1
+                );
+                aimRaycaster.setFromCamera(mouseNDC, cam);
                 const groundHits = aimRaycaster.intersectObject(groundMesh);
                 const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
 
@@ -4039,9 +4073,11 @@
                     const rzc=riverCenterZ(p.state.x),rhw=riverHalfWidth(p.state.x)+TANK_HALF_W+0.3;
                     p.state.z=(p.state.z<rzc)?rzc-rhw:rzc+rhw;
                 }
-                if(isOnBridgeSurface(p.state.x,p.state.z)){
-                    const b=_getBridge();const railLimit=b.halfW-0.25;
-                    p.state.x=Math.max(-railLimit+TANK_HALF_W,Math.min(railLimit-TANK_HALF_W,p.state.x));
+                if(!isVersusMap && isOnBridgeSurface(p.state.x,p.state.z)){
+                    const b=_getBridge();if(b){
+                        const railLimit=b.halfW-0.25;
+                        p.state.x=Math.max(-railLimit+TANK_HALF_W,Math.min(railLimit-TANK_HALF_W,p.state.x));
+                    }
                 }
             }
             const acc=(v-p.prevForwardSpeed)/Math.max(dt,.001);
@@ -4169,8 +4205,10 @@
             menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
             splitLine.style.display='block';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
-            crosshairEl.style.display = 'none';
-            document.body.style.cursor = '';
+            crosshairEl.style.display = 'block';
+            crosshairEl.style.left = mouseX + 'px';
+            crosshairEl.style.top = mouseY + 'px';
+            document.body.style.cursor = 'none';
             hintBar.textContent='1P WASD+鼠标/左键  |  2P 手柄 左摇杆/右摇杆瞄准/RT  |  相距远时显示指向箭头';
             renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -4178,12 +4216,12 @@
             if(player1&&player1.group)scene.remove(player1.group);
             if(player1&&player1.reloadBarGroup)scene.remove(player1.reloadBarGroup);
             if(player1&&player1.hpBarGroup)scene.remove(player1.hpBarGroup);
-            if(player1&&player1.damageEffects){scene.remove(player1.damageEffects.firePoints);scene.remove(player1.damageEffects.smokePoints);}
+            if(player1&&player1.damageEffects){player1.damageEffects.hide();scene.remove(player1.damageEffects.firePoints);scene.remove(player1.damageEffects.smokePoints);}
             // 移除旧 player2（来自上次对战的残留）
             if(player2&&player2.group)scene.remove(player2.group);
             if(player2&&player2.reloadBarGroup)scene.remove(player2.reloadBarGroup);
             if(player2&&player2.hpBarGroup)scene.remove(player2.hpBarGroup);
-            if(player2&&player2.damageEffects){scene.remove(player2.damageEffects.firePoints);scene.remove(player2.damageEffects.smokePoints);}
+            if(player2&&player2.damageEffects){player2.damageEffects.hide();scene.remove(player2.damageEffects.firePoints);scene.remove(player2.damageEffects.smokePoints);}
             shells.forEach(s=>{scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight)scene.remove(s.tracerLight);if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}});shells=[];
             fragments.forEach(f=>{scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();});fragments=[];
             muzzleLights.forEach(ml=>{scene.remove(ml.light);if(ml.light.geometry)ml.light.geometry.dispose();if(ml.light.material)ml.light.material.dispose();});muzzleLights=[];
@@ -4648,6 +4686,52 @@
             const gp=getGamepad();const p2fire=gp&&gp.buttons[7]&&gp.buttons[7].value>.3;
             if(p2fire&&player2.fireReady){fireShell(player2);player2.fireReady=false;}
             if(!p2fire)player2.fireReady=true;
+            
+            // 更新 P1 十字光标（只在左半屏显示）
+            const halfCssW = Math.floor(cssW / 2), rightCssW = cssW - halfCssW;
+            const halfW = Math.floor(fbW / 2), rightW = fbW - halfW;
+            const isMouseInP1Area = mouseX < halfCssW;
+            crosshairEl.style.left = mouseX + 'px';
+            crosshairEl.style.top = mouseY + 'px';
+            crosshairEl.style.display = isMouseInP1Area ? 'block' : 'none';
+            document.body.style.cursor = isMouseInP1Area ? 'none' : 'default';
+            
+            // 计算 P1 瞄准有效性
+            let p1AimValid = false;
+            if (player1 && !player1.dead && groundMesh && isMouseInP1Area) {
+                const barrelPos = getBarrelWorldPos(player1);
+                // 将鼠标坐标转换为相对于1P分屏区域的坐标
+                const p1MouseX = mouseX; // 1P分屏从左边缘开始
+                const p1MouseY = mouseY;
+                // 使用1P分屏的尺寸计算NDC坐标
+                const mouseNDC = new THREE.Vector2(
+                    (p1MouseX / halfCssW) * 2 - 1,
+                    -(p1MouseY / cssH) * 2 + 1
+                );
+                aimRaycaster.setFromCamera(mouseNDC, camera);
+                const groundHits = aimRaycaster.intersectObject(groundMesh);
+                const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
+                
+                let targetAim = null;
+                if (groundHits.length > 0) targetAim = groundHits[0].point.clone();
+                if (obsHits.length > 0 && (!targetAim || obsHits[0].distance < targetAim.distanceTo(camera.position))) {
+                    targetAim = obsHits[0].point.clone();
+                }
+                
+                if (targetAim) {
+                    const diff = targetAim.clone().sub(barrelPos);
+                    const dist = diff.length();
+                    if (dist <= 150) {
+                        const obsDir = diff.clone().normalize();
+                        const obsRc = new THREE.Raycaster();
+                        obsRc.set(barrelPos, obsDir);
+                        const obsInt = obsRc.intersectObjects(obstacleMeshes, true);
+                        const blockers = obsInt.filter(h => h.distance < dist - 1.5);
+                        if (blockers.length === 0) p1AimValid = true;
+                    }
+                }
+            }
+            crosshairEl.style.color = p1AimValid ? '#00ff00' : '#ff3333';
             updateTrajectoryLine(player2);
             updateShellsFragsMuzzle(dt);
             if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);updateGrassVisibility([player2.state]);visibilityTimer=0;}
@@ -4663,10 +4747,9 @@
                 if (p && p.damageEffects) {
                     if (!p.dead && p.hp < 50) {
                         if (!p.damageEffects.active) p.damageEffects.show();
-                        // 传入包含 y 坐标的位置对象
                         p.damageEffects.update(dt, { x: p.state.x, y: getGroundHeight(p.state.x, p.state.z), z: p.state.z });
-                    } else {
-                        if (p.damageEffects.active) p.damageEffects.hide();
+                    } else if (p.damageEffects.active) {
+                        p.damageEffects.hide();
                     }
                 }
             }
@@ -4694,8 +4777,6 @@
                     gd.mesh.material.opacity = gd.life / gd.maxLife; }
             }
             // 分屏尺寸
-            const halfCssW = Math.floor(cssW / 2), rightCssW = cssW - halfCssW;
-            const halfW = Math.floor(fbW / 2), rightW = fbW - halfW;
             splitLine.style.left = halfCssW + 'px';
             // ⚡ v0.25.4: 阴影相机跟随两玩家中点（双人模式），按距离动态扩展覆盖范围
             if (sunLight && sunLight.castShadow && shadowEnabled) {
@@ -4777,10 +4858,19 @@
                             obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
                             const mIdx=obstacleMeshes.indexOf(obs);if(mIdx>=0)obstacleMeshes.splice(mIdx,1);}
                         else if(od.type&&od.type!=='building'){disposeTreeInstance(od);}
-                        obstacleData.splice(j,1);hit=true;break;}}
+                        // 找到 od 在 obstacleData 中的真实索引并移除
+                        const realIdx = obstacleData.indexOf(od);
+                        if (realIdx >= 0) {
+                            obstacleData.splice(realIdx, 1);
+                        }
+                        // 从空间网格中移除
+                        if (window._obstacleGrid) {
+                            window._obstacleGrid.remove(od);
+                        }
+                        hit=true;break;}}
                 if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
                     if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
-                        if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
+                        if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.8){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
                             if(en.hp<=0){en.dead=true;const ep=en.group.position.clone();ep.y+=.5;
                                 spawnFragments(ep,en.camoColor==='desert'?'#8b7d4a':'#4a5c2e');playExplosionSound();en.group.visible=false;
                                 if(en.damageEffects)en.damageEffects.hide();
@@ -5110,7 +5200,7 @@
             }
 
             el.textContent =
-                'v0.41.1  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.42.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5433,7 +5523,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.41.1 | 碰撞检测空间分区(spatialGrid)+已摧毁障碍物标记+碰撞检测跳过已摧毁物体');
+        console.log('⚡ 坦克运动demo v0.42.0 | 双人模式+桥梁修复+火焰粒子+坦克碰撞体积');
 
 
     </script>

@@ -108,7 +108,7 @@ function updateObstacleVisibility(extraPositions) {
     }
 }
 
-function disposeTreeInstance(od) {
+function disposeTreeInstance(od, isOcclusion = false) {
     if (!od.type || od.type === 'building' || od.imIndex == null) return;
     const imTrunk = od.imTrunk, imCrown = od.imCrown, idx = od.imIndex;
     const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
@@ -117,7 +117,11 @@ function disposeTreeInstance(od) {
     if (imCrown) imCrown.setMatrixAt(idx, hideMat);
     if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
     if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
-    od.destroyed = true;
+    if (!isOcclusion) {
+        od.destroyed = true;
+    } else {
+        od.occluded = true;
+    }
 }
 
 function updateGrassVisibility(extraPositions) {
@@ -556,6 +560,12 @@ function handleObstacleOcclusion() {
         hti.imCrown.setMatrixAt(hti.index, hti.matrixCrown);
         hti.imTrunk.instanceMatrix.needsUpdate = true;
         hti.imCrown.instanceMatrix.needsUpdate = true;
+        for (const od of obstacleData) {
+            if (od.imTrunk === hti.imTrunk && od.imIndex === hti.index) {
+                od.occluded = false;
+                break;
+            }
+        }
     }
     hiddenTreeInstances = [];
 
@@ -668,7 +678,7 @@ function handleObstacleOcclusion() {
                     matrixTrunk: mT.clone(),
                     matrixCrown: mC.clone()
                 });
-                disposeTreeInstance(od);
+                disposeTreeInstance(od, true);
                 const ghost = createTransparentTreeGhost(od);
                 if (ghost) transparentTreeGroups.push(ghost);
             }

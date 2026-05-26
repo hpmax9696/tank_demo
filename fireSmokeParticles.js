@@ -48,6 +48,7 @@
             });
             this.firePoints = new THREE.Points(this.fireGeo, this.fireMat);
             this.firePoints.visible = false;
+            this.firePoints.frustumCulled = false;
 
             // --- 烟雾粒子 ---
             this.smokePositions = new Float32Array(SMOKE_COUNT * 3);
@@ -74,6 +75,7 @@
             });
             this.smokePoints = new THREE.Points(this.smokeGeo, this.smokeMat);
             this.smokePoints.visible = false;
+            this.smokePoints.frustumCulled = false;
 
             // 粒子数据
             this.fireData = [];
