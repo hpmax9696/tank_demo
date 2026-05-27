@@ -488,6 +488,29 @@
         <div class="info-row"><span>地形精度</span><span id="info-segments">256×256</span></div>
         <div class="info-row"><span>最低高度</span><span id="info-minh">0.00</span></div>
         <div class="info-row"><span>最高高度</span><span id="info-maxh">0.00</span></div>
+        <div class="cfg-row" style="margin-top:6px;border-top:1px solid #3a3a55;padding-top:4px;">
+            <label>世界宽度</label>
+            <input type="range" id="dim-worldW" min="200" max="800" step="50" value="300" style="width:60px;">
+            <input type="number" id="dim-worldW-num" min="200" max="800" step="50" value="300" style="width:50px;">
+        </div>
+        <div class="cfg-row">
+            <label>世界深度</label>
+            <input type="range" id="dim-worldD" min="200" max="800" step="50" value="300" style="width:60px;">
+            <input type="number" id="dim-worldD-num" min="200" max="800" step="50" value="300" style="width:50px;">
+        </div>
+        <div class="cfg-row">
+            <label>游玩宽度</label>
+            <input type="range" id="dim-playW" min="100" max="500" step="50" value="200" style="width:60px;">
+            <input type="number" id="dim-playW-num" min="100" max="500" step="50" value="200" style="width:50px;">
+        </div>
+        <div class="cfg-row">
+            <label>游玩深度</label>
+            <input type="range" id="dim-playD" min="100" max="500" step="50" value="200" style="width:60px;">
+            <input type="number" id="dim-playD-num" min="100" max="500" step="50" value="200" style="width:50px;">
+        </div>
+        <div class="cfg-row">
+            <button id="btn-apply-dims" style="width:100%;background:#4a4a65;color:#ccc;border:1px solid #5a5a75;border-radius:3px;cursor:pointer;">应用尺寸</button>
+        </div>
     </div>
     <div class="section">
         <div class="section-title">📍 实体列表 <span style="font-size:10px;color:#888;">(Ctrl多选 Shift连选)</span></div>
@@ -628,13 +651,103 @@
 
 console.log('🗺️ 地图编辑器 v0.33.1 — 引道地形修整 + 水平桥面 + 分段水面剖面');
 
-// ----- 常量 -----
-const WORLD_SIZE = 300;          // 地图世界尺寸（含外围缓冲区）
-const WORLD_HALF = WORLD_SIZE / 2; // 150
-const PLAY_SIZE = 200;           // 空气墙/可游玩区域
-const PLAY_HALF = PLAY_SIZE / 2;  // 100
+// ----- 常量（矩形尺寸，可动态更新） -----
+let worldWidth = 300;          // 地图世界宽度 X（含外围缓冲区）
+let worldDepth = 300;          // 地图世界深度 Z
+let worldHalfW = worldWidth / 2;  // 150
+let worldHalfD = worldDepth / 2;  // 150
+let playWidth = 200;           // 空气墙/可游玩宽度 X
+let playDepth = 200;           // 空气墙/可游玩深度 Z
+let playHalfW = playWidth / 2;   // 100
+let playHalfD = playDepth / 2;   // 100
 const HM_RES = 256;             // 高度图分辨率
 const TEX_RES = 2048;           // 地面纹理分辨率（预览用）
+
+// ----- 向后兼容的动态常量（矩形尺寸的实际范围由 X/Z 独立控制）-----
+// WORLD_SIZE = max(worldWidth, worldDepth) 用于随机生成的范围计算
+// w2i 和 FBM 坐标映射使用各自的 worldHalfW/worldHalfD
+let WORLD_SIZE = 300, WORLD_HALF = 150, PLAY_HALF = 100;
+// 高度图X/Z方向独立网格步长（矩形地图必需）
+let hmStepW = worldWidth / (HM_RES - 1);
+let hmStepD = worldDepth / (HM_RES - 1);
+
+// ----- 尺寸同步函数：从 mapData 更新全局尺寸变量 -----
+function applyMapDimensions() {
+    const mw = mapData.worldWidth || 300;
+    const md = mapData.worldDepth || 300;
+    const pw = mapData.playWidth || 200;
+    const pd = mapData.playDepth || 200;
+    // 约束：可游玩 ≤ 世界
+    worldWidth = Math.max(mw, pw);
+    worldDepth = Math.max(md, pd);
+    playWidth = Math.min(pw, worldWidth);
+    playDepth = Math.min(pd, worldDepth);
+    worldHalfW = worldWidth / 2;
+    worldHalfD = worldDepth / 2;
+    playHalfW = playWidth / 2;
+    playHalfD = playDepth / 2;
+    // 更新向后兼容常量：使用最大范围确保全覆盖
+    WORLD_SIZE = Math.max(worldWidth, worldDepth);
+    WORLD_HALF = WORLD_SIZE / 2;
+    PLAY_HALF = Math.min(playWidth, playDepth) / 2;
+    // 高度图网格步长同步（X/Z独立，适配矩形地图）
+    hmStepW = worldWidth / (HM_RES - 1);
+    hmStepD = worldDepth / (HM_RES - 1);
+    // 更新UI显示
+    const infoSize = document.getElementById('info-size');
+    if (infoSize) infoSize.textContent = worldWidth + '×' + worldDepth + ' (游玩' + playWidth + '×' + playDepth + ')';
+    // 同步滑块值
+    ['worldW','worldD','playW','playD'].forEach(k => {
+        const sl = document.getElementById('dim-' + k);
+        const num = document.getElementById('dim-' + k + '-num');
+        const val = k === 'worldW' ? worldWidth : k === 'worldD' ? worldDepth : k === 'playW' ? playWidth : playDepth;
+        if (sl) sl.value = val;
+        if (num) num.value = val;
+    });
+    // 摄像机 far 截面跟随地图尺寸动态调整，避免大地图时地面被裁剪成黑屏
+    const _maxDim = Math.max(worldWidth, worldDepth);
+    camera.far = Math.max(800, _maxDim * 3);
+    camera.updateProjectionMatrix();
+    // 阴影相机范围同步扩展
+    if (typeof sunLight !== 'undefined' && sunLight && sunLight.shadow && sunLight.shadow.camera) {
+        sunLight.shadow.camera.far = Math.max(300, _maxDim * 1.5);
+        const _shBound = Math.max(80, _maxDim * 0.6);
+        sunLight.shadow.camera.left = -_shBound;
+        sunLight.shadow.camera.right = _shBound;
+        sunLight.shadow.camera.top = _shBound;
+        sunLight.shadow.camera.bottom = -_shBound;
+        sunLight.shadow.camera.updateProjectionMatrix();
+    }
+}
+// 尺寸滑块/输入框双向绑定
+function bindDimSlider(sliderId, numId, mapDataKey) {
+    const sl = document.getElementById(sliderId), num = document.getElementById(numId);
+    if (!sl || !num) return;
+    sl.addEventListener('input', () => { num.value = sl.value; });
+    num.addEventListener('change', () => { sl.value = num.value; });
+}
+['worldW','worldD','playW','playD'].forEach(k => {
+    bindDimSlider('dim-' + k, 'dim-' + k + '-num', k);
+});
+// 应用尺寸按钮
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btn-apply-dims');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const nww = parseInt(document.getElementById('dim-worldW').value) || 300;
+        const nwd = parseInt(document.getElementById('dim-worldD').value) || 300;
+        const npw = parseInt(document.getElementById('dim-playW').value) || 200;
+        const npd = parseInt(document.getElementById('dim-playD').value) || 200;
+        if (npw > nww || npd > nwd) { alert('游玩区域不能大于世界尺寸！'); return; }
+        mapData.worldWidth = nww;
+        mapData.worldDepth = nwd;
+        mapData.playWidth = npw;
+        mapData.playDepth = npd;
+        applyMapDimensions();
+        createGround(); createGrid();
+        overlayInfo.textContent = '📐 地图尺寸已更新：' + worldWidth + '×' + worldDepth + ' (游玩' + playWidth + '×' + playDepth + ')，建议重新随机生成地形';
+    });
+});
 
 // ----- DOM 引用 -----
 const viewport3D = document.getElementById('viewport-3d');
@@ -677,6 +790,8 @@ function defaultEnemyCfg(etype) {
 // ----- 地图数据模型 -----
 const mapData = {
     name: '未命名',
+    worldWidth: 300, worldDepth: 300,
+    playWidth: 200, playDepth: 200,
     heightmap: new Float32Array(HM_RES * HM_RES),
     splatMap: new Uint8Array(HM_RES * HM_RES),
     entities: [],
@@ -1120,19 +1235,18 @@ function addBridge(from, to) {
     const hFrom = smpHeight(from.x, from.z);
     const hTo = smpHeight(to.x, to.z);
     const deckY = Math.min(hFrom, hTo) + 0.3;
-    const step = WORLD_SIZE / (HM_RES - 1);
     const carveRadius = 5; // 引道长度（米）
 
     function carveApproach(anchor, dir) {
         const endPt = { x: anchor.x + dir * ux * carveRadius, z: anchor.z + dir * uz * carveRadius };
-        const minSx = Math.max(0, Math.floor((Math.min(anchor.x, endPt.x) - step + WORLD_HALF) / step));
-        const maxSx = Math.min(HM_RES - 1, Math.ceil((Math.max(anchor.x, endPt.x) + step + WORLD_HALF) / step));
-        const minSy = Math.max(0, Math.floor((Math.min(anchor.z, endPt.z) - step + WORLD_HALF) / step));
-        const maxSy = Math.min(HM_RES - 1, Math.ceil((Math.max(anchor.z, endPt.z) + step + WORLD_HALF) / step));
+        const minSx = Math.max(0, Math.floor((Math.min(anchor.x, endPt.x) - hmStepW + worldHalfW) / hmStepW));
+        const maxSx = Math.min(HM_RES - 1, Math.ceil((Math.max(anchor.x, endPt.x) + hmStepW + worldHalfW) / hmStepW));
+        const minSy = Math.max(0, Math.floor((Math.min(anchor.z, endPt.z) - hmStepD + worldHalfD) / hmStepD));
+        const maxSy = Math.min(HM_RES - 1, Math.ceil((Math.max(anchor.z, endPt.z) + hmStepD + worldHalfD) / hmStepD));
         for (let sy = minSy; sy <= maxSy; sy++) {
             for (let sx = minSx; sx <= maxSx; sx++) {
-                const wx = (sx + 0.5) * step - WORLD_HALF;
-                const wz = (sy + 0.5) * step - WORLD_HALF;
+                const wx = (sx + 0.5) * hmStepW - worldHalfW;
+                const wz = (sy + 0.5) * hmStepD - worldHalfD;
                 // 到桥端点的距离
                 const dist = Math.hypot(wx - anchor.x, wz - anchor.z);
                 // 只修改沿引道方向 ±3m 宽度内的单元格
@@ -1633,7 +1747,7 @@ function updateTerrainStats(){
     for(let i=0;i<6;i++)document.getElementById('pct-'+TNAMES[i]).textContent=(cnt[i]/total*100).toFixed(1)+'%';
 }
 
-function w2i(wx,wz){const u=(wx+WORLD_HALF)/WORLD_SIZE,v=(wz+WORLD_HALF)/WORLD_SIZE;if(u<0||u>1||v<0||v>1)return-1;const sx=Math.round(u*(HM_RES-1)),sy=Math.round(v*(HM_RES-1));return sy*HM_RES+sx;}
+function w2i(wx,wz){const u=(wx+worldHalfW)/worldWidth,v=(wz+worldHalfD)/worldDepth;if(u<0||u>1||v<0||v>1)return-1;const sx=Math.round(u*(HM_RES-1)),sy=Math.round(v*(HM_RES-1));return sy*HM_RES+sx;}
 function smpHeight(wx,wz){const i=w2i(wx,wz);return i>=0?mapData.heightmap[i]:0;}
 
 // ----- Three.js 初始化 -----
@@ -1678,7 +1792,7 @@ function createGround() {
     if (groundPlane) { scene.remove(groundPlane); groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
     if (groundWireframe) { scene.remove(groundWireframe); groundWireframe.geometry.dispose(); groundWireframe.material.dispose(); }
 
-    const geo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, HM_RES - 1, HM_RES - 1);
+    const geo = new THREE.PlaneGeometry(worldWidth, worldDepth, HM_RES - 1, HM_RES - 1);
     geo.rotateX(-Math.PI / 2);
     updGeoHeights(geo);
 
@@ -1741,23 +1855,23 @@ function createWaterLayer() {
         
         // ========== 网格单元法构建水面（支持每单元格独立高度） ==========
         // 河流用路径距离判断，湖泊用圆心距离判断，统一从高度图网格构建四边形
-        const step = WORLD_SIZE / (HM_RES - 1);  // 网格精度 ~1.18m
+        // 使用独立于 WORLD_SIZE 的 hmStepW/hmStepD，适配矩形地图
         let cellSet = null;
         let debugLabel = '';
 
         if (w.type === 'pond' && w.center && w.radius) {
             // 湖泊：水面低于湖岸（已在创建时调整 waterLevel），精确匹配雕刻半径
             const r2 = w.radius * w.radius;
-            const minSx = Math.max(0, Math.floor((w.center.x - w.radius - step + WORLD_HALF) / step));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((w.center.x + w.radius + step + WORLD_HALF) / step));
-            const minSy = Math.max(0, Math.floor((w.center.z - w.radius - step + WORLD_HALF) / step));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((w.center.z + w.radius + step + WORLD_HALF) / step));
+            const minSx = Math.max(0, Math.floor((w.center.x - w.radius - hmStepW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(HM_RES - 1, Math.ceil((w.center.x + w.radius + hmStepW + worldHalfW) / hmStepW));
+            const minSy = Math.max(0, Math.floor((w.center.z - w.radius - hmStepD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(HM_RES - 1, Math.ceil((w.center.z + w.radius + hmStepD + worldHalfD) / hmStepD));
 
             cellSet = new Map();
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * step - WORLD_HALF;
-                    const cz = (sy + 0.5) * step - WORLD_HALF;
+                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
                     const dx = cx - w.center.x, dz = cz - w.center.z;
                     if (dx * dx + dz * dz <= r2) {
                         cellSet.set(sx + ',' + sy, waterLevel);
@@ -1778,17 +1892,18 @@ function createWaterLayer() {
                 if (p.x < minWx) minWx = p.x; if (p.x > maxWx) maxWx = p.x;
                 if (p.z < minWz) minWz = p.z; if (p.z > maxWz) maxWz = p.z;
             }
-            const pad = hw + step;
-            const minSx = Math.max(0, Math.floor((minWx - pad + WORLD_HALF) / step));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + pad + WORLD_HALF) / step));
-            const minSy = Math.max(0, Math.floor((minWz - pad + WORLD_HALF) / step));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + pad + WORLD_HALF) / step));
+            const padW = hw + hmStepW;
+            const padD = hw + hmStepD;
+            const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
+            const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
 
             cellSet = new Map();  // key → perCellSurfaceLevel
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * step - WORLD_HALF;
-                    const cz = (sy + 0.5) * step - WORLD_HALF;
+                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
                     let minDist = Infinity, ns = -1;
                     for (let i = 0; i < smoothPts.length - 1; i++) {
                         const d = pointToSegmentDist(cx, cz, smoothPts[i].x, smoothPts[i].z, smoothPts[i+1].x, smoothPts[i+1].z);
@@ -1820,14 +1935,14 @@ function createWaterLayer() {
             cellArr.sort((a, b) => a.sy - b.sy || a.sx - b.sx);
 
             for (const cell of cellArr) {
-                const wx = cell.sx * step - WORLD_HALF;
-                const wz = cell.sy * step - WORLD_HALF;
+                const wx = cell.sx * hmStepW - worldHalfW;
+                const wz = cell.sy * hmStepD - worldHalfD;
                 const sl = cell.sl;
                 const vi = verts.length / 3;
-                verts.push(wx,         sl, wz);
-                verts.push(wx + step,  sl, wz);
-                verts.push(wx,         sl, wz + step);
-                verts.push(wx + step,  sl, wz + step);
+                verts.push(wx,           sl, wz);
+                verts.push(wx + hmStepW, sl, wz);
+                verts.push(wx,           sl, wz + hmStepD);
+                verts.push(wx + hmStepW, sl, wz + hmStepD);
                 idx.push(vi, vi + 1, vi + 2);
                 idx.push(vi + 1, vi + 3, vi + 2);
             }
@@ -1857,11 +1972,11 @@ function updGeoHeights(geo) {
 }
 
 function updGeoHeightsPartial(geo, minSx, minSy, maxSx, maxSy) {
-    const p = geo.attributes.position, step = WORLD_SIZE / (HM_RES - 1);
+    const p = geo.attributes.position;
     const hasColors = geo.attributes.color;
     for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), z = p.getZ(i);
-        const sx = Math.round((x + WORLD_HALF) / step), sy = Math.round((z + WORLD_HALF) / step);
+        const sx = Math.round((x + worldHalfW) / worldWidth * (HM_RES - 1)), sy = Math.round((z + worldHalfD) / worldDepth * (HM_RES - 1));
         if (sx >= minSx && sx <= maxSx && sy >= minSy && sy <= maxSy) {
             const idx = w2i(x, z); if (idx >= 0) p.setY(i, mapData.heightmap[idx]);
             // 同步水体 vertexColor（平滑过渡带）
@@ -1890,30 +2005,31 @@ function createGrid() {
     // 方格网 (300×300)
     const gridStep = 20;
     const mat = new THREE.LineBasicMaterial({ color: 0x3a3a55, transparent: true, opacity: 0.4 });
-    for (let i = -WORLD_HALF; i <= WORLD_HALF; i += gridStep) {
-        const ptsX = [new THREE.Vector3(i, 0.05, -WORLD_HALF), new THREE.Vector3(i, 0.05, WORLD_HALF)];
+    // 矩形网格：X方向适配 worldHalfW，Z方向适配 worldHalfD
+    for (let i = -worldHalfW; i <= worldHalfW; i += gridStep) {
+        const ptsX = [new THREE.Vector3(i, 0.05, -worldHalfD), new THREE.Vector3(i, 0.05, worldHalfD)];
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), mat));
-        const ptsZ = [new THREE.Vector3(-WORLD_HALF, 0.05, i), new THREE.Vector3(WORLD_HALF, 0.05, i)];
+    }
+    for (let i = -worldHalfD; i <= worldHalfD; i += gridStep) {
+        const ptsZ = [new THREE.Vector3(-worldHalfW, 0.05, i), new THREE.Vector3(worldHalfW, 0.05, i)];
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsZ), mat));
     }
 
-    // 空气墙边界（橙色高亮，200×200）
+    // 空气墙边界（橙色高亮，矩形playWidth×playDepth）
     const playMat = new THREE.LineBasicMaterial({ color: 0xf5954a, transparent: true, opacity: 0.7 });
-    const ph = PLAY_HALF;
     const playPts = [
-        new THREE.Vector3(-ph, 0.06, -ph), new THREE.Vector3(ph, 0.06, -ph),
-        new THREE.Vector3(ph, 0.06, ph), new THREE.Vector3(-ph, 0.06, ph),
-        new THREE.Vector3(-ph, 0.06, -ph)
+        new THREE.Vector3(-playHalfW, 0.06, -playHalfD), new THREE.Vector3(playHalfW, 0.06, -playHalfD),
+        new THREE.Vector3(playHalfW, 0.06, playHalfD), new THREE.Vector3(-playHalfW, 0.06, playHalfD),
+        new THREE.Vector3(-playHalfW, 0.06, -playHalfD)
     ];
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(playPts), playMat));
 
-    // 世界边界（暗红虚线，300×300）
+    // 世界边界（暗红虚线，矩形worldWidth×worldDepth）
     const worldMat = new THREE.LineDashedMaterial({ color: 0x664444, transparent: true, opacity: 0.5, dashSize: 8, gapSize: 4 });
-    const wh = WORLD_HALF;
     const worldPts = [
-        new THREE.Vector3(-wh, 0.04, -wh), new THREE.Vector3(wh, 0.04, -wh),
-        new THREE.Vector3(wh, 0.04, wh), new THREE.Vector3(-wh, 0.04, wh),
-        new THREE.Vector3(-wh, 0.04, -wh)
+        new THREE.Vector3(-worldHalfW, 0.04, -worldHalfD), new THREE.Vector3(worldHalfW, 0.04, -worldHalfD),
+        new THREE.Vector3(worldHalfW, 0.04, worldHalfD), new THREE.Vector3(-worldHalfW, 0.04, worldHalfD),
+        new THREE.Vector3(-worldHalfW, 0.04, -worldHalfD)
     ];
     const worldLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(worldPts), worldMat);
     worldLine.computeLineDistances();
@@ -1979,7 +2095,7 @@ let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let camYaw = 0;          // 水平旋转角度（弧度）
 let camPitch = Math.PI / 2;   // 俯角（0=水平, PI/2=垂直俯视）
-let camDist = 120;        // 相机距原点距离
+let camDist = 120;        // 相机距原点距离（init时根据地图尺寸调整）
 let camTarget = { x: 0, z: 0 };
 let isPanning = false;
 
@@ -1997,21 +2113,21 @@ function setViewMode(mode) {
         case 'top':
             camPitch = Math.PI / 2;
             camYaw = 0;
-            camDist = WORLD_SIZE * 0.75;
+            camDist = Math.max(worldWidth, worldDepth) * 0.8;
             camTarget = { x: 0, z: 0 };
             statusCam.textContent = '顶视图';
             break;
         case '3d':
             camPitch = 1.0;
             camYaw = 0.4;
-            camDist = 280;
+            camDist = Math.max(280, Math.max(worldWidth, worldDepth) * 0.8);
             camTarget = { x: 0, z: 0 };
             statusCam.textContent = '3D 透视';
             break;
         case 'front':
             camPitch = 0.01;
             camYaw = 0;
-            camDist = WORLD_SIZE * 0.75;
+            camDist = Math.max(worldWidth, worldDepth) * 0.8;
             camTarget = { x: 0, z: 0 };
             statusCam.textContent = '前视图';
             break;
@@ -2023,8 +2139,8 @@ function setViewMode(mode) {
 // 滚轮缩放（独立于 mousemove 画笔逻辑）
 viewport3D.addEventListener('wheel', (e) => {
     e.preventDefault();
-    camDist *= e.deltaY > 0 ? 1.08 : 0.93;
-    camDist = Math.max(15, Math.min(400, camDist));
+        camDist *= e.deltaY > 0 ? 1.08 : 0.93;
+        camDist = Math.max(15, Math.min(Math.max(400, Math.max(worldWidth, worldDepth) * 1.5), camDist));
     updateCameraPosition();
 }, { passive: false });
 
@@ -2034,6 +2150,11 @@ function setBrushMode(mode) {
     brushMode = mode;
     // 切换到任何笔刷模式均取消实体模式
     entityMode = null;
+    // 同时清除实体选中状态，恢复左右键摄像机控制
+    selectedEntityIds.clear();
+    Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
+    Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
+    refreshEntityList();
     vp.classList.remove('placing');
     ['select','spawn','tree','building','enemy','waypoint','bridge'].forEach(k => { const b = document.getElementById('btn-entity-'+k); if(b) b.classList.remove('active'); });
     document.getElementById('entity-sel-enemy').classList.remove('visible');
@@ -2069,8 +2190,8 @@ function updBrushIndicator(e) {
 
 // 笔刷应用
 function world2sm(wx, wz) {
-    const sx = Math.round((wx + WORLD_HALF) / WORLD_SIZE * (HM_RES - 1));
-    const sy = Math.round((wz + WORLD_HALF) / WORLD_SIZE * (HM_RES - 1));
+    const sx = Math.round((wx + worldHalfW) / worldWidth * (HM_RES - 1));
+    const sy = Math.round((wz + worldHalfD) / worldDepth * (HM_RES - 1));
     return { sx: Math.max(0, Math.min(HM_RES - 1, sx)), sy: Math.max(0, Math.min(HM_RES - 1, sy)) };
 }
 
@@ -2160,7 +2281,7 @@ function pointToSegmentDist(px, pz, ax, az, bx, bz) {
 }
 
 function applyBrush(wx, wz, skipGeoUpdate = false) {
-    if (Math.abs(wx) > WORLD_HALF || Math.abs(wz) > WORLD_HALF) return;
+    if (Math.abs(wx) > worldHalfW || Math.abs(wz) > worldHalfD) return;
     const brPx = brushRadius / WORLD_SIZE * HM_RES;
     const { sx: cx, sy: cy } = world2sm(wx, wz);
     const rPx = Math.ceil(brPx), r2 = brPx * brPx;
@@ -2354,8 +2475,8 @@ viewport3D.addEventListener('mousedown', (e) => {
         pushSnapshot();
         const pt = getWorldPos(e);
         // 实体/巡逻点仅允许放置在空气墙内
-        if (Math.abs(pt.x) > PLAY_HALF || Math.abs(pt.z) > PLAY_HALF) {
-            overlayInfo.textContent = '⚠️ 实体仅可放置在空气墙内（±100m），外围区域不可放置';
+        if (Math.abs(pt.x) > playHalfW || Math.abs(pt.z) > playHalfD) {
+            overlayInfo.textContent = '⚠️ 实体仅可放置在空气墙内，外围区域不可放置';
             return;
         }
         const h = smpHeight(pt.x, pt.z);
@@ -2404,7 +2525,8 @@ viewport3D.addEventListener('mousedown', (e) => {
         applyBrush(pt.x, pt.z);
         needsHmRender = true;  // 延迟到帧末刷新
         e.preventDefault();
-    } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    } else if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        // 右键/中键/Shift+左键 → 平移
         isPanning = true;
     } else if (e.button === 0) {
         isDragging = true;
@@ -2457,7 +2579,7 @@ window.addEventListener('mousemove', (e) => {
     // 拖拽移动实体（选择模式或无实体模式但已选中）
     if (isDragging && (entityMode === 'select' || !entityMode) && selectedEntityIds.size > 0) {
         const pt = getWorldPos(e);
-        if (Math.abs(pt.x) <= PLAY_HALF && Math.abs(pt.z) <= PLAY_HALF) {
+        if (Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
             const h = smpHeight(pt.x, pt.z);
             const firstId = [...selectedEntityIds][0];
             const firstEnt = mapData.entities.find(en => en.id === firstId);
@@ -2490,7 +2612,7 @@ window.addEventListener('mousemove', (e) => {
         // 拖拽连续放置实体
         const pt = getWorldPos(e);
         const dist = Math.hypot(pt.x - lastSprayPos.x, pt.z - lastSprayPos.z);
-        if (dist >= SPRAY_SPACING && Math.abs(pt.x) <= PLAY_HALF && Math.abs(pt.z) <= PLAY_HALF) {
+        if (dist >= SPRAY_SPACING && Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
             // 沿路径补充放置（超过间距后逐个生成）
             const steps = Math.floor(dist / SPRAY_SPACING);
             const dx = steps > 1 ? (pt.x - lastSprayPos.x) / dist * SPRAY_SPACING : pt.x - lastSprayPos.x;
@@ -2498,7 +2620,7 @@ window.addEventListener('mousemove', (e) => {
             for (let s = 1; s <= steps; s++) {
                 const nx = lastSprayPos.x + dx * s;
                 const nz = lastSprayPos.z + dz * s;
-                if (Math.abs(nx) > PLAY_HALF || Math.abs(nz) > PLAY_HALF) break;
+                if (Math.abs(nx) > playHalfW || Math.abs(nz) > playHalfD) break;
                 const h = smpHeight(nx, nz);
                 const stype = entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
                 const ent = addEntity(entityMode, nx, h, nz, stype);
@@ -2517,13 +2639,14 @@ window.addEventListener('mousemove', (e) => {
         // 实体拖拽已在上方处理，跳过相机旋转
         dragStart = { x: e.clientX, y: e.clientY };
     } else if (isDragging) {
-        camYaw -= dx * 0.005;
+        camYaw += dx * 0.005;
         camPitch = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, camPitch - dy * 0.005));
         updCam(); dragStart = { x: e.clientX, y: e.clientY };
     } else if (isPanning) {
         const ps = camDist * 0.001;
-        camTarget.x -= dx * ps * Math.cos(camYaw) + dy * ps * Math.sin(camYaw);
-        camTarget.z -= -dx * ps * Math.sin(camYaw) + dy * ps * Math.cos(camYaw);
+        // 手抓地图平移：屏幕坐标 → 世界XZ坐标（dx/dy反号适配）
+        camTarget.x += ps * (-Math.sin(camYaw) * dx + -Math.cos(camYaw) * dy);
+        camTarget.z += ps * (Math.cos(camYaw) * dx + -Math.sin(camYaw) * dy);
         updCam(); dragStart = { x: e.clientX, y: e.clientY };
     }
 
@@ -2539,7 +2662,7 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
         // 记录水体元数据（池塘 vs 河流）
         // ===== v0.33.1: 走廊法 + 分段水面剖面 + 桥引道 =====
         // 每段水面 = min(前段水面, 本地形-strength*0.3)，单调不增
-        const step = WORLD_SIZE / (HM_RES - 1);
+        // 使用 hmStepW/hmStepD + worldHalfW/worldHalfD 替代固定 WORLD_SIZE，适配矩形地图
         if (!mapData.editedVerticesPaint) mapData.editedVerticesPaint = new Set();
         const carveT0 = performance.now();
 
@@ -2578,23 +2701,24 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
                 segDist[i] = totalPathDist;
             }
 
-            // 包围盒
+            // 包围盒（X/Z 独立步长，适配矩形地图）
             let minWx = Infinity, maxWx = -Infinity, minWz = Infinity, maxWz = -Infinity;
             for (const p of smoothPts) {
                 if (p.x < minWx) minWx = p.x; if (p.x > maxWx) maxWx = p.x;
                 if (p.z < minWz) minWz = p.z; if (p.z > maxWz) maxWz = p.z;
             }
-            const pad = hw + step;
-            const minSx = Math.max(0, Math.floor((minWx - pad + WORLD_HALF) / step));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + pad + WORLD_HALF) / step));
-            const minSy = Math.max(0, Math.floor((minWz - pad + WORLD_HALF) / step));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + pad + WORLD_HALF) / step));
+            const padW = hw + hmStepW;
+            const padD = hw + hmStepD;
+            const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
+            const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
             let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * step - WORLD_HALF;
-                    const cz = (sy + 0.5) * step - WORLD_HALF;
+                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
                     let minDist = Infinity, nearestSeg = -1;
                     for (let i = 0; i < smoothPts.length - 1; i++) {
                         const d = pointToSegmentDist(cx, cz, smoothPts[i].x, smoothPts[i].z, smoothPts[i+1].x, smoothPts[i+1].z);
@@ -2654,16 +2778,16 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
             const R = brushRadius;
             const pondSurface = waterBaseLevel - brushStrength * 0.3;  // 与河流统一0.3
 
-            const minSx = Math.max(0, Math.floor((p.x - R - step + WORLD_HALF) / step));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((p.x + R + step + WORLD_HALF) / step));
-            const minSy = Math.max(0, Math.floor((p.z - R - step + WORLD_HALF) / step));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((p.z + R + step + WORLD_HALF) / step));
+            const minSx = Math.max(0, Math.floor((p.x - R - hmStepW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(HM_RES - 1, Math.ceil((p.x + R + hmStepW + worldHalfW) / hmStepW));
+            const minSy = Math.max(0, Math.floor((p.z - R - hmStepD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(HM_RES - 1, Math.ceil((p.z + R + hmStepD + worldHalfD) / hmStepD));
             let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * step - WORLD_HALF;
-                    const cz = (sy + 0.5) * step - WORLD_HALF;
+                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
                     const dist = Math.hypot(cx - p.x, cz - p.z);
                     if (dist <= R) {
                         const t = 1 - dist / R;              // 0=湖岸, 1=湖心
@@ -2725,10 +2849,10 @@ window.addEventListener('mouseup', () => { isDragging = false; isPanning = false
 
 function updateMouseWorldPos(e) {
     const pt = getWorldPos(e);
-    const inWorld = Math.abs(pt.x) <= WORLD_HALF && Math.abs(pt.z) <= WORLD_HALF;
+    const inWorld = Math.abs(pt.x) <= worldHalfW && Math.abs(pt.z) <= worldHalfD;
     if (inWorld) {
         const h = smpHeight(pt.x, pt.z);
-        const inPlay = Math.abs(pt.x) <= PLAY_HALF && Math.abs(pt.z) <= PLAY_HALF;
+        const inPlay = Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD;
         statusMouse.textContent = 'X:'+pt.x.toFixed(1)+' Z:'+pt.z.toFixed(1)+' H:'+h.toFixed(2)+(inPlay?'':' (外围)');
     } else { statusMouse.textContent = '地图外'; }
 }
@@ -2777,10 +2901,10 @@ function fitParameterizedTerrain() {
                     if (rx && rz) break;
                 }
                 rx = Math.max(rx || 12, 6); rz = Math.max(rz || 12, 6);
-                const wx = (sx / HM_RES - 0.5) * WORLD_SIZE;
-                const wz = (sy / HM_RES - 0.5) * WORLD_SIZE;
-                const rxW = rx / HM_RES * WORLD_SIZE;
-                const rzW = rz / HM_RES * WORLD_SIZE;
+                const wx = (sx / HM_RES - 0.5) * worldWidth;
+                const wz = (sy / HM_RES - 0.5) * worldDepth;
+                const rxW = rx / HM_RES * worldWidth;
+                const rzW = rz / HM_RES * worldDepth;
                 peaks.push({ type: 'hill', center: [wx, cv, wz], rx: rxW, rz: rzW, height: cv });
             }
             if (isBasin) {
@@ -2795,9 +2919,9 @@ function fitParameterizedTerrain() {
                     if (rx && rz) break;
                 }
                 rx = Math.max(rx || 10, 5); rz = Math.max(rz || 10, 5);
-                const wx = (sx / HM_RES - 0.5) * WORLD_SIZE;
-                const wz = (sy / HM_RES - 0.5) * WORLD_SIZE;
-                basins.push({ type: 'basin', center: [wx, cv, wz], rx: rx / HM_RES * WORLD_SIZE, rz: rz / HM_RES * WORLD_SIZE, depth: avgH - cv });
+                const wx = (sx / HM_RES - 0.5) * worldWidth;
+                const wz = (sy / HM_RES - 0.5) * worldDepth;
+                basins.push({ type: 'basin', center: [wx, cv, wz], rx: rx / HM_RES * worldWidth, rz: rz / HM_RES * worldDepth, depth: avgH - cv });
             }
         }
     }
@@ -2820,7 +2944,9 @@ function exportMapJson() {
     const json = {
         version: '1.0',
         name: mapData.name,
-        worldSize: WORLD_SIZE, playSize: PLAY_SIZE,
+        worldSize: worldWidth, playSize: playWidth,
+        worldWidth: worldWidth, worldDepth: worldDepth,
+        playWidth: playWidth, playDepth: playDepth,
         type: 'single',
         desc: '地图编辑器创建',
         spawnPoints: { p1: [spawnPt[0], spawnPt[1], spawnPt[2]] },
@@ -2868,6 +2994,13 @@ function importMapJson(file) {
             Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
             mapData.entities = []; mapData.groups = []; selectedEntityIds.clear(); entityIdCounter = 1;
             mapData.waters = []; mapData.bridges = [];
+
+            // 加载尺寸（优先新字段，回退到旧字段）
+            mapData.worldWidth = json.worldWidth || json.worldSize || 300;
+            mapData.worldDepth = json.worldDepth || json.worldSize || 300;
+            mapData.playWidth = json.playWidth || json.playSize || 200;
+            mapData.playDepth = json.playDepth || json.playSize || 200;
+            applyMapDimensions();
 
             // 加载高度图
             if (json.terrain && json.terrain.heightmap) {
@@ -2941,6 +3074,8 @@ function saveBlueprint() {
     if (!name) return;
     const data = {
         name, savedAt: new Date().toISOString(),
+        worldWidth: worldWidth, worldDepth: worldDepth,
+        playWidth: playWidth, playDepth: playDepth,
         heightmap: Array.from(mapData.heightmap),
         splatMap: Array.from(mapData.splatMap),
         entities: mapData.entities.map(e => ({...e})),
@@ -3086,7 +3221,14 @@ document.querySelectorAll('.terrain-swatch').forEach(sw => {
 
 // 实体放置模式
 function setEntityMode(mode) {
-    if (entityMode === mode) { entityMode = null; } else { entityMode = mode; }
+    if (entityMode === mode) { 
+        entityMode = null; 
+        // 离开交互模式时清除选中实体，恢复左键旋转/右键平移
+        selectedEntityIds.clear();
+        Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
+        Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
+        refreshEntityList();
+    } else { entityMode = mode; }
     // 取消笔刷模式（直接改状态，不触发 setBrushMode 的 entityMode 清理）
     brushMode = 'cursor';
     ['cursor','raise','lower','smooth','paint'].forEach(k => { const b = document.getElementById('btn-'+k); if(b) b.classList.toggle('active', k==='cursor'); });
@@ -3331,10 +3473,10 @@ function animate(now) {
 
 // 初始化
 function init() {
+    applyMapDimensions();
     resize(); createGround(); createGrid(); renderHeightmapCanvas();
     setViewMode('top'); setBrushMode('cursor');
     mapNameLabel.textContent = '未命名地图';
-    document.getElementById('info-size').textContent = WORLD_SIZE + '×' + WORLD_SIZE + ' (空气墙' + PLAY_SIZE + '×' + PLAY_SIZE + ')';
     document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
     document.getElementById('status-tool').textContent = '选择';
     refreshWaterList();
@@ -3451,8 +3593,8 @@ function randomGenerateTerrain() {
     const moistRaw = new Float32Array(HM_RES * HM_RES);
     for (let sy = 0; sy < HM_RES; sy++) {
         for (let sx = 0; sx < HM_RES; sx++) {
-            const wx = (sx / (HM_RES - 1) - 0.5) * WORLD_SIZE;
-            const wz = (sy / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            const wx = (sx / (HM_RES - 1) - 0.5) * worldWidth;
+            const wz = (sy / (HM_RES - 1) - 0.5) * worldDepth;
             elevRaw[sy * HM_RES + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
             moistRaw[sy * HM_RES + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
         }
@@ -3472,19 +3614,19 @@ function randomGenerateTerrain() {
     
     // 山丘
     for (let i = 0; i < cfg.hills; i++) {
-        const cx = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
-        const cz = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const cx = (Math.random() - 0.5) * worldWidth * 0.7;
+        const cz = (Math.random() - 0.5) * worldDepth * 0.7;
         const rx = 6 + Math.random() * 14, rz = 6 + Math.random() * 14;
         const peak = cfg.maxH * (0.25 + Math.random() * 0.55);
-        const rPxW = Math.max(rx, rz) / WORLD_SIZE * HM_RES;
+        const rPxW = Math.max(rx, rz) / Math.max(worldWidth, worldDepth) * HM_RES;
         const { sx: sxC, sy: syC } = world2sm(cx, cz);
         const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
         for (let dy = -rPx; dy <= rPx; dy++) {
             for (let dx = -rPx; dx <= rPx; dx++) {
                 const sx2 = sxC + dx, sy2 = syC + dy;
                 if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
-                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
-                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * worldWidth;
+                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * worldDepth;
                 const d2 = ((wx2 - cx) / rx) ** 2 + ((wz2 - cz) / rz) ** 2;
                 if (d2 < 4) mapData.heightmap[sy2 * HM_RES + sx2] += peak * Math.exp(-d2);
             }
@@ -3507,8 +3649,8 @@ function randomGenerateTerrain() {
     for (let i = 0; i < cfg.ponds; i++) {
         let px, pz, valid = false;
         for (let attempt = 0; attempt < 25; attempt++) {
-            px = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
-            pz = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            px = (Math.random() - 0.5) * worldWidth * 0.65;
+            pz = (Math.random() - 0.5) * worldDepth * 0.65;
             if (Math.abs(px) < 25 && Math.abs(pz) < 25) continue;
             let tooClose = false;
             for (const pc of pondCenters) {
@@ -3671,7 +3813,7 @@ function generateMainRoad(cfg) {
     for (let i = 1; i <= numMid; i++) {
         const t = i / (numMid + 1);
         const baseX = sX + dx * t, baseZ = sZ + dz * t;
-        const offset = Math.sin(t * Math.PI * 2) * PLAY_SIZE * 0.15 + (Math.random() - 0.5) * PLAY_SIZE * 0.1;
+        const offset = Math.sin(t * Math.PI * 2) * Math.min(playWidth, playDepth) * 0.15 + (Math.random() - 0.5) * Math.min(playWidth, playDepth) * 0.1;
         const perpX = -uz, perpZ = ux;
         pts.push({ x: baseX + perpX * offset, z: baseZ + perpZ * offset });
     }
@@ -3699,7 +3841,7 @@ function generateBranchRoads(mainSmooth, cfg, pondCenters) {
     }
     // 过滤掉超出空气墙的聚落中心
     const validClusters = clusterCenters.filter(cc => 
-        Math.abs(cc.x) <= WORLD_HALF - 8 && Math.abs(cc.z) <= WORLD_HALF - 8 &&
+        Math.abs(cc.x) <= worldHalfW - 8 && Math.abs(cc.z) <= worldHalfD - 8 &&
         !isPtInPond(cc.x, cc.z, pondCenters)
     );
     
@@ -3753,7 +3895,7 @@ function placeBuildingsAlongRoads(mainSmooth, branches, cfg, pondCenters) {
     let placeFails = { boundary: 0, pond: 0, deep: 0, safe: 0, proximity: 0 };
     
     function tryPlaceBuilding(x, z, allBuildings, minDist) {
-        if (Math.abs(x) > WORLD_HALF - 5 || Math.abs(z) > WORLD_HALF - 5) { placeFails.boundary++; return false; }
+        if (Math.abs(x) > worldHalfW - 5 || Math.abs(z) > worldHalfD - 5) { placeFails.boundary++; return false; }
         if (isPtInPond(x, z, pondCenters)) { placeFails.pond++; return false; }
         const h = smpHeight(x, z);
         if (h < -8) { placeFails.deep++; return false; }
@@ -3944,7 +4086,7 @@ function randomGenerateVillage() {
     const maxTrees = Math.max(0, cfg.obstCount - buildings.length);
     
     function tryPlaceTree(x, z) {
-        if (Math.abs(x) > WORLD_HALF - 5 || Math.abs(z) > WORLD_HALF - 5) return false;
+        if (Math.abs(x) > worldHalfW - 5 || Math.abs(z) > worldHalfD - 5) return false;
         if (isPtInPond(x, z, pondCenters)) return false;
         const h = smpHeight(x, z);
         if (h < -cfg.maxH * 0.35) return false;
@@ -3959,8 +4101,8 @@ function randomGenerateVillage() {
     }
     
     for (let attempt = 0; attempt < maxTrees * 3 && trees.length < maxTrees; attempt++) {
-        const tx = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-        const tz = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
+        const tx = (Math.random() - 0.5) * worldWidth * 0.85;
+        const tz = (Math.random() - 0.5) * worldDepth * 0.85;
         if (tryPlaceTree(tx, tz)) trees.push({ x: tx, z: tz });
     }
     
@@ -4071,8 +4213,8 @@ DUMMY_END
     const moistRaw = new Float32Array(HM_RES * HM_RES);
     for (let sy = 0; sy < HM_RES; sy++) {
         for (let sx = 0; sx < HM_RES; sx++) {
-            const wx = (sx / (HM_RES - 1) - 0.5) * WORLD_SIZE;
-            const wz = (sy / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+            const wx = (sx / (HM_RES - 1) - 0.5) * worldWidth;
+            const wz = (sy / (HM_RES - 1) - 0.5) * worldDepth;
             elevRaw[sy * HM_RES + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
             moistRaw[sy * HM_RES + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
         }
@@ -4094,19 +4236,19 @@ DUMMY_END
     }
     // 叠加椭圆山丘
     for (let i = 0; i < cfg.hills; i++) {
-        const cx = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
-        const cz = (Math.random() - 0.5) * WORLD_SIZE * 0.7;
+        const cx = (Math.random() - 0.5) * worldWidth * 0.7;
+        const cz = (Math.random() - 0.5) * worldDepth * 0.7;
         const rx = 6 + Math.random() * 14, rz = 6 + Math.random() * 14;
         const peak = cfg.maxH * (0.25 + Math.random() * 0.55);
-        const rPxW = Math.max(rx, rz) / WORLD_SIZE * HM_RES;
+        const rPxW = Math.max(rx / worldWidth, rz / worldDepth) * HM_RES;
         const { sx: sxC, sy: syC } = world2sm(cx, cz);
         const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
         for (let dy = -rPx; dy <= rPx; dy++) {
             for (let dx = -rPx; dx <= rPx; dx++) {
                 const sx2 = sxC + dx, sy2 = syC + dy;
                 if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
-                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
-                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * WORLD_SIZE;
+                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * worldWidth;
+                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * worldDepth;
                 const d2 = ((wx2 - cx) / rx) ** 2 + ((wz2 - cz) / rz) ** 2;
                 if (d2 < 4) mapData.heightmap[sy2 * HM_RES + sx2] += peak * Math.exp(-d2);
             }
@@ -4134,8 +4276,8 @@ DUMMY_END
     for (let i = 0; i < cfg.ponds; i++) {
         let px, pz, valid = false;
         for (let attempt = 0; attempt < 25; attempt++) {
-            px = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
-            pz = (Math.random() - 0.5) * WORLD_SIZE * 0.65;
+            px = (Math.random() - 0.5) * worldWidth * 0.65;
+            pz = (Math.random() - 0.5) * worldDepth * 0.65;
             if (Math.abs(px) < 25 && Math.abs(pz) < 25) continue;
             let tooClose = false;
             for (const pc of pondCenters) {
@@ -4174,8 +4316,8 @@ DUMMY_END
     const clustCount = Math.floor(cfg.village * 2.5);
     for (let i = 0; i < clustCount; i++) {
         bldgClusters.push({
-            cx: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
-            cz: (Math.random() - 0.5) * WORLD_SIZE * 0.75,
+            cx: (Math.random() - 0.5) * worldWidth * 0.75,
+            cz: (Math.random() - 0.5) * worldDepth * 0.75,
             r: 8 + Math.random() * 18
         });
     }
@@ -4191,9 +4333,9 @@ DUMMY_END
     }
 
     for (let attempt = 0; attempt < cfg.obstCount * 4 && obsts.length < cfg.obstCount; attempt++) {
-        const ox = (Math.random() - 0.5) * WORLD_SIZE * 0.95;
-        const oz = (Math.random() - 0.5) * WORLD_SIZE * 0.95;
-        if (Math.abs(ox) > WORLD_HALF - 5 || Math.abs(oz) > WORLD_HALF - 5) continue;
+        const ox = (Math.random() - 0.5) * worldWidth * 0.95;
+        const oz = (Math.random() - 0.5) * worldDepth * 0.95;
+        if (Math.abs(ox) > worldHalfW - 5 || Math.abs(oz) > worldHalfD - 5) continue;
         // 密度筛选：高密度区域更容易通过
         const density = getLocalDensity(ox, oz);
         if (Math.random() > density * 1.3) continue;

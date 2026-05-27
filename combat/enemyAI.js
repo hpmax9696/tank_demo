@@ -622,22 +622,31 @@
 
     // v0.28.0: 2层仇恨连锁 + 空间网格加速
 
-    // ─── 空间网格（20m格，200×200m地图 → 10×10）───
+    // ─── 空间网格（20m格，矩形地图支持）───
     const GRID_CELL = 20;
-    const GRID_LEN = 10;
+    function _gridDims() {
+        const pw = (typeof playHalfW !== 'undefined' ? playHalfW : 100) * 2;
+        const pd = (typeof playHalfD !== 'undefined' ? playHalfD : 100) * 2;
+        return { lenX: Math.max(1, Math.ceil(pw / GRID_CELL)), lenZ: Math.max(1, Math.ceil(pd / GRID_CELL)), phw: pw/2, phd: pd/2 };
+    }
     let _gridDirty = true;
-    const _grid = Array(GRID_LEN).fill(null).map(() => Array(GRID_LEN).fill(null).map(() => []));
+    let _grid = [];
 
     function rebuildSpatialGrid(allEnemies) {
+        const { lenX, lenZ, phw, phd } = _gridDims();
+        // 如果网格尺寸变了，重新创建
+        if (_grid.length !== lenX || (_grid[0] && _grid[0].length !== lenZ)) {
+            _grid = Array(lenX).fill(null).map(() => Array(lenZ).fill(null).map(() => []));
+        }
         // 清空所有格子
-        for (let x = 0; x < GRID_LEN; x++)
-            for (let z = 0; z < GRID_LEN; z++)
+        for (let x = 0; x < lenX; x++)
+            for (let z = 0; z < lenZ; z++)
                 _grid[x][z].length = 0;
         // 分配敌人到格子
         for (const e of allEnemies) {
             if (!e || e.ai.state === 'dead' || e.ai.state === ZS.DEAD) continue;
-            const cx = Math.min(GRID_LEN - 1, Math.max(0, Math.floor((e.position.x + 100) / GRID_CELL)));
-            const cz = Math.min(GRID_LEN - 1, Math.max(0, Math.floor((e.position.z + 100) / GRID_CELL)));
+            const cx = Math.min(lenX - 1, Math.max(0, Math.floor((e.position.x + phw) / GRID_CELL)));
+            const cz = Math.min(lenZ - 1, Math.max(0, Math.floor((e.position.z + phd) / GRID_CELL)));
             _grid[cx][cz].push(e);
         }
         _gridDirty = true;
@@ -648,14 +657,15 @@
         if (allEnemies.length < 20) return allEnemies;
         // 空间网格查找
         rebuildSpatialGrid(allEnemies);
-        const cx = Math.min(GRID_LEN - 1, Math.max(0, Math.floor((center.x + 100) / GRID_CELL)));
-        const cz = Math.min(GRID_LEN - 1, Math.max(0, Math.floor((center.z + 100) / GRID_CELL)));
+        const { lenX, lenZ, phw, phd } = _gridDims();
+        const cx = Math.min(lenX - 1, Math.max(0, Math.floor((center.x + phw) / GRID_CELL)));
+        const cz = Math.min(lenZ - 1, Math.max(0, Math.floor((center.z + phd) / GRID_CELL)));
         const cells = Math.ceil(radius / GRID_CELL);  // 需要搜索几层格子
         const result = [];
         for (let dx = -cells; dx <= cells; dx++) {
             for (let dz = -cells; dz <= cells; dz++) {
                 const nx = cx + dx, nz = cz + dz;
-                if (nx < 0 || nx >= GRID_LEN || nz < 0 || nz >= GRID_LEN) continue;
+                if (nx < 0 || nx >= lenX || nz < 0 || nz >= lenZ) continue;
                 for (const e of _grid[nx][nz]) {
                     if (center.distanceTo(e.position) < radius) result.push(e);
                 }

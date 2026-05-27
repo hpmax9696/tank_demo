@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.42.1</title>
+    <title>坦克运动demo v0.43.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -487,7 +487,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.42.1</div>
+        <div class="menu-version">v0.43.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -502,11 +502,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🗺️ v0.43.0 灵活地图尺寸+矩形地图 — 地图编辑器支持独立X/Z尺寸(任意矩形)+摄像机far/距离/网格/水面/坐标全链路适配+右键平移+实体选中修复</div>
             <div class="cl-title">💀 v0.42.1 游戏结束画面+战斗统计 — 生命耗尽显示游戏结束蒙版+详细统计面板（积分/击杀/时间/伤害）+死亡记录（每条命被什么敌人杀死）+ESC返回菜单</div>
             <div class="cl-title">⚡ v0.42.0 双人模式+桥梁修复 — 双人模式光标显示优化+炮口瞄准修复+桥梁位置修复（编辑器桥梁动态对齐河流）+火焰粒子视锥裁剪修复+坦克碰撞体积调整</div>
             <div class="cl-title">📦 v0.41.1 碰撞检测空间分区+摧毁状态修复 — spatialGrid.js网格分区(10m单元)+障碍物destroyed标记+已摧毁物体不再参与碰撞</div>
             <div class="cl-title">🔧 v0.41.0 架构拆分+bug修复 — 模块化重构(audio/input/shells/mg/bars/obstacles)，树木销毁修复，倒车转弯方向修复，弹种切换音效，弹种持久化修复</div>
-            <div class="cl-title">🎯 v0.39.1 瞄准+操控+预测线修复 — 四元数瞄准/树IM射线/建筑恢复/地形截断/shellR体积/手柄双轴粘滞/快速开炮</div>
         </div>
     </div>
 
@@ -632,7 +632,7 @@
         // 地图配置（内联数据，测试地图01a/01b与maps/*.map.json内容一致）
         const MAP_CONFIGS = {
             'test_map_01a': {
-                version: '1.0', name: '测试地图01a', size: 200, type: 'single',
+                version: '1.0', name: '测试地图01a', size: 200, playWidth: 200, playDepth: 200, worldWidth: 300, worldDepth: 300, type: 'single',
                 desc: '池塘+蛇形河流+高地盆地，完整地形',
                 spawnPoints: { p1: [0, 0, 1.57] },
                 terrain: {
@@ -654,14 +654,14 @@
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
             },
             'test_map_01b': {
-                version: '1.0', name: '测试地图01b', size: 200, type: 'versus', flat: true,
+                version: '1.0', name: '测试地图01b', size: 200, playWidth: 200, playDepth: 200, worldWidth: 300, worldDepth: 300, type: 'versus', flat: true,
                 desc: '双人对战平坦大平原',
                 spawnPoints: { p1: [-15, 0, 1.57], p2: [15, 0, -1.57] },
                 terrainTypes: { default: 'grass' },
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
             },
             'test_map_02a': {
-                version: '1.0', name: '测试地图02a (草丛)', size: 200, type: 'single',
+                version: '1.0', name: '测试地图02a (草丛)', size: 200, playWidth: 200, playDepth: 200, worldWidth: 300, worldDepth: 300, type: 'single',
                 desc: '01a地形+程序化草丛覆盖（InstancedMesh优化）',
                 spawnPoints: { p1: [0, 0, 1.57] },
                 terrain: {
@@ -689,7 +689,7 @@
                 }
             },
             'test_map_03a': {
-                version: '1.0', name: '测试地图03a（战斗）', size: 200, type: 'single', mode: 'combat',
+                version: '1.0', name: '测试地图03a（战斗）', size: 200, playWidth: 200, playDepth: 200, worldWidth: 300, worldDepth: 300, type: 'single', mode: 'combat',
                 desc: 'PvE战斗地图：出生点→杂兵→精英→Boss炮舰 | 噪声地形+河流+桥梁',
                 spawnPoints: { p1: [0, 0, 1.57] },
                 players: {
@@ -731,7 +731,7 @@
                 obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 }
             },
             'test_map_04a': {
-                version: '1.0', name: '测试地图04a（丧尸）', size: 200, type: 'single', mode: 'combat',
+                version: '1.0', name: '测试地图04a（丧尸）', size: 200, playWidth: 200, playDepth: 200, worldWidth: 300, worldDepth: 300, type: 'single', mode: 'combat',
                 desc: 'PvE丧尸地图：出生点→丧尸群 | 噪声地形+河流+桥梁',
                 spawnPoints: { p1: [0, 0, 1.57] },
                 players: {
@@ -990,6 +990,22 @@
             }
             currentMapData = MAP_CONFIGS[mapId];
             if (!currentMapData) return false;
+            // 矩形尺寸兜底（优先读取新字段，回退到旧字段，再回退到默认值）
+            const _pw = currentMapData.playWidth || currentMapData.size || 200;
+            const _pd = currentMapData.playDepth || currentMapData.size || 200;
+            const _ww = currentMapData.worldWidth || currentMapData.worldSize || Math.max(300, _pw + 100);
+            const _wd = currentMapData.worldDepth || currentMapData.worldSize || Math.max(300, _pd + 100);
+            currentMapData.playWidth = _pw;
+            currentMapData.playDepth = _pd;
+            currentMapData.worldWidth = Math.max(_ww, _pw);
+            currentMapData.worldDepth = Math.max(_wd, _pd);
+            // 更新全局尺寸变量
+            playHalfW = _pw / 2; playHalfD = _pd / 2;
+            worldHalfW = currentMapData.worldWidth / 2; worldHalfD = currentMapData.worldDepth / 2;
+            spawnHalfW = playHalfW - 2; spawnHalfD = playHalfD - 2;
+            const _minSide = Math.min(playHalfW, playHalfD);
+            obsVisibleRadius = _minSide * 0.9;
+            grassVisibleRadius = _minSide * 0.95;
             // 根据地图类型设置全局标志
             isVersusMap = (currentMapData.type === 'versus' || currentMapData.flat);
             return true;
@@ -1059,10 +1075,21 @@
             // 编辑器地图障碍物：编辑器已手动放置实体，不生成随机障碍物
             const hasEditorEntities = (editorBuildings.length > 0 || editorTrees.length > 0);
             const obstacleCount = hasEditorEntities ? 0 : 350;
+            // 从蓝图读取矩形尺寸（回退到默认值）
+            const _pw = bp.playWidth || 200;
+            const _pd = bp.playDepth || 200;
+            const _ww = bp.worldWidth || Math.max(300, _pw + 100);
+            const _wd = bp.worldDepth || Math.max(300, _pd + 100);
+            const _spawnHalfW = _pw / 2 - 2;
+            const _spawnHalfD = _pd / 2 - 2;
             return {
                 version: '1.0',
                 name: '📝编辑器:' + bp.name,
-                size: 200,
+                size: _pw,  // 向后兼容
+                playWidth: _pw,
+                playDepth: _pd,
+                worldWidth: _ww,
+                worldDepth: _wd,
                 type: 'single',
                 mode: 'combat',
                 desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
@@ -1073,7 +1100,7 @@
                 terrainTypes: { default: 'grass' },
                 enemies,
                 players: { lives: 3, hp: 100, cannonDamage: 40, cannonReload: 2.5, mgDamage: 2, mgFireRate: 10 },
-                obstacles: { count: obstacleCount, minDist: 6, safeRadius: 10, spawnRadius: 98, buildings: editorBuildings, editorTrees },
+                obstacles: { count: obstacleCount, minDist: 6, safeRadius: 10, spawnRadius: Math.min(_spawnHalfW, _spawnHalfD), buildings: editorBuildings, editorTrees, spawnHalfW: _spawnHalfW, spawnHalfD: _spawnHalfD },
                 roadSystem: bp.roadSystem || null,
             };
         }
@@ -1382,12 +1409,16 @@
         const PITCH_GAIN = 0.015, PITCH_MAX = 0.09, PITCH_SMOOTH = 8.0;
         // RECOIL_PITCH 等火炮物理常量 → shells.js
         const MAX_SLOPE = 0.52; // 最大爬坡度 ~30°，超过此坡度时自动降速
-        const WORLD_HALF = 100;
         const OBSTACLE_COUNT = 350;
-        const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0, SPAWN_RADIUS = 98;
-        const OBS_VISIBLE_RADIUS = 90;  // LOD可见半径（配合70-110m雾距，新视野看更远）
+        const POISSON_MIN_DIST = 6.0, SAFE_ZONE_RADIUS = 10.0;
         const GRASS_CELL_SIZE = 40;     // 草丛空间分块大小（米）
-        const GRASS_VISIBLE_RADIUS = 95; // 草丛可见半径（略大于障碍物半径）
+
+        // ── 地图尺寸动态变量（在 loadMapConfig 中更新，菜单阶段使用默认值）──
+        let playHalfW = 100, playHalfD = 100;       // 空气墙半宽/半深
+        let worldHalfW = 150, worldHalfD = 150;     // 世界地形半宽/半深
+        let spawnHalfW = 98, spawnHalfD = 98;       // Poisson采样半宽/半深
+        let obsVisibleRadius = 90;                  // 障碍物可见半径
+        let grassVisibleRadius = 95;                // 草丛可见半径
         const POINT_A_X = 0, POINT_A_Z = 0;  // 单人模式出生点（地图原点）
         // 炮弹/高爆弹常量 → shells.js
 
@@ -1456,11 +1487,9 @@
             if (currentMapData && currentMapData.terrain && currentMapData.terrain.heightmap) {
                 const hm = currentMapData.terrain.heightmap;
                 const _w = currentMapData.terrain.width || 256;
-                // 编辑器高度图覆盖 300×300 世界范围（与 createGround 中 SIZE=300、
-                // generateCompositeGroundTexture 中 half=150 一致）
-                const half = 150;
-                const u = (x + half) / (half * 2);
-                const v = (z + half) / (half * 2);
+                // 高度图覆盖 worldWidth×worldDepth 范围（矩形尺寸）
+                const u = (x + worldHalfW) / (worldHalfW * 2);
+                const v = (z + worldHalfD) / (worldHalfD * 2);
                 if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
                 // 双线性插值
                 const fx = u * (_w - 1), fz = v * (_w - 1);
@@ -1545,7 +1574,8 @@
             // --- 共享光照添加到场景 ---
             function addLightingTo(trg) {
                 trg.background = new THREE.Color('#8899aa');  // 匹配雾色，无天空球时远景连贯
-                trg.fog = new THREE.Fog('#8899aa', 70, 110);  // 配合陡视角，远处自然消失在雾中
+                const _minSide = Math.min(worldHalfW, worldHalfD) * 2;
+                trg.fog = new THREE.Fog('#8899aa', _minSide * 0.35, _minSide * 0.55);  // 配合陡视角，远处自然消失在雾中
                 trg.add(new THREE.AmbientLight('#ffffff', 0.6));
                 trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
                 const sun = new THREE.DirectionalLight('#fffef0', 2.5);
@@ -1641,18 +1671,17 @@
             createObstacles();
         }
 
-        // ==================== 地面（01a/01b:300×300扩展, 02a:200×200, 地形+纹理混合） ====================
+        // ==================== 地面（地形+纹理混合，矩形尺寸） ====================
         function createGround(targetScene = scene) {
-            const is02a = (selectedMapId === 'test_map_02a');
-            const BASE_SIZE = currentMapData ? currentMapData.size : WORLD_HALF * 2;
-            // 02a保持200×200，其他地图扩展到300×300（空气墙外50m自然缓冲区）
-            const SIZE = is02a ? BASE_SIZE : 300;
-            const SEGS = is02a ? 200 : (isVersusMap ? 32 : 256);
+            const ww = currentMapData ? currentMapData.worldWidth : 300;
+            const wd = currentMapData ? currentMapData.worldDepth : 300;
+            const SEGS_W = ww <= 200 ? 200 : (isVersusMap ? Math.max(32, Math.floor(ww / 10)) : 256);
+            const SEGS_D = wd <= 200 ? 200 : (isVersusMap ? Math.max(32, Math.floor(wd / 10)) : 256);
+            const groundHalf = Math.max(ww, wd) / 2;  // 纹理覆盖最大范围
 
             // ── 生成复合地貌纹理（splat map + 程序化纹理混合） ──
             let texture;
             try {
-                const groundHalf = SIZE / 2;
                 const compCanvas = generateCompositeGroundTexture(groundHalf);
                 texture = new THREE.CanvasTexture(compCanvas);
                 texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -1678,9 +1707,9 @@
                 texture.generateMipmaps = true;
             }
 
-            // ── 地形几何（保持平整不下陷，天际线由环形雾盖负责渐隐）──
+            // ── 地形几何（矩形，保持平整不下陷，天际线由环形雾盖负责渐隐）──
             let groundGeo;
-            groundGeo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
+            groundGeo = new THREE.PlaneGeometry(ww, wd, SEGS_W, SEGS_D);
             const pos = groundGeo.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const gx = pos.getX(i);
@@ -2264,7 +2293,7 @@
             // 参数化河流（01a 等地图）
             const segs = 200;
             const is02a = (selectedMapId === 'test_map_02a');
-            const len = is02a ? (currentMapData ? currentMapData.size : WORLD_HALF * 2) : 300;
+            const len = is02a ? (currentMapData ? currentMapData.playWidth : 200) : Math.max(worldHalfW, worldHalfD) * 2;
             const half = len / 2;
             const verts = [];
             const indices = [];
@@ -2955,10 +2984,10 @@
                 const result = checkCollision(newX, newZ);
                 if (result.hit) { newX += result.pushX; newZ += result.pushZ; } else break;
             }
-            // 空气墙（世界边界）
+            // 空气墙（矩形世界边界，X/Z分别钳制）
             const wallMargin = TANK_HALF_W;
-            newX = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newX));
-            newZ = Math.max(-WORLD_HALF + wallMargin, Math.min(WORLD_HALF - wallMargin, newZ));
+            newX = Math.max(-playHalfW + wallMargin, Math.min(playHalfW - wallMargin, newX));
+            newZ = Math.max(-playHalfD + wallMargin, Math.min(playHalfD - wallMargin, newZ));
             // 池塘空气墙（阻止坦克驶入池塘，使用动态池塘数据）
             if (isInPond(newX, newZ)) {
                 const pond = _getPond();
@@ -3363,7 +3392,7 @@
                 const distToTank = Math.sqrt((s.mesh.position.x-refX)**2 + (s.mesh.position.z-refZ)**2);
                 const shellGroundY = getGroundHeight(s.mesh.position.x, s.mesh.position.z);
                 if (hit || s.mesh.position.y < shellGroundY || distToTank > SHELL_MAX_DIST ||
-                    Math.abs(s.mesh.position.x) > WORLD_HALF+50 || Math.abs(s.mesh.position.z) > WORLD_HALF+50) {
+                    Math.abs(s.mesh.position.x) > worldHalfW+50 || Math.abs(s.mesh.position.z) > worldHalfD+50) {
                     // 🆕 地面命中效果（非障碍物/坦克碰撞，且炮弹低于地形）
                     if (!hit && s.mesh.position.y < shellGroundY) {
                         const impactPos = s.mesh.position.clone();
@@ -4168,8 +4197,8 @@
                 if(o&&!o.dead){const tdx=nx-o.state.x,tdz=nz-o.state.z,td=Math.sqrt(tdx*tdx+tdz*tdz);
                     if(td<TANK_HALF_W*2){const pu=(TANK_HALF_W*2-td)/Math.max(td,.001);nx+=tdx*pu*.5;nz+=tdz*pu*.5;}}}
             const wm=TANK_HALF_W;
-            p.state.x=Math.max(-WORLD_HALF+wm,Math.min(WORLD_HALF-wm,nx));
-            p.state.z=Math.max(-WORLD_HALF+wm,Math.min(WORLD_HALF-wm,nz));
+            p.state.x=Math.max(-playHalfW+wm,Math.min(playHalfW-wm,nx));
+            p.state.z=Math.max(-playHalfD+wm,Math.min(playHalfD-wm,nz));
             // 池塘/河流空气墙 + 桥梁护栏（仅单人地图）
             if(!isVersusMap){
                 if(isInPond(p.state.x,p.state.z)){
@@ -4350,7 +4379,7 @@
             player2.reloadBarGroup.visible=player2.hpBarGroup.visible=true;
             camera2=new THREE.PerspectiveCamera(48,renderer.domElement.width/renderer.domElement.height,.5,300);
             // 同步 P1 摄像机参数（与 P2 一致）
-            camera.fov=48; camera.far=300; camera.updateProjectionMatrix();
+            camera.fov=48; camera.far=Math.max(300, Math.max(worldHalfW, worldHalfD) * 2.0); camera.updateProjectionMatrix();
             tankGroup=player1.group;tankHull=player1.hull;
             leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
             reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
@@ -5081,7 +5110,7 @@
                 }
                 const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
                 const sgy=getGroundHeight(s.mesh.position.x,s.mesh.position.z);
-                if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>WORLD_HALF+50||Math.abs(s.mesh.position.z)>WORLD_HALF+50){
+                if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>worldHalfW+50||Math.abs(s.mesh.position.z)>worldHalfD+50){
                     if(!hit&&s.mesh.position.y<sgy){const ip=s.mesh.position.clone();ip.y=sgy;if(s.type!=='he')playGroundHitSound();spawnGroundDebris(ip);spawnScorchMark(ip);}
                     scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
             for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
@@ -5684,7 +5713,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.42.1 | 游戏结束画面+战斗统计面板+死亡记录');
+        console.log('⚡ 坦克运动demo v0.43.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
 
 
     </script>

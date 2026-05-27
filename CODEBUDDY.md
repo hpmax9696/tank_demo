@@ -163,11 +163,11 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.41.1 — 碰撞检测空间分区 + 摧毁状态修复）
+## 关键参数（v0.43.0 — 灵活地图尺寸 + 矩形地图支持）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
-| 世界大小 | 200×200 | `index.html` 常量 |
+| 世界大小 | 可配置（默认300×300, 空气墙200×200） | `map_editor.html` worldWidth/worldDepth/playWidth/playDepth + `.map.json` |
 | 障碍物数量 | 350 | `OBSTACLE_COUNT` |
 | 障碍物可见半径 | 55 单位 | `OBS_RADIUS` |
 | 坦克最高速度 | 4.0 单位/秒 | `MAX_SPEED` |
@@ -197,8 +197,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
 | 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
 | 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
-| 地图编辑器 | `map_editor.html` ~2850行 | 6阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成 |
-| 编辑器世界 | 300×300 (空气墙200×200) | `map_editor.html` WORLD_SIZE/PLAY_SIZE |
+| 地图编辑器 | `map_editor.html` ~2900行 | 7阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成+**灵活尺寸** |
+| 编辑器世界 | worldWidth×worldDepth (playWidth×playDepth) | 独立X/Z尺寸，支持任意矩形；`WORLD_SIZE/PLAY_SIZE` 已废弃 |
 | 高度图精度 | 256×256 Float32Array | HM_RES |
 | 纹理预览 | 2048×2048 Canvas2D | TEX_RES |
 | UndoManager | 50步快照栈，~320KB/步 | `pushSnapshot()`/`undo()`/`redo()` |
@@ -299,9 +299,11 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 已知问题
 
-暂无已知问题。
+| # | 问题 | 影响 | 位置 |
+|---|------|------|------|
+| 1 | 程序化生成中使用残留 `WORLD_SIZE`/`WORLD_HALF` 的边界和半径换算（详见待完成任务） | 矩形地图上随机生成的地形/建筑/道路范围偏大 | `map_editor.html` 多处 |
 
-## 已修复问题（v0.39.1 — 瞄准/操控/预测线全面修复）
+## 已修复问题（v0.43.0 — 灵活地图尺寸 + 矩形地图支持）
 
 | # | 修复内容 | 版本 |
 |---|------|------|
@@ -318,7 +320,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.42.1）
+## 📋 待完成任务（截至 v0.43.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
@@ -326,6 +328,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 2 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 5 | 程序化生成 WORLD_SIZE/WORLD_HALF 残留清理 | 🟡 中期 | 未分配 | 道路/村庄生成边界(~8处) + 半径换算(~6处) + 距离阈值(~2处) — 仅矩形地图受影响 |
 
 ---
 

@@ -1,17 +1,18 @@
-function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints, excludeFn) {
+function poissonDiskSampling(cx, cz, halfW, halfD, minDist, safeRadius, maxPoints, excludeFn) {
     const cellSize = minDist / Math.sqrt(2);
-    const gridSize = Math.ceil(2 * totalRadius / cellSize) + 1;
-    const grid = new Array(gridSize * gridSize).fill(-1);
+    const gridSizeW = Math.ceil(2 * halfW / cellSize) + 1;
+    const gridSizeD = Math.ceil(2 * halfD / cellSize) + 1;
+    const grid = new Array(gridSizeW * gridSizeD).fill(-1);
     const points = [];
     const active = [];
 
     function worldToGrid(x, z) {
-        const gx = Math.floor((x - cx + totalRadius) / cellSize);
-        const gz = Math.floor((z - cz + totalRadius) / cellSize);
+        const gx = Math.floor((x - cx + halfW) / cellSize);
+        const gz = Math.floor((z - cz + halfD) / cellSize);
         return { gx, gz };
     }
     function gridIdx(gx, gz) {
-        return gz * gridSize + gx;
+        return gz * gridSizeW + gx;
     }
     function inSafeZone(x, z) {
         return (x - cx) ** 2 + (z - cz) ** 2 < safeRadius ** 2;
@@ -20,13 +21,16 @@ function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints
         return excludeFn ? excludeFn(x, z) : false;
     }
     function inBounds(x, z) {
-        return Math.abs(x - cx) < totalRadius && Math.abs(z - cz) < totalRadius;
+        return Math.abs(x - cx) < halfW && Math.abs(z - cz) < halfD;
+    }
+    function isOnGrid(gx, gz) {
+        return gx >= 0 && gx < gridSizeW && gz >= 0 && gz < gridSizeD;
     }
     function hasConflict(x, z, gx, gz) {
         for (let dx = -2; dx <= 2; dx++) {
             for (let dz = -2; dz <= 2; dz++) {
                 const nx = gx + dx, nz = gz + dz;
-                if (nx < 0 || nx >= gridSize || nz < 0 || nz >= gridSize) continue;
+                if (!isOnGrid(nx, nz)) continue;
                 const idx = grid[gridIdx(nx, nz)];
                 if (idx === -1) continue;
                 const p = points[idx];
@@ -36,12 +40,11 @@ function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints
         return false;
     }
 
+    // 在矩形内随机选择一个起始点
     let first = null;
     for (let a = 0; a < 200; a++) {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = safeRadius + minDist + Math.random() * (totalRadius - safeRadius - minDist);
-        const tx = cx + Math.cos(angle) * dist;
-        const tz = cz + Math.sin(angle) * dist;
+        const tx = cx + (Math.random() - 0.5) * halfW * 2 * 0.8;
+        const tz = cz + (Math.random() - 0.5) * halfD * 2 * 0.8;
         if (inBounds(tx, tz) && !inSafeZone(tx, tz) && !inExcluded(tx, tz)) {
             first = { x: tx, z: tz };
             break;
@@ -70,6 +73,7 @@ function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints
 
             if (!inBounds(nx, nz) || inSafeZone(nx, nz) || inExcluded(nx, nz)) continue;
             const { gx, gz } = worldToGrid(nx, nz);
+            if (!isOnGrid(gx, gz)) continue;
             if (hasConflict(nx, nz, gx, gz)) continue;
 
             const np = { x: nx, z: nz };
@@ -87,7 +91,7 @@ function poissonDiskSampling(cx, cz, totalRadius, minDist, safeRadius, maxPoints
 }
 
 function updateObstacleVisibility(extraPositions) {
-    const r2 = OBS_VISIBLE_RADIUS * OBS_VISIBLE_RADIUS;
+    const r2 = obsVisibleRadius * obsVisibleRadius;
     let bldIdx = 0;
     for (let i = 0; i < obstacleData.length; i++) {
         const o = obstacleData[i];
@@ -126,7 +130,7 @@ function disposeTreeInstance(od, isOcclusion = false) {
 
 function updateGrassVisibility(extraPositions) {
     if (grassInstances.length === 0) return;
-    const r2 = GRASS_VISIBLE_RADIUS * GRASS_VISIBLE_RADIUS;
+    const r2 = grassVisibleRadius * grassVisibleRadius;
     for (const im of grassInstances) {
         const cx = im.userData.cx, cz = im.userData.cz;
         let visible = false;
@@ -292,8 +296,9 @@ function createObstacles(targetScene = scene) {
     _villageSystem = null;
 
     const is02a = (selectedMapId === 'test_map_02a');
-    const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS, spawnRadius: SPAWN_RADIUS };
-    const spawnR = obsCfg.spawnRadius || SPAWN_RADIUS;
+    const obsCfg = currentMapData && currentMapData.obstacles ? { ...currentMapData.obstacles } : { count: OBSTACLE_COUNT, minDist: POISSON_MIN_DIST, safeRadius: SAFE_ZONE_RADIUS };
+    const _shW = (obsCfg.spawnHalfW != null) ? obsCfg.spawnHalfW : spawnHalfW;
+    const _shD = (obsCfg.spawnHalfD != null) ? obsCfg.spawnHalfD : spawnHalfD;
     const roadSystem = currentMapData && currentMapData.roadSystem;
     let _roadAreas = [];
     if (roadSystem && roadSystem.roadSegments && roadSystem.roadSegments.length > 0) {
@@ -313,7 +318,7 @@ function createObstacles(targetScene = scene) {
         ? ((px, pz) => isOnRoad(px, pz, _villageSystem.roadAreas))
         : null;
 
-    const points = poissonDiskSampling(0, 0, spawnR,
+    const points = poissonDiskSampling(0, 0, _shW, _shD,
         obsCfg.minDist != null ? obsCfg.minDist : POISSON_MIN_DIST,
         obsCfg.safeRadius != null ? obsCfg.safeRadius : SAFE_ZONE_RADIUS,
         obsCfg.count != null ? obsCfg.count : OBSTACLE_COUNT, roadExcludeFn);
@@ -352,7 +357,7 @@ function createObstacles(targetScene = scene) {
     if (editorTrees.length > 0) {
         console.log('🌲 编辑器树木: ' + editorTrees.length + ' 棵（随机障碍物已关闭）');
         let skipped = 0;
-        const treeBoundary = 150;
+        const treeBoundary = Math.max(worldHalfW, worldHalfD);
         for (const et of editorTrees) {
             if (Math.abs(et.x) > treeBoundary || Math.abs(et.z) > treeBoundary) { skipped++; continue; }
             const tp = { x: et.x, z: et.z };
@@ -494,7 +499,7 @@ function createObstacles(targetScene = scene) {
     const effectiveBlds = allBlds.length > 0 ? allBlds : randomBlds;
 
     if (effectiveBlds.length > 0) {
-        const bldBoundary = (cfgBuildings.length > 0) ? 150 : spawnR * 0.92;
+        const bldBoundary = (cfgBuildings.length > 0) ? Math.max(worldHalfW, worldHalfD) : Math.min(_shW, _shD) * 0.92;
         for (const bld of effectiveBlds) {
             if (Math.abs(bld.x) > bldBoundary || Math.abs(bld.z) > bldBoundary) continue;
             if (!isVersusMap) {
