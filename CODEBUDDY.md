@@ -299,12 +299,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 已知问题
 
-| # | 问题 | 优先级 | 详情 |
-|---|------|--------|------|
-| 21 | 模型工厂撤销一键回到初始状态 | 🔴 v0.36.1 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退，需排查deepRestore引用或config写入路径 |
-| 22 | T-34/85 v1.6 模型迭代中 | 🟡 v0.38.1+ | 含6段履带路径(r21)+10轮+六棱台炮塔+发烟筒+外挂油箱。剩余问题: 履带弧段不贴合、待对齐四视图轮廓。**交接文件**:`docs/t34-85-v1.6-handoff-to-vision-ai.md` |
-| 23 | 模型工厂TANK_CONFIG需固化到独立JS文件 | 🟡 v0.38.1+ | 固化.ps1+导出JSON按钮已备，待模型定型后执行固化 |
-| 24 | 障碍物碰撞：obstacleData与obstacleMeshes索引不同步 | 🔵 远期 | obstacleMeshes 已加入树木InstancedMesh（v0.39.1），但updateObstacleVisibility改用o.groupRef.visible跳过索引问题。重建地图需注意isInstancedMesh跳过 |
+暂无已知问题。
 
 ## 已修复问题（v0.39.1 — 瞄准/操控/预测线全面修复）
 
@@ -323,16 +318,14 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.39.0）
+## 📋 待完成任务（截至 v0.42.1）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | 模型工厂撤销修复：Ctrl+Z逐步回退 | 🔴 紧急 | 未分配 | saveUndo()内联快照虽能拍照，但Ctrl+Z一次性回到初始而非逐步回退 |
-| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 3 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
-| 4 | 坦克程序化模型固化 | 🟡 中期 | v0.39.1+ | 固化.ps1+导出JSON按钮已就绪，待模型定型后一键执行固化 |
-| 5 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 6 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
+| 2 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
+| 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
 ---
 
@@ -376,57 +369,6 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 
 ---
 
-## 🤖 T-34/85 v1.6 — 与看图AI协作（v0.38.1+, 进行中）
-
-### 背景
-
-我们邀请了另一台能识别图片的 AI（"识图AI"）基于 T-34/85 四视图（左/前/顶/后）生成零件清单，由我方填入 `model_factory.html` 的 `T34_85_V16_CONFIG`。经 13 轮迭代（r1~r13），模型已具备可辨识的 T-34/85 轮廓。
-
-### 协作流程
-
-```
-1. 识图AI 查看正交五视图截图+参数表 → 发现偏差
-2. 识图AI 写出修改清单（含精确坐标）
-3. 我方填入 model_factory.html 的 T34_85_V16_CONFIG
-4. 我方在模型工厂 GUI 下拉菜单切换到「T-34/85 (v1.6 AI版)」预览
-5. 我方截图+导出参数表 → 发给识图AI
-6. 回到步骤1
-```
-
-### 关键文件
-
-| 文件 | 用途 |
-|------|------|
-| `docs/t34-85-v1.6-spec-for-vision-ai.md` | 发给识图AI的规范文档（坐标/几何体/材质） |
-| `docs/t34-85-v1.6-env-deps.md` | 环境依赖说明（Three.js r160 细节） |
-| `docs/t34-85-v1.6-feedback-to-vision-ai.md` | r1~r13 全部交互反馈记录 |
-| `docs/t34-85-v1.6-r13-params.md` | **r13 当前完整参数表**（44部件坐标） |
-| `docs/t34-85-v1.6-handoff-to-vision-ai.md` | **🆕 识图AI交接文件**（项目背景+参数+问题+模板） |
-| `model_factory.html` → `T34_85_V16_CONFIG` | v1.6 模型配置（约707行处） |
-| `model_factory.html` → GUI下拉菜单 | 切换入口：「T-34/85 (v1.6 AI版)」 |
-
-### 新对话启动流程
-
-1. 将 `docs/t34-85-v1.6-handoff-to-vision-ai.md` 粘贴给识图 AI
-2. 同时附上 `docs/t34-85-v1.6-r13-params.md`（参数表）
-3. 识图AI 按交接文件中的"指令模板"格式发送修改清单
-4. 我方执行修改，输出反馈+参数表
-
-### 环境改进（已实现）
-
-- 📐 正交/透视切换（工程制图无畸变）
-- 🎨 背景调色盘（增强对比）
-- 🟢 TrackChain 绿线理论路径可视化
-- 🔍 Console 诊断（TrackChain 采样点坐标）
-
-### 注意事项
-
-- 模型工厂预览前必须先 `preview_url`，遵循 CODEBUDDY.md 顶部 HTTP 服务规则
-- v1.6 仅用于模型工厂预览，暂不集成到主游戏 index.html
-- 当前 config 对应 r13 状态，44 部件
-- 调试配色（红轮🔴/蓝链🔵/品红发烟筒🟣）暂留，最终移除
-
----
 
 ## 🔧 固化工作流（v0.38.1 新增）
 
