@@ -33,7 +33,7 @@ python -m http.server 8080 --bind 127.0.0.1
 |------|:----:|----------|
 | `index.html` | ~6800 | 主游戏引擎 |
 | `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
-| `map_editor.html` | ~2850 | 地图编辑器 |
+| `map_editor.html` | ~2900 | 地图编辑器（灵活尺寸+矩形地图） |
 | `models/t34_v16_builder.js` | ~353 | T-34/85 v1.6 动画坦克构建器（index.html 引用，含 turretPivot/barrelPivot） |
 | `models/enemies.js` | ~920 | 装甲突击车 + 程序化丧尸 |
 | `combat/enemyAI.js` | ~535 | AI 状态机 |
@@ -197,6 +197,33 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 **Git 提交格式**: `vX.Y.Z: 描述`
 
 **菜单 changelog 裁剪**：只保留最近 5 条 `cl-title`，多余的必须删除，否则撑破菜单。
+
+---
+
+## 当前版本（v0.43.0 — 灵活地图尺寸+矩形地图）
+
+### 关键参数
+| 参数 | 值 |
+|------|----|
+| 世界尺寸 | worldWidth×worldDepth（可配置，默认300×300） |
+| 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
+| 地图编辑器行数 | ~2900 行 |
+| .map.json | 含 playWidth/playDepth/worldWidth/worldDepth 字段 |
+| 坐标步长 | hmStepW = worldWidth/255, hmStepD = worldDepth/255（独立X/Z） |
+
+### 已知问题
+| # | 问题 | 位置 |
+|---|------|------|
+| 1 | 程序化生成中残留 WORLD_SIZE/WORLD_HALF 的边界和半径换算（~16处） | `map_editor.html` 道路/村庄/半径换算 |
+
+### 待完成任务（从 CODEBUDDY.md 同步）
+| # | 任务 | 优先级 |
+|---|------|:------:|
+| 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 |
+| 2 | 同轴机枪功能 | 🟡 中期 |
+| 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
+| 4 | 树木 InstancedMesh 重构 | 🔵 远期 |
+| 5 | 程序化生成 WORLD_SIZE/WORLD_HALF 残留清理 | 🟡 中期 |
 
 ---
 
