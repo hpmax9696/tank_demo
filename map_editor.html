@@ -1242,6 +1242,9 @@ function createBridgeMesh(b) {
 }
 
 function addBridge(from, to) {
+    // 过滤虚空中的桥（两端都超出世界边界至少5m则跳过）
+    const cx = (from.x + to.x) / 2, cz = (from.z + to.z) / 2;
+    if (Math.abs(cx) > worldHalfW + 5 || Math.abs(cz) > worldHalfD + 5) return;
     if (!undoManager._inUndoRedo) pushSnapshot();
     const id = 'b' + Date.now();
     const width = 4;
@@ -2523,7 +2526,6 @@ function getWorldPos(e) {
     mNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mNDC, camera);
-    // 优先使用实际地形网格交点（顶视图/3D视角均准确）
     if (groundPlane) {
         const hits = raycaster.intersectObject(groundPlane);
         if (hits.length > 0) return hits[0].point;
@@ -2562,6 +2564,8 @@ viewport3D.addEventListener('mousedown', (e) => {
         isPainting = true;
         isWaterPainting = true;
         const pt = getWorldPos(e);
+        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
         const baseLevel = smpHeight(pt.x, pt.z);  // 记录点击处原始地形高度
         waterBaseLevel = baseLevel;  // 初始水位 = 点击处高度
         waterDragPoints = [{ x: pt.x, z: pt.z }];
@@ -2588,6 +2592,8 @@ viewport3D.addEventListener('mousedown', (e) => {
         isPainting = true;
         isRoadPainting = true;
         const pt = getWorldPos(e);
+        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
         roadDragPoints = [{ x: pt.x, z: pt.z }];
         needsHmRender = true;
         overlayInfo.textContent = '🛣️ 道路绘制中... '+roadTypeNames[roadType]+' '+roadWidth+'m | 松手完成';
@@ -2730,6 +2736,8 @@ window.addEventListener('mousemove', (e) => {
     // 水体拖拽（画河流）— 仅记录路径，mouseup 时一次性雕刻
     if (isWaterPainting) {
         const pt = getWorldPos(e);
+        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
         const last = waterDragPoints[waterDragPoints.length - 1];
         const dist = last ? Math.hypot(pt.x - last.x, pt.z - last.z) : Infinity;
         if ((last && dist > 3) || !last) {
@@ -2758,6 +2766,8 @@ window.addEventListener('mousemove', (e) => {
     // 道路拖拽 — 采样轨迹点
     if (isRoadPainting) {
         const pt = getWorldPos(e);
+        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
         const last = roadDragPoints[roadDragPoints.length - 1];
         if (last && Math.hypot(pt.x - last.x, pt.z - last.z) > 4) {
             roadDragPoints.push({ x: pt.x, z: pt.z });

@@ -26,9 +26,10 @@ function getGamepad() {
 function stickToTarget(value) {
     const abs = Math.abs(value);
     const sign = Math.sign(value);
-    if (abs > 0.8) return sign;
-    if (abs > 0.5) return sign * 0.66;
-    if (abs > 0.2) return sign * 0.33;
+    if (abs > 0.85) return sign;           // 100%
+    if (abs > 0.65) return sign * 0.75;    // 75%
+    if (abs > 0.45) return sign * 0.50;    // 50%
+    if (abs > 0.20) return sign * 0.25;    // 25%
     return 0;
 }
 
@@ -55,7 +56,6 @@ function getDriveInput(useGamepad = true) {
 
     let targetLeft = forward + strafe;
     let targetRight = forward - strafe;
-    if (forward < 0) { const t = targetLeft; targetLeft = targetRight; targetRight = t; }
     targetLeft = Math.max(-1, Math.min(1, targetLeft));
     targetRight = Math.max(-1, Math.min(1, targetRight));
 

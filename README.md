@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.45.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.46.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,19 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.46.0 — 模块拆分+水面ShapeGeometry+编辑器裁剪+手柄优化（2026-05-30）
+
+- **模块拆分完成**: waters.js(~405行)+bridges.js(~177行)+debugcolliders.js(~120行) 从index.html拆出，index.html 5554→5094行
+- **编辑器河面ShapeGeometry**: earcut三角化闭合多边形（右岸+左岸），替代条带方案，消除弯道自交
+- **桥梁碰撞修复**: lx/lz轴互换bug（纵向/横向检测颠倒，致桥面碰撞全错）、老格式桥isOnBridge无限Z轴延伸修复
+- **getBridgeSurfaceY**: 实际桥面高度支持（编辑器桥不再硬编码BRIDGE_SURFACE_Y=0.175）
+- **effHw弯道缩窄公式修复**: cos(dAng/2) 替代无效 min(1,1/cos)
+- **虚空拖拽裁剪**: 编辑器河流/道路边界钳制+间距去重+虚空桥过滤
+- **手柄优化**: stickToTarget 3段→5段力度(0.25/0.5/0.75/1.0)、倒车转向反转改用实际速度判定、摇杆换向dirFlip检测
+- **F3碰撞可视化**: 从riverColliders[]和currentMapData.bridges运行时数据反向生成
+- **履带参数**: TRACK_ACCEL/COAST随MAX_SPEED翻倍同步调整(10/16/7)
+- index.html 5094行, waters.js ~405行, bridges.js ~177行, debugcolliders.js ~120行, input.js ~71行
 
 ### v0.45.0 — 水体/桥梁/出生点数据对接修复（2026-05-29）
 
@@ -882,18 +895,17 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.43.0）
-- `index.html`：约 5436 行（主游戏引擎，已拆分6个模块）
-- `audio.js`：~223行 | `input.js`：~55行 | `shells.js`：~300行 | `mg.js`：~180行
-- `bars.js`：~75行 | `obstacles.js`：~620行 | `spatialGrid.js`：~99行（新增）
-- `model_factory.html`：约 **1922 行**（通用程序化模型编辑器 + 模型工厂清理优化）
-- `map_editor.html`：约 2900 行（地图编辑器 + 灵活尺寸支持 + 批量属性编辑 + 实体列表分类折叠）
+### 代码规模（截至 v0.46.0）
+- `index.html`：约 5094 行（主游戏引擎，已拆分10个模块）
+- `waters.js`：~405行 | `bridges.js`：~177行 | `debugcolliders.js`：~120行（新增）
+- `audio.js`：~223行 | `input.js`：~71行 | `shells.js`：~300行 | `mg.js`：~180行
+- `bars.js`：~75行 | `obstacles.js`：~620行 | `spatialGrid.js`：~99行
+- `model_factory.html`：约 **1922 行**（通用程序化模型编辑器）
+- `map_editor.html`：约 3000 行（地图编辑器 + 虚空裁剪）
 - `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
-- `combat/enemyAI.js`：约 535 行（AI状态机 + 卡住检测重写）
+- `combat/enemyAI.js`：约 535 行（AI状态机）
 - `fireSmokeParticles.js`：约 390 行（粒子系统）
-- `models/t34-85.js`：约 640 行（T-34/85 程序化模型）
-- `models/buildings.js`：约 220 行（建筑模型）
-- **总计约 7600 行**
+- **总计约 8100 行**
 
 ---
 

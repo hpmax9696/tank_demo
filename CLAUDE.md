@@ -14,10 +14,12 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏引擎 (~5450行)：状态机/场景/物理/瞄准/摄像机
-├── maploader.js       # 地图加载模块 (~190行)：蓝图转换+动态加载+配置
+├── index.html         # 核心游戏引擎 (~5094行)：状态机/场景/物理/瞄准/摄像机
+├── waters.js          # 水体模块 (~405行)：池塘/河流水面ShapeGeometry+碰撞体+动画
+├── bridges.js         # 桥梁模块 (~177行)：编辑器桥+参数化桥+碰撞检测+可视化
+├── debugcolliders.js  # 碰撞可视化 (~120行)：F3切换，从运行时数据反向生成
 ├── audio.js           # 音频系统
-├── input.js           # 输入处理 (WASD+手柄)
+├── input.js           # 输入处理 (WASD+手柄，5段力度)
 ├── shells.js          # 炮弹系统
 ├── mg.js              # 机枪系统
 ├── bars.js            # UI 血条/装填条

@@ -64,9 +64,12 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | 文件 | 行数 | 功能 |
 |------|:----:|------|
-| `index.html` | ~5064 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机） |
+| `index.html` | ~5094 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机） |
+| `waters.js` | ~405 | 水体系统（池塘/河流ShapeGeometry三角化+碰撞体+动画+边界裁剪） |
+| `bridges.js` | ~177 | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤） |
+| `debugcolliders.js` | ~120 | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
 | `audio.js` | ~223 | 音频系统（引擎声/开火/爆炸/命中/换弹音效） |
-| `input.js` | ~55 | 输入处理（WASD驾驶+手柄+倒车转向修正） |
+| `input.js` | ~71 | 输入处理（WASD驾驶+手柄5段力度+倒车转向修正） |
 | `shells.js` | ~267 | 炮弹系统（发射/爆炸/溅射伤害/HE冲击波） |
 | `mg.js` | ~180 | 机枪系统（自动锁敌/弹道/过热） |
 | `bars.js` | ~75 | UI元素（血条/装填条/HUD） |
@@ -74,7 +77,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 5064 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 5094 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat'
@@ -304,8 +307,28 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 | 2 | git revert后index.html部分修复丢失 | 水面渲染/纹理/出生点等10个修复需重新应用 | index.html |
 | 3 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
-| 4 | 河岸空气墙可视化红环未清理 | 调试用红色环会残留在场景中 | index.html→createRiverWater |
-| 5 | 模块拆分未完成 | maploader.js已拆分，waters.js+bridges.js未拆 | index.html ~5450行 |
+| 4 | 河岸空气墙可视化红环未清理 | 调试用红色环会残留在场景中 | debugcolliders.js |
+| 5 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段，与拖拽速度/角度相关 | map_editor.html→mousemove钳制逻辑 |
+| 6 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case，低概率出现转向不跟手 | input.js + index.html 驱动逻辑 |
+| 7 | 编辑器河流弯道处水面透明叠加变暗 | ShapeGeometry消除几何自交后，弯道处depthWrite:false透明水面视线穿透两层 | waters.js→createRiverWater |
+
+## 已修复问题（v0.46.0 — 模块拆分+水面ShapeGeometry+编辑器裁剪+手柄优化）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | waters.js+bridges.js+debugcolliders.js 模块拆分完成（index.html 5554→5094行） | v0.46.0 |
+| 2 | 编辑器桥梁lx/lz轴互换bug修复（纵向/横向检测颠倒，致桥面碰撞全错） | v0.46.0 |
+| 3 | 老格式桥梁（01a）isOnBridge无限Z轴延伸修复 | v0.46.0 |
+| 4 | getGroundHeight→getBridgeSurfaceY桥梁实际高度支持（修复编辑器桥坦克穿透） | v0.46.0 |
+| 5 | 参数化河流碰撞体缺失修复（单人模式坦克驶入河中） | v0.46.0 |
+| 6 | 编辑器河面弯道effHw公式修复（cos(dAng/2)替代无效min(1,1/cos)） | v0.46.0 |
+| 7 | 编辑器河面改用ShapeGeometry三角化（earcut），消除条带自交 | v0.46.0 |
+| 8 | 编辑器虚空拖拽路径裁剪（钳制边界+间距去重+虚空桥过滤） | v0.46.0 |
+| 9 | 手柄倒车转向反转改用实际速度判定（消除摇杆微小Y值误触发） | v0.46.0 |
+| 10 | 手柄stickToTarget力度从3段→5段（0.25/0.5/0.75/1.0） | v0.46.0 |
+| 11 | 摇杆换向dirFlip检测（prevTarget非零时才更新，消除穿中帧误判） | v0.46.0 |
+| 12 | 履带参数TRACK_ACCEL/COAST随MAX_SPEED翻倍同步调整 | v0.46.0 |
+| 13 | F3碰撞体可视化（从riverColliders[]和currentMapData.bridges实时生成） | v0.46.0 |
 
 ## 已修复问题（v0.45.0 — 水体/桥梁/出生点数据对接修复）
 
@@ -364,14 +387,16 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.44.0）
+## 📋 待完成任务（截至 v0.46.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
-| 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 2 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
+| 3 | 编辑器河流弯道透明度叠加优化 | 🟡 中期 | 未分配 | ShapeGeometry弯道处depthWrite:false导致双层穿透变暗 |
+| 4 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
+| 5 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 6 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
 ---
 
