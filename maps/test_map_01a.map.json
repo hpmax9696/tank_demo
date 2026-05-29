@@ -7,26 +7,87 @@
   "worldWidth": 300,
   "worldDepth": 300,
   "type": "single",
-  "desc": "噪声地形斑块：草地~50%+泥地~28%+沙地~22%，池塘+蛇形河流+高地盆地",
-  "spawnPoints": { "p1": [0, 0, 1.57] },
+  "desc": "池塘+蛇形河流+高地盆地，完整地形",
+  "spawnPoints": {
+    "p1": [
+      0,
+      0,
+      1.57
+    ]
+  },
   "terrain": {
-    "pond": { "cx": 0, "cz": 50, "rx": 4.5, "rz": 6, "depth": 5 },
-    "river": { "zc": -60, "amp": 8, "period": 30, "hwBase": 6.25, "hwVar": 1.25, "hwPeriod": 20, "hwPhase": 1.5, "depth": 5 },
-    "hill": { "cx": 40, "cz": -30, "height": 4, "radius": 8 },
-    "basin": { "cx": 48, "cz": -25, "depth": 3, "radius": 5 }
+    "pond": {
+      "cx": 0,
+      "cz": 50,
+      "rx": 4.5,
+      "rz": 6,
+      "depth": 5
+    },
+    "river": {
+      "zc": -60,
+      "amp": 8,
+      "period": 30,
+      "hwBase": 6.25,
+      "hwVar": 1.25,
+      "hwPeriod": 20,
+      "hwPhase": 1.5,
+      "depth": 5
+    },
+    "hill": {
+      "cx": 40,
+      "cz": -30,
+      "height": 4,
+      "radius": 8
+    },
+    "basin": {
+      "cx": 48,
+      "cz": -25,
+      "depth": 3,
+      "radius": 5
+    }
   },
   "terrainTypes": {
     "default": "grass",
-    "riverBank": { "bankWidth": 5, "type": "mud" },
-    "pondEdge": { "bankWidth": 3, "type": "mud" },
-    "hillTop": { "radius": 4, "type": "sand" },
-    "basin": { "radius": 3, "type": "sand" },
-    "bridgeSurface": { "type": "asphalt" }
+    "riverBank": {
+      "bankWidth": 5,
+      "type": "mud"
+    },
+    "pondEdge": {
+      "bankWidth": 3,
+      "type": "mud"
+    },
+    "hillTop": {
+      "radius": 4,
+      "type": "sand"
+    },
+    "basin": {
+      "radius": 3,
+      "type": "sand"
+    },
+    "bridgeSurface": {
+      "type": "asphalt"
+    }
   },
   "waters": {
-    "pond": { "waterLevel": -1 },
-    "river": { "waterLevel": -1 }
+    "pond": {
+      "waterLevel": -1
+    },
+    "river": {
+      "waterLevel": -1
+    }
   },
-  "bridges": [{ "cx": 0, "halfW": 4, "deckH": 0.35 }],
-  "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 }
+  "bridges": [
+    {
+      "cx": 0,
+      "halfW": 4,
+      "deckH": 0.35
+    }
+  ],
+  "obstacles": {
+    "count": 350,
+    "minDist": 6,
+    "safeRadius": 10,
+    "spawnRadius": 98
+  },
+  "_mapId": "test_map_01a"
 }

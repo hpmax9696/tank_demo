@@ -8,10 +8,27 @@
   "worldDepth": 300,
   "type": "versus",
   "flat": true,
-  "desc": "双人对战地图：平坦大平原，无障碍地形",
-  "spawnPoints": { "p1": [-15, 0, 1.57], "p2": [15, 0, -1.57] },
+  "desc": "双人对战平坦大平原",
+  "spawnPoints": {
+    "p1": [
+      -15,
+      0,
+      1.57
+    ],
+    "p2": [
+      15,
+      0,
+      -1.57
+    ]
+  },
   "terrainTypes": {
     "default": "grass"
   },
-  "obstacles": { "count": 350, "minDist": 6, "safeRadius": 10, "spawnRadius": 98 }
+  "obstacles": {
+    "count": 350,
+    "minDist": 6,
+    "safeRadius": 10,
+    "spawnRadius": 98
+  },
+  "_mapId": "test_map_01b"
 }

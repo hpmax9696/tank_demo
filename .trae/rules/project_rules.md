@@ -200,30 +200,30 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.43.0 — 灵活地图尺寸+矩形地图）
+## 当前版本（v0.44.0 — 地图拆分+桥梁修复+编辑器增强）
 
 ### 关键参数
 | 参数 | 值 |
 |------|----|
 | 世界尺寸 | worldWidth×worldDepth（可配置，默认300×300） |
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
-| 地图编辑器行数 | ~2900 行 |
-| .map.json | 含 playWidth/playDepth/worldWidth/worldDepth 字段 |
-| 坐标步长 | hmStepW = worldWidth/255, hmStepD = worldDepth/255（独立X/Z） |
+| 地图编辑器行数 | ~3100 行 |
+| 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch |
+| 桥梁引道 | 平整区(deckY) + 内陆斜坡(max(5m,高差×4))，_carvedCells可撤销 |
+| 河流深度 | 水面=河岸最低-3m，河床=地图最低-10m |
 
 ### 已知问题
 | # | 问题 | 位置 |
 |---|------|------|
-| 1 | 程序化生成中残留 WORLD_SIZE/WORLD_HALF 的边界和半径换算（~16处） | `map_editor.html` 道路/村庄/半径换算 |
+| 1 | 模型工厂撤销一键回到初始状态 | model_factory.html |
 
-### 待完成任务（从 CODEBUDDY.md 同步）
+### 待完成任务
 | # | 任务 | 优先级 |
 |---|------|:------:|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 |
 | 2 | 同轴机枪功能 | 🟡 中期 |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 |
-| 5 | 程序化生成 WORLD_SIZE/WORLD_HALF 残留清理 | 🟡 中期 |
 
 ---
 

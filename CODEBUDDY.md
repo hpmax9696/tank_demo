@@ -163,7 +163,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 - 引擎声（随速度变化频率）
 - 开炮/爆炸/命中音效
 
-## 关键参数（v0.43.0 — 灵活地图尺寸 + 矩形地图支持）
+## 关键参数（v0.44.0 — 灵活地图尺寸 + 矩形地图支持）
 
 | 参数 | 值 | 位置 |
 |------|-----|------|
@@ -301,9 +301,24 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | # | 问题 | 影响 | 位置 |
 |---|------|------|------|
-| 1 | 程序化生成中使用残留 `WORLD_SIZE`/`WORLD_HALF` 的边界和半径换算（详见待完成任务） | 矩形地图上随机生成的地形/建筑/道路范围偏大 | `map_editor.html` 多处 |
+| 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 
-## 已修复问题（v0.43.0 — 灵活地图尺寸 + 矩形地图支持）
+## 已修复问题（v0.44.0 — 地图拆分+桥梁修复+编辑器增强）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 地图数据从index.html拆分到maps/目录动态加载（_index.json manifest） | v0.44.0 |
+| 2 | 桥梁引道重写：平整区+内陆斜坡+_carvedCells可撤销，修复重复生成凹坑 | v0.44.0 |
+| 3 | 蓝色纹理修复：桥梁雕琢不移入editedVerticesPaint，避免vertexColors水体蓝染 | v0.44.0 |
+| 4 | 河流生成重构：水面=河岸最低-3m，河床=地图最低-10m，自动计算 | v0.44.0 |
+| 5 | 编辑器蓝图加载尺寸变量同步（worldHalfW/D, playHalfW/D等） | v0.44.0 |
+| 6 | 弹道预测线重建修复（rebuildMapAsync清理trajLine/trajDot） | v0.44.0 |
+| 7 | 多段河流穿越detectAndBuildBridges改为进入/退出状态机 | v0.44.0 |
+| 8 | 小地图村落规模自适应（scaleF缩放+广场位置动态调整） | v0.44.0 |
+| 9 | WORLD_SIZE/WORLD_HALF残余清理（~25处改为独立X/Z尺寸） | v0.44.0 |
+| 10 | 编辑器3D视口Ctrl多选+Shift框选+Delete删除+实体列表排序分色 | v0.44.0 |
+| 11 | 随机生成面板从弹窗移到右侧面板 | v0.44.0 |
+| 12 | 树木InstancedMesh加入obstacleMeshes | v0.39.1 |
 
 | # | 修复内容 | 版本 |
 |---|------|------|
@@ -320,7 +335,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.43.0）
+## 📋 待完成任务（截至 v0.44.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
@@ -328,7 +343,6 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 2 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
-| 5 | 程序化生成 WORLD_SIZE/WORLD_HALF 残留清理 | 🟡 中期 | 未分配 | 道路/村庄生成边界(~8处) + 半径换算(~6处) + 距离阈值(~2处) — 仅矩形地图受影响 |
 
 ---
 
