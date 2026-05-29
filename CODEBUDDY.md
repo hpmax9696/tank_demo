@@ -302,6 +302,35 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | # | 问题 | 影响 | 位置 |
 |---|------|------|------|
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
+| 2 | git revert后index.html部分修复丢失 | 水面渲染/纹理/出生点等10个修复需重新应用 | index.html |
+| 3 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
+| 4 | 河岸空气墙可视化红环未清理 | 调试用红色环会残留在场景中 | index.html→createRiverWater |
+| 5 | 模块拆分未完成 | maploader.js已拆分，waters.js+bridges.js未拆 | index.html ~5450行 |
+
+## 已修复问题（v0.45.0 — 水体/桥梁/出生点数据对接修复）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 编辑器-游戏Float32Array序列化对接（saveBlueprints TypedArray replacer） | v0.45.0 |
+| 2 | 编辑器exportMapJson始终含heightmap+河流+桥端点（不再被features吞掉） | v0.45.0 |
+| 3 | 矩形地图纹理坐标修复（generateSplatMap/CompositeGroundTexture独立halfX/halfZ） | v0.45.0 |
+| 4 | 多河流支持（convertBlueprintToMapConfig→terrainExtra.rivers数组） | v0.45.0 |
+| 5 | 河流交叉水面统一（取最低水位）+ 河床基准排除已挖水体 | v0.45.0 |
+| 6 | 游戏端水面弯曲平滑（2-pass移动平均+40°阈值） | v0.45.0 |
+| 7 | 水面NaN防护（Float32Array→JSON序列化waterLevels.length丢失） | v0.45.0 |
+| 8 | 重复河面消除（buildScene去水+创建时机统一+参数化代码穿透修复） | v0.45.0 |
+| 9 | 桥面渲染重写（编辑器中桥定向+deckY高度+游戏端isOnBridge支持任意朝向） | v0.45.0 |
+| 10 | 桥头空气墙修复（桥面区域跳过riverColliders+护栏方向修正） | v0.45.0 |
+| 11 | 坦克出生点修复（4处硬编码→读取spawnPoints.p1+编辑器出生点唯一性） | v0.45.0 |
+| 12 | 出生点避水（原点在水中→螺旋搜索干地） | v0.45.0 |
+| 13 | 坦克速度翻倍（MAX_SPEED 4→8 m/s） | v0.45.0 |
+| 14 | 池塘水面数据完整性校验（cx/rx不为null才创建） | v0.45.0 |
+| 15 | 弯道缩窄公式修复（effHw = hw*cos(dAng/2)替代无效的min(1,1/cos)） | v0.45.0 |
+| 16 | 河岸钳制多距离采样（effHw+2/+4/+6替代effHw+1，避免被河道过渡区污染） | v0.45.0 |
+| 17 | 村落重复生成桥恢复后立即createGround | v0.45.0 |
+| 18 | isPointInWater河流半宽从硬编码4→(w.width||40)*0.5 | v0.45.0 |
+| 19 | 编辑器桥deckY存储到蓝图 | v0.45.0 |
+| 20 | maploader.js模块拆分（~190行，loadMapConfig+convertBlueprint+loadMapsFromDirectory） | v0.45.0 |
 
 ## 已修复问题（v0.44.0 — 地图拆分+桥梁修复+编辑器增强）
 

@@ -1245,7 +1245,7 @@ function addBridge(from, to) {
     if (!undoManager._inUndoRedo) pushSnapshot();
     const id = 'b' + Date.now();
     const width = 4;
-    const b = { id, from, to, width };
+    const b = { id, from, to, width, deckY: 0 };
     mapData.bridges.push(b);
 
     // 地形修整：平整区 + 两端斜坡（记录修改，清理时恢复）
@@ -1255,6 +1255,7 @@ function addBridge(from, to) {
     const hFrom = smpHeight(from.x, from.z);
     const hTo = smpHeight(to.x, to.z);
     const deckY = Math.min(hFrom, hTo); // 桥面高度 = 较低岸
+    b.deckY = deckY;
     const halfW = width * 0.5 + 2;     // 平整宽度
     b._carvedCells = [];
 
@@ -1934,46 +1935,44 @@ function createWaterLayer() {
     // 清理旧水面
     waterLayerMeshes.forEach(m => { scene.remove(m); if(m.geometry)m.geometry.dispose(); if(m.material)m.material.dispose(); });
     waterLayerMeshes = [];
-    
+
+    if (mapData.waters.length === 0) return;
+
     const waterMat = new THREE.MeshStandardMaterial({
         color: '#3388cc', roughness: 0.1, metalness: 0.3,
         transparent: true, opacity: 0.6, depthWrite: true, depthTest: true,
-        side: THREE.DoubleSide,  // 修复：水面三角形法线朝下，需双面渲染
+        side: THREE.DoubleSide,
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
     });
-    
+
+    // 1x 全局去重 + 边缘2x超采样：边缘半格精度平滑锯齿，内部保持1格性能
+    const globalCells = new Map();  // key "sx,sy" → waterLevel
+    const SS = 2;
+    const subHmStepW = hmStepW / SS, subHmStepD = hmStepD / SS;
+
     for (const w of mapData.waters) {
         const waterLevel = w.waterLevel || 0;
-        
-        // ========== 网格单元法构建水面（支持每单元格独立高度） ==========
-        // 河流用路径距离判断，湖泊用圆心距离判断，统一从高度图网格构建四边形
-        // 使用独立于 WORLD_SIZE 的 hmStepW/hmStepD，适配矩形地图
-        let cellSet = null;
-        let debugLabel = '';
 
         if (w.type === 'pond' && w.center && w.radius) {
-            // 湖泊：水面低于湖岸（已在创建时调整 waterLevel），精确匹配雕刻半径
             const r2 = w.radius * w.radius;
             const minSx = Math.max(0, Math.floor((w.center.x - w.radius - hmStepW + worldHalfW) / hmStepW));
             const maxSx = Math.min(HM_RES - 1, Math.ceil((w.center.x + w.radius + hmStepW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((w.center.z - w.radius - hmStepD + worldHalfD) / hmStepD));
             const maxSy = Math.min(HM_RES - 1, Math.ceil((w.center.z + w.radius + hmStepD + worldHalfD) / hmStepD));
-
-            cellSet = new Map();
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
                     const cx = (sx + 0.5) * hmStepW - worldHalfW;
                     const cz = (sy + 0.5) * hmStepD - worldHalfD;
                     const dx = cx - w.center.x, dz = cz - w.center.z;
                     if (dx * dx + dz * dz <= r2) {
-                        cellSet.set(sx + ',' + sy, waterLevel);
+                        const key = sx + ',' + sy;
+                        const existing = globalCells.get(key);
+                        globalCells.set(key, existing != null ? Math.min(existing, waterLevel) : waterLevel);
                     }
                 }
             }
-            debugLabel = '湖泊水面v3';
 
         } else if (w.type === 'river' && w.points && w.points.length >= 2) {
-            // 河流水面：跟随分段水面剖面（有 waterLevels 则用局部水面，否则全局）
             const riverWidth = w.width || brushRadius || 10;
             const hw = riverWidth * 0.5;
             const smoothPts = samplePathSmoothDense(w.points, 2.0);
@@ -1984,14 +1983,12 @@ function createWaterLayer() {
                 if (p.x < minWx) minWx = p.x; if (p.x > maxWx) maxWx = p.x;
                 if (p.z < minWz) minWz = p.z; if (p.z > maxWz) maxWz = p.z;
             }
-            const padW = hw + hmStepW;
-            const padD = hw + hmStepD;
+            const padW = hw + hmStepW, padD = hw + hmStepD;
             const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
             const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
             const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
 
-            cellSet = new Map();  // key → perCellSurfaceLevel
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
                     const cx = (sx + 0.5) * hmStepW - worldHalfW;
@@ -2003,57 +2000,109 @@ function createWaterLayer() {
                         if (minDist <= hw) break;
                     }
                     if (minDist <= hw) {
-                        const cellSL = hasProfile ? w.waterLevels[ns] : (w.waterLevel || 0);
-                        cellSet.set(sx + ',' + sy, cellSL);
+                        const cellSL = hasProfile ? w.waterLevels[ns] : waterLevel;
+                        const key = sx + ',' + sy;
+                        const existing = globalCells.get(key);
+                        globalCells.set(key, existing != null ? Math.min(existing, cellSL) : cellSL);
                     }
                 }
             }
-            debugLabel = '河流水面v4';
+        }
+    }
 
-        } else {
-            continue; // 不支持的类型
+    if (globalCells.size > 0) {
+        // 预计算边缘检测用的 cellKeySet 和各水体的平滑路径
+        const cellKeySet = new Set(globalCells.keys());
+
+        // 为每个水体预计算平滑路径（用于边缘子格检测）
+        const waterBodies = [];
+        for (const w of mapData.waters) {
+            if (w.type === 'pond' && w.center && w.radius) {
+                waterBodies.push({ type: 'pond', cx: w.center.x, cz: w.center.z, r2: w.radius * w.radius, wl: w.waterLevel || 0 });
+            } else if (w.type === 'river' && w.points && w.points.length >= 2) {
+                const hw = (w.width || 40) * 0.5;
+                const pts = samplePathSmoothDense(w.points, 2.0);
+                waterBodies.push({ type: 'river', pts, hw, wl: w.waterLevel || 0 });
+            }
         }
 
-        if (cellSet && cellSet.size > 0) {
+        const isSubInWater = (subCx, subCz) => {
+            for (const wb of waterBodies) {
+                if (wb.type === 'pond') {
+                    const dx = subCx - wb.cx, dz = subCz - wb.cz;
+                    if (dx * dx + dz * dz <= wb.r2) return true;
+                } else if (wb.type === 'river') {
+                    let minD = Infinity;
+                    for (let i = 0; i < wb.pts.length - 1; i++) {
+                        const d = pointToSegmentDist(subCx, subCz, wb.pts[i].x, wb.pts[i].z, wb.pts[i+1].x, wb.pts[i+1].z);
+                        if (d < minD) { minD = d; if (minD <= wb.hw) break; }
+                    }
+                    if (minD <= wb.hw) return true;
+                }
+            }
+            return false;
+        };
 
+        const verts = [], indices = [];
+        const cellArr = [];
+        globalCells.forEach((cellSL, key) => {
+            const [sx, sy] = key.split(',').map(Number);
+            cellArr.push({ sx, sy, sl: cellSL });
+        });
+        cellArr.sort((a, b) => a.sy - b.sy || a.sx - b.sx);
 
-            // 从单元格构建水面四边形（每个单元格可用独立水面高度）
-            const verts = [], idx = [];
-            const cellArr = [];
-            cellSet.forEach((cellSL, key) => {
-                const [sx, sy] = key.split(',').map(Number);
-                cellArr.push({ sx, sy, sl: cellSL });
-            });
-            cellArr.sort((a, b) => a.sy - b.sy || a.sx - b.sx);
+        for (const cell of cellArr) {
+            const wx = cell.sx * hmStepW - worldHalfW;
+            const wz = cell.sy * hmStepD - worldHalfD;
+            const sl = cell.sl;
 
-            for (const cell of cellArr) {
-                const wx = cell.sx * hmStepW - worldHalfW;
-                const wz = cell.sy * hmStepD - worldHalfD;
-                const sl = cell.sl;
+            // 判断是否为边缘单元格（任一4邻域不在水体内）
+            const isEdge = !cellKeySet.has((cell.sx - 1) + ',' + cell.sy) ||
+                           !cellKeySet.has((cell.sx + 1) + ',' + cell.sy) ||
+                           !cellKeySet.has(cell.sx + ',' + (cell.sy - 1)) ||
+                           !cellKeySet.has(cell.sx + ',' + (cell.sy + 1));
+
+            if (!isEdge) {
+                // 内部单元格：1个整格 quad
                 const vi = verts.length / 3;
                 verts.push(wx,           sl, wz);
                 verts.push(wx + hmStepW, sl, wz);
                 verts.push(wx,           sl, wz + hmStepD);
                 verts.push(wx + hmStepW, sl, wz + hmStepD);
-                idx.push(vi, vi + 1, vi + 2);
-                idx.push(vi + 1, vi + 3, vi + 2);
+                indices.push(vi, vi + 1, vi + 2);
+                indices.push(vi + 1, vi + 3, vi + 2);
+            } else {
+                // 边缘单元格：2x2 子格，每个独立检测水体包含
+                const hw2 = subHmStepW, hd2 = subHmStepD;
+                for (const [ox, oz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+                    const subCx = wx + ox * hw2 + hw2 * 0.5;
+                    const subCz = wz + oz * hd2 + hd2 * 0.5;
+                    if (isSubInWater(subCx, subCz)) {
+                        const swx = wx + ox * hw2;
+                        const swz = wz + oz * hd2;
+                        const vi = verts.length / 3;
+                        verts.push(swx,       sl, swz);
+                        verts.push(swx + hw2, sl, swz);
+                        verts.push(swx,       sl, swz + hd2);
+                        verts.push(swx + hw2, sl, swz + hd2);
+                        indices.push(vi, vi + 1, vi + 2);
+                        indices.push(vi + 1, vi + 3, vi + 2);
+                    }
+                }
             }
-
-
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            geo.setIndex(idx);
-            geo.computeVertexNormals();
-            geo.computeBoundingSphere();
-            const mesh = new THREE.Mesh(geo, waterMat);
-            mesh.name = 'water-' + w.type + '-' + w.id;
-            mesh.renderOrder = 1;
-            mesh.receiveShadow = true;
-            scene.add(mesh);
-            waterLayerMeshes.push(mesh);
-        } else {
-            console.warn('⚠️ 水体无单元格覆盖，跳过');
         }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, waterMat);
+        mesh.name = 'water-all';
+        mesh.renderOrder = 1;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        waterLayerMeshes.push(mesh);
     }
 }
 
@@ -2609,7 +2658,11 @@ viewport3D.addEventListener('mousedown', (e) => {
             const suffix = selEnemies.length > 1 ? ' (已同步到 ' + selEnemies.length + ' 个敌人)' : '';
             overlayInfo.textContent = '✅ 巡逻点已添加 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')' + suffix;
         } else if (entityMode === 'spawn') {
-            // 出生点：单击单个放置
+            // 出生点已存在则禁止新建（防止蓝图出现多个出生点导致游戏取错）
+            if (mapData.entities.some(e => e.type === 'spawn')) {
+                overlayInfo.textContent = '⚠️ 出生点已存在，请先删除旧的再放置新的';
+                return;
+            }
             const stype = entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
             const ent = addEntity(entityMode, pt.x, h, pt.z, stype);
             overlayInfo.textContent = '✅ 出生点已放置 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')';
@@ -2836,14 +2889,22 @@ window.addEventListener('mouseup', (e) => {
             const smoothPts = samplePathSmoothDense(waterDragPoints, 2.0);
             const pathLen = smoothPts.length;
 
-            // 1. 扫描地图最低点（河床基准）
+            // 1. 扫描地图最低点（河床基准，排除已有水体区域，保持各河床一致）
             let mapMinH = Infinity;
             for (let i = 0; i < HM_RES * HM_RES; i++) {
+                const sx = i % HM_RES, sy = Math.floor(i / HM_RES);
+                if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(sx + ',' + sy)) continue;
                 if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
             }
-            const bedH = mapMinH - 10;  // 河床 = 地图最低点 - 10m
+            if (mapMinH === Infinity) { // 整图已挖水，回退全扫描
+                for (let i = 0; i < HM_RES * HM_RES; i++) {
+                    if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
+                }
+            }
+            const bedH = mapMinH - 10;  // 河床 = 原始地图最低点 - 10m（不受已有河流影响）
 
             // 2. 扫描河岸最低点（水面 = 河岸最低 - 3m，确保水不溢出）
+            //    排除已有水体区域，避免交叉河流的河岸高度被已挖河床污染
             let bankMinH = Infinity;
             for (let i = 0; i < pathLen; i++) {
                 const p = smoothPts[i];
@@ -2857,6 +2918,8 @@ window.addEventListener('mouseup', (e) => {
                     const bx = p.x + side * nx * (hw + 1);
                     const bz = p.z + side * nz * (hw + 1);
                     if (Math.abs(bx) <= worldHalfW && Math.abs(bz) <= worldHalfD) {
+                        const { sx: bsx, sy: bsy } = world2sm(bx, bz);
+                        if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(bsx + ',' + bsy)) continue;
                         const bh = smpHeight(bx, bz);
                         if (bh < bankMinH) bankMinH = bh;
                     }
@@ -2895,16 +2958,31 @@ window.addEventListener('mouseup', (e) => {
                         if (d < minDist) { minDist = d; if (minDist <= hw) break; }
                     }
                     if (minDist <= hw) {
+                        // 端点方向裁剪：防止起点/终点形成半圆形深坑
+                        const dx0 = cx - smoothPts[0].x, dz0 = cz - smoothPts[0].z;
+                        if (Math.hypot(dx0, dz0) <= hw) {
+                            const tdx0 = smoothPts[1].x - smoothPts[0].x;
+                            const tdz0 = smoothPts[1].z - smoothPts[0].z;
+                            if (dx0 * tdx0 + dz0 * tdz0 < 0) continue; // 起点后方跳过
+                        }
+                        const lastPt = pathLen - 1;
+                        const dxn = cx - smoothPts[lastPt].x, dzn = cz - smoothPts[lastPt].z;
+                        if (Math.hypot(dxn, dzn) <= hw) {
+                            const tdxn = smoothPts[lastPt].x - smoothPts[lastPt-1].x;
+                            const tdzn = smoothPts[lastPt].z - smoothPts[lastPt-1].z;
+                            if (dxn * tdxn + dzn * tdzn > 0) continue; // 终点前方跳过
+                        }
                         const idx = sy * HM_RES + sx;
                         const origH = mapData.heightmap[idx];
-                        // 边缘平滑：靠近河岸处渐变到原地形
-                        const edgeT = Math.max(0, (minDist - hw * 0.3) / (hw * 0.7)); // 0=中心, 1=边缘
+                        // 边缘平滑：内圈80%平坦河床 + 外圈20%渐变至水面以下
+                        // 过渡上限取 min(原地形, 水面-0.3)，崎岖地形不会在水面附近形成平台
+                        const edgeT = Math.max(0, (minDist - hw * 0.80) / (hw * 0.20)); // 0=中心, 1=边缘
                         const t = 1 - minDist / hw;
                         const falloff = t * (2 - t);
-                        // 在边缘处目标高度从 bedH 渐变到 origH
-                        const edgeTarget = bedH + (origH - bedH) * edgeT;
+                        const maxEdgeH = Math.min(origH, waterLevel - 0.3);
+                        const edgeTarget = bedH + (maxEdgeH - bedH) * edgeT;
                         const targetH = origH > bedH ? edgeTarget : origH;
-                        const finalH = Math.min(targetH, waterLevel - 0.3);
+                        const finalH = targetH;
                         if (finalH < origH - 0.01 || finalH > origH + 0.01) {
                             mapData.heightmap[idx] = finalH;
                             mapData.editedVerticesPaint.add(sx + ',' + sy);
@@ -2923,6 +3001,39 @@ window.addEventListener('mouseup', (e) => {
 
             const center = smoothPts[Math.floor(pathLen / 2)];
             addWaterRecord('river', { x: center.x, z: center.z }, null, smoothPts, waterLevel, brushRadius * 2, segWaterLevels);
+
+            // 河流交叉检测：交汇处统一水面（取最低水位，保证水面连续）
+            const newRiver = mapData.waters[mapData.waters.length - 1];
+            const newHw = (newRiver.width || brushRadius * 2) * 0.5;
+            const newPts = samplePathSmoothDense(newRiver.points, 3.0);
+            const connected = [newRiver];
+            for (const w of mapData.waters) {
+                if (w === newRiver || w.type !== 'river') continue;
+                const wHw = (w.width || brushRadius * 2) * 0.5;
+                const wPts = samplePathSmoothDense(w.points, 3.0);
+                // 两线最近距离 < 半宽之和 → 交叉
+                let minD = Infinity;
+                for (const np of newPts) {
+                    for (const wp of wPts) {
+                        const d = Math.hypot(np.x - wp.x, np.z - wp.z);
+                        if (d < minD) { minD = d; if (minD < newHw + wHw) break; }
+                    }
+                    if (minD < newHw + wHw) break;
+                }
+                if (minD < newHw + wHw) {
+                    connected.push(w);
+                }
+            }
+            if (connected.length > 1) {
+                const unifiedWL = Math.min(...connected.map(w => w.waterLevel));
+                connected.forEach(w => {
+                    w.waterLevel = unifiedWL;
+                    if (w.waterLevels) w.waterLevels.fill(unifiedWL);
+                });
+                waterBaseLevel = unifiedWL;
+                console.log('🌊 [交汇] ' + connected.length + '条河流交汇，统一水面=' + unifiedWL.toFixed(2));
+            }
+
             overlayInfo.textContent = '✅ 河流已创建 (宽'+brushRadius+'m | 水位'+waterLevel.toFixed(1)+'m | '+cellsCarved+'单元格)';
 
         } else {
@@ -3088,41 +3199,51 @@ function fitParameterizedTerrain() {
     return merged.slice(0, 20);
 }
 
-// ----- 导出 JSON（含参数化地形）-----
+// ----- 导出 JSON（含参数化地形 + 完整水体/桥梁/道路数据）-----
 function exportMapJson() {
     const features = fitParameterizedTerrain();
     const spawnEnt = mapData.entities.find(e => e.type === 'spawn');
     const spawnPt = spawnEnt ? [spawnEnt.position.x, spawnEnt.position.y, spawnEnt.position.z] : [0, 0, 0];
 
-    // 水域/桥梁数据（在构建 json 前提取，避免对象字面量内自引用问题）
-    const pondW = mapData.waters.find(w => w.type === 'pond');
-    const riverW = mapData.waters.find(w => w.type === 'river');
+    // 完整水体数据（所有河流/湖泊，不止第一个）
+    const allPonds = mapData.waters.filter(w => w.type === 'pond');
+    const allRivers = mapData.waters.filter(w => w.type === 'river');
     const terrainExtra = {};
-    const watersCfg = {};
-    if (pondW || riverW) {
-        watersCfg.pond = { waterLevel: pondW ? (pondW.waterLevel != null ? pondW.waterLevel : -1) : -1 };
-        watersCfg.river = { waterLevel: -1 };
-    }
-    if (pondW && pondW.center) {
+
+    if (allPonds.length > 0 && allPonds[0].center) {
+        const pw0 = allPonds[0];
         terrainExtra.pond = {
-            cx: pondW.center.x || 0, cz: pondW.center.z || 0,
-            rx: pondW.radius || 8, rz: pondW.radius || 8, depth: pondW.depth || 5
+            cx: pw0.center.x || 0, cz: pw0.center.z || 0,
+            rx: pw0.radius || 8, rz: pw0.radius || 8, depth: 5
         };
     }
-    if (riverW && riverW.points && riverW.points.length >= 2) {
-        terrainExtra.riverPoints = riverW.points.map(p => ({ x: p.x, z: p.z }));
-        terrainExtra.riverWidth = riverW.width || 10;
-        if (riverW.waterLevels && riverW.waterLevels.length > 0) {
-            terrainExtra.riverWaterLevels = Array.from(riverW.waterLevels);
-            terrainExtra.riverWaterLevel = riverW.waterLevel || riverW.waterLevels[riverW.waterLevels.length - 1];
-        } else if (riverW.waterLevel !== undefined) {
-            terrainExtra.riverWaterLevel = riverW.waterLevel;
+    // 所有河流 → rivers 数组（游戏端 createRiverWater 优先读取）
+    const validRivers = allRivers.filter(rw => rw.points && rw.points.length >= 2);
+    if (validRivers.length > 0) {
+        terrainExtra.rivers = validRivers.map(rw => ({
+            points: rw.points.map(p => ({ x: p.x, z: p.z })),
+            width: rw.width || 20,
+            waterLevel: rw.waterLevel,
+            waterLevels: rw.waterLevels ? Array.from(rw.waterLevels) : null
+        }));
+        // 向后兼容单河字段
+        const r0 = validRivers[0];
+        terrainExtra.riverPoints = r0.points.map(p => ({ x: p.x, z: p.z }));
+        terrainExtra.riverWidth = r0.width || 20;
+        if (r0.waterLevels && r0.waterLevels.length > 0) {
+            terrainExtra.riverWaterLevels = Array.from(r0.waterLevels);
+            terrainExtra.riverWaterLevel = r0.waterLevel != null ? r0.waterLevel : r0.waterLevels[r0.waterLevels.length - 1];
+        } else if (r0.waterLevel != null) {
+            terrainExtra.riverWaterLevel = r0.waterLevel;
         }
     }
+    // 桥梁完整数据（含端点，供游戏端精确定位）
     const bridgesCfg = (mapData.bridges || []).map(b => ({
         cx: (b.from.x + b.to.x) / 2,
         cz: (b.from.z + b.to.z) / 2,
-        halfW: 4, deckH: 0.35
+        fromX: b.from.x, fromZ: b.from.z,
+        toX: b.to.x, toZ: b.to.z,
+        halfW: 6, deckH: 0.35
     }));
 
     const json = {
@@ -3134,22 +3255,32 @@ function exportMapJson() {
         type: 'single',
         desc: '地图编辑器创建',
         spawnPoints: { p1: [spawnPt[0], spawnPt[1], spawnPt[2]] },
-        terrain: features ? { features } : { heightmap: Array.from(mapData.heightmap), editedVerticesPaint: [...mapData.editedVerticesPaint], ...terrainExtra },
+        // terrain 始终包含完整 heightmap（游戏端只认 heightmap）+ 河流/湖泊数据
+        terrain: {
+            heightmap: Array.from(mapData.heightmap),
+            splatMap: Array.from(mapData.splatMap),
+            editedVerticesPaint: [...mapData.editedVerticesPaint],
+            ...(features ? { features } : {}),
+            ...terrainExtra
+        },
         terrainTypes: {
             default: 'grass', riverBank: { bankWidth: 5, type: 'mud' },
             pondEdge: { bankWidth: 3, type: 'mud' }, hillTop: { radius: 4, type: 'sand' },
             basin: { radius: 3, type: 'sand' }, bridgeSurface: { type: 'asphalt' }
         },
-        waters: Object.keys(watersCfg).length > 0 ? watersCfg : {},
+        waters: {
+            pond: { waterLevel: allPonds.length > 0 ? (allPonds[0].waterLevel != null ? allPonds[0].waterLevel : -1) : -1 },
+            river: { waterLevel: -1 }
+        },
         bridges: bridgesCfg,
         obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
-        entities: mapData.entities.map(e => {
+        entities: mapData.entities.filter(e => e.type !== 'bridge').map(e => {
             const ent = { id: e.id, type: e.type, position: [e.position.x, e.position.y, e.position.z] };
             if (e.subType) ent.subType = e.subType;
             if (e.enemyType) ent.enemyType = e.enemyType;
             if (e.patrol && e.patrol.length > 0) ent.patrolPath = e.patrol.map(wp => [wp.x, wp.z]);
             if (e.yaw) ent.yaw = e.yaw;
-            if (e.cfg) ent.cfg = e.cfg;  // 敌人行为配置
+            if (e.cfg) ent.cfg = e.cfg;
             return ent;
         }),
     };
@@ -3251,7 +3382,14 @@ function getBlueprints() {
 }
 
 function saveBlueprints(bps) {
-    localStorage.setItem(BP_KEY, JSON.stringify(bps));
+    localStorage.setItem(BP_KEY, JSON.stringify(bps, (key, value) => {
+        // 自动转换所有 TypedArray / Set 等非 JSON 类型
+        if (value && typeof value === 'object' && ArrayBuffer.isView(value)) {
+            return Array.from(value);
+        }
+        if (value instanceof Set) return [...value];
+        return value;
+    }));
 }
 
 function saveBlueprint() {
@@ -3261,13 +3399,13 @@ function saveBlueprint() {
         name, savedAt: new Date().toISOString(),
         worldWidth: worldWidth, worldDepth: worldDepth,
         playWidth: playWidth, playDepth: playDepth,
-        heightmap: Array.from(mapData.heightmap),
-        splatMap: Array.from(mapData.splatMap),
-        entities: mapData.entities.map(e => ({...e})),
-        groups: mapData.groups.map(g => ({...g})),
-        waters: mapData.waters.map(w => ({...w})),
-        bridges: mapData.bridges.map(b => ({...b})),
-        editedVerticesPaint: [...mapData.editedVerticesPaint],
+        heightmap: mapData.heightmap,
+        splatMap: mapData.splatMap,
+        waters: mapData.waters,
+        bridges: mapData.bridges,
+        entities: mapData.entities,
+        groups: mapData.groups,
+        editedVerticesPaint: mapData.editedVerticesPaint,
         roadSystem: mapData.roadSystem || null,
     };
     const bps = getBlueprints();
@@ -3983,6 +4121,7 @@ function isPointInWater(x, z, margin = 3) {
             const cx = w.center.x, cz = w.center.z, r = w.radius || 8;
             if (Math.hypot(x - cx, z - cz) < r + margin) return true;
         } else if (w.type === 'river' && w.points && w.points.length >= 2) {
+            const hw = (w.width || 40) * 0.5 + margin;
             for (let i = 1; i < w.points.length; i++) {
                 const a = w.points[i - 1], b = w.points[i];
                 const dx = b.x - a.x, dz = b.z - a.z;
@@ -3991,7 +4130,7 @@ function isPointInWater(x, z, margin = 3) {
                 let t = ((x - a.x) * dx + (z - a.z) * dz) / len2;
                 t = Math.max(0, Math.min(1, t));
                 const nx = a.x + t * dx, nz = a.z + t * dz;
-                if (Math.hypot(x - nx, z - nz) < 4 + margin) return true;
+                if (Math.hypot(x - nx, z - nz) < hw) return true;
             }
         }
     }
@@ -4307,6 +4446,9 @@ function randomGenerateVillage() {
         const v = mapData.splatMap[i];
         if (v >= 3 || v < 0 || v > 5) mapData.splatMap[i] = 0;
     }
+    // 立即重建地面使桥梁恢复可见（后续步骤会再次 createGround）
+    createGround();
+    renderHeightmapCanvas();
     
     const pondCenters = mapData.waters.filter(w => w.type === 'pond').map(w => ({
         x: w.center.x, z: w.center.z, r: w.radius || 8
@@ -4384,8 +4526,26 @@ function randomGenerateVillage() {
         detectAndBuildBridges(branchSmooth);
     }
     
-    // 出生点
-    addEntity('spawn', 0, smpHeight(0, 0), 0, null);
+    // 出生点：避开水体，优先原点，否则螺旋搜索干地
+    let spawnX = 0, spawnZ = 0;
+    if (isPointInWater(spawnX, spawnZ, cfg.safeR)) {
+        let found = false;
+        for (let r = 10; r < worldHalfW && !found; r += 10) {
+            for (let a = 0; a < Math.PI * 2 && !found; a += 0.3) {
+                const sx = Math.cos(a) * r;
+                const sz = Math.sin(a) * r;
+                if (Math.abs(sx) > worldHalfW - 10 || Math.abs(sz) > worldHalfD - 10) continue;
+                if (!isPointInWater(sx, sz, cfg.safeR)) {
+                    spawnX = sx; spawnZ = sz;
+                    found = true;
+                }
+            }
+        }
+        if (found) {
+            console.log('🚩 出生点避水: 原点在水中，移至 (' + spawnX.toFixed(1) + ',' + spawnZ.toFixed(1) + ')');
+        }
+    }
+    addEntity('spawn', spawnX, smpHeight(spawnX, spawnZ), spawnZ, null);
     
     // === 储存道路结构化数据（供 index.html 直接读取，实现所见即所得）===
     const roadSegments = [];
