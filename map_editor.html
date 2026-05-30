@@ -498,7 +498,7 @@
     <div class="section">
         <div class="section-title">📐 地图参数</div>
         <div class="info-row"><span>尺寸</span><span id="info-size">200×200</span></div>
-        <div class="info-row"><span>地形精度</span><span id="info-segments">256×256</span></div>
+        <div class="info-row"><span>地形精度</span><span id="info-segments">301×301</span></div>
         <div class="info-row"><span>最低高度</span><span id="info-minh">0.00</span></div>
         <div class="info-row"><span>最高高度</span><span id="info-maxh">0.00</span></div>
         <div class="cfg-row" style="margin-top:6px;border-top:1px solid #3a3a55;padding-top:4px;">
@@ -568,7 +568,7 @@
 
 <!-- 高度图面板（右侧） -->
 <div class="heightmap-panel">
-    <div class="panel-title">⛰️ 高度图 (256×256)</div>
+    <div class="panel-title" id="hm-panel-title">⛰️ 高度图</div>
     <div class="hm-container">
         <canvas id="heightmap-canvas" width="256" height="256"></canvas>
     </div>
@@ -652,7 +652,7 @@
 </div>
 
 
-<script src="three.min.js"></script>
+<script src="js/three.min.js"></script>
 <script>
 // ============================================================
 //  地图编辑器 — Phase 1: 基础架构
@@ -670,16 +670,17 @@ let playWidth = 200;           // 空气墙/可游玩宽度 X
 let playDepth = 200;           // 空气墙/可游玩深度 Z
 let playHalfW = playWidth / 2;   // 100
 let playHalfD = playDepth / 2;   // 100
-const HM_RES = 256;             // 高度图分辨率
-const TEX_RES = 2048;           // 地面纹理分辨率（预览用）
+const TARGET_CELL_SIZE = 1.0;     // 高度图目标精度 米/格
+let hmResW = Math.ceil(worldWidth / 1.0) + 1, hmResD = Math.ceil(worldDepth / 1.0) + 1;  // 高度图动态分辨率（X/Z独立）
+let TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8);  // 地面纹理分辨率（预览用，动态适配）
 
 // ----- 向后兼容的动态常量（矩形尺寸的实际范围由 X/Z 独立控制）-----
 // WORLD_SIZE = max(worldWidth, worldDepth) 用于随机生成的范围计算
 // w2i 和 FBM 坐标映射使用各自的 worldHalfW/worldHalfD
 let WORLD_SIZE = 300, WORLD_HALF = 150, PLAY_HALF = 100;
 // 高度图X/Z方向独立网格步长（矩形地图必需）
-let hmStepW = worldWidth / (HM_RES - 1);
-let hmStepD = worldDepth / (HM_RES - 1);
+let hmStepW = worldWidth / (hmResW - 1);
+let hmStepD = worldDepth / (hmResD - 1);
 
 // ----- 尺寸同步函数：从 mapData 更新全局尺寸变量 -----
 function applyMapDimensions() {
@@ -700,9 +701,35 @@ function applyMapDimensions() {
     WORLD_SIZE = Math.max(worldWidth, worldDepth);
     WORLD_HALF = WORLD_SIZE / 2;
     PLAY_HALF = Math.min(playWidth, playDepth) / 2;
+    // 高度图动态分辨率（目标~1m/格，矩形地图X/Z独立）
+    hmResW = Math.ceil(worldWidth / TARGET_CELL_SIZE) + 1;
+    hmResD = Math.ceil(worldDepth / TARGET_CELL_SIZE) + 1;
     // 高度图网格步长同步（X/Z独立，适配矩形地图）
-    hmStepW = worldWidth / (HM_RES - 1);
-    hmStepD = worldDepth / (HM_RES - 1);
+    hmStepW = worldWidth / (hmResW - 1);
+    hmStepD = worldDepth / (hmResD - 1);
+    // 纹理分辨率动态适配（每个网格单元~8像素）
+    TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8);
+    // 高度图/splatMap 数组尺寸跟随重建（保留重叠区域数据）
+    const newSize = hmResW * hmResD;
+    if (mapData.heightmap.length !== newSize) {
+        const oldHm = mapData.heightmap, oldSm = mapData.splatMap;
+        const oldW = Math.round(Math.sqrt(oldHm.length)); // 近似旧宽度（正方形假设，迁移用）
+        const oldD = oldW;
+        const newHm = new Float32Array(newSize), newSm = new Uint8Array(newSize);
+        newSm.fill(0); // 默认草地
+        for (let sy = 0; sy < Math.min(oldD, hmResD); sy++)
+            for (let sx = 0; sx < Math.min(oldW, hmResW); sx++)
+                { newHm[sy * hmResW + sx] = oldHm[sy * oldW + sx]; newSm[sy * hmResW + sx] = oldSm[sy * oldW + sx]; }
+        mapData.heightmap = newHm; mapData.splatMap = newSm;
+        // 水编辑标记按比例迁移
+        const oldSet = mapData.editedVerticesPaint;
+        const newSet = new Set();
+        for (const key of oldSet) {
+            const [osx, osy] = key.split(',').map(Number);
+            if (osx < hmResW && osy < hmResD) { const nsx = Math.round(osx * hmResW / oldW), nsy = Math.round(osy * hmResD / oldD); newSet.add(nsx + ',' + nsy); }
+        }
+        mapData.editedVerticesPaint = newSet;
+    }
     // 更新UI显示
     const infoSize = document.getElementById('info-size');
     if (infoSize) infoSize.textContent = worldWidth + '×' + worldDepth + ' (游玩' + playWidth + '×' + playDepth + ')';
@@ -714,6 +741,17 @@ function applyMapDimensions() {
         if (sl) sl.value = val;
         if (num) num.value = val;
     });
+    // 更新高度图精度显示
+    const infoSeg = document.getElementById('info-segments');
+    if (infoSeg) infoSeg.textContent = hmResW + '×' + hmResD;
+    const hmTitle = document.getElementById('hm-panel-title');
+    if (hmTitle) hmTitle.textContent = '⛰️ 高度图 (' + hmResW + '×' + hmResD + ')';
+    // 高度图画布同步尺寸
+    if (typeof hmCanvas !== 'undefined' && hmCanvas) {
+        hmCanvas.width = hmResW; hmCanvas.height = hmResD;
+        hmCanvas.style.width = Math.min(256, hmResW) + 'px';
+        hmCanvas.style.height = Math.min(256, hmResD) + 'px';
+    }
     // 摄像机 far 截面跟随地图尺寸动态调整，避免大地图时地面被裁剪成黑屏
     const _maxDim = Math.max(worldWidth, worldDepth);
     camera.far = Math.max(800, _maxDim * 3);
@@ -802,8 +840,8 @@ const mapData = {
     name: '未命名',
     worldWidth: 300, worldDepth: 300,
     playWidth: 200, playDepth: 200,
-    heightmap: new Float32Array(HM_RES * HM_RES),
-    splatMap: new Uint8Array(HM_RES * HM_RES),
+    heightmap: new Float32Array(hmResW * hmResD),
+    splatMap: new Uint8Array(hmResW * hmResD),
     entities: [],
     groups: [],
     waters: [],      // { id, type:'pond'|'river', center:{x,z}, radius, height, points:[{x,z}] }
@@ -1284,9 +1322,9 @@ function addBridge(from, to) {
     const z1 = from.z + totalMin*uz - halfW + worldHalfD;
     const z2 = from.z + totalMax*uz + halfW + worldHalfD;
     const minSx = Math.max(0, Math.floor(Math.min(x1, x2) / hmStepW));
-    const maxSx = Math.min(HM_RES-1, Math.ceil(Math.max(x1, x2) / hmStepW));
+    const maxSx = Math.min(hmResW - 1, Math.ceil(Math.max(x1, x2) / hmStepW));
     const minSy = Math.max(0, Math.floor(Math.min(z1, z2) / hmStepD));
-    const maxSy = Math.min(HM_RES-1, Math.ceil(Math.max(z1, z2) / hmStepD));
+    const maxSy = Math.min(hmResD - 1, Math.ceil(Math.max(z1, z2) / hmStepD));
     console.log('🌉 桥梁 '+b.id+' 雕琢范围: rampFrom='+rampFrom.toFixed(1)+' rampTo='+rampTo.toFixed(1)+' segLen='+segLen.toFixed(1)+' deckY='+deckY.toFixed(2)+' hFrom='+hFrom.toFixed(2)+' hTo='+hTo.toFixed(2)+' pixels ['+minSx+'-'+maxSx+']×['+minSy+'-'+maxSy+']');
 
     let carveCount = 0, waterSkip = 0;
@@ -1300,7 +1338,7 @@ function addBridge(from, to) {
             const perp = Math.abs((wx - from.x) * (-uz) + (wz - from.z) * ux);
             if (perp > halfW) continue;
 
-            const idx = sy * HM_RES + sx;
+            const idx = sy * hmResW + sx;
             const origH = mapData.heightmap[idx];
             // 跳过水域中心区（河床保持原样），用河流实际半宽检测
             // 注意：isPointInWater 硬编码检测半径 4m，河流可能更宽
@@ -1803,9 +1841,9 @@ function smoothNoise(x,z,s){const ix=Math.floor(x),iz=Math.floor(z);const fx=x-i
 function recompositeFullTexture(){
     if(!groundTexCanvas)return;
     const ctx=groundTexCanvas.getContext('2d'),id=ctx.createImageData(TEX_RES,TEX_RES);
-    const tbx=TEX_RES/HM_RES;
+    const tbx=TEX_RES/hmResW, tby=TEX_RES/hmResD;
     for(let ty=0;ty<TEX_RES;ty++)for(let tx=0;tx<TEX_RES;tx++){
-        const sx=Math.floor(tx/tbx),sy=Math.floor(ty/tbx),tp=mapData.splatMap[sy*HM_RES+sx],c=TC[tp];
+        const sx=Math.floor(tx/tbx),sy=Math.floor(ty/tby),tp=mapData.splatMap[sy*hmResW+sx],c=TC[tp];
         const n=((hash(tx+tp*42,ty+tp*42)%100)/100-.5)*28;
         const pi=(ty*TEX_RES+tx)*4;
         id.data[pi]=Math.max(0,Math.min(255,c[0]+n));id.data[pi+1]=Math.max(0,Math.min(255,c[1]+n));
@@ -1817,11 +1855,11 @@ function recompositeFullTexture(){
 
 function patchTexBlock(sx,sy){
     if(!groundTexCanvas)return;
-    const ctx=groundTexCanvas.getContext('2d'),tbx=TEX_RES/HM_RES,x0=sx*tbx,y0=sy*tbx;
-    const tp=mapData.splatMap[sy*HM_RES+sx],c=TC[tp],id=ctx.createImageData(tbx,tbx);
-    for(let dy=0;dy<tbx;dy++)for(let dx=0;dx<tbx;dx++){
+    const ctx=groundTexCanvas.getContext('2d'),tbx=TEX_RES/hmResW,tby=TEX_RES/hmResD,x0=sx*tbx,y0=sy*tby;
+    const tp=mapData.splatMap[sy*hmResW+sx],c=TC[tp],id=ctx.createImageData(Math.ceil(tbx),Math.ceil(tby));
+    for(let dy=0;dy<tby;dy++)for(let dx=0;dx<tbx;dx++){
         const n=((hash(x0+dx+tp*42,y0+dy+tp*42)%100)/100-.5)*28;
-        const pi=(dy*tbx+dx)*4;
+        const pi=(dy*Math.ceil(tbx)+dx)*4;
         id.data[pi]=Math.max(0,Math.min(255,c[0]+n));id.data[pi+1]=Math.max(0,Math.min(255,c[1]+n));
         id.data[pi+2]=Math.max(0,Math.min(255,c[2]+n-5));id.data[pi+3]=255;
     }
@@ -1838,12 +1876,12 @@ function freshTex(){
 }
 
 function updateTerrainStats(){
-    const cnt=[0,0,0,0,0,0],total=HM_RES*HM_RES;
+    const cnt=[0,0,0,0,0,0],total=hmResW*hmResD;
     for(let i=0;i<total;i++)cnt[mapData.splatMap[i]]++;
     for(let i=0;i<6;i++)document.getElementById('pct-'+TNAMES[i]).textContent=(cnt[i]/total*100).toFixed(1)+'%';
 }
 
-function w2i(wx,wz){const u=(wx+worldHalfW)/worldWidth,v=(wz+worldHalfD)/worldDepth;if(u<0||u>1||v<0||v>1)return-1;const sx=Math.round(u*(HM_RES-1)),sy=Math.round(v*(HM_RES-1));return sy*HM_RES+sx;}
+function w2i(wx,wz){const u=(wx+worldHalfW)/worldWidth,v=(wz+worldHalfD)/worldDepth;if(u<0||u>1||v<0||v>1)return-1;const sx=Math.round(u*(hmResW-1)),sy=Math.round(v*(hmResD-1));return sy*hmResW+sx;}
 function smpHeight(wx,wz){const i=w2i(wx,wz);return i>=0?mapData.heightmap[i]:0;}
 
 // ----- Three.js 初始化 -----
@@ -1888,7 +1926,7 @@ function createGround() {
     if (groundPlane) { scene.remove(groundPlane); groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
     if (groundWireframe) { scene.remove(groundWireframe); groundWireframe.geometry.dispose(); groundWireframe.material.dispose(); }
 
-    const geo = new THREE.PlaneGeometry(worldWidth, worldDepth, HM_RES - 1, HM_RES - 1);
+    const geo = new THREE.PlaneGeometry(worldWidth, worldDepth, hmResW - 1, hmResD - 1);
     geo.rotateX(-Math.PI / 2);
     updGeoHeights(geo);
 
@@ -1959,9 +1997,9 @@ function createWaterLayer() {
         if (w.type === 'pond' && w.center && w.radius) {
             const r2 = w.radius * w.radius;
             const minSx = Math.max(0, Math.floor((w.center.x - w.radius - hmStepW + worldHalfW) / hmStepW));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((w.center.x + w.radius + hmStepW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(hmResW - 1, Math.ceil((w.center.x + w.radius + hmStepW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((w.center.z - w.radius - hmStepD + worldHalfD) / hmStepD));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((w.center.z + w.radius + hmStepD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(hmResD - 1, Math.ceil((w.center.z + w.radius + hmStepD + worldHalfD) / hmStepD));
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
                     const cx = (sx + 0.5) * hmStepW - worldHalfW;
@@ -1988,9 +2026,9 @@ function createWaterLayer() {
             }
             const padW = hw + hmStepW, padD = hw + hmStepD;
             const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(hmResW - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(hmResD - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
 
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
@@ -2120,7 +2158,7 @@ function updGeoHeightsPartial(geo, minSx, minSy, maxSx, maxSy) {
     const hasColors = geo.attributes.color;
     for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), z = p.getZ(i);
-        const sx = Math.round((x + worldHalfW) / worldWidth * (HM_RES - 1)), sy = Math.round((z + worldHalfD) / worldDepth * (HM_RES - 1));
+        const sx = Math.round((x + worldHalfW) / worldWidth * (hmResW - 1)), sy = Math.round((z + worldHalfD) / worldDepth * (hmResD - 1));
         if (sx >= minSx && sx <= maxSx && sy >= minSy && sy <= maxSy) {
             const idx = w2i(x, z); if (idx >= 0) p.setY(i, mapData.heightmap[idx]);
             // 同步水体 vertexColor（平滑过渡带）
@@ -2187,7 +2225,7 @@ function createGrid() {
 // ----- 高度图 Canvas 渲染 -----
 function renderHeightmapCanvas() {
     const ctx = hmCanvas.getContext('2d');
-    const imgData = ctx.createImageData(HM_RES, HM_RES);
+    const imgData = ctx.createImageData(hmResW, hmResD);
 
     // 找到高度范围
     let minH = Infinity, maxH = -Infinity;
@@ -2198,9 +2236,9 @@ function renderHeightmapCanvas() {
     }
     const range = maxH - minH || 1;
 
-    for (let y = 0; y < HM_RES; y++) {
-        for (let x = 0; x < HM_RES; x++) {
-            const idx = y * HM_RES + x;
+    for (let y = 0; y < hmResD; y++) {
+        for (let x = 0; x < hmResW; x++) {
+            const idx = y * hmResW + x;
             const h = mapData.heightmap[idx];
             const t = (h - minH) / range;  // 归一化 [0,1]
 
@@ -2338,9 +2376,9 @@ function updBrushIndicator(e) {
 
 // 笔刷应用
 function world2sm(wx, wz) {
-    const sx = Math.round((wx + worldHalfW) / worldWidth * (HM_RES - 1));
-    const sy = Math.round((wz + worldHalfD) / worldDepth * (HM_RES - 1));
-    return { sx: Math.max(0, Math.min(HM_RES - 1, sx)), sy: Math.max(0, Math.min(HM_RES - 1, sy)) };
+    const sx = Math.round((wx + worldHalfW) / worldWidth * (hmResW - 1));
+    const sy = Math.round((wz + worldHalfD) / worldDepth * (hmResD - 1));
+    return { sx: Math.max(0, Math.min(hmResW - 1, sx)), sy: Math.max(0, Math.min(hmResD - 1, sy)) };
 }
 
 // ----- CatmullRom 曲线插值（河流轨迹平滑）-----
@@ -2433,16 +2471,16 @@ function applyBrush(wx, wz, skipGeoUpdate = false) {
     const rPxW = brushRadius / hmStepW, rPxZ = brushRadius / hmStepD;
     const { sx: cx, sy: cy } = world2sm(wx, wz);
     const rPxWin = Math.ceil(rPxW), rPxZin = Math.ceil(rPxZ);
-    let minSx = HM_RES, minSy = HM_RES, maxSx = 0, maxSy = 0;
+    let minSx = hmResW, minSy = hmResD, maxSx = 0, maxSy = 0;
 
     for (let dy = -rPxZin; dy <= rPxZin; dy++) {
         for (let dx = -rPxWin; dx <= rPxWin; dx++) {
             const wDist = Math.sqrt(dx*dx*hmStepW*hmStepW + dy*dy*hmStepD*hmStepD);
             if (wDist > brushRadius) continue;
             const sx = cx + dx, sy = cy + dy;
-            if (sx < 0 || sx >= HM_RES || sy < 0 || sy >= HM_RES) continue;
+            if (sx < 0 || sx >= hmResW || sy < 0 || sy >= hmResD) continue;
             const t = 1 - wDist / brushRadius, falloff = t * t * (3 - 2 * t);
-            const idx = sy * HM_RES + sx;
+            const idx = sy * hmResW + sx;
             if (sx < minSx) minSx = sx; if (sx > maxSx) maxSx = sx;
             if (sy < minSy) minSy = sy; if (sy > maxSy) maxSy = sy;
 
@@ -2452,8 +2490,8 @@ function applyBrush(wx, wz, skipGeoUpdate = false) {
                 case 'smooth': {
                     let sum = 0, cnt = 0;
                     for (let ny = -1; ny <= 1; ny++) for (let nx = -1; nx <= 1; nx++) {
-                        const nidx = (sy + ny) * HM_RES + (sx + nx);
-                        if (sx + nx >= 0 && sx + nx < HM_RES && sy + ny >= 0 && sy + ny < HM_RES) { sum += mapData.heightmap[nidx]; cnt++; }
+                        const nidx = (sy + ny) * hmResW + (sx + nx);
+                        if (sx + nx >= 0 && sx + nx < hmResW && sy + ny >= 0 && sy + ny < hmResD) { sum += mapData.heightmap[nidx]; cnt++; }
                     }
                     if (cnt > 0) { const avg = sum / cnt, blend = brushStrength / 30; mapData.heightmap[idx] += (avg - mapData.heightmap[idx]) * blend * falloff; }
                     break;
@@ -2485,7 +2523,7 @@ function applyBrush(wx, wz, skipGeoUpdate = false) {
 
     // 更新 3D 几何（水体拖拽/批量雕刻期间跳过，mouseup 一次性重建）
     if (!skipGeoUpdate && brushMode !== 'paint' && !isWaterPainting) {
-        updGeoHeightsPartial(groundPlane.geometry, Math.max(minSx-1,0), Math.max(minSy-1,0), Math.min(maxSx+1,HM_RES-1), Math.min(maxSy+1,HM_RES-1));
+        updGeoHeightsPartial(groundPlane.geometry, Math.max(minSx-1,0), Math.max(minSy-1,0), Math.min(maxSx+1,hmResW - 1), Math.min(maxSy+1,hmResW - 1));
         groundWireframe.geometry.dispose();
         groundWireframe.geometry = new THREE.WireframeGeometry(groundPlane.geometry, 1);
 
@@ -2733,11 +2771,9 @@ window.addEventListener('mousemove', (e) => {
 
     const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
 
-    // 水体拖拽（画河流）— 仅记录路径，mouseup 时一次性雕刻
+    // 水体拖拽（画河流）— 仅记录路径，允许超出地图范围，导出/渲染时裁剪
     if (isWaterPainting) {
         const pt = getWorldPos(e);
-        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
-        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
         const last = waterDragPoints[waterDragPoints.length - 1];
         const dist = last ? Math.hypot(pt.x - last.x, pt.z - last.z) : Infinity;
         if ((last && dist > 3) || !last) {
@@ -2901,13 +2937,13 @@ window.addEventListener('mouseup', (e) => {
 
             // 1. 扫描地图最低点（河床基准，排除已有水体区域，保持各河床一致）
             let mapMinH = Infinity;
-            for (let i = 0; i < HM_RES * HM_RES; i++) {
-                const sx = i % HM_RES, sy = Math.floor(i / HM_RES);
+            for (let i = 0; i < hmResW * hmResD; i++) {
+                const sx = i % hmResW, sy = Math.floor(i / hmResW);
                 if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(sx + ',' + sy)) continue;
                 if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
             }
             if (mapMinH === Infinity) { // 整图已挖水，回退全扫描
-                for (let i = 0; i < HM_RES * HM_RES; i++) {
+                for (let i = 0; i < hmResW * hmResD; i++) {
                     if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
                 }
             }
@@ -2953,10 +2989,10 @@ window.addEventListener('mouseup', (e) => {
             }
             const padW = hw + hmStepW, padD = hw + hmStepD;
             const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
-            const maxSx = Math.min(HM_RES-1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(hmResW - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
-            const maxSy = Math.min(HM_RES-1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
-            let cellsCarved = 0;
+            const maxSy = Math.min(hmResD - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
+            let cellsCarved = 0, _mudCellsWritten = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
@@ -2966,6 +3002,15 @@ window.addEventListener('mouseup', (e) => {
                     for (let i = 0; i < smoothPts.length - 1; i++) {
                         const d = pointToSegmentDist(cx, cz, smoothPts[i].x, smoothPts[i].z, smoothPts[i+1].x, smoothPts[i+1].z);
                         if (d < minDist) { minDist = d; if (minDist <= hw) break; }
+                    }
+                    const idx = sy * hmResW + sx;
+                    // 泥地纹理：河岸外侧各加宽 BANK_MUD_EXTRA 米（独立于河床雕刻）
+                    const BANK_MUD_EXTRA = 6;
+                    if (minDist <= hw + BANK_MUD_EXTRA) {
+                        mapData.splatMap[idx] = 1;
+                        affectedBlocks.add(sx + ',' + sy);
+                        dirtyTex = true;
+                        _mudCellsWritten++;
                     }
                     if (minDist <= hw) {
                         // 端点方向裁剪：防止起点/终点形成半圆形深坑
@@ -2982,32 +3027,25 @@ window.addEventListener('mouseup', (e) => {
                             const tdzn = smoothPts[lastPt].z - smoothPts[lastPt-1].z;
                             if (dxn * tdxn + dzn * tdzn > 0) continue; // 终点前方跳过
                         }
-                        const idx = sy * HM_RES + sx;
                         const origH = mapData.heightmap[idx];
-                        // 边缘平滑：内圈80%平坦河床 + 外圈20%渐变至水面以下
-                        // 过渡上限取 min(原地形, 水面-0.3)，崎岖地形不会在水面附近形成平台
-                        const edgeT = Math.max(0, (minDist - hw * 0.80) / (hw * 0.20)); // 0=中心, 1=边缘
-                        const t = 1 - minDist / hw;
-                        const falloff = t * (2 - t);
+                        // 边缘平滑：内圈50%平坦河床 + 外圈50% smoothstep 渐变至水面以下
+                        const nr = minDist / hw;
+                        const edgeT = nr <= 0.5 ? 0 : (nr - 0.5) / 0.5;
+                        const smoothEdge = edgeT * edgeT * (3 - 2 * edgeT);
                         const maxEdgeH = Math.min(origH, waterLevel - 0.3);
-                        const edgeTarget = bedH + (maxEdgeH - bedH) * edgeT;
+                        const edgeTarget = bedH + (maxEdgeH - bedH) * smoothEdge;
                         const targetH = origH > bedH ? edgeTarget : origH;
                         const finalH = targetH;
                         if (finalH < origH - 0.01 || finalH > origH + 0.01) {
                             mapData.heightmap[idx] = finalH;
                             mapData.editedVerticesPaint.add(sx + ',' + sy);
-                            if (falloff > 0.08) {
-                                mapData.splatMap[idx] = 1;
-                                affectedBlocks.add(sx + ',' + sy);
-                                dirtyTex = true;
-                            }
-                            cellsCarved++;
                         }
+                        cellsCarved++;
                     }
                 }
             }
 
-            console.log('🌊 [河流] 雕刻:', cellsCarved, '单元格');
+            console.log('🌊 [河流] 雕刻:', cellsCarved, '单元格 泥地:', _mudCellsWritten, '单元格');
 
             const center = smoothPts[Math.floor(pathLen / 2)];
             addWaterRecord('river', { x: center.x, z: center.z }, null, smoothPts, waterLevel, brushRadius * 2, segWaterLevels);
@@ -3053,9 +3091,9 @@ window.addEventListener('mouseup', (e) => {
             const pondSurface = waterBaseLevel - brushStrength * 0.3;  // 与河流统一0.3
 
             const minSx = Math.max(0, Math.floor((p.x - R - hmStepW + worldHalfW) / hmStepW));
-            const maxSx = Math.min(HM_RES - 1, Math.ceil((p.x + R + hmStepW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(hmResW - 1, Math.ceil((p.x + R + hmStepW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((p.z - R - hmStepD + worldHalfD) / hmStepD));
-            const maxSy = Math.min(HM_RES - 1, Math.ceil((p.z + R + hmStepD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(hmResD - 1, Math.ceil((p.z + R + hmStepD + worldHalfD) / hmStepD));
             let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
@@ -3067,7 +3105,7 @@ window.addEventListener('mouseup', (e) => {
                         const t = 1 - dist / R;              // 0=湖岸, 1=湖心
                         const falloff = t * (2 - t);          // ease-out二次: 湖岸渐变更宽
                         const depth = brushStrength * falloff;
-                        const idx = sy * HM_RES + sx;
+                        const idx = sy * hmResW + sx;
                         const origH = mapData.heightmap[idx];
                         mapData.heightmap[idx] = Math.min(origH - depth, pondSurface - 0.3);
                         mapData.editedVerticesPaint.add(sx + ',' + sy);
@@ -3136,7 +3174,7 @@ function updateMouseWorldPos(e) {
 // ----- 参数化地形拟合 -----
 function fitParameterizedTerrain() {
     const hm = mapData.heightmap;
-    const total = HM_RES * HM_RES;
+    const total = hmResW * hmResD;
     // 计算高度统计
     let sum = 0, minH = Infinity, maxH = -Infinity;
     for (let i = 0; i < total; i++) { const v = hm[i]; sum += v; if (v < minH) minH = v; if (v > maxH) maxH = v; }
@@ -3149,15 +3187,15 @@ function fitParameterizedTerrain() {
     const minPeakHeight = avgH + (maxH - avgH) * 0.3; // 高出均值30%
     const maxBasinDepth = avgH - (avgH - minH) * 0.3;
 
-    for (let sy = step; sy < HM_RES - step; sy += step) {
-        for (let sx = step; sx < HM_RES - step; sx += step) {
-            const cv = hm[sy * HM_RES + sx];
+    for (let sy = step; sy < hmResD - step; sy += step) {
+        for (let sx = step; sx < hmResW - step; sx += step) {
+            const cv = hm[sy * hmResW + sx];
             let isPeak = cv > minPeakHeight, isBasin = cv < maxBasinDepth;
             if (!isPeak && !isBasin) continue;
             for (let dy = -step; dy <= step && (isPeak || isBasin); dy += step) {
                 for (let dx = -step; dx <= step && (isPeak || isBasin); dx += step) {
                     if (dx === 0 && dy === 0) continue;
-                    const nv = hm[(sy + dy) * HM_RES + (sx + dx)];
+                    const nv = hm[(sy + dy) * hmResW + (sx + dx)];
                     if (isPeak && nv > cv) isPeak = false;
                     if (isBasin && nv < cv) isBasin = false;
                 }
@@ -3165,37 +3203,37 @@ function fitParameterizedTerrain() {
             if (isPeak) {
                 // 估算半径（下降到 avgH 处）
                 let rx = 0, rz = 0;
-                for (let d = 1; d < HM_RES; d++) {
-                    const idxR = sy * HM_RES + Math.min(sx + d, HM_RES - 1);
-                    const idxL = sy * HM_RES + Math.max(sx - d, 0);
-                    const idxD = Math.min(sy + d, HM_RES - 1) * HM_RES + sx;
-                    const idxU = Math.max(sy - d, 0) * HM_RES + sx;
+                for (let d = 1; d < Math.max(hmResW, hmResD); d++) {
+                    const idxR = sy * hmResW + Math.min(sx + d, hmResW - 1);
+                    const idxL = sy * hmResW + Math.max(sx - d, 0);
+                    const idxD = Math.min(sy + d, hmResD - 1) * hmResW + sx;
+                    const idxU = Math.max(sy - d, 0) * hmResW + sx;
                     if (hm[idxR] < avgH && hm[idxL] < avgH && rx === 0) rx = d;
                     if (hm[idxD] < avgH && hm[idxU] < avgH && rz === 0) rz = d;
                     if (rx && rz) break;
                 }
                 rx = Math.max(rx || 12, 6); rz = Math.max(rz || 12, 6);
-                const wx = (sx / HM_RES - 0.5) * worldWidth;
-                const wz = (sy / HM_RES - 0.5) * worldDepth;
-                const rxW = rx / HM_RES * worldWidth;
-                const rzW = rz / HM_RES * worldDepth;
+                const wx = (sx / hmResW - 0.5) * worldWidth;
+                const wz = (sy / hmResD - 0.5) * worldDepth;
+                const rxW = rx / hmResW * worldWidth;
+                const rzW = rz / hmResW * worldDepth;
                 peaks.push({ type: 'hill', center: [wx, cv, wz], rx: rxW, rz: rzW, height: cv });
             }
             if (isBasin) {
                 let rx = 0, rz = 0;
-                for (let d = 1; d < HM_RES; d++) {
-                    const idxR = sy * HM_RES + Math.min(sx + d, HM_RES - 1);
-                    const idxL = sy * HM_RES + Math.max(sx - d, 0);
-                    const idxD = Math.min(sy + d, HM_RES - 1) * HM_RES + sx;
-                    const idxU = Math.max(sy - d, 0) * HM_RES + sx;
+                for (let d = 1; d < Math.max(hmResW, hmResD); d++) {
+                    const idxR = sy * hmResW + Math.min(sx + d, hmResW - 1);
+                    const idxL = sy * hmResW + Math.max(sx - d, 0);
+                    const idxD = Math.min(sy + d, hmResD - 1) * hmResW + sx;
+                    const idxU = Math.max(sy - d, 0) * hmResW + sx;
                     if (hm[idxR] > avgH && hm[idxL] > avgH && rx === 0) rx = d;
                     if (hm[idxD] > avgH && hm[idxU] > avgH && rz === 0) rz = d;
                     if (rx && rz) break;
                 }
                 rx = Math.max(rx || 10, 5); rz = Math.max(rz || 10, 5);
-                const wx = (sx / HM_RES - 0.5) * worldWidth;
-                const wz = (sy / HM_RES - 0.5) * worldDepth;
-                basins.push({ type: 'basin', center: [wx, cv, wz], rx: rx / HM_RES * worldWidth, rz: rz / HM_RES * worldDepth, depth: avgH - cv });
+                const wx = (sx / hmResW - 0.5) * worldWidth;
+                const wz = (sy / hmResD - 0.5) * worldDepth;
+                basins.push({ type: 'basin', center: [wx, cv, wz], rx: rx / hmResW * worldWidth, rz: rz / hmResW * worldDepth, depth: avgH - cv });
             }
         }
     }
@@ -3270,6 +3308,7 @@ function exportMapJson() {
             heightmap: Array.from(mapData.heightmap),
             splatMap: Array.from(mapData.splatMap),
             editedVerticesPaint: [...mapData.editedVerticesPaint],
+            hmResW, hmResD,  // 游戏端双线性插值所需
             ...(features ? { features } : {}),
             ...terrainExtra
         },
@@ -3283,6 +3322,7 @@ function exportMapJson() {
             river: { waterLevel: -1 }
         },
         bridges: bridgesCfg,
+        roadSystem: mapData.roadSystem || null,
         obstacles: { count: 350, minDist: 6, safeRadius: 10, spawnRadius: 98 },
         entities: mapData.entities.filter(e => e.type !== 'bridge').map(e => {
             const ent = { id: e.id, type: e.type, position: [e.position.x, e.position.y, e.position.z] };
@@ -3331,7 +3371,7 @@ function importMapJson(file) {
             // 加载高度图
             if (json.terrain && json.terrain.heightmap) {
                 const arr = json.terrain.heightmap;
-                for (let i = 0; i < Math.min(arr.length, HM_RES * HM_RES); i++) mapData.heightmap[i] = arr[i];
+                for (let i = 0; i < Math.min(arr.length, hmResW * hmResD); i++) mapData.heightmap[i] = arr[i];
             }
             // 加载已编辑水体顶点
             mapData.editedVerticesPaint = new Set(json.terrain && json.terrain.editedVerticesPaint || []);
@@ -3409,6 +3449,7 @@ function saveBlueprint() {
         name, savedAt: new Date().toISOString(),
         worldWidth: worldWidth, worldDepth: worldDepth,
         playWidth: playWidth, playDepth: playDepth,
+        hmResW, hmResD,
         heightmap: mapData.heightmap,
         splatMap: mapData.splatMap,
         waters: mapData.waters,
@@ -3487,11 +3528,14 @@ function loadBlueprint(name) {
     playWidth = mapData.playWidth = bp.playWidth || 200;
     playDepth = mapData.playDepth = bp.playDepth || 200;
     applyMapDimensions();  // 同步派生变量 hmStepW/D, worldHalfW/D 等
+    // 若蓝图保存了分辨率则优先使用（避免TARGET_CELL_SIZE变更导致数组不匹配）
+    if (bp.hmResW) { hmResW = bp.hmResW; hmStepW = worldWidth / (hmResW - 1); }
+    if (bp.hmResD) { hmResD = bp.hmResD; hmStepD = worldDepth / (hmResD - 1); }
 
     mapData.name = bp.name;
     mapData.roadSystem = bp.roadSystem || null;
-    for (let i = 0; i < Math.min(bp.heightmap.length, HM_RES * HM_RES); i++) mapData.heightmap[i] = bp.heightmap[i];
-    for (let i = 0; i < Math.min(bp.splatMap.length, HM_RES * HM_RES); i++) mapData.splatMap[i] = bp.splatMap[i];
+    for (let i = 0; i < Math.min(bp.heightmap.length, hmResW * hmResD); i++) mapData.heightmap[i] = bp.heightmap[i];
+    for (let i = 0; i < Math.min(bp.splatMap.length, hmResW * hmResD); i++) mapData.splatMap[i] = bp.splatMap[i];
     mapData.entities = []; mapData.groups = bp.groups || []; selectedEntityIds.clear(); entityIdCounter = 1;
     mapData.waters = bp.waters || []; mapData.bridges = bp.bridges || [];
     mapData.editedVerticesPaint = new Set(bp.editedVerticesPaint || []);
@@ -3835,7 +3879,7 @@ function init() {
     resize(); createGround(); createGrid(); renderHeightmapCanvas();
     setViewMode('top'); setBrushMode('cursor');
     mapNameLabel.textContent = '未命名地图';
-    document.getElementById('info-segments').textContent = HM_RES + '×' + HM_RES;
+    document.getElementById('info-segments').textContent = hmResW + '×' + hmResD;
     document.getElementById('status-tool').textContent = '选择';
     refreshWaterList();
     console.log('✅ 地图编辑器 v0.33.1 桥梁引道修整 初始化完成');
@@ -3871,9 +3915,9 @@ function drawCircleSplat(wx, wz, radius, texType) {
             const wDist = Math.sqrt(dx*dx*hmStepW*hmStepW + dy*dy*hmStepD*hmStepD);
             if (wDist > radius) continue;
             const sx2 = sxC + dx, sy2 = syC + dy;
-            if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+            if (sx2 < 0 || sx2 >= hmResW || sy2 < 0 || sy2 >= hmResD) continue;
             if (!mapData.editedVerticesPaint.has(sx2 + ',' + sy2)) {
-                mapData.splatMap[sy2 * HM_RES + sx2] = texType;
+                mapData.splatMap[sy2 * hmResW + sx2] = texType;
             }
         }
     }
@@ -3894,9 +3938,9 @@ function drawRoadLine(x1, z1, x2, z2, width, texType) {
     const rPxI = Math.ceil(rPxApprox);
     const hw2 = hw * hw;
     const minSx = Math.max(0, Math.floor(Math.min(sx1, sx2) - rPxI - 1));
-    const maxSx = Math.min(HM_RES - 1, Math.ceil(Math.max(sx1, sx2) + rPxI + 1));
+    const maxSx = Math.min(hmResW - 1, Math.ceil(Math.max(sx1, sx2) + rPxI + 1));
     const minSy = Math.max(0, Math.floor(Math.min(sy1, sy2) - rPxI - 1));
-    const maxSy = Math.min(HM_RES - 1, Math.ceil(Math.max(sy1, sy2) + rPxI + 1));
+    const maxSy = Math.min(hmResD - 1, Math.ceil(Math.max(sy1, sy2) + rPxI + 1));
     for (let sy = minSy; sy <= maxSy; sy++) {
         for (let sx = minSx; sx <= maxSx; sx++) {
             if (mapData.editedVerticesPaint.has(sx + ',' + sy)) continue;
@@ -3910,10 +3954,10 @@ function drawRoadLine(x1, z1, x2, z2, width, texType) {
                 const dist = Math.sqrt(wDist2) / hw;
                 // smoothstep羽化：0~0.65纯色，0.65~1.0渐变过渡（无随机噪声）
                 if (dist < 0.65) {
-                    mapData.splatMap[sy * HM_RES + sx] = tt;
+                    mapData.splatMap[sy * hmResW + sx] = tt;
                 } else if (dist < 1.0) {
                     const t = (1.0 - dist) / 0.35;
-                    mapData.splatMap[sy * HM_RES + sx] = tt;
+                    mapData.splatMap[sy * hmResW + sx] = tt;
                 }
             }
         }
@@ -3951,14 +3995,14 @@ function randomGenerateTerrain() {
     const seedE = baseSeed, seedM = baseSeed + 2718;
     
     // 阶段1-2: FBM高程 + 湿度
-    const elevRaw = new Float32Array(HM_RES * HM_RES);
-    const moistRaw = new Float32Array(HM_RES * HM_RES);
-    for (let sy = 0; sy < HM_RES; sy++) {
-        for (let sx = 0; sx < HM_RES; sx++) {
-            const wx = (sx / (HM_RES - 1) - 0.5) * worldWidth;
-            const wz = (sy / (HM_RES - 1) - 0.5) * worldDepth;
-            elevRaw[sy * HM_RES + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
-            moistRaw[sy * HM_RES + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
+    const elevRaw = new Float32Array(hmResW * hmResD);
+    const moistRaw = new Float32Array(hmResW * hmResD);
+    for (let sy = 0; sy < hmResD; sy++) {
+        for (let sx = 0; sx < hmResW; sx++) {
+            const wx = (sx / (hmResD - 1) - 0.5) * worldWidth;
+            const wz = (sy / (hmResD - 1) - 0.5) * worldDepth;
+            elevRaw[sy * hmResW + sx] = fbm(wx, wz, seedE, cfg.octaves, cfg.ptch);
+            moistRaw[sy * hmResW + sx] = fbm(wx + 50, wz + 50, seedM, cfg.octaves, cfg.ptch * 1.3);
         }
     }
     for (let i = 0; i < elevRaw.length; i++) {
@@ -3967,10 +4011,10 @@ function randomGenerateTerrain() {
     }
     
     // 高程→高度图
-    for (let sy = 0; sy < HM_RES; sy++) {
-        for (let sx = 0; sx < HM_RES; sx++) {
-            const e = elevRaw[sy * HM_RES + sx];
-            mapData.heightmap[sy * HM_RES + sx] = (e - 0.45) * cfg.maxH;
+    for (let sy = 0; sy < hmResD; sy++) {
+        for (let sx = 0; sx < hmResW; sx++) {
+            const e = elevRaw[sy * hmResW + sx];
+            mapData.heightmap[sy * hmResW + sx] = (e - 0.45) * cfg.maxH;
         }
     }
     
@@ -3980,25 +4024,25 @@ function randomGenerateTerrain() {
         const cz = (Math.random() - 0.5) * worldDepth * 0.7;
         const rx = 6 + Math.random() * 14, rz = 6 + Math.random() * 14;
         const peak = cfg.maxH * (0.25 + Math.random() * 0.55);
-        const rPxW = Math.max(rx, rz) / Math.max(worldWidth, worldDepth) * HM_RES;
+        const rPxW = Math.max(rx, rz) / Math.max(worldWidth, worldDepth) * Math.max(hmResW, hmResD);
         const { sx: sxC, sy: syC } = world2sm(cx, cz);
         const rPx = Math.ceil(rPxW), r2 = rPxW * rPxW;
         for (let dy = -rPx; dy <= rPx; dy++) {
             for (let dx = -rPx; dx <= rPx; dx++) {
                 const sx2 = sxC + dx, sy2 = syC + dy;
-                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
-                const wx2 = (sx2 / (HM_RES - 1) - 0.5) * worldWidth;
-                const wz2 = (sy2 / (HM_RES - 1) - 0.5) * worldDepth;
+                if (sx2 < 0 || sx2 >= hmResW || sy2 < 0 || sy2 >= hmResD) continue;
+                const wx2 = (sx2 / (hmResD - 1) - 0.5) * worldWidth;
+                const wz2 = (sy2 / (hmResD - 1) - 0.5) * worldDepth;
                 const d2 = ((wx2 - cx) / rx) ** 2 + ((wz2 - cz) / rz) ** 2;
-                if (d2 < 4) mapData.heightmap[sy2 * HM_RES + sx2] += peak * Math.exp(-d2);
+                if (d2 < 4) mapData.heightmap[sy2 * hmResW + sx2] += peak * Math.exp(-d2);
             }
         }
     }
     
     // Biome分区
-    for (let sy = 0; sy < HM_RES; sy++) {
-        for (let sx = 0; sx < HM_RES; sx++) {
-            const idx = sy * HM_RES + sx;
+    for (let sy = 0; sy < hmResD; sy++) {
+        for (let sx = 0; sx < hmResW; sx++) {
+            const idx = sy * hmResW + sx;
             const e = elevRaw[idx], m = moistRaw[idx];
             if (m > cfg.mudLvl && e < cfg.sandLvl) mapData.splatMap[idx] = 1;
             else if (m < 0.35 && e > cfg.sandLvl) mapData.splatMap[idx] = 2;
@@ -4034,10 +4078,10 @@ function randomGenerateTerrain() {
                 const wDist = Math.sqrt(dx*dx*hmStepW*hmStepW + dy*dy*hmStepD*hmStepD);
                 if (wDist > r) continue;
                 const sx2 = cx + dx, sy2 = cy + dy;
-                if (sx2 < 0 || sx2 >= HM_RES || sy2 < 0 || sy2 >= HM_RES) continue;
+                if (sx2 < 0 || sx2 >= hmResW || sy2 < 0 || sy2 >= hmResD) continue;
                 const t = 1 - wDist / r;
                 const falloff = t * t * (3 - 2 * t);
-                const idx = sy2 * HM_RES + sx2;
+                const idx = sy2 * hmResW + sx2;
                 // 以水位为基准：下陷到 waterLevel - depth*falloff
                 // 无条件设置目标高度，确保池塘底部平整（不管原始地形高低）
                 const targetH = waterLevel - depth * falloff;
@@ -4055,8 +4099,8 @@ function randomGenerateTerrain() {
     clearUndoStack(); pushSnapshot();
     
     const cnt = [0,0,0,0,0,0];
-    for (let i = 0; i < HM_RES * HM_RES; i++) cnt[mapData.splatMap[i]]++;
-    const total = HM_RES * HM_RES;
+    for (let i = 0; i < hmResW * hmResD; i++) cnt[mapData.splatMap[i]]++;
+    const total = hmResW * hmResD;
     overlayInfo.textContent = '🌍 地形已生成 — 草地'+(cnt[0]/total*100).toFixed(0)+'% 泥地'+(cnt[1]/total*100).toFixed(0)+'% 沙地'+(cnt[2]/total*100).toFixed(0)+'% 池塘'+pondCenters.length;
 }
 
@@ -4452,7 +4496,7 @@ function randomGenerateVillage() {
     mapData.bridges = [];
     
     // 恢复人造纹理(≥3) + 异常值(<0或>5) 为草地
-    for (let i = 0; i < HM_RES * HM_RES; i++) {
+    for (let i = 0; i < hmResW * hmResD; i++) {
         const v = mapData.splatMap[i];
         if (v >= 3 || v < 0 || v > 5) mapData.splatMap[i] = 0;
     }
@@ -4593,7 +4637,29 @@ function randomGenerateVillage() {
             roadSegments.push({ x1: conn.x1, z1: conn.z1, x2: conn.x2, z2: conn.z2, width: conn.width || 1.5, type: 'village' });
         }
     }
-    mapData.roadSystem = { roadSegments, villages };
+    // 起伏度：采样横截面 max-min 的 P95，供 demo 自适应偏移
+    function _measureRoughness(pts, hw) {
+        const ranges = [];
+        const step = Math.max(1, Math.floor(pts.length / 20));
+        for (let i = 0; i < pts.length - 1; i += step) {
+            const dx = pts[i+1].x - pts[i].x, dz = pts[i+1].z - pts[i].z;
+            const segLen = Math.hypot(dx, dz) || 1;
+            const snx = -dz / segLen, snz = dx / segLen;
+            const x = pts[i].x, z = pts[i].z;
+            const hs = [smpHeight(x,z), smpHeight(x+snx*hw,z+snz*hw), smpHeight(x-snx*hw,z-snz*hw),
+                       smpHeight(x+snx*hw*0.5,z+snz*hw*0.5), smpHeight(x-snx*hw*0.5,z-snz*hw*0.5)];
+            ranges.push(Math.max(...hs) - Math.min(...hs));
+        }
+        ranges.sort((a,b)=>a-b);
+        return ranges[Math.floor(ranges.length*0.9)] || 0;
+    }
+    const _roadMainHw = mainWidth / 2, _roadBranchHw = branchWidth / 2;
+    const mainRoad = { points: mainSmooth.map(p=>({x:p.x,z:p.z})), width:mainWidth, type:'asphalt', roughness:_measureRoughness(mainSmooth,_roadMainHw) };
+    const branchRoads = branches.map(b => {
+        const bs = samplePathSmoothDense(b.points, 1.0);
+        return { points: bs.map(p=>({x:p.x,z:p.z})), width:branchWidth, type:'concrete', roughness:_measureRoughness(bs,_roadBranchHw) };
+    });
+    mapData.roadSystem = { roadSegments, villages, mainRoad, branchRoads };
     
     createGround();
     renderHeightmapCanvas();

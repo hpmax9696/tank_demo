@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.46.0</title>
+    <title>坦克运动demo v0.47.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -487,7 +487,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.46.0</div>
+        <div class="menu-version">v0.47.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -502,11 +502,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🛤️ v0.47.0 地形系统重构+道路路径化 — 高度图动态分辨率(256²→~1m/格矩形)+河流归一化层(三种格式→统一路径点)+编辑器边界裁剪+动态河床雕刻+泥地纹理河岸加宽+出生点修复+幽灵树fix+道路strip渲染+自适应起伏偏移+垂直稳定器</div>
             <div class="cl-title">🔧 v0.46.0 模块拆分+水面ShapeGeometry+编辑器裁剪 — waters.js/bridges.js/debugcolliders.js模块拆分(5554→5094行)+编辑器河面earcut三角化消除自交+虚空拖拽裁剪+桥梁lx/lz轴互换修复+老格式桥Z轴无限延伸修复+getBridgeSurfaceY实际高度+手柄5段力度+倒车实际速度判定+摇杆换向dirFlip+F3碰撞可视化</div>
             <div class="cl-title">🌉 v0.45.0 水体/桥梁/出生点数据对接 — Float32Array序列化修复+矩形地图纹理坐标+多河流支持+水面弯曲平滑+桥面渲染重写+坦克出生点避水+速度翻倍+弯道缩窄公式修复+maploader.js拆分</div>
             <div class="cl-title">🗺️ v0.44.0 地图拆分+桥梁修复+编辑器增强 — 地图数据动态加载+桥梁引道平整区+河床统一深度+编辑器3D视口多选+河流生成重构+小地图村落自适应+WORLD_SIZE残余清理</div>
             <div class="cl-title">📐 v0.43.0 灵活地图尺寸+矩形地图 — 独立X/Z尺寸+水体/地形/水面/桥梁全链路适配+右键平移+旋转方向修正+实体选中清除</div>
-            <div class="cl-title">💀 v0.42.1 游戏结束画面+战斗统计 — 生命耗尽蒙版+详细统计面板+死亡记录+ESC返回菜单</div>
         </div>
     </div>
 
@@ -570,21 +570,21 @@
     </div>
 
     <!-- Three.js UMD 构建，本地加载，无需网络 -->
-    <script src="three.min.js"></script>
-    <script src="audio.js"></script>
-    <script src="input.js"></script>
-    <script src="shells.js"></script>
-    <script src="mg.js"></script>
-    <script src="bars.js"></script>
-    <script src="spatialGrid.js"></script>
-    <script src="obstacles.js"></script>
-    <script src="waters.js"></script>
-    <script src="bridges.js"></script>
-    <script src="debugcolliders.js"></script>
+    <script src="js/three.min.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/shells.js"></script>
+    <script src="js/mg.js"></script>
+    <script src="js/bars.js"></script>
+    <script src="js/spatialGrid.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/waters.js"></script>
+    <script src="js/bridges.js"></script>
+    <script src="js/debugcolliders.js"></script>
     <!-- Preetham 大气散射天空（基于 Three.js Sky 组件，适配全局 THREE） -->
     <!-- Sky.js 已移除（v0.24.5：陡视角看不到天空，省性能） -->
     <!-- 坦克损毁效果（火焰 & 烟雾粒子系统） -->
-    <script src="fireSmokeParticles.js"></script>
+    <script src="js/fireSmokeParticles.js"></script>
     <!-- 模型系统 -->
     <script src="models/modelRegistry.js"></script>
     <script src="models/t34_v16_builder.js"></script>
@@ -592,7 +592,7 @@
     <script src="models/t34-85.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
-    <script src="BufferGeometryUtils.js"></script>
+    <script src="js/BufferGeometryUtils.js"></script>
     <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
@@ -676,6 +676,60 @@
         const TERRAIN_TYPE_NAMES = ['grass', 'mud', 'sand', 'concrete', 'asphalt', 'brick'];
         const TERRAIN_TYPE_INDEX = { grass: 0, mud: 1, sand: 2, concrete: 3, asphalt: 4, brick: 5 };
 
+        // 将三种旧河流格式统一为 _normalizedRivers[]（路径点格式）
+        function normalizeRiverData(md) {
+            if (!md || !md.terrain) return [];
+            const t = md.terrain;
+            // Case 1: 已归一化
+            if (t._normalizedRivers) return t._normalizedRivers;
+            const rivers = [];
+            // Case 2: terrain.rivers[]（编辑器多河导出或蓝图转换）
+            if (t.rivers && t.rivers.length > 0) {
+                for (const rv of t.rivers) {
+                    rivers.push({
+                        points: rv.points || [],
+                        width: rv.width || 12,
+                        waterLevel: rv.waterLevel != null ? rv.waterLevel : -1,
+                        waterLevels: rv.waterLevels || null,
+                        depth: rv.depth || 5
+                    });
+                }
+            }
+            // Case 3: terrain.riverPoints（编辑器旧单河格式）
+            else if (t.riverPoints && t.riverPoints.length >= 2) {
+                rivers.push({
+                    points: t.riverPoints,
+                    width: t.riverWidth || 12,
+                    waterLevel: t.riverWaterLevel != null ? t.riverWaterLevel : -1,
+                    waterLevels: t.riverWaterLevels || null,
+                    depth: 5
+                });
+            }
+            // Case 4: terrain.river（参数化正弦波）
+            else if (t.river) {
+                const r = t.river;
+                const NUM_SAMPLES = 128;
+                const pts = [];
+                const worldW = md.worldWidth || md.worldSize || md.size || 200;
+                const half = worldW / 2;
+                for (let i = 0; i <= NUM_SAMPLES; i++) {
+                    const x = -half + i * (worldW / NUM_SAMPLES);
+                    const zc = r.zc + r.amp * Math.sin(x / r.period);
+                    pts.push({ x, z: zc });
+                }
+                const avgHw = (r.hwBase || 6.25) + (r.hwVar || 1.25) * 0.5;
+                rivers.push({
+                    points: pts,
+                    width: avgHw * 2,
+                    waterLevel: -1.0,
+                    waterLevels: null,
+                    depth: r.depth || 5
+                });
+            }
+            t._normalizedRivers = rivers;
+            return rivers;
+        }
+
         function loadMapConfig(mapId) {
             // 编辑器地图：从 localStorage 读取
             if (mapId.startsWith('editor_')) {
@@ -685,6 +739,7 @@
                     const bp = bps.find(b => b.name === bpName);
                     if (bp) {
                         currentMapData = convertBlueprintToMapConfig(bp);
+                        normalizeRiverData(currentMapData);
                         isVersusMap = false;
                         // 更新全局尺寸变量（编辑器地图也需要）
                         const _epw = currentMapData.playWidth || 200;
@@ -704,6 +759,7 @@
             }
             currentMapData = MAP_CONFIGS[mapId];
             if (!currentMapData) return false;
+            normalizeRiverData(currentMapData);
             // 矩形尺寸兜底（优先读取新字段，回退到旧字段，再回退到默认值）
             const _pw = currentMapData.playWidth || currentMapData.size || 200;
             const _pd = currentMapData.playDepth || currentMapData.size || 200;
@@ -728,7 +784,7 @@
         // 编辑器蓝图→地图配置转换
         function convertBlueprintToMapConfig(bp) {
             const spawnEnt = (bp.entities||[]).find(e => e.type === 'spawn');
-            const spawn = spawnEnt ? [spawnEnt.position.x, spawnEnt.position.y, spawnEnt.position.z] : [0, 0, 0];
+            const spawn = spawnEnt ? [spawnEnt.position.x, spawnEnt.position.z, spawnEnt.yaw || 0] : [0, 0, 0];
             const enemies = (bp.entities||[]).filter(e => e.type === 'enemy').map(e => ({
                 id: e.id,
                 type: e.enemyType === 'zombie' ? 'zombie' : 'assault-vehicle',
@@ -790,9 +846,8 @@
             const editorTrees = (bp.entities || []).filter(e => e.type === 'tree').map(e => ({
                 x: e.position.x, z: e.position.z, type: e.subType || 'cone'
             }));
-            // 编辑器地图障碍物：编辑器已手动放置实体，不生成随机障碍物
-            const hasEditorEntities = (editorBuildings.length > 0 || editorTrees.length > 0);
-            const obstacleCount = hasEditorEntities ? 0 : 350;
+            // 编辑器地图障碍物：仅使用用户手动放置的，不自动生成
+            const obstacleCount = 0;
             // 从蓝图读取矩形尺寸（回退到默认值）
             const _pw = bp.playWidth || 200;
             const _pd = bp.playDepth || 200;
@@ -812,7 +867,7 @@
                 mode: 'combat',
                 desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
                 spawnPoints: { p1: spawn },
-                terrain: { heightmap: bp.heightmap, width: 256, rangeMin: -5, rangeMax: 5, splatMap: bp.splatMap, ...terrainExtra },
+                terrain: { heightmap: bp.heightmap, width: bp.hmResW || 256, depth: bp.hmResD || 256, rangeMin: -5, rangeMax: 5, splatMap: bp.splatMap, ...terrainExtra },
                 waters: Object.keys(watersCfg).length > 0 ? watersCfg : undefined,
                 bridges: bridgesCfg.length > 0 ? bridgesCfg : undefined,
                 terrainTypes: { default: 'grass' },
@@ -853,17 +908,22 @@
         // splat map：256x256，每像素编码地貌类型(0~5)
         function generateSplatMap(worldHalf) {
             const md = currentMapData;
-            const size = 256;
-            const data = new Uint8Array(size * size);
+            if (!md || !md.terrain) { const d = new Uint8Array(65536); d.fill(0); return d; }
+            // 使用地图的实际 splatMap 分辨率（动态尺寸）
+            const _hmW = (md.terrain.hmResW || md.terrain.width) || 256;
+            const _hmD = (md.terrain.hmResD || md.terrain.depth || md.terrain.width) || 256;
+            const sizeW = _hmW, sizeD = _hmD;
+            const total = sizeW * sizeD;
+            const data = new Uint8Array(total);
             const defaultType = TERRAIN_TYPE_INDEX[md.terrainTypes ? md.terrainTypes.default : 'grass'] || 0;
-            for (let i = 0; i < size * size; i++) data[i] = defaultType;
+            for (let i = 0; i < total; i++) data[i] = defaultType;
 
             // 编辑器地图：直接使用蓝图的 splatMap（道路/纹理信息）
             if (md.terrain && md.terrain.splatMap) {
                 const sm = md.terrain.splatMap;
-                for (let i = 0; i < size * size && i < sm.length; i++) {
-                    data[i] = Math.min(5, Math.max(0, sm[i] | 0));
-                }
+                for (let sy = 0; sy < Math.min(sizeD, _hmD); sy++)
+                    for (let sx = 0; sx < Math.min(sizeW, _hmW); sx++)
+                        data[sy * sizeW + sx] = Math.min(5, Math.max(0, sm[sy * _hmW + sx] | 0));
                 return data;
             }
 
@@ -871,16 +931,14 @@
 
             const tt = md.terrainTypes, t = md.terrain;
             const half = worldHalf || md.size / 2;  // 支持扩展地图
-            const scale = (half * 2) / size; // world units per pixel
+            const scaleW = (half * 2) / sizeW; // world units per pixel (X)
+            const scaleD = (half * 2) / sizeD; // world units per pixel (Z)
 
-            // 辅助：世界坐标→splat坐标
-            function w2s(w) { return Math.round((w + half) / scale); }
-
-            for (let sy = 0; sy < size; sy++) {
-                const wz = -half + sy * scale; // world Z
-                for (let sx = 0; sx < size; sx++) {
-                    const wx = -half + sx * scale; // world X
-                    const idx = sy * size + sx;
+            for (let sy = 0; sy < sizeD; sy++) {
+                const wz = -half + sy * scaleD; // world Z
+                for (let sx = 0; sx < sizeW; sx++) {
+                    const wx = -half + sx * scaleW; // world X
+                    const idx = sy * sizeW + sx;
 
                     // 河流岸边+河床→泥地（河床覆盖泥地，避免草地透过河水）
                     if (t && t.river && tt.riverBank) {
@@ -946,7 +1004,10 @@
         // 根据 splat map 生成复合地面纹理（2048x2048，覆盖全地面尺寸）
         function generateCompositeGroundTexture(groundHalf) {
             const splat = generateSplatMap(groundHalf);
-            const splatSize = 256;
+            // splatMap 动态尺寸（匹配编辑器高度图分辨率）
+            const _sw = (currentMapData.terrain && (currentMapData.terrain.hmResW || currentMapData.terrain.width)) || 256;
+            const _sd = (currentMapData.terrain && (currentMapData.terrain.hmResD || currentMapData.terrain.depth || currentMapData.terrain.width)) || 256;
+            const splatSizeW = _sw, splatSizeD = _sd;
             const outSize = 2048;
             const canvas = document.createElement('canvas');
             canvas.width = canvas.height = outSize;
@@ -973,10 +1034,10 @@
                     const wx = -half + bx * sw;
                     const wz = -half + by * sw;
                     // 查找 splat map 中的地形类型
-                    const sx = Math.floor((wx + half) / (worldSize / splatSize));
-                    const sy = Math.floor((wz + half) / (worldSize / splatSize));
-                    const typeIdx = (sx >= 0 && sx < splatSize && sy >= 0 && sy < splatSize)
-                        ? splat[sy * splatSize + sx] : 0;
+                    const sx = Math.floor((wx + half) / (worldSize / splatSizeW));
+                    const sy = Math.floor((wz + half) / (worldSize / splatSizeD));
+                    const typeIdx = (sx >= 0 && sx < splatSizeW && sy >= 0 && sy < splatSizeD)
+                        ? splat[sy * splatSizeW + sx] : 0;
                     const texCanvas = texCanvases[Math.min(typeIdx, 5)];
 
                     // 从纹理中采样对应区域绘制到输出
@@ -1160,30 +1221,31 @@
             if (isVersusMap) return 0;
             const bridgeY = getBridgeSurfaceY(x, z);
             if (bridgeY !== null) return bridgeY;
+            const roadY = window.getRoadSurfaceY && window.getRoadSurfaceY(x, z);
+            if (roadY !== null) return roadY;
             return getTerrainHeight(x, z);
         }
 
         function getTerrainHeight(x, z) {
             if (isVersusMap) return 0;
-            // 离散高度图模式（编辑器地图）
-            if (currentMapData && currentMapData.terrain && currentMapData.terrain.heightmap) {
+            let y = 0;
+            // 离散高度图模式（编辑器地图，支持矩形分辨率）
+            const hasHM = currentMapData && currentMapData.terrain && currentMapData.terrain.heightmap;
+            if (hasHM) {
                 const hm = currentMapData.terrain.heightmap;
-                const _w = currentMapData.terrain.width || 256;
-                // 高度图覆盖 worldWidth×worldDepth 范围（矩形尺寸）
+                const _hmResW = currentMapData.terrain.hmResW || currentMapData.terrain.width || 256;
+                const _hmResD = currentMapData.terrain.hmResD || currentMapData.terrain.depth || currentMapData.terrain.width || 256;
                 const u = (x + worldHalfW) / (worldHalfW * 2);
                 const v = (z + worldHalfD) / (worldHalfD * 2);
                 if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
-                // 双线性插值
-                const fx = u * (_w - 1), fz = v * (_w - 1);
+                const fx = u * (_hmResW - 1), fz = v * (_hmResD - 1);
                 const ix = Math.floor(fx), iz = Math.floor(fz);
                 const tx = fx - ix, tz = fz - iz;
-                const ix1 = Math.min(ix + 1, _w - 1), iz1 = Math.min(iz + 1, _w - 1);
-                const a = hm[iz * _w + ix], b = hm[iz * _w + ix1];
-                const c = hm[iz1 * _w + ix], d = hm[iz1 * _w + ix1];
-                return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
-                // 高度图直接存储实际高度值（米），无需 r/s 映射
+                const ix1 = Math.min(ix + 1, _hmResW - 1), iz1 = Math.min(iz + 1, _hmResD - 1);
+                const a = hm[iz * _hmResW + ix], b = hm[iz * _hmResW + ix1];
+                const c = hm[iz1 * _hmResW + ix], d = hm[iz1 * _hmResW + ix1];
+                y = (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
             }
-            let y = 0;
             // ── 池塘 ──
             const pond = _getPond();
             if (pond) {
@@ -1194,7 +1256,7 @@
                     y -= pond.depth * tt * tt * (3.0 - 2.0 * tt);
                 }
             }
-            // ── 河流 ──
+            // ── 河流（参数化正弦波）──
             const river = _getRiver();
             if (river) {
                 const rzc = riverCenterZ(x), rhw = riverHalfWidth(x);
@@ -1202,6 +1264,25 @@
                 if (rnd < 1.0) {
                     const tt = 1.0 - rnd;
                     y -= river.depth * tt * tt * (3.0 - 2.0 * tt);
+                }
+            }
+            // ── 河流（路径点格式，动态雕刻覆盖，对编辑器/参数化均生效）──
+            if (!river) {
+                const normRivers = (typeof _getRivers === 'function') ? _getRivers() : [];
+                for (const rv of normRivers) {
+                    const pts = rv.points; if (!pts || pts.length < 2) continue;
+                    const hw = rv.width / 2;
+                    const depth = rv.depth || 5;
+                    let minDist = Infinity;
+                    for (let i = 0; i < pts.length - 1; i++) {
+                        const d = _pointToSegDist2D(x, z, pts[i].x, pts[i].z, pts[i+1].x, pts[i+1].z);
+                        if (d < minDist) minDist = d;
+                    }
+                    if (minDist < hw) {
+                        const t = minDist / hw;
+                        const carve = depth * (1 - t * t * (3 - 2 * t)); // 全长 smoothstep U 形剖面
+                        y -= carve;
+                    }
                 }
             }
             // ── 高地 ──
@@ -1916,16 +1997,22 @@
                 }
             }
             // 河流碰撞（桥面及桥头引道不阻挡，允许坦克驶上桥梁）
-            if (!isOnBridgeSurface(x, z) && !isOnBridge(x)) for (const rc of riverColliders) {
-                const rdx = x - rc.x;
-                const rdz = z - rc.z;
-                const rDist = Math.sqrt(rdx * rdx + rdz * rdz);
-                const rMinDist = hw + rc.radius;
-                if (rDist < rMinDist) {
+            if (!isOnBridgeSurface(x, z) && !isOnBridge(x)) {
+                let bestRc = null, bestOverlap = 0;
+                for (const rc of riverColliders) {
+                    const rdx = x - rc.x, rdz = z - rc.z;
+                    const rDist = Math.sqrt(rdx * rdx + rdz * rdz);
+                    const rMinDist = hw + rc.radius;
+                    const overlap = rMinDist - rDist;
+                    if (overlap > bestOverlap) { bestOverlap = overlap; bestRc = rc; }
+                }
+                if (bestRc) {
+                    const rdx = x - bestRc.x, rdz = z - bestRc.z;
+                    const rDist = Math.sqrt(rdx * rdx + rdz * rdz);
                     const rnx = rdx / (rDist || 0.001);
                     const rnz = rdz / (rDist || 0.001);
-                    const pushX = rnx * (rMinDist - rDist);
-                    const pushZ = rnz * (rMinDist - rDist);
+                    const pushX = rnx * bestOverlap;
+                    const pushZ = rnz * bestOverlap;
                     return { hit: true, pushX, pushZ };
                 }
             }
@@ -2400,19 +2487,20 @@
                 }
             }
             if (!isOnBridge(newX, newZ)) {
-                for (const rc of riverColliders) {
-                    const dx = newX - rc.x, dz = newZ - rc.z;
-                    const dist = Math.hypot(dx, dz);
-                    if (dist < rc.radius + TANK_HALF_W) {
-                        const nx = dx / dist, nz = dz / dist;
-                        newX = rc.x + nx * (rc.radius + TANK_HALF_W);
-                        newZ = rc.z + nz * (rc.radius + TANK_HALF_W);
+                // 多轮迭代推离：避免弯道重叠碰撞体导致的坦克粘连
+                for (let rIter = 0; rIter < 8; rIter++) {
+                    let pushed = false;
+                    for (const rc of riverColliders) {
+                        const dx = newX - rc.x, dz = newZ - rc.z;
+                        const dist = Math.hypot(dx, dz);
+                        if (dist < rc.radius + TANK_HALF_W) {
+                            const nx = dx / Math.max(dist, 0.001), nz = dz / Math.max(dist, 0.001);
+                            newX = rc.x + nx * (rc.radius + TANK_HALF_W);
+                            newZ = rc.z + nz * (rc.radius + TANK_HALF_W);
+                            pushed = true;
+                        }
                     }
-                }
-                // 后备：直接用河流中线钳制（参数化河流无碰撞体时也能阻挡）
-                if (isInRiver(newX, newZ) && !_isUnderAnyBridge(newX, newZ)) {
-                    const rzc = riverCenterZ(newX), rhw = riverHalfWidth(newX) + TANK_HALF_W + 0.3;
-                    newZ = (newZ < rzc) ? rzc - rhw : rzc + rhw;
+                    if (!pushed) break;
                 }
             }
             tankState.x = newX;
@@ -2443,11 +2531,20 @@
             const terrainRoll = Math.atan2(rightH - leftH, sideDist * 2);
             prevForwardSpeed = v;
 
-            // ── 坦克3D更新 ──
+            // ── 坦克3D更新（垂直稳定器：低通滤波消除高频颠簸）──
             const groundY = getGroundHeight(tankState.x, tankState.z);
-            tankGroup.position.set(tankState.x, groundY, tankState.z);
+            const Y_SMOOTH = 12.0; // 高度平滑系数（越大越平滑但越延迟）
+            if (typeof _smoothGroundY === 'undefined') _smoothGroundY = groundY;
+            _smoothGroundY += (groundY - _smoothGroundY) * Math.min(1, Y_SMOOTH * dt);
+            tankGroup.position.set(tankState.x, _smoothGroundY, tankState.z);
             if (!tankGroup.rotation.order || tankGroup.rotation.order !== 'YXZ') tankGroup.rotation.order = 'YXZ';
-            tankGroup.rotation.set(tankPitch + recoilP - terrainPitch, Math.PI / 2 - tankState.yaw, -terrainRoll);
+            const P_SMOOTH = 15.0; // 俯仰平滑系数
+            if (typeof _smoothTerrainPitch === 'undefined') _smoothTerrainPitch = terrainPitch;
+            _smoothTerrainPitch += (terrainPitch - _smoothTerrainPitch) * Math.min(1, P_SMOOTH * dt);
+            const R_SMOOTH = 15.0; // 侧倾平滑系数
+            if (typeof _smoothTerrainRoll === 'undefined') _smoothTerrainRoll = terrainRoll;
+            _smoothTerrainRoll += (terrainRoll - _smoothTerrainRoll) * Math.min(1, R_SMOOTH * dt);
+            tankGroup.rotation.set(tankPitch + recoilP - _smoothTerrainPitch, Math.PI / 2 - tankState.yaw, -_smoothTerrainRoll);
             tankGroup.updateMatrixWorld();
             // 同步 player1.state，fireShell 依赖它
             if (player1) {
@@ -3600,8 +3697,19 @@
                     }
                 }
                 if(isInRiver(p.state.x,p.state.z)&&!isOnBridge(p.state.x)&&!_isUnderAnyBridge(p.state.x,p.state.z)){
-                    const rzc=riverCenterZ(p.state.x),rhw=riverHalfWidth(p.state.x)+TANK_HALF_W+0.3;
-                    p.state.z=(p.state.z<rzc)?rzc-rhw:rzc+rhw;
+                    // 用 collider 圆心推离（对所有河流类型生效）
+                    let bestRc = null, bestDist = Infinity;
+                    for (const rc of riverColliders) {
+                        const d = Math.hypot(p.state.x - rc.x, p.state.z - rc.z);
+                        if (d < bestDist) { bestDist = d; bestRc = rc; }
+                    }
+                    if (bestRc && bestDist < bestRc.radius + TANK_HALF_W + 1) {
+                        const pushDist = bestRc.radius + TANK_HALF_W;
+                        const nx = (p.state.x - bestRc.x) / Math.max(bestDist, 0.01);
+                        const nz = (p.state.z - bestRc.z) / Math.max(bestDist, 0.01);
+                        p.state.x = bestRc.x + nx * pushDist;
+                        p.state.z = bestRc.z + nz * pushDist;
+                    }
                 }
                 if(!isVersusMap && isOnBridgeSurface(p.state.x,p.state.z)){
                     const b=_getBridge();if(b){
@@ -3831,7 +3939,12 @@
 
             // 玩家配置
             const pcfg = currentMapData.players || {};
-            player1 = createPlayer('green', POINT_A_X, POINT_A_Z, Math.PI / 2, true);
+            // 读取地图出生点（编辑器地图优先用 spawnPoints）
+            const spCfg = currentMapData && currentMapData.spawnPoints && currentMapData.spawnPoints.p1;
+            const spX = spCfg ? spCfg[0] : POINT_A_X;
+            const spZ = spCfg ? spCfg[1] : POINT_A_Z;
+            const spYaw = spCfg ? (spCfg[2] || Math.PI/2) : Math.PI/2;
+            player1 = createPlayer('green', spX, spZ, spYaw, true);
             player1.hp = pcfg.hp || 100;
             player1.maxHp = player1.hp;
             player1.dead = false;
@@ -3845,7 +3958,7 @@
             tankGroup = player1.group; tankHull = player1.hull;
             leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
             reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
-            tankState.x = POINT_A_X; tankState.z = POINT_A_Z; tankState.yaw = Math.PI / 2;
+            tankState.x = spX; tankState.z = spZ; tankState.yaw = spYaw;
             totalDistance = 0;
             combatShakeTimer = 0;
             mgBullets.forEach(b => { scene.remove(b.mesh); b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } }); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
@@ -4784,7 +4897,7 @@
             }
 
             el.textContent =
-                'v0.46.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.47.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5107,7 +5220,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.46.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
+        console.log('⚡ 坦克运动demo v0.47.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
 
 
     </script>

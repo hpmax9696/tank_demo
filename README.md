@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.46.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.47.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,20 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.47.0 — 地形系统重构+道路路径化（2026-05-31）
+
+- **高度图动态分辨率**: HM_RES=256²死值 → 按地图尺寸等比hmResW×hmResD（~1m/格），矩形地图X/Z独立精度
+- **河流归一化层**: 三种格式（参数化正弦波/编辑器单河/编辑器多河）统一为路径点rivers[]，运行时转换
+- **河流动态雕刻**: getTerrainHeight()对所有河流做点到路径距离+smoothstep，编辑器河不再依赖bake高度图
+- **泥地纹理河岸加宽**: 河宽+hw+6m范围splatMap=1，修复falloff>0.08过滤+外层条件截断+idx未定义三重bug
+- **编辑器边界裁剪**: 移除画河坐标钳制，改用_pathClipToRect Cohen-Sutherland线段裁剪，废掉贴边多余河段
+- **出生点修复**: 初始createPlayer读取spawnPoints而非硬编码(0,0)；p1数组格式[x,y,z]→[x,z,yaw]修复Y/Z互换
+- **道路路径化**: 编辑器randomGenerateVillage保留平滑路径数据→Demo用BufferGeometry strip渲染，cross-section 5点采样防止沉地
+- **道路起伏自适应偏移**: 编辑器记录roughness(P90横截面起伏度)→Demo读取offsetY=roughness+0.08
+- **坦克垂直稳定器**: Y/俯仰/侧倾三轴低通滤波，消除道路衔接处颠簸
+- **杂项修复**: poissonDiskSampling count=0提前返回(消除幽灵树)、generateSplatMap null崩溃、splatMap动态尺寸(size→sizeW/sizeD)、01a纹理修复
+- js/归入文件夹、废弃fbx/glb模型和测试页清理
 
 ### v0.46.0 — 模块拆分+水面ShapeGeometry+编辑器裁剪+手柄优化（2026-05-30）
 
@@ -895,17 +909,19 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.46.0）
-- `index.html`：约 5094 行（主游戏引擎，已拆分10个模块）
-- `waters.js`：~405行 | `bridges.js`：~177行 | `debugcolliders.js`：~120行（新增）
-- `audio.js`：~223行 | `input.js`：~71行 | `shells.js`：~300行 | `mg.js`：~180行
-- `bars.js`：~75行 | `obstacles.js`：~620行 | `spatialGrid.js`：~99行
-- `model_factory.html`：约 **1922 行**（通用程序化模型编辑器）
-- `map_editor.html`：约 3000 行（地图编辑器 + 虚空裁剪）
-- `models/enemies.js`：约 920 行（装甲突击车+程序化丧尸）
-- `combat/enemyAI.js`：约 535 行（AI状态机）
-- `fireSmokeParticles.js`：约 390 行（粒子系统）
-- **总计约 8100 行**
+### 代码规模（截至 v0.47.0）
+- `index.html`：约 5228 行（主游戏引擎）
+- `js/waters.js`：~439行 | `js/bridges.js`：~165行 | `js/debugcolliders.js`：~122行
+- `js/audio.js`：~240行 | `js/input.js`：~70行 | `js/shells.js`：~309行 | `js/mg.js`：~198行
+- `js/bars.js`：~80行 | `js/obstacles.js`：~817行 | `js/spatialGrid.js`：~110行
+- `js/fireSmokeParticles.js`：~536行
+- `model_factory.html`：约 2428 行（通用程序化模型编辑器）
+- `map_editor.html`：约 4698 行（地图编辑器）
+- `models/enemies.js`：约 901 行（装甲突击车+程序化丧尸）
+- `combat/enemyAI.js`：约 748 行（AI状态机）
+- `combat/scoreSystem.js`：约 127 行（积分系统）
+- `models/`其他：tank.js(84)+trees.js(262)+buildings.js(304)+grass.js(207)+pickups.js(133)+terrainTextures.js(52)+modelRegistry.js(88)+t34-85.js(628)+t34_v16_builder.js(488)+windmill.js(57)+model_configs.js(36)
+- **总计约 19,555 行**
 
 ---
 
