@@ -14,18 +14,18 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏引擎 (~5094行)：状态机/场景/物理/瞄准/摄像机
-├── waters.js          # 水体模块 (~405行)：池塘/河流水面ShapeGeometry+碰撞体+动画
-├── bridges.js         # 桥梁模块 (~177行)：编辑器桥+参数化桥+碰撞检测+可视化
-├── debugcolliders.js  # 碰撞可视化 (~120行)：F3切换，从运行时数据反向生成
+├── index.html         # 核心游戏引擎 (~5365行)：状态机/场景/物理/瞄准/摄像机
+├── waters.js          # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
+├── bridges.js         # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
+├── debugcolliders.js  # 碰撞可视化 (~122行)：F3切换(默认关)，从运行时数据反向生成
 ├── audio.js           # 音频系统
 ├── input.js           # 输入处理 (WASD+手柄，5段力度)
 ├── shells.js          # 炮弹系统
 ├── mg.js              # 机枪系统
 ├── bars.js            # UI 血条/装填条
 ├── obstacles.js       # 环境对象 (树木/建筑/InstancedMesh)
-├── model_factory.html # 程序化模型编辑器 (~1922行)
-├── map_editor.html    # 地图编辑器 (~2900行)
+├── model_factory.html # 程序化模型编辑器 (~2428行)
+├── map_editor.html    # 地图编辑器 (~5167行)
 ├── fireSmokeParticles.js  # 粒子系统
 ├── models/            # 模型文件 (GLB主力 + 程序化兜底)
 ├── maps/              # .map.json 地图配置

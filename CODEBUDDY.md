@@ -65,7 +65,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 文件 | 行数 | 功能 |
 |------|:----:|------|
 | `index.html` | ~5094 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机） |
-| `waters.js` | ~405 | 水体系统（池塘/河流ShapeGeometry三角化+碰撞体+动画+边界裁剪） |
+| `waters.js` | ~317 | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画） |
 | `bridges.js` | ~177 | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤） |
 | `debugcolliders.js` | ~120 | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
 | `audio.js` | ~223 | 音频系统（引擎声/开火/爆炸/命中/换弹音效） |
@@ -77,7 +77,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 5094 行，采用以下模块化结构：
+`index.html` 是核心游戏引擎，约 5365 行，采用以下模块化结构：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat'
@@ -310,7 +310,21 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 4 | 河岸空气墙可视化红环未清理 | 调试用红色环会残留在场景中 | debugcolliders.js |
 | 5 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段，与拖拽速度/角度相关 | map_editor.html→mousemove钳制逻辑 |
 | 6 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case，低概率出现转向不跟手 | input.js + index.html 驱动逻辑 |
-| 7 | 编辑器河流弯道处水面透明叠加变暗 | ShapeGeometry消除几何自交后，弯道处depthWrite:false透明水面视线穿透两层 | waters.js→createRiverWater |
+| 7 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决（Canvas绘河道路径→alphaMap裁切，弯道零自交） | waters.js→createRiverWater |
+
+## 已修复问题（v0.48.0 — 河面AlphaMap+主路A*寻路+修复）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 河面alphaMap遮罩平面替换strip（Canvas绘河→alphaMap裁切，弯道零自交） | v0.48.0 |
+| 2 | 主路A*寻路（指数坡度惩罚+加权启发×0.7+StringPulling平滑） | v0.48.0 |
+| 3 | 村路/广场切splatMap贴图（移除3D strip） | v0.48.0 |
+| 4 | 建筑群半圆约束（分支前进方向±90°，不跨主路） | v0.48.0 |
+| 5 | 蓝图base64解码修复（demo端补heightmapB64/splatMapB64→terrain.heightmap） | v0.48.0 |
+| 6 | 死亡UI隐藏+输入切断，重生恢复；战败画面"重新开始"按钮 | v0.48.0 |
+| 7 | F4上帝视角（关雾+FOV80°+拉远+围挡墙隐藏，退出自动重置） | v0.48.0 |
+| 8 | F3碰撞可视化默认关闭 | v0.48.0 |
+| 9 | P7死代码清理（waters.js~75行+index.html~20行+obstacles.js清理） | v0.48.0 |
 
 ## 已修复问题（v0.46.0 — 模块拆分+水面ShapeGeometry+编辑器裁剪+手柄优化）
 
@@ -387,15 +401,15 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.46.0）
+## 📋 待完成任务（截至 v0.48.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
 | 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
 | 2 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
-| 3 | 编辑器河流弯道透明度叠加优化 | 🟡 中期 | 未分配 | ShapeGeometry弯道处depthWrite:false导致双层穿透变暗 |
-| 4 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
-| 5 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 3 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
+| 4 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 5 | Part 8 全面验证 | 🟡 近期 | 未分配 | 编辑器→Demo端到端全链路+兼容性回归测试 |
 | 6 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
 
 ---

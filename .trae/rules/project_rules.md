@@ -31,7 +31,7 @@ python -m http.server 8080 --bind 127.0.0.1
 
 | 文件 | 行数 | 核心内容 |
 |------|:----:|----------|
-| `index.html` | ~5450 | 主游戏引擎 |
+| `index.html` | ~5365 | 主游戏引擎 |
 | `maploader.js` | ~190 | 地图加载模块（蓝图转换+动态加载） |
 | `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
 | `map_editor.html` | ~2900 | 地图编辑器（灵活尺寸+矩形地图） |
@@ -201,7 +201,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.45.0 — 水体/桥梁/出生点数据对接修复）
+## 当前版本（v0.48.0 — 河面AlphaMap+主路A*寻路+修复）
 
 ### 关键参数
 | 参数 | 值 |
@@ -209,12 +209,12 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 世界尺寸 | worldWidth×worldDepth（可配置，默认300×300） |
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~3100 行 |
-| index.html 行数 | ~5450 行 |
+| index.html 行数 | ~5365 行 |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
 | 桥梁引道 | 平整区(deckY) + 内陆斜坡，_carvedCells可撤销，deckY存入蓝图 |
 | 河流深度 | 水面=河岸最低-3m，河床=地图最低-10m（排除已挖水体） |
-| 水体模块 | maploader.js已拆分，waters.js待拆分 |
+| 水体模块 | waters.js(317行)已拆分，alphaMap遮罩方案替换strip |
 
 ### 已知问题
 | # | 问题 | 位置 |
@@ -223,7 +223,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 2 | git revert后index.html部分修复丢失（水面渲染/纹理/出生点） | index.html |
 | 3 | 桥梁两端地形高低差（addBridge引道雕刻不完善） | map_editor.html |
 | 4 | 河岸空气墙红环调试残留 | index.html |
-| 5 | waters.js+bridges.js模块未拆分 | index.html |
+| 5 | ✅ v0.48.0 waters.js+bridges.js已拆分，alphaMap方案 | index.html |
 
 ### 待完成任务
 | # | 任务 | 优先级 |
