@@ -227,168 +227,115 @@ function subdivideSharpCorners(pts, maxAngle) {
     return result;
 }
 
-// 全局水面 mesh 列表（替代旧单 mesh 变量）
-let riverWaterMeshes = [];
 
 function createRiverWater() {
     riverColliders = [];
     // 清理旧水面
-    for (const m of riverWaterMeshes) { scene.remove(m); if (m.geometry) m.geometry.dispose(); if (m.material) m.material.dispose(); }
-    riverWaterMeshes = [];
-    if (riverWater) { scene.remove(riverWater); riverWater = null; }
+    if (riverWater) { scene.remove(riverWater); if (riverWater.geometry) riverWater.geometry.dispose(); if (riverWater.material) riverWater.material.dispose(); riverWater = null; }
 
     const rivers = _getRivers();
     if (rivers.length === 0) return;
 
     const clipX = typeof worldHalfW !== 'undefined' ? worldHalfW : 150;
     const clipZ = typeof worldHalfD !== 'undefined' ? worldHalfD : 150;
-    // 矩形区域裁剪路径（Cohen-Sutherland），保留边界内的部分
-    function _clipPathToRect(pts, left, right, bottom, top) {
-        if (pts.length < 2) return pts;
-        function _inside(x, z) { return x >= left && x <= right && z >= bottom && z <= top; }
-        function _intersect(ax, az, bx, bz, edge) {
-            let t = 0;
-            switch (edge) {
-                case 0: t = (left - ax) / (bx - ax); break;   // 左
-                case 1: t = (right - ax) / (bx - ax); break;  // 右
-                case 2: t = (bottom - az) / (bz - az); break; // 下
-                case 3: t = (top - az) / (bz - az); break;    // 上
-            }
-            t = Math.max(0, Math.min(1, t));
-            return { x: ax + (bx - ax) * t, z: az + (bz - az) * t };
-        }
-        const result = [];
-        for (let i = 0; i < pts.length - 1; i++) {
-            const a = pts[i], b = pts[i+1];
-            const aIn = _inside(a.x, a.z), bIn = _inside(b.x, b.z);
-            if (aIn && bIn) { result.push(a); }
-            else if (aIn || bIn) {
-                if (aIn) result.push(a);
-                // 找交点：逐边检测
-                for (let e = 0; e < 4; e++) {
-                    const ip = _intersect(a.x, a.z, b.x, b.z, e);
-                    if (_inside(ip.x, ip.z)) { result.push(ip); break; }
-                }
-            }
-        }
-        // 最后一个点如果在内部，加入
-        if (pts.length > 0 && _inside(pts[pts.length-1].x, pts[pts.length-1].z))
-            result.push(pts[pts.length-1]);
-        return result;
-    }
+    function _clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // 合并所有河流到一个 geometry（消除交叉处透明叠加）
+    const allVerts = [];
+    const allIndices = [];
 
     for (let ri = 0; ri < rivers.length; ri++) {
         const rv = rivers[ri];
         const rawPts = rv.points;
         if (!rawPts || rawPts.length < 2) continue;
         const hw = (rv.width || 12) / 2;
+
+        // 丢弃界外点
+        const clipped = rawPts.filter(p => Math.abs(p.x) <= clipX && Math.abs(p.z) <= clipZ);
+        if (clipped.length < 2) continue;
+
+        // 线性插值（2m间距，同 v0.43.0）
         const waterLevel = rv.waterLevel != null ? rv.waterLevel : -1;
         const segWaterLevels = rv.waterLevels || null;
-        const depth = rv.depth || 5;
+        const hasSegWL = segWaterLevels && segWaterLevels.length === clipped.length - 1;
+        const pts = [];
+        const ptWaterLevels = [];
+        for (let i = 0; i < clipped.length - 1; i++) {
+            const a = clipped[i], b = clipped[i+1];
+            pts.push(a);
+            const segLen = Math.hypot(b.x - a.x, b.z - a.z);
+            const step = Math.max(1, Math.ceil(segLen / 2));
+            const wl = hasSegWL ? segWaterLevels[i] : null;
+            ptWaterLevels.push(wl);
+            for (let j = 1; j < step; j++) {
+                const t = j / step;
+                pts.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+                ptWaterLevels.push(wl);
+            }
+        }
+        pts.push(clipped[clipped.length - 1]);
+        ptWaterLevels.push(hasSegWL ? segWaterLevels[segWaterLevels.length - 1] : null);
 
-        // 1. 裁剪到地图边界内（保留入口/出口交点，废掉界外部分）
-        const inBounds = _clipPathToRect(rawPts, -clipX, clipX, -clipZ, clipZ);
-        if (inBounds.length < 2) continue;
-        const subdivided = subdivideSharpCorners(inBounds, 20);
-        let pts = _smoothPathCR(subdivided, 0.5);
-        // 再次去重（CR 插值可能在边界产生密集重合点）
-        pts = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i-1].x, p.z - pts[i-1].z) > 0.05);
-        if (pts.length < 2) continue;
+        let fallbackWaterY = waterLevel;
+        if (rv.waterLevel == null) {
+            let sumH = 0, minH = Infinity;
+            for (const p of pts) { const th = getTerrainHeight(p.x, p.z); sumH += th; if (th < minH) minH = th; }
+            fallbackWaterY = Math.min((sumH / pts.length) - 0.6, minH + 0.3);
+        }
 
-        // 2. 计算切线 + effHw 弯道缩窄（cos(θ/2)，防止内侧 bank 交叉重叠）
-        const tangents = [];
-        const hwScales = []; // 每顶点的有效半宽缩放因子
+        // 构建 strip 顶点
+        const vOffset = allVerts.length / 3; // 当前已有顶点数
         for (let i = 0; i < pts.length; i++) {
-            const p = pts[i]; let dx, dz, hwScale = 1;
+            const p = pts[i]; let dx, dz;
             if (i === 0) { dx = pts[i+1].x - p.x; dz = pts[i+1].z - p.z; }
             else if (i === pts.length - 1) { dx = p.x - pts[i-1].x; dz = p.z - pts[i-1].z; }
             else {
-                const di = { x: p.x - pts[i-1].x, z: p.z - pts[i-1].z }, lnI = Math.hypot(di.x, di.z) || 1;
-                const dO = { x: pts[i+1].x - p.x, z: pts[i+1].z - p.z }, lnO = Math.hypot(dO.x, dO.z) || 1;
-                const uix = di.x / lnI, uiz = di.z / lnI, uox = dO.x / lnO, uoz = dO.z / lnO;
-                dx = uix + uox; dz = uiz + uoz;
-                // effHw = hw * cos(θ/2) = hw * sqrt((1+dot)/2)
-                const dotEdges = uix * uox + uiz * uoz;
-                hwScale = Math.sqrt(Math.max(0.01, (1 + dotEdges) / 2));
+                const dxIn = p.x - pts[i-1].x, dzIn = p.z - pts[i-1].z;
+                const lenIn = Math.hypot(dxIn, dzIn) || 1;
+                const dxOut = pts[i+1].x - p.x, dzOut = pts[i+1].z - p.z;
+                const lenOut = Math.hypot(dxOut, dzOut) || 1;
+                dx = dxIn/lenIn + dxOut/lenOut; dz = dzIn/lenIn + dzOut/lenOut;
             }
             const len = Math.hypot(dx, dz) || 1;
-            tangents.push({ dx: dx / len, dz: dz / len });
-            hwScales.push(hwScale);
+            const nx = -dz/len * hw, nz = dx/len * hw;
+            const wy = ptWaterLevels[i] !== null ? ptWaterLevels[i] : fallbackWaterY;
+            allVerts.push(p.x + nx, wy, p.z + nz);
+            allVerts.push(p.x - nx, wy, p.z - nz);
         }
-
-        // 3. 构建 per-vertex water level（支持分段水位）
-        const ptWaterLevels = [];
-        const totalSegs = inBounds.length - 1;
-        for (let i = 0; i < pts.length; i++) {
-            // 查找 pts[i] 在 inBounds 中的最近段
-            let minD = Infinity, bestWL = waterLevel;
-            for (let si = 0; si < totalSegs; si++) {
-                const d = _pointToSegDist2D(pts[i].x, pts[i].z, inBounds[si].x, inBounds[si].z, inBounds[si+1].x, inBounds[si+1].z);
-                if (d < minD) {
-                    minD = d;
-                    if (segWaterLevels) { const wi = Math.min(si, segWaterLevels.length - 1); if (segWaterLevels[wi] != null) bestWL = segWaterLevels[wi]; }
-                }
-            }
-            ptWaterLevels.push(bestWL);
-        }
-
-        // 4. 逐段 quad（每段用自身垂线，0.5m 密集采样使段间间隙肉眼不可见）
-        const verts = [];
-        const indices = [];
         for (let i = 0; i < pts.length - 1; i++) {
-            const dx = pts[i+1].x - pts[i].x, dz = pts[i+1].z - pts[i].z;
-            const segLen = Math.hypot(dx, dz) || 1;
-            const snx = -dz / segLen, snz = dx / segLen;
-            // effHw 弯道缩窄：取两端缩放因子的较小值
-            const s0 = hwScales[i], s1 = hwScales[i+1];
-            const hw0 = hw * Math.min(s0, s1), hw1 = hw * Math.min(s0, s1);
-            const wl0 = ptWaterLevels[i], wl1 = ptWaterLevels[i+1];
-            const r0x = pts[i].x + snx * hw0, r0z = pts[i].z + snz * hw0;
-            const l0x = pts[i].x - snx * hw0, l0z = pts[i].z - snz * hw0;
-            const r1x = pts[i+1].x + snx * hw1, r1z = pts[i+1].z + snz * hw1;
-            const l1x = pts[i+1].x - snx * hw1, l1z = pts[i+1].z - snz * hw1;
-            verts.push(r0x, wl0, r0z, l0x, wl0, l0z, r1x, wl1, r1z, l1x, wl1, l1z);
-            const a = i * 4;
-            indices.push(a, a+2, a+1, a+1, a+2, a+3);
+            const a = vOffset + i * 2, b = a + 1, c = a + 2, d = a + 3;
+            allIndices.push(a, c, b, b, c, d);
         }
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-        geo.setIndex(indices);
-        geo.computeVertexNormals();
 
-        const mat = new THREE.MeshStandardMaterial({
-            color: '#3388bb', roughness: 0.12, metalness: 0.05,
-            transparent: true, opacity: 0.6, depthWrite: false,
-            side: THREE.DoubleSide,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.name = 'riverWater';
-        mesh.receiveShadow = true;
-        scene.add(mesh);
-        riverWaterMeshes.push(mesh);
-
-        // 5. 碰撞体（半径=河半宽，间距保证不粘连）
-        const colliderRadius = hw;
-        const TANK_HALF = typeof TANK_HALF_W !== 'undefined' ? TANK_HALF_W : 2;
-        const COLLIDER_SPACING = Math.max(10, colliderRadius + TANK_HALF + 2);
+        // 碰撞体（5m间距）
+        const colliderRadius = hw + 0.5;
+        const COLLIDER_SPACING = 5;
         let distAccum = 0;
         for (let i = 0; i < pts.length; i++) {
             if (i > 0) distAccum += Math.hypot(pts[i].x - pts[i-1].x, pts[i].z - pts[i-1].z);
             if (i === 0 || distAccum >= COLLIDER_SPACING) {
                 distAccum = 0;
-                if (!_isUnderAnyBridge(pts[i].x, pts[i].z)) {
+                if (!_isUnderAnyBridge(pts[i].x, pts[i].z))
                     riverColliders.push({ x: pts[i].x, z: pts[i].z, radius: colliderRadius });
-                }
             }
         }
-        // 确保最后一个点也有碰撞体
-        const lastP = pts[pts.length - 1];
-        if (!_isUnderAnyBridge(lastP.x, lastP.z)) {
-            riverColliders.push({ x: lastP.x, z: lastP.z, radius: colliderRadius });
-        }
     }
-    // 向后兼容：保留第一个 mesh 引用到 riverWater
-    if (riverWaterMeshes.length > 0) riverWater = riverWaterMeshes[0];
+
+    // 创建合并后的单一水面
+    if (allVerts.length > 0) {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(allVerts, 3));
+        geo.setIndex(allIndices);
+        geo.computeVertexNormals();
+        const mat = new THREE.MeshStandardMaterial({
+            color: '#3388bb', roughness: 0.12, metalness: 0.05,
+            transparent: true, opacity: 0.6, depthWrite: false,
+        });
+        riverWater = new THREE.Mesh(geo, mat);
+        riverWater.name = 'riverWater';
+        riverWater.receiveShadow = true;
+        scene.add(riverWater);
+    }
 }
 
 // ==================== 动画 ====================
@@ -405,12 +352,10 @@ function updateWaterAnimation(dt) {
         const baseY = waterPlane.userData.baseY !== undefined ? waterPlane.userData.baseY : WATER_LEVEL;
         waterPlane.position.y = baseY + Math.sin(Date.now() * 0.002) * 0.08;
     }
-    // 河流水面流动波动（所有河流）
-    const allRiverMeshes = scene.children.filter(c => c.name === 'riverWater' && c.geometry && c.geometry.attributes.position);
-    const t = Date.now() * 0.002;
-    for (const mesh of allRiverMeshes) {
-        const rpos = mesh.geometry.attributes.position;
-        if (!rpos || rpos.count === 0) continue;
+    // 河流水面流动波动
+    if (riverWater && riverWater.geometry && riverWater.geometry.attributes.position) {
+        const rpos = riverWater.geometry.attributes.position;
+        const t = Date.now() * 0.002;
         for (let i = 0; i < rpos.count; i++) {
             rpos.setY(i, RIVER_WATER_LEVEL + Math.sin(rpos.getX(i) * 0.35 + t * 1.8) * 0.1);
         }
@@ -426,14 +371,11 @@ function cleanupWater() {
         waterPlane.material.dispose();
         waterPlane = null;
     }
-    // 清理所有河流水面
-    const allRiverMeshes = scene.children.filter(c => c.name === 'riverWater');
-    for (const m of allRiverMeshes) {
-        scene.remove(m);
-        if (m.geometry) m.geometry.dispose();
-        if (m.material) m.material.dispose();
+    if (riverWater) {
+        scene.remove(riverWater);
+        if (riverWater.geometry) riverWater.geometry.dispose();
+        if (riverWater.material) riverWater.material.dispose();
+        riverWater = null;
     }
-    riverWater = null;
-    riverWaterMeshes = [];
     riverColliders = [];
 }

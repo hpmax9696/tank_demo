@@ -804,10 +804,10 @@
             // 编辑器水体 → 主游戏 waters 格式
             const editorWaters = bp.waters || [];
             const pondW = editorWaters.find(w => w.type === 'pond');
-            const riverW = editorWaters.find(w => w.type === 'river');
+            const allRivers = editorWaters.filter(w => w.type === 'river');
             const watersCfg = {};
             const terrainExtra = {};
-            if (pondW || riverW) {
+            if (pondW || allRivers.length > 0) {
                 watersCfg.pond = { waterLevel: pondW ? (pondW.waterLevel ?? -1) : -1 };
                 watersCfg.river = { waterLevel: -1 };
             }
@@ -817,15 +817,25 @@
                     rx: (pondW.radius || 8), rz: (pondW.radius || 8), depth: 5
                 };
             }
-            if (riverW && riverW.points && riverW.points.length >= 2) {
-                // 保存轨迹点 + 编辑器计算的水位（分段或全局）
-                terrainExtra.riverPoints = riverW.points.map(p => ({ x: p.x, z: p.z }));
-                terrainExtra.riverWidth = riverW.width || 10;  // 河流半宽（编辑器画笔半径）
-                if (riverW.waterLevels && riverW.waterLevels.length > 0) {
-                    terrainExtra.riverWaterLevels = Array.from(riverW.waterLevels);
-                    terrainExtra.riverWaterLevel = riverW.waterLevel || riverW.waterLevels[riverW.waterLevels.length - 1];
-                } else if (riverW.waterLevel !== undefined) {
-                    terrainExtra.riverWaterLevel = riverW.waterLevel;
+            // 多河流支持：遍历所有河
+            const validRivers = allRivers.filter(rw => rw.points && rw.points.length >= 2);
+            if (validRivers.length > 0) {
+                terrainExtra.rivers = validRivers.map(rw => ({
+                    points: rw.points.map(p => ({ x: p.x, z: p.z })),
+                    width: rw.width || 12,
+                    waterLevel: rw.waterLevel,
+                    waterLevels: rw.waterLevels ? Array.from(rw.waterLevels) : null,
+                    depth: 5
+                }));
+                // 向后兼容单河字段
+                const r0 = validRivers[0];
+                terrainExtra.riverPoints = r0.points.map(p => ({ x: p.x, z: p.z }));
+                terrainExtra.riverWidth = r0.width || 12;
+                if (r0.waterLevels && r0.waterLevels.length > 0) {
+                    terrainExtra.riverWaterLevels = Array.from(r0.waterLevels);
+                    terrainExtra.riverWaterLevel = r0.waterLevel != null ? r0.waterLevel : r0.waterLevels[r0.waterLevels.length - 1];
+                } else if (r0.waterLevel != null) {
+                    terrainExtra.riverWaterLevel = r0.waterLevel;
                 }
             }
             // 桥梁
@@ -918,14 +928,50 @@
             const defaultType = TERRAIN_TYPE_INDEX[md.terrainTypes ? md.terrainTypes.default : 'grass'] || 0;
             for (let i = 0; i < total; i++) data[i] = defaultType;
 
-            // 编辑器地图：直接使用蓝图的 splatMap（道路/纹理信息）
-            if (md.terrain && md.terrain.splatMap) {
+            // 编辑器地图：加载蓝图的 splatMap
+            const hasSplatMap = md.terrain && md.terrain.splatMap;
+            if (hasSplatMap) {
                 const sm = md.terrain.splatMap;
                 for (let sy = 0; sy < Math.min(sizeD, _hmD); sy++)
                     for (let sx = 0; sx < Math.min(sizeW, _hmW); sx++)
                         data[sy * sizeW + sx] = Math.min(5, Math.max(0, sm[sy * _hmW + sx] | 0));
-                return data;
             }
+            // 沿归一化河流路径绘制泥地纹理（编辑器不写，Demo 统一生成）
+            if (md.terrain && md.terrain._normalizedRivers) {
+                const halfW2 = (typeof worldHalfW !== 'undefined' ? worldHalfW : 150);
+                const halfD2 = (typeof worldHalfD !== 'undefined' ? worldHalfD : 150);
+                const scaleW2 = (halfW2 * 2) / sizeW;
+                const scaleD2 = (halfD2 * 2) / sizeD;
+                const normRivers = md.terrain._normalizedRivers;
+                for (const rv of normRivers) {
+                    const pts = rv.points; if (!pts || pts.length < 2) continue;
+                    const mudHw = rv.width / 2 + 4; // 河半宽 + 岸外4m
+                    // 包围盒 + 2格余量
+                    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+                    for (const p of pts) { if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.z<minZ)minZ=p.z; if(p.z>maxZ)maxZ=p.z; }
+                    minX = Math.max(-halfW2, minX - mudHw - 2*scaleW2);
+                    maxX = Math.min( halfW2, maxX + mudHw + 2*scaleW2);
+                    minZ = Math.max(-halfD2, minZ - mudHw - 2*scaleD2);
+                    maxZ = Math.min( halfD2, maxZ + mudHw + 2*scaleD2);
+                    const sMinX = Math.floor((minX + halfW2) / scaleW2);
+                    const sMaxX = Math.ceil((maxX + halfW2) / scaleW2);
+                    const sMinZ = Math.floor((minZ + halfD2) / scaleD2);
+                    const sMaxZ = Math.ceil((maxZ + halfD2) / scaleD2);
+                    for (let sy = Math.max(0,sMinZ); sy < Math.min(sizeD,sMaxZ); sy++) {
+                        const wz = -halfD2 + sy * scaleD2;
+                        for (let sx = Math.max(0,sMinX); sx < Math.min(sizeW,sMaxX); sx++) {
+                            const wx = -halfW2 + sx * scaleW2;
+                            let minD = Infinity;
+                            for (let i = 0; i < pts.length - 1; i++) {
+                                const d = _pointToSegDist2D(wx, wz, pts[i].x, pts[i].z, pts[i+1].x, pts[i+1].z);
+                                if (d < minD) { minD = d; if (minD < mudHw) break; }
+                            }
+                            if (minD < mudHw) data[sy * sizeW + sx] = 1;
+                        }
+                    }
+                }
+            }
+            if (hasSplatMap) return data;
 
             if (!md.terrainTypes || isVersusMap) return data;
 
@@ -1505,6 +1551,32 @@
             groundPlane.name = 'ground';
             targetScene.add(groundPlane);
             groundMesh = groundPlane;
+
+            // 四面围挡墙（天空色，截断地图边缘溢出的河面/路面）
+            if (window._boundaryWalls) {
+                window._boundaryWalls.forEach(w => { targetScene.remove(w); if(w.geometry)w.geometry.dispose(); if(w.material)w.material.dispose(); });
+            }
+            window._boundaryWalls = [];
+            const wallMat = new THREE.MeshBasicMaterial({ color: '#8899aa', side: THREE.DoubleSide });
+            const wallV = 80, wallBase = -60; // 墙高80m，底部-60m
+            const hw = worldHalfW, hd = worldHalfD;
+            const wallDefs = [
+                { gw: 2*hd, gh: wallV, px: -hw, pz: 0, ry: Math.PI/2 },
+                { gw: 2*hd, gh: wallV, px: hw, pz: 0, ry: Math.PI/2 },
+                { gw: 2*hw, gh: wallV, px: 0, pz: -hd, ry: 0 },
+                { gw: 2*hw, gh: wallV, px: 0, pz: hd, ry: 0 },
+            ];
+            for (const d of wallDefs) {
+                const g = new THREE.PlaneGeometry(d.gw, d.gh);
+                const m = new THREE.Mesh(g, wallMat);
+                m.position.set(d.px, wallBase + d.gh/2, d.pz);
+                m.rotation.y = d.ry;
+                m.receiveShadow = false; m.castShadow = false;
+                m.renderOrder = 999; m.material.depthTest = true; m.material.depthWrite = true;
+                m.name = 'boundaryWall';
+                targetScene.add(m);
+                window._boundaryWalls.push(m);
+            }
 
             // 环形雾盖已移除（v0.24.4：摄像机陡视角+Camera near/far限制，天然看不到边缘）
         }

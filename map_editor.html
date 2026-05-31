@@ -610,6 +610,7 @@
             <div class="rg-row"><label>最大深度</label><input type="range" id="rg-pondd" min="1" max="8" value="3" step="0.5"><span class="rg-val" id="rg-pondd-v">3</span></div>
             <div style="text-align:right;padding-top:4px;">
                 <button id="btn-rg-terrain" style="background:#4a9b3a;color:#fff;border:none;padding:5px 16px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;">🌍 生成地形</button>
+                <button id="btn-flatten-terrain" style="background:#8b6914;color:#fff;border:none;padding:5px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;margin-left:4px;">📐 平整地形</button>
             </div>
         </div>
     </div>
@@ -2771,7 +2772,7 @@ window.addEventListener('mousemove', (e) => {
 
     const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
 
-    // 水体拖拽（画河流）— 仅记录路径，允许超出地图范围，导出/渲染时裁剪
+    // 水体拖拽（画河流）— 允许超出地图，渲染时自然截断
     if (isWaterPainting) {
         const pt = getWorldPos(e);
         const last = waterDragPoints[waterDragPoints.length - 1];
@@ -2992,7 +2993,7 @@ window.addEventListener('mouseup', (e) => {
             const maxSx = Math.min(hmResW - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
             const maxSy = Math.min(hmResD - 1, Math.ceil((maxWz + padD + worldHalfD) / hmStepD));
-            let cellsCarved = 0, _mudCellsWritten = 0;
+            let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
                 for (let sx = minSx; sx <= maxSx; sx++) {
@@ -3003,16 +3004,8 @@ window.addEventListener('mouseup', (e) => {
                         const d = pointToSegmentDist(cx, cz, smoothPts[i].x, smoothPts[i].z, smoothPts[i+1].x, smoothPts[i+1].z);
                         if (d < minDist) { minDist = d; if (minDist <= hw) break; }
                     }
-                    const idx = sy * hmResW + sx;
-                    // 泥地纹理：河岸外侧各加宽 BANK_MUD_EXTRA 米（独立于河床雕刻）
-                    const BANK_MUD_EXTRA = 6;
-                    if (minDist <= hw + BANK_MUD_EXTRA) {
-                        mapData.splatMap[idx] = 1;
-                        affectedBlocks.add(sx + ',' + sy);
-                        dirtyTex = true;
-                        _mudCellsWritten++;
-                    }
                     if (minDist <= hw) {
+                        const idx = sy * hmResW + sx;
                         // 端点方向裁剪：防止起点/终点形成半圆形深坑
                         const dx0 = cx - smoothPts[0].x, dz0 = cz - smoothPts[0].z;
                         if (Math.hypot(dx0, dz0) <= hw) {
@@ -3045,7 +3038,7 @@ window.addEventListener('mouseup', (e) => {
                 }
             }
 
-            console.log('🌊 [河流] 雕刻:', cellsCarved, '单元格 泥地:', _mudCellsWritten, '单元格');
+            console.log('🌊 [河流] 雕刻:', cellsCarved, '单元格');
 
             const center = smoothPts[Math.floor(pathLen / 2)];
             addWaterRecord('river', { x: center.x, z: center.z }, null, smoothPts, waterLevel, brushRadius * 2, segWaterLevels);
@@ -3445,13 +3438,16 @@ function saveBlueprints(bps) {
 function saveBlueprint() {
     const name = prompt('草稿名称:', mapData.name || '草稿');
     if (!name) return;
+    // base64 压缩（避免 JSON 数组撑爆 localStorage 5MB 限制）
+    function _arrToB64(arr) { const b = new Uint8Array(arr.buffer||arr); let s=''; for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]); return btoa(s); }
+
     const data = {
         name, savedAt: new Date().toISOString(),
         worldWidth: worldWidth, worldDepth: worldDepth,
         playWidth: playWidth, playDepth: playDepth,
         hmResW, hmResD,
-        heightmap: mapData.heightmap,
-        splatMap: mapData.splatMap,
+        heightmapB64: _arrToB64(mapData.heightmap),
+        splatMapB64: _arrToB64(mapData.splatMap),
         waters: mapData.waters,
         bridges: mapData.bridges,
         entities: mapData.entities,
@@ -3528,14 +3524,22 @@ function loadBlueprint(name) {
     playWidth = mapData.playWidth = bp.playWidth || 200;
     playDepth = mapData.playDepth = bp.playDepth || 200;
     applyMapDimensions();  // 同步派生变量 hmStepW/D, worldHalfW/D 等
-    // 若蓝图保存了分辨率则优先使用（避免TARGET_CELL_SIZE变更导致数组不匹配）
+    // 若蓝图保存了分辨率则优先使用
     if (bp.hmResW) { hmResW = bp.hmResW; hmStepW = worldWidth / (hmResW - 1); }
     if (bp.hmResD) { hmResD = bp.hmResD; hmStepD = worldDepth / (hmResD - 1); }
 
     mapData.name = bp.name;
     mapData.roadSystem = bp.roadSystem || null;
-    for (let i = 0; i < Math.min(bp.heightmap.length, hmResW * hmResD); i++) mapData.heightmap[i] = bp.heightmap[i];
-    for (let i = 0; i < Math.min(bp.splatMap.length, hmResW * hmResD); i++) mapData.splatMap[i] = bp.splatMap[i];
+    // base64 解码
+    function _b64ToArr(b64, TypedArr) {
+        const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TypedArr(bytes.buffer);
+    }
+    const hmArr = bp.heightmapB64 ? _b64ToArr(bp.heightmapB64, Float32Array) : (bp.heightmap || new Float32Array(hmResW*hmResD));
+    const smArr = bp.splatMapB64 ? _b64ToArr(bp.splatMapB64, Uint8Array) : (bp.splatMap || new Uint8Array(hmResW*hmResD));
+    for (let i = 0; i < Math.min(hmArr.length, hmResW * hmResD); i++) mapData.heightmap[i] = hmArr[i];
+    for (let i = 0; i < Math.min(smArr.length, hmResW * hmResD); i++) mapData.splatMap[i] = smArr[i];
     mapData.entities = []; mapData.groups = bp.groups || []; selectedEntityIds.clear(); entityIdCounter = 1;
     mapData.waters = bp.waters || []; mapData.bridges = bp.bridges || [];
     mapData.editedVerticesPaint = new Set(bp.editedVerticesPaint || []);
@@ -4191,23 +4195,46 @@ function isPointInWater(x, z, margin = 3) {
     return false;
 }
 
-// --- 主干道生成（蜿蜒穿越地图的动脉道路，双车道/柏油）---
+// 地形平坦度评分（0=完全平坦，越大越崎岖）
+function _roughness(wx, wz, radius) {
+    const rPx = Math.ceil(radius / hmStepW), rPz = Math.ceil(radius / hmStepD);
+    const { sx: sc, sy: sz } = world2sm(wx, wz);
+    let sum = 0, count = 0;
+    const cx = sc*hmStepW - worldHalfW, cz = sz*hmStepD - worldHalfD;
+    for (let dy = -rPz; dy <= rPz; dy++) {
+        for (let dx = -rPx; dx <= rPx; dx++) {
+            const sx2 = sc + dx, sy2 = sz + dy;
+            if (sx2 < 0 || sx2 >= hmResW || sy2 < 0 || sy2 >= hmResD) continue;
+            const h = mapData.heightmap[sy2 * hmResW + sx2];
+            sum += h; count++;
+        }
+    }
+    if (count < 4) return 0;
+    const avg = sum / count;
+    let variance = 0;
+    for (let dy = -rPz; dy <= rPz; dy++) {
+        for (let dx = -rPx; dx <= rPx; dx++) {
+            const sx2 = sc + dx, sy2 = sz + dy;
+            if (sx2 < 0 || sx2 >= hmResW || sy2 < 0 || sy2 >= hmResD) continue;
+            const diff = mapData.heightmap[sy2 * hmResW + sx2] - avg;
+            variance += diff * diff;
+        }
+    }
+    return Math.sqrt(variance / (count - 1));
+}
+
+// --- 主干道生成（蜿蜒穿越地图，偏好平坦地形）---
 function generateMainRoad(cfg) {
     const pts = [];
 
-    // 随机选择路径方向：对角线 / 南北 / 东西（使用独立 X/Z 尺寸适配矩形地图）
-    const routeType = Math.floor(Math.random() * 3);
+    // 随机选路：对角线 / 南北 / 东西 / 自由弯曲（增加多样性）
+    const routeType = Math.floor(Math.random() * 5);
     let sX, sZ, eX, eZ;
-    if (routeType === 0) {
-        sX = -worldHalfW; sZ = -worldHalfD;
-        eX = worldHalfW; eZ = worldHalfD;
-    } else if (routeType === 1) {
-        sX = (Math.random() - 0.5) * worldWidth; sZ = -worldHalfD;
-        eX = (Math.random() - 0.5) * worldWidth; eZ = worldHalfD;
-    } else {
-        sX = -worldHalfW; sZ = (Math.random() - 0.5) * worldDepth;
-        eX = worldHalfW; eZ = (Math.random() - 0.5) * worldDepth;
-    }
+    const rw = worldHalfW * 0.85, rd = worldHalfD * 0.85;
+    if (routeType === 0) { sX=-rw; sZ=-rd; eX=rw; eZ=rd; }
+    else if (routeType === 1) { sX=(Math.random()-0.5)*worldWidth; sZ=-rd; eX=(Math.random()-0.5)*worldWidth; eZ=rd; }
+    else if (routeType === 2) { sX=-rw; sZ=(Math.random()-0.5)*worldDepth; eX=rw; eZ=(Math.random()-0.5)*worldDepth; }
+    else { sX=(Math.random()-0.5)*worldWidth; sZ=(Math.random()-0.5)*worldDepth; eX=(Math.random()-0.5)*worldWidth; eZ=(Math.random()-0.5)*worldDepth; } // 自由斜穿
     
     pts.push({ x: sX, z: sZ });
     
@@ -4220,11 +4247,21 @@ function generateMainRoad(cfg) {
     for (let i = 1; i <= numMid; i++) {
         const t = i / (numMid + 1);
         const baseX = sX + dx * t, baseZ = sZ + dz * t;
-        const offset = Math.sin(t * Math.PI * 2) * Math.min(playWidth, playDepth) * 0.15 + (Math.random() - 0.5) * Math.min(playWidth, playDepth) * 0.1;
         const perpX = -uz, perpZ = ux;
-        pts.push({ x: baseX + perpX * offset, z: baseZ + perpZ * offset });
+        const prevH = smpHeight(pts[pts.length-1].x, pts[pts.length-1].z); // 前一点海拔
+        // 沿垂直方向搜索等高线：找与前一点海拔最接近的位置
+        let bestPt = { x: baseX, z: baseZ }, bestDiff = Infinity;
+        const searchRange = Math.min(worldWidth, worldDepth) * 0.25;
+        for (let c = 0; c < 12; c++) {
+            const off = (c / 11 - 0.5) * 2 * searchRange; // -searchRange ~ +searchRange
+            const cx = baseX + perpX * off, cz = baseZ + perpZ * off;
+            if (Math.abs(cx) > worldHalfW - 8 || Math.abs(cz) > worldHalfD - 8) continue;
+            const diff = Math.abs(smpHeight(cx, cz) - prevH);
+            if (diff < bestDiff) { bestDiff = diff; bestPt = { x: cx, z: cz }; }
+        }
+        pts.push(bestPt);
     }
-    
+
     pts.push({ x: eX, z: eZ });
     return pts;
 }
@@ -4244,9 +4281,19 @@ function generateBranchRoads(mainSmooth, cfg, pondCenters) {
     const clusterCenters = [];
     for (let i = 0; i < numClusters; i++) {
         const t = numClusters === 1 ? 0.5 : (tStart + i * spreadRange / (numClusters - 1));
-        const cd = mainLen * t + (Math.random() - 0.5) * mainLen * 0.03;
-        const bp = getPointAtDistance(mainSmooth, Math.max(8, Math.min(mainLen - 8, cd)));
-        if (bp) clusterCenters.push({ ...bp, mainDist: Math.max(8, Math.min(mainLen - 8, cd)) });
+        // 在主路附近搜寻与主路同海拔的点（等高线法）
+        const roadH = smpHeight(mainSmooth[Math.floor(t * (mainSmooth.length-1))].x, mainSmooth[Math.floor(t * (mainSmooth.length-1))].z);
+        let bestPt = null, bestDiff = Infinity;
+        for (let tryN = 0; tryN < 8; tryN++) {
+            const cd = mainLen * t + (Math.random() - 0.5) * mainLen * 0.08;
+            const bp = getPointAtDistance(mainSmooth, Math.max(8, Math.min(mainLen - 8, cd)));
+            if (!bp) continue;
+            if (Math.abs(bp.x) > worldHalfW - 8 || Math.abs(bp.z) > worldHalfD - 8) continue;
+            if (isPointInWater(bp.x, bp.z, 5)) continue;
+            const diff = Math.abs(smpHeight(bp.x, bp.z) - roadH);
+            if (diff < bestDiff) { bestDiff = diff; bestPt = { ...bp, mainDist: Math.max(8, Math.min(mainLen - 8, cd)) }; }
+        }
+        if (bestPt) clusterCenters.push(bestPt);
     }
     // 过滤掉超出空气墙或在水体中的聚落中心
     const validClusters = clusterCenters.filter(cc =>
@@ -4268,44 +4315,76 @@ function generateBranchRoads(mainSmooth, cfg, pondCenters) {
     for (let ci = 0; ci < totalBranches; ci++) {
         const cc = validClusters[ci];
         const dist = cc.mainDist + (Math.random() - 0.5) * 6;
-        
+
         const bp = getPointAtDistance(mainSmooth, Math.max(8, Math.min(mainLen - 8, dist)));
         if (!bp) continue;
-        
-        const perp = getPerpAtDistance(mainSmooth, Math.max(8, Math.min(mainLen - 8, dist)));
-        if (!perp) continue;
-        
-        // 交替左右，避免全部在同一侧
-        const side = (ci % 2 === 0) ? 1 : -1;
-        // 村路长度适配地图尺寸（小地图不再过长）
+
+        // 村路长度
         const maxBL = Math.min(worldHalfW, worldHalfD) * 0.85;
         const minBL = Math.max(15, maxBL * 0.4);
         const branchLen = minBL + Math.random() * (maxBL - minBL);
-        
-        // 生成分支路径（自然微弯）
+
+        // 选最平坦方向（8个方向，20m外采样，挑高差最小的）
+        const refH = smpHeight(bp.x, bp.z);
+        let bestAngle = 0, bestDiff = Infinity;
+        for (let a = 0; a < 8; a++) {
+            const ang = a * Math.PI / 4;
+            const tx = bp.x + Math.cos(ang) * 20;
+            const tz = bp.z + Math.sin(ang) * 20;
+            if (Math.abs(tx) > worldHalfW - 5 || Math.abs(tz) > worldHalfD - 5) continue;
+            const diff = Math.abs(smpHeight(tx, tz) - refH);
+            if (diff < bestDiff) { bestDiff = diff; bestAngle = ang; }
+        }
+
+        // 生成分支路径（沿最平坦方向）
         const branchPts = [{ x: bp.x, z: bp.z }];
         const numSegs = Math.max(2, Math.floor(branchLen / 8));
         const segLen = branchLen / numSegs;
         let cx = bp.x, cz = bp.z;
-        const baseAngle = Math.atan2(perp.z * side, perp.x * side);
+        const baseAngle = bestAngle;
         
         for (let i = 1; i <= numSegs; i++) {
-            const curvature = (i > numSegs / 2 ? (Math.random() - 0.3) : (Math.random() - 0.5)) * 0.4;
-            const angle = baseAngle + curvature;
-            cx += Math.cos(angle) * segLen;
-            cz += Math.sin(angle) * segLen;
-            cx = Math.max(-worldHalfW + 3, Math.min(worldHalfW - 3, cx));
-            cz = Math.max(-worldHalfD + 3, Math.min(worldHalfD - 3, cz));
-            if (isPointInWater(cx, cz, 4)) break;
+            // 在前进方向 ±40°内搜索同海拔点
+            const curH = smpHeight(cx, cz);
+            let bestStep = null, bestHDiff = Infinity;
+            for (let s = -3; s <= 3; s++) {
+                const ang = baseAngle + s * 0.23; // -40°~+40°
+                const tx = cx + Math.cos(ang) * segLen;
+                const tz = cz + Math.sin(ang) * segLen;
+                if (Math.abs(tx) > worldHalfW - 3 || Math.abs(tz) > worldHalfD - 3) continue;
+                if (isPointInWater(tx, tz, 4)) continue;
+                const diff = Math.abs(smpHeight(tx, tz) - curH);
+                if (diff < bestHDiff) { bestHDiff = diff; bestStep = { x: tx, z: tz }; }
+            }
+            if (!bestStep) break;
+            cx = bestStep.x; cz = bestStep.z;
             branchPts.push({ x: cx, z: cz });
         }
         
         if (branchPts.length >= 2) {
-            branches.push({ points: branchPts, mainDist: dist, side, clusterDist: 0, densityFactor: 1 });
+            branches.push({ points: branchPts, mainDist: dist, side: 0, clusterDist: 0, densityFactor: 1 });
         }
     }
     
     return branches;
+}
+
+// 截断路径到指定距离
+function _truncatePath(pts, maxDist) {
+    if (maxDist <= 0) return pts.slice(0, 1);
+    const result = [pts[0]];
+    let acc = 0;
+    for (let i = 1; i < pts.length; i++) {
+        const seg = Math.hypot(pts[i].x - pts[i-1].x, pts[i].z - pts[i-1].z);
+        if (acc + seg >= maxDist) {
+            const t = (maxDist - acc) / seg;
+            result.push({ x: pts[i-1].x + (pts[i].x - pts[i-1].x) * t, z: pts[i-1].z + (pts[i].z - pts[i-1].z) * t });
+            return result;
+        }
+        acc += seg;
+        result.push(pts[i]);
+    }
+    return result;
 }
 
 // --- 村落生成：村路尽头→大广场→建筑集群(每5~10栋一组)→水泥连接路 ---
@@ -4333,6 +4412,7 @@ function placeBuildingsAlongRoads(mainSmooth, branches, cfg, pondCenters) {
         const h = smpHeight(x, z);
         if (h < -8) { placeFails.deep++; return false; }
         if (Math.hypot(x, z) < (cfg.safeR || 15)) { placeFails.safe++; return false; }
+        if (_roughness(x, z, 6) > 0.8 || Math.abs(h) > 3) { return false; } // 绝对海拔<3m且局部平坦
         for (const b of allBuildings) {
             if (Math.hypot(x - b.x, z - b.z) < (minDist || 3.5)) { placeFails.proximity++; return false; }
         }
@@ -4342,25 +4422,23 @@ function placeBuildingsAlongRoads(mainSmooth, branches, cfg, pondCenters) {
     let villageCount = 0;
     for (let bi = 0; bi < branches.length; bi++) {
         const branch = branches[bi];
-        const branchSmooth = samplePathSmoothDense(branch.points, 1.0);
-        const branchLen = computePathLength(branchSmooth);
+        // 先算出广场位置，再截短支路
+        const fullSmooth = samplePathSmoothDense(branch.points, 1.0);
+        const branchLen = computePathLength(fullSmooth);
         if (branchLen < 15) { continue; }
-        
-        // 广场在村路尽头 65%~90% 处（小地图靠前，留出建筑群空间）
+
+        const scaleF = Math.max(0.25, Math.min(1, Math.min(worldHalfW, worldHalfD) / 150));
+        const plazaRadius = Math.max(3, (7 + Math.random() * 5) * scaleF);
         const endMargin = Math.min(35, branchLen * 0.25);
         const plazaDist = Math.max(branchLen * 0.5, branchLen - endMargin);
-        const endPt = getPointAtDistance(branchSmooth, plazaDist);
+        const roadEndDist = Math.max(0, plazaDist - plazaRadius - 2); // 广场前截断支路
+        const endPt = getPointAtDistance(fullSmooth, plazaDist);
+
+        // 截短支路
+        branch.points = _truncatePath(branch.points, roadEndDist);
+        const branchSmooth = samplePathSmoothDense(branch.points, 1.0);
         if (!endPt) { continue; }
         if (isPointInWater(endPt.x, endPt.z, 3)) { continue; }
-
-        // 提前计算缩放因子，用于边界检查
-        const preEdgeDist = Math.min(
-            worldHalfW - Math.abs(endPt.x),
-            worldHalfD - Math.abs(endPt.z),
-            60
-        );
-        const scaleF = Math.max(0.25, Math.min(1, preEdgeDist / 47));
-        const plazaRadius = Math.max(3, (7 + Math.random() * 5) * scaleF);
 
         // 广场需离边缘至少留出村落空间
         const plazaMargin = Math.max(8, plazaRadius + Math.max(4, 27 * scaleF));
@@ -4433,17 +4511,15 @@ function placeBuildingsAlongRoads(mainSmooth, branches, cfg, pondCenters) {
                 villageBldTotal += groupBuildings.length;
                 groups[gi].buildings = groupBuildings;
                 
-                // 水泥连接路：从广场边缘到群中心
+                // 连接路（仅存数据供 Demo 渲染，不在编辑器写 splatMap）
                 const px = endPt.x + Math.cos(baseAngle) * plazaRadius;
                 const pz = endPt.z + Math.sin(baseAngle) * plazaRadius;
-                drawRoadLine(px, pz, gcx, gcz, 1.8, 3);
-                villageConnectors.push({ x1: px, z1: pz, x2: gcx, z2: gcz, width: 1.8 });
+                villageConnectors.push({ x1: px, z1: pz, x2: gcx, z2: gcz, width: 1.5 });
             }
         }
         
-        // 广场地砖圆
-        drawCircleSplat(endPt.x, endPt.z, plazaRadius, 5);
-        
+        // 广场由 Demo 端 CircleGeometry 渲染，不在编辑器写 splatMap
+
         // 只记录成功放置了建筑的村落（小地图阈值降低）
         const minEffBld = scaleF >= 0.8 ? 3 : 1;
         const effectiveGroups = groups.filter(g => g.buildings.length >= minEffBld);
@@ -4654,10 +4730,20 @@ function randomGenerateVillage() {
         return ranges[Math.floor(ranges.length*0.9)] || 0;
     }
     const _roadMainHw = mainWidth / 2, _roadBranchHw = branchWidth / 2;
-    const mainRoad = { points: mainSmooth.map(p=>({x:p.x,z:p.z})), width:mainWidth, type:'asphalt', roughness:_measureRoughness(mainSmooth,_roadMainHw) };
+    // 路径降采样到~5m间距存储（节省 localStorage 空间）
+    function _downsamplePts(pts, spacing) {
+        const r = [pts[0]];
+        let acc = 0;
+        for (let i = 1; i < pts.length; i++) {
+            acc += Math.hypot(pts[i].x-pts[i-1].x, pts[i].z-pts[i-1].z);
+            if (acc >= spacing || i === pts.length-1) { r.push(pts[i]); acc = 0; }
+        }
+        return r.map(p=>({x:p.x,z:p.z}));
+    }
+    const mainRoad = { points: _downsamplePts(mainSmooth, 5), width:mainWidth, type:'asphalt', roughness:_measureRoughness(mainSmooth,_roadMainHw) };
     const branchRoads = branches.map(b => {
         const bs = samplePathSmoothDense(b.points, 1.0);
-        return { points: bs.map(p=>({x:p.x,z:p.z})), width:branchWidth, type:'concrete', roughness:_measureRoughness(bs,_roadBranchHw) };
+        return { points: _downsamplePts(bs, 5), width:branchWidth, type:'concrete', roughness:_measureRoughness(bs,_roadBranchHw) };
     });
     mapData.roadSystem = { roadSegments, villages, mainRoad, branchRoads };
     
@@ -4693,6 +4779,53 @@ document.getElementById('btn-random-gen').addEventListener('click', () => {
 });
 document.getElementById('btn-rg-terrain').addEventListener('click', randomGenerateTerrain);
 document.getElementById('btn-rg-village').addEventListener('click', randomGenerateVillage);
+document.getElementById('btn-flatten-terrain').addEventListener('click', flattenTerrain);
+
+// 平整地形：山峰为起点，向外连续递减起伏幅度至15%
+function flattenTerrain() {
+    if (!undoManager._inUndoRedo) pushSnapshot();
+    const _keepPeaks = parseInt(document.getElementById('rg-hills').value) || 4;
+    const _falloffDist = Math.max(worldWidth, worldDepth) * 0.25; // 衰减距离
+
+    // 1. 找局部峰值
+    const _step = Math.max(3, Math.floor(Math.min(hmResW, hmResD) / 60));
+    const peaks = [];
+    for (let sy = _step; sy < hmResD - _step; sy += _step) {
+        for (let sx = _step; sx < hmResW - _step; sx += _step) {
+            const cv = mapData.heightmap[sy * hmResW + sx];
+            let isMax = true;
+            for (let dy = -_step; dy <= _step && isMax; dy += _step)
+                for (let dx = -_step; dx <= _step && isMax; dx += _step)
+                    if (mapData.heightmap[(sy+dy)*hmResW + (sx+dx)] > cv) isMax = false;
+            if (isMax && cv > 1.5) peaks.push({ sx, sy, h: cv });
+        }
+    }
+    peaks.sort((a,b) => b.h - a.h);
+    const kept = peaks.slice(0, _keepPeaks);
+
+    // 2. 每个单元格：距最近山峰越远，幅度压缩越大（smoothstep 连续渐变）
+    for (let sy = 0; sy < hmResD; sy++) {
+        for (let sx = 0; sx < hmResW; sx++) {
+            const idx = sy * hmResW + sx;
+            const origH = mapData.heightmap[idx];
+            let minDist = Infinity;
+            for (const p of kept) {
+                const dx2 = (sx-p.sx)*hmStepW, dz2 = (sy-p.sy)*hmStepD;
+                const d = Math.sqrt(dx2*dx2 + dz2*dz2);
+                if (d < minDist) minDist = d;
+            }
+            // 连续衰减：峰顶 scale=1.0，_falloffDist 远处 scale=0.15
+            const t = Math.max(0, Math.min(1, minDist / _falloffDist));
+            const s = t * t * (3 - 2 * t); // smoothstep 0→1
+            const scale = 1.0 - s * 0.85; // 1.0 → 0.15
+            mapData.heightmap[idx] = origH * scale;
+        }
+    }
+    createGround();
+    renderHeightmapCanvas();
+    overlayInfo.textContent = '📐 地形已平整 — ' + kept.length + '个高地保留，外围连续衰减至15%';
+    console.log('📐 平整地形: ' + peaks.length + '个峰值 → 保留' + kept.length + '个');
+}
 </script>
 </body>
 </html>
