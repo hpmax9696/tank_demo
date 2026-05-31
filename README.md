@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.47.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.48.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -241,19 +241,19 @@ fireSmokeParticles.js:
 
 ## 完整版本历史
 
-### v0.47.0 — 地形系统重构+道路路径化（2026-05-31）
+### v0.48.0 — 河面AlphaMap+主路A*寻路+修复（2026-05-31）
 
-- **高度图动态分辨率**: HM_RES=256²死值 → 按地图尺寸等比hmResW×hmResD（~1m/格），矩形地图X/Z独立精度
-- **河流归一化层**: 三种格式（参数化正弦波/编辑器单河/编辑器多河）统一为路径点rivers[]，运行时转换
-- **河流动态雕刻**: getTerrainHeight()对所有河流做点到路径距离+smoothstep，编辑器河不再依赖bake高度图
-- **泥地纹理河岸加宽**: 河宽+hw+6m范围splatMap=1，修复falloff>0.08过滤+外层条件截断+idx未定义三重bug
-- **编辑器边界裁剪**: 移除画河坐标钳制，改用_pathClipToRect Cohen-Sutherland线段裁剪，废掉贴边多余河段
-- **出生点修复**: 初始createPlayer读取spawnPoints而非硬编码(0,0)；p1数组格式[x,y,z]→[x,z,yaw]修复Y/Z互换
-- **道路路径化**: 编辑器randomGenerateVillage保留平滑路径数据→Demo用BufferGeometry strip渲染，cross-section 5点采样防止沉地
-- **道路起伏自适应偏移**: 编辑器记录roughness(P90横截面起伏度)→Demo读取offsetY=roughness+0.08
-- **坦克垂直稳定器**: Y/俯仰/侧倾三轴低通滤波，消除道路衔接处颠簸
-- **杂项修复**: poissonDiskSampling count=0提前返回(消除幽灵树)、generateSplatMap null崩溃、splatMap动态尺寸(size→sizeW/sizeD)、01a纹理修复
-- js/归入文件夹、废弃fbx/glb模型和测试页清理
+- **河面AlphaMap**: strip被Canvas遮罩平面彻底替换，2048px Canvas绘河道路径为白色→alphaMap裁切，弯道零自交
+- **主路A*寻路**: 局部贪心等高线搜索→A*全局寻路，指数坡度惩罚(slope≥0.35断路)+加权启发(×0.7)+StringPulling后处理
+- **村路/广场splatMap化**: 移除3D strip，改用编辑器splatMap贴图+广场圆形填充，只主路保留strip
+- **建筑群半圆约束**: 分支前进方向±90°内分布，避免连接路跨回主路
+- **蓝图base64解码修复**: demo端convertBlueprintToMapConfig补充heightmapB64/splatMapB64解码
+- **死亡UI**: HP归零瞬间bar隐藏+输入切断，重生恢复；战败画面加"重新开始"按钮
+- **F4上帝视角**: 关雾+增FOV+拉远相机，俯瞰全图；退出自动重置
+- **F3碰撞可视化默认关闭**: _debugVisible=false
+- **P7死代码清理**: waters.js删75行(_catmullRom/_smoothPathCR/subdivideSharpCorners等)，index.html删20行(scene2/tankHull/getTerrainTypeAt)，obstacles.js修botMesh重复推送
+
+### v0.47.0 — 地形系统重构+道路路径化（2026-05-31）
 
 ### v0.46.0 — 模块拆分+水面ShapeGeometry+编辑器裁剪+手柄优化（2026-05-30）
 
@@ -909,7 +909,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.47.0）
+### 代码规模（截至 v0.48.0）
 - `index.html`：约 5228 行（主游戏引擎）
 - `js/waters.js`：~439行 | `js/bridges.js`：~165行 | `js/debugcolliders.js`：~122行
 - `js/audio.js`：~240行 | `js/input.js`：~70行 | `js/shells.js`：~309行 | `js/mg.js`：~198行
@@ -921,7 +921,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 - `combat/enemyAI.js`：约 748 行（AI状态机）
 - `combat/scoreSystem.js`：约 127 行（积分系统）
 - `models/`其他：tank.js(84)+trees.js(262)+buildings.js(304)+grass.js(207)+pickups.js(133)+terrainTextures.js(52)+modelRegistry.js(88)+t34-85.js(628)+t34_v16_builder.js(488)+windmill.js(57)+model_configs.js(36)
-- **总计约 19,555 行**
+- **总计约 21,081 行**
 
 ---
 

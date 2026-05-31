@@ -3,7 +3,7 @@
 // F3 切换可视化（在 index.html 主键盘事件中调用 debugToggleColliders）
 
 var _debugMeshes = [];
-var _debugVisible = true;
+var _debugVisible = false;
 
 function _debugDisposeAll() {
     for (var i = 0; i < _debugMeshes.length; i++) {

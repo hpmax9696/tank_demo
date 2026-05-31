@@ -11,11 +11,6 @@ let riverColliders = [];
 // ── 地形访问器 ──
 function _getPond() { return _t('pond', null); }
 function _getRiver() { return _t('river', null); }
-function _getWaterLevel(type) {
-    if (currentMapData && currentMapData.waters && currentMapData.waters[type])
-        return currentMapData.waters[type].waterLevel ?? -1;
-    return -1;
-}
 
 function riverCenterZ(x) {
     const r = _getRiver(); if (!r) return -60;
@@ -78,12 +73,6 @@ function isInAnyRiver(x, z) {
     return false;
 }
 
-// smoothstep 工具
-function _smoothstep(edge0, edge1, x) {
-    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-    return t * t * (3 - 2 * t);
-}
-
 // ── 判断某点是否在任意桥面覆盖范围内（跳过此处河水碰撞体）──
 function _isUnderAnyBridge(x, z) {
     const bridges = currentMapData && currentMapData.bridges;
@@ -129,7 +118,6 @@ function createWaterSurface() {
     const edgeHs = sAngles.map(ang => getTerrainHeight(pond.cx + Math.cos(ang) * pond.rx, pond.cz + Math.sin(ang) * pond.rz));
     const edgeMin = Math.min(...edgeHs);
     const waterY = edgeMin - 0.3;
-    console.log('🌊 水面(测试):', JSON.stringify({ waterY: waterY.toFixed(3), edgeMin: edgeMin.toFixed(3), edgeHs: edgeHs.map(h => Number(h.toFixed(3))) }));
     const seg = 32;
     const ePos = [0, 0, 0];
     const eUV = [0.5, 0.5];
@@ -156,185 +144,132 @@ function createWaterSurface() {
     waterPlane.receiveShadow = true;
     waterPlane.userData.baseY = waterY;
     scene.add(waterPlane);
-    console.log('🌊 水面:', JSON.stringify({ waterY: waterY.toFixed(3), edgeMin: edgeMin.toFixed(3), edgeHs: edgeHs.map(h => Number(h.toFixed(3))) }));
 }
 
-// ==================== 河流水面 ====================
+function _buildRiverAlphaMap(rivers, worldW, worldD) {
+    const TARGET = 2048;
+    const maxDim = Math.max(worldW, worldD);
+    const cw = Math.round(worldW / maxDim * TARGET);
+    const cd = Math.round(worldD / maxDim * TARGET);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = cd;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, cw, cd);
 
-// Catmull-Rom 样条：穿过所有控制点，C1连续，不会像贝塞尔那样内切弯道
-function _catmullRom(p0, p1, p2, p3, t) {
-    const t2 = t * t, t3 = t2 * t;
-    return {
-        x: 0.5 * (2*p1.x + (p2.x - p0.x) * t + (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 + (3*p1.x - p0.x - 3*p2.x + p3.x) * t3),
-        z: 0.5 * (2*p1.z + (p2.z - p0.z) * t + (2*p0.z - 5*p1.z + 4*p2.z - p3.z) * t2 + (3*p1.z - p0.z - 3*p2.z + p3.z) * t3)
-    };
-}
+    const cw1 = cw - 1, cd1 = cd - 1;
+    const hw = worldW / 2, hd = worldD / 2;
 
-// 对路径点做 Catmull-Rom 平滑采样（每 sampleDist 米一个点）
-function _smoothPathCR(pts, sampleDist) {
-    if (pts.length < 2) return pts.slice();
-    if (pts.length === 2) {
-        // 只有两个点：线性插值
-        const result = [pts[0]];
-        const segLen = Math.hypot(pts[1].x - pts[0].x, pts[1].z - pts[0].z);
-        const n = Math.max(1, Math.ceil(segLen / sampleDist));
-        for (let j = 1; j < n; j++) {
-            const t = j / n;
-            result.push({ x: pts[0].x + (pts[1].x - pts[0].x) * t, z: pts[0].z + (pts[1].z - pts[0].z) * t });
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const rv of rivers) {
+        if (!rv.points || rv.points.length < 2) continue;
+        ctx.lineWidth = Math.max(2, (rv.width || 12) / worldW * cw1);
+        ctx.beginPath();
+        for (let i = 0; i < rv.points.length; i++) {
+            const px = (rv.points[i].x + hw) / worldW * cw1;
+            const py = cd1 - (hd - rv.points[i].z) / worldD * cd1;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
         }
-        result.push(pts[1]);
-        return result;
+        ctx.stroke();
     }
-    const result = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[Math.max(0, i - 1)];
-        const p1 = pts[i];
-        const p2 = pts[i + 1];
-        const p3 = pts[Math.min(pts.length - 1, i + 2)];
-        const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
-        const n = Math.max(1, Math.ceil(segLen / sampleDist));
-        for (let j = 0; j < n; j++) {
-            result.push(_catmullRom(p0, p1, p2, p3, j / n));
-        }
-    }
-    result.push(pts[pts.length - 1]);
-    return result;
+    return canvas;
 }
-
-function subdivideSharpCorners(pts, maxAngle) {
-    maxAngle = maxAngle || 45;
-    if (pts.length < 3) return pts.slice();
-    const result = [pts[0]];
-    for (let i = 1; i < pts.length - 1; i++) {
-        const dxIn = pts[i].x - pts[i-1].x, dzIn = pts[i].z - pts[i-1].z;
-        const dxOut = pts[i+1].x - pts[i].x, dzOut = pts[i+1].z - pts[i].z;
-        const lenIn = Math.hypot(dxIn, dzIn) || 1;
-        const lenOut = Math.hypot(dxOut, dzOut) || 1;
-        const dot = (dxIn*dxOut + dzIn*dzOut) / (lenIn*lenOut);
-        const angle = Math.acos(Math.max(-1, Math.min(1, dot))) * 180 / Math.PI;
-        if (angle > maxAngle) {
-            const n = Math.ceil(angle / 20);
-            for (let j = 1; j <= n; j++) {
-                const t = j / (n + 1);
-                const bx = (1-t)*(1-t)*pts[i-1].x + 2*(1-t)*t*pts[i].x + t*t*pts[i+1].x;
-                const bz = (1-t)*(1-t)*pts[i-1].z + 2*(1-t)*t*pts[i].z + t*t*pts[i+1].z;
-                result.push({ x: bx, z: bz });
-            }
-        }
-        result.push(pts[i]);
-    }
-    result.push(pts[pts.length - 1]);
-    return result;
-}
-
 
 function createRiverWater() {
     riverColliders = [];
-    // 清理旧水面
-    if (riverWater) { scene.remove(riverWater); if (riverWater.geometry) riverWater.geometry.dispose(); if (riverWater.material) riverWater.material.dispose(); riverWater = null; }
+    if (riverWater) {
+        scene.remove(riverWater);
+        if (riverWater.geometry) riverWater.geometry.dispose();
+        if (riverWater.material) {
+            if (riverWater.material.alphaMap) riverWater.material.alphaMap.dispose();
+            riverWater.material.dispose();
+        }
+        riverWater = null;
+    }
 
     const rivers = _getRivers();
     if (rivers.length === 0) return;
 
+    // 裁剪到世界边界
     const clipX = typeof worldHalfW !== 'undefined' ? worldHalfW : 150;
     const clipZ = typeof worldHalfD !== 'undefined' ? worldHalfD : 150;
-    function _clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    const clipped = [];
+    for (const rv of rivers) {
+        const pts = rv.points.filter(p => Math.abs(p.x) <= clipX && Math.abs(p.z) <= clipZ);
+        if (pts.length >= 2) clipped.push({ ...rv, points: pts });
+    }
+    if (clipped.length === 0) return;
 
-    // 合并所有河流到一个 geometry（消除交叉处透明叠加）
-    const allVerts = [];
-    const allIndices = [];
+    // 计算水面高度（取所有河流中最低的水位）
+    let waterY = RIVER_WATER_LEVEL;
+    const allH = [];
+    for (const rv of clipped) {
+        if (rv.waterLevel != null) {
+            waterY = Math.min(waterY, rv.waterLevel);
+        } else {
+            for (const p of rv.points) allH.push(getTerrainHeight(p.x, p.z));
+        }
+    }
+    if (allH.length > 0) {
+        allH.sort((a, b) => a - b);
+        const p10 = allH[Math.floor(allH.length * 0.1)];
+        waterY = Math.min(waterY, p10 - 0.3);
+    }
 
-    for (let ri = 0; ri < rivers.length; ri++) {
-        const rv = rivers[ri];
-        const rawPts = rv.points;
-        if (!rawPts || rawPts.length < 2) continue;
+    // === 世界尺寸（alphaMap 和平面共用，确保对齐）===
+    const worldW = (currentMapData && currentMapData.worldWidth) || worldHalfW * 2 || 300;
+    const worldD = (currentMapData && currentMapData.worldDepth) || worldHalfD * 2 || 300;
+
+    // === alphaMap Canvas ===
+    const alphaCanvas = _buildRiverAlphaMap(clipped, worldW, worldD);
+    const tex = new THREE.CanvasTexture(alphaCanvas);
+    tex.needsUpdate = true;
+    tex.minFilter = THREE.NearestFilter;
+    tex.magFilter = THREE.NearestFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.colorSpace = THREE.NoColorSpace;
+
+    // === 覆盖整个地图的平面 ===
+    const segs = Math.max(32, Math.ceil(Math.max(worldW, worldD) / 3));
+    const planeGeo = new THREE.PlaneGeometry(worldW, worldD, segs, segs);
+
+    const mat = new THREE.MeshStandardMaterial({ color: '#3388bb', roughness: 0.12, metalness: 0.05, transparent: true, opacity: 0.6, depthWrite: false, alphaMap: tex });
+
+    riverWater = new THREE.Mesh(planeGeo, mat);
+    riverWater.rotation.x = -Math.PI / 2;
+    riverWater.position.y = waterY;
+    riverWater.name = 'riverWater';
+    riverWater.receiveShadow = true;
+    scene.add(riverWater);
+
+    // === 碰撞体（逻辑不变）===
+    for (const rv of clipped) {
         const hw = (rv.width || 12) / 2;
-
-        // 丢弃界外点
-        const clipped = rawPts.filter(p => Math.abs(p.x) <= clipX && Math.abs(p.z) <= clipZ);
-        if (clipped.length < 2) continue;
-
-        // 线性插值（2m间距，同 v0.43.0）
-        const waterLevel = rv.waterLevel != null ? rv.waterLevel : -1;
-        const segWaterLevels = rv.waterLevels || null;
-        const hasSegWL = segWaterLevels && segWaterLevels.length === clipped.length - 1;
+        const colliderRadius = hw + 0.5;
+        // 密集采样路径点
         const pts = [];
-        const ptWaterLevels = [];
-        for (let i = 0; i < clipped.length - 1; i++) {
-            const a = clipped[i], b = clipped[i+1];
-            pts.push(a);
+        for (let i = 0; i < rv.points.length - 1; i++) {
+            const a = rv.points[i], b = rv.points[i + 1];
             const segLen = Math.hypot(b.x - a.x, b.z - a.z);
             const step = Math.max(1, Math.ceil(segLen / 2));
-            const wl = hasSegWL ? segWaterLevels[i] : null;
-            ptWaterLevels.push(wl);
-            for (let j = 1; j < step; j++) {
+            for (let j = 0; j <= step; j++) {
                 const t = j / step;
                 pts.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
-                ptWaterLevels.push(wl);
             }
         }
-        pts.push(clipped[clipped.length - 1]);
-        ptWaterLevels.push(hasSegWL ? segWaterLevels[segWaterLevels.length - 1] : null);
-
-        let fallbackWaterY = waterLevel;
-        if (rv.waterLevel == null) {
-            let sumH = 0, minH = Infinity;
-            for (const p of pts) { const th = getTerrainHeight(p.x, p.z); sumH += th; if (th < minH) minH = th; }
-            fallbackWaterY = Math.min((sumH / pts.length) - 0.6, minH + 0.3);
-        }
-
-        // 构建 strip 顶点
-        const vOffset = allVerts.length / 3; // 当前已有顶点数
-        for (let i = 0; i < pts.length; i++) {
-            const p = pts[i]; let dx, dz;
-            if (i === 0) { dx = pts[i+1].x - p.x; dz = pts[i+1].z - p.z; }
-            else if (i === pts.length - 1) { dx = p.x - pts[i-1].x; dz = p.z - pts[i-1].z; }
-            else {
-                const dxIn = p.x - pts[i-1].x, dzIn = p.z - pts[i-1].z;
-                const lenIn = Math.hypot(dxIn, dzIn) || 1;
-                const dxOut = pts[i+1].x - p.x, dzOut = pts[i+1].z - p.z;
-                const lenOut = Math.hypot(dxOut, dzOut) || 1;
-                dx = dxIn/lenIn + dxOut/lenOut; dz = dzIn/lenIn + dzOut/lenOut;
-            }
-            const len = Math.hypot(dx, dz) || 1;
-            const nx = -dz/len * hw, nz = dx/len * hw;
-            const wy = ptWaterLevels[i] !== null ? ptWaterLevels[i] : fallbackWaterY;
-            allVerts.push(p.x + nx, wy, p.z + nz);
-            allVerts.push(p.x - nx, wy, p.z - nz);
-        }
-        for (let i = 0; i < pts.length - 1; i++) {
-            const a = vOffset + i * 2, b = a + 1, c = a + 2, d = a + 3;
-            allIndices.push(a, c, b, b, c, d);
-        }
-
-        // 碰撞体（5m间距）
-        const colliderRadius = hw + 0.5;
-        const COLLIDER_SPACING = 5;
         let distAccum = 0;
         for (let i = 0; i < pts.length; i++) {
             if (i > 0) distAccum += Math.hypot(pts[i].x - pts[i-1].x, pts[i].z - pts[i-1].z);
-            if (i === 0 || distAccum >= COLLIDER_SPACING) {
+            if (i === 0 || distAccum >= 5) {
                 distAccum = 0;
                 if (!_isUnderAnyBridge(pts[i].x, pts[i].z))
                     riverColliders.push({ x: pts[i].x, z: pts[i].z, radius: colliderRadius });
             }
         }
-    }
-
-    // 创建合并后的单一水面
-    if (allVerts.length > 0) {
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(allVerts, 3));
-        geo.setIndex(allIndices);
-        geo.computeVertexNormals();
-        const mat = new THREE.MeshStandardMaterial({
-            color: '#3388bb', roughness: 0.12, metalness: 0.05,
-            transparent: true, opacity: 0.6, depthWrite: false,
-        });
-        riverWater = new THREE.Mesh(geo, mat);
-        riverWater.name = 'riverWater';
-        riverWater.receiveShadow = true;
-        scene.add(riverWater);
     }
 }
 
@@ -352,12 +287,13 @@ function updateWaterAnimation(dt) {
         const baseY = waterPlane.userData.baseY !== undefined ? waterPlane.userData.baseY : WATER_LEVEL;
         waterPlane.position.y = baseY + Math.sin(Date.now() * 0.002) * 0.08;
     }
-    // 河流水面流动波动
+    // 河流水面波动（alphaMap 平面，局部Z=世界高度）
     if (riverWater && riverWater.geometry && riverWater.geometry.attributes.position) {
         const rpos = riverWater.geometry.attributes.position;
         const t = Date.now() * 0.002;
         for (let i = 0; i < rpos.count; i++) {
-            rpos.setY(i, RIVER_WATER_LEVEL + Math.sin(rpos.getX(i) * 0.35 + t * 1.8) * 0.1);
+            const wx = rpos.getX(i), wz = -rpos.getY(i); // 局部Y→世界Z（符号翻转）
+            rpos.setZ(i, Math.sin(wx * 0.35 + t * 1.8) * 0.08 + Math.cos(wz * 0.3 + t * 1.5) * 0.06);
         }
         rpos.needsUpdate = true;
     }

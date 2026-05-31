@@ -178,7 +178,7 @@ function createTransparentTreeGhost(od) {
     return group;
 }
 
-let _roadMat = null, _pathMat = null, _plazaGeo = null;
+let _roadMat = null;
 
 function isOnRoad(px, pz, roadAreas) {
     if (!roadAreas) return false;
@@ -192,10 +192,9 @@ function isOnRoad(px, pz, roadAreas) {
     return false;
 }
 
-function createRoadMeshes(roadSegments, villages, targetScene) {
+function createRoadMeshes(roadSegments, targetScene) {
     cleanupRoadMeshes();
     if (!_roadMat) _roadMat = new THREE.MeshStandardMaterial({ color: '#4a4a4a', roughness: 0.85, metalness: 0.05 });
-    if (!_pathMat) _pathMat = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.85, metalness: 0.05 });
 
     // 道路路面高度数据（供坦克行驶 + 桥梁/拾取物高度查询）
     window._roadSurfaceData = [];
@@ -275,20 +274,14 @@ function createRoadMeshes(roadSegments, villages, targetScene) {
         for (let i = 0; i < n - 1; i++) {
             window._roadPathSegs.push({ x1: pts[i].x, z1: pts[i].z, x2: pts[i+1].x, z2: pts[i+1].z, h1: smoothH[i], h2: smoothH[i+1], hw: hw });
         }
-        targetScene.add(botMesh); _roadMeshes.push(botMesh);
     }
 
-    // 新模式：平滑路径 strip（偏移 = 起伏度 + 0.08 余量，下限 0.08）
+    // 新模式：平滑路径 strip — 仅主路（村路/广场已通过 splatMap 贴图呈现）
     const roadSystem = currentMapData && currentMapData.roadSystem;
     if (roadSystem && roadSystem.mainRoad && roadSystem.mainRoad.points) {
         const mainRough = roadSystem.mainRoad.roughness || 0;
         const mainOff = Math.max(0.08, mainRough + 0.08);
         buildRoadStrip(roadSystem.mainRoad.points, roadSystem.mainRoad.width || 8.5, _roadMat, mainOff);
-        for (const br of (roadSystem.branchRoads || [])) {
-            const brRough = br.roughness || 0;
-            const brOff = Math.max(0.08, brRough + 0.08);
-            buildRoadStrip(br.points, br.width || 5, _pathMat, brOff);
-        }
     }
 
     // 旧模式：折线段（向后兼容）
@@ -325,33 +318,17 @@ function createRoadMeshes(roadSegments, villages, targetScene) {
         return mesh;
     }
 
-    // 旧模式：无平滑路径时回退折线段
+    // 旧模式：折线段 — 仅主路（type==='main'），村路/连接路通过 splatMap 呈现
     const _isNewMode = roadSystem && roadSystem.mainRoad && roadSystem.mainRoad.points;
     if (!_isNewMode) {
         for (const seg of roadSegments) {
+            if (seg.type && seg.type !== 'main') continue;
             const mesh = makeRoadMesh(seg.x1, seg.z1, seg.x2, seg.z2, seg.width, 0.04, _roadMat);
             if (mesh) { targetScene.add(mesh); _roadMeshes.push(mesh); }
         }
     }
 
-    if (villages && villages.length > 0) {
-        if (!_plazaGeo) { _plazaGeo = new THREE.CircleGeometry(1, 12); _plazaGeo._sharedCloned = true; }
-        for (const vil of villages) {
-            const py = getTerrainHeight(vil.plazaX, vil.plazaZ) + 0.06;
-            const plaza = new THREE.Mesh(_plazaGeo, _roadMat);
-            plaza.rotation.x = -Math.PI / 2;
-            plaza.scale.setScalar(vil.plazaRadius);
-            plaza.position.set(vil.plazaX, py, vil.plazaZ);
-            plaza.receiveShadow = true;
-            plaza.userData.isRoad = true;
-            targetScene.add(plaza);
-            _roadMeshes.push(plaza);
-
-            for (const conn of (vil.connectors || [])) {
-                buildRoadStrip([{x:conn.x1,z:conn.z1},{x:conn.x2,z:conn.z2}], conn.width || 1.5, _pathMat, 0.07);
-            }
-        }
-    }
+    // 广场+连接路不再生成 3D strip，由编辑器 splatMap 贴图呈现
 }
 
 function cleanupRoadMeshes() {
@@ -432,7 +409,7 @@ function createObstacles(targetScene = scene) {
             const angle = Math.atan2(seg.z2 - seg.z1, seg.x2 - seg.x1);
             _roadAreas.push({ cx: (seg.x1 + seg.x2) / 2, cz: (seg.z1 + seg.z2) / 2, rx: len / 2 + 1, rz: seg.width / 2 + 1.5, angle });
         }
-        createRoadMeshes(roadSystem.roadSegments, roadSystem.villages || [], targetScene);
+        createRoadMeshes(roadSystem.roadSegments, targetScene);
         _villageSystem = { roadSegments: roadSystem.roadSegments, villages: roadSystem.villages || [], roadAreas: _roadAreas };
 
     } else {

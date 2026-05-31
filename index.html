@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.47.0</title>
+    <title>坦克运动demo v0.48.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -93,9 +93,26 @@
             color: #f87171;
         }
         #game-over-overlay .go-hint {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             color: #555;
             font-size: 0.85rem;
+        }
+        .go-retry-btn {
+            margin-top: 1rem;
+            padding: 0.6rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            border: 2px solid #e74c3c;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .go-retry-btn:hover {
+            background: linear-gradient(135deg, #ff6b5a, #e74c3c);
+            border-color: #ff6b5a;
+            transform: scale(1.05);
         }
 
         /* ========== 主菜单 ========== */
@@ -487,7 +504,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.47.0</div>
+        <div class="menu-version">v0.48.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -502,11 +519,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🌊 v0.48.0 河面AlphaMap+主路A*寻路 — 河面Canvas遮罩平面替换strip(弯道零自交)+主路A*寻路(指数坡度惩罚+StringPulling平滑)+村路/广场切splatMap+建筑群半圆约束+蓝图base64解码修复+死亡UI隐藏+重玩按钮+F4上帝视角+P7死代码清理</div>
             <div class="cl-title">🛤️ v0.47.0 地形系统重构+道路路径化 — 高度图动态分辨率(256²→~1m/格矩形)+河流归一化层(三种格式→统一路径点)+编辑器边界裁剪+动态河床雕刻+泥地纹理河岸加宽+出生点修复+幽灵树fix+道路strip渲染+自适应起伏偏移+垂直稳定器</div>
             <div class="cl-title">🔧 v0.46.0 模块拆分+水面ShapeGeometry+编辑器裁剪 — waters.js/bridges.js/debugcolliders.js模块拆分(5554→5094行)+编辑器河面earcut三角化消除自交+虚空拖拽裁剪+桥梁lx/lz轴互换修复+老格式桥Z轴无限延伸修复+getBridgeSurfaceY实际高度+手柄5段力度+倒车实际速度判定+摇杆换向dirFlip+F3碰撞可视化</div>
             <div class="cl-title">🌉 v0.45.0 水体/桥梁/出生点数据对接 — Float32Array序列化修复+矩形地图纹理坐标+多河流支持+水面弯曲平滑+桥面渲染重写+坦克出生点避水+速度翻倍+弯道缩窄公式修复+maploader.js拆分</div>
             <div class="cl-title">🗺️ v0.44.0 地图拆分+桥梁修复+编辑器增强 — 地图数据动态加载+桥梁引道平整区+河床统一深度+编辑器3D视口多选+河流生成重构+小地图村落自适应+WORLD_SIZE残余清理</div>
-            <div class="cl-title">📐 v0.43.0 灵活地图尺寸+矩形地图 — 独立X/Z尺寸+水体/地形/水面/桥梁全链路适配+右键平移+旋转方向修正+实体选中清除</div>
         </div>
     </div>
 
@@ -524,6 +541,7 @@
                 <div id="go-deaths"></div>
             </div>
         </div>
+        <button class="go-retry-btn" id="go-retry-btn">🔄 重新开始</button>
         <div class="go-hint">按 ESC 返回菜单</div>
     </div>
 
@@ -629,7 +647,6 @@
         const mapList = document.getElementById('map-list');
         const btnStartGame = document.getElementById('btn-start-game');
         const btnCancelMap = document.getElementById('btn-cancel-map');
-        const menuButtons = document.getElementById('menu-overlay').querySelectorAll('.menu-btn');
 
         // ==================== 地图系统 ====================
         // 地图配置：从 maps/ 目录动态加载，启动时自动 fetch
@@ -865,6 +882,17 @@
             const _wd = bp.worldDepth || Math.max(300, _pd + 100);
             const _spawnHalfW = _pw / 2 - 2;
             const _spawnHalfD = _pd / 2 - 2;
+            // 解码 base64 高度图/splatMap（编辑器存 heightmapB64/splatMapB64，旧格式回退）
+            let _hm = bp.heightmap, _sm = bp.splatMap;
+            if (!_hm && bp.heightmapB64) {
+                const bin = atob(bp.heightmapB64); const b = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+                _hm = Array.from(new Float32Array(b.buffer));
+            }
+            if (!_sm && bp.splatMapB64) {
+                const bin = atob(bp.splatMapB64); _sm = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) _sm[i] = bin.charCodeAt(i);
+            }
             return {
                 version: '1.0',
                 name: '📝编辑器:' + bp.name,
@@ -877,7 +905,7 @@
                 mode: 'combat',
                 desc: '地图编辑器创建 (' + enemies.length + '个敌人)',
                 spawnPoints: { p1: spawn },
-                terrain: { heightmap: bp.heightmap, width: bp.hmResW || 256, depth: bp.hmResD || 256, rangeMin: -5, rangeMax: 5, splatMap: bp.splatMap, ...terrainExtra },
+                terrain: { heightmap: _hm, width: bp.hmResW || 256, depth: bp.hmResD || 256, rangeMin: -5, rangeMax: 5, splatMap: _sm, ...terrainExtra },
                 waters: Object.keys(watersCfg).length > 0 ? watersCfg : undefined,
                 bridges: bridgesCfg.length > 0 ? bridgesCfg : undefined,
                 terrainTypes: { default: 'grass' },
@@ -1100,18 +1128,6 @@
             return canvas;
         }
 
-        // 获取世界坐标处的地貌类型名称
-        function getTerrainTypeAt(x, z) {
-            if (!currentMapData || isVersusMap) return 'grass';
-            const half = currentMapData.size / 2;
-            const s = currentMapData.size / 256;
-            const sx = Math.floor((x + half) / s);
-            const sy = Math.floor((z + half) / s);
-            if (sx < 0 || sx >= 256 || sy < 0 || sy >= 256) return (currentMapData.terrainTypes && currentMapData.terrainTypes.default) || 'grass';
-            const splat = generateSplatMap();
-            const idx = splat[sy * 256 + sx];
-            return TERRAIN_TYPE_NAMES[Math.min(idx, 5)];
-        }
         // spawnHitSparks 等 → shells.js
 
 
@@ -1195,9 +1211,9 @@
         }
 
         // ==================== 场景变量 ====================
-        let scene, scene1, scene2, camera, renderer;
+        let scene, scene1, camera, renderer;
         // 单人模式引用（向后兼容）
-        let tankGroup, tankHull, leftWheels = [], rightWheels = [];
+        let tankGroup, leftWheels = [], rightWheels = [];
         let reloadTimer = 0, reloadBarGroup = null, reloadBarFill = null;
         // 通用
         let player1 = null, player2 = null; // 双人模式玩家
@@ -1945,7 +1961,6 @@
 
             if (player === player1) {
                 tankGroup = player1.group;
-                tankHull = player1.hull;
                 leftWheels = player1.leftWheels;
                 rightWheels = player1.rightWheels;
             }
@@ -1959,7 +1974,7 @@
             const p = createPlayer('green', 0, 0, Math.PI/2, true);
             createPlayerTank(p);  // 创建 3D 模型（设置 p.group）
             // 把 player 的属性映射到全局变量
-            tankGroup = p.group; tankHull = p.hull;
+            tankGroup = p.group;
             leftWheels = p.leftWheels; rightWheels = p.rightWheels;
             player1 = p;
             createBarsForPlayer(p);
@@ -2457,7 +2472,9 @@
             visibilityTimer += dt;
 
             const isGameOver = gameMode === 'combat' && combatData && combatData.lives <= 0;
-            let { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = isGameOver ? { left: 0, right: 0, forward: 0, strafe: 0 } : getDriveInput();
+            const playerDead = player1 && player1.dead;
+            let { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = (isGameOver || playerDead) ? { left: 0, right: 0, forward: 0, strafe: 0 } : getDriveInput();
+            if (playerDead) { currentLeftSpeed = 0; currentRightSpeed = 0; }
 
             // ── 倒车转向反转（基于实际速度而非摇杆输入）──
             const actualFwd = (currentLeftSpeed + currentRightSpeed) / 2;
@@ -3336,6 +3353,7 @@
                                         spawnFragments(pep, '#4a5c2e');
                                         playExplosionSound();
                                         player1.group.visible = false;
+                                        togglePlayerBars(player1, false);
                                         if (combatData) {
                                             combatData.lives--;
                                             combatData.deaths.push({ type: 'flame', enemy: enemy.cfg.type === 'assault-vehicle' ? '装甲突击车' : '未知敌人' });
@@ -3433,6 +3451,7 @@
                                             spawnFragments(pep, '#4a5c2e');
                                             playExplosionSound();
                                             player1.group.visible = false;
+                                            togglePlayerBars(player1, false);
                                             if (combatData) {
                                                 combatData.lives--;
                                                 combatData.deaths.push({ type: 'melee', enemy: '丧尸' });
@@ -3601,6 +3620,7 @@
         const CAMERA_LOOK_Y_VS = 2.8;   // lookAt 高度-双人模式
 
         function placeCamera() {
+            if (window._godMode) return;
             const fx = Math.cos(tankState.yaw);
             const fz = Math.sin(tankState.yaw);
             const groundY = getGroundHeight(tankGroup.position.x, tankGroup.position.z);
@@ -3948,7 +3968,7 @@
             camera2=new THREE.PerspectiveCamera(48,renderer.domElement.width/renderer.domElement.height,.5,300);
             // 同步 P1 摄像机参数（与 P2 一致）
             camera.fov=48; camera.far=Math.max(300, Math.max(worldHalfW, worldHalfD) * 2.0); camera.updateProjectionMatrix();
-            tankGroup=player1.group;tankHull=player1.hull;
+            tankGroup=player1.group;
             leftWheels=player1.leftWheels;rightWheels=player1.rightWheels;
             reloadBarGroup=player1.reloadBarGroup;reloadBarFill=player1.reloadBarFill;reloadTimer=0;
             initAudio();startEngineSound();
@@ -4027,7 +4047,7 @@
             player1.reloadBarGroup.visible = true;
             player1.hpBarGroup.visible = true;
             if (player1.shellLabel) player1.shellLabel.visible = true;
-            tankGroup = player1.group; tankHull = player1.hull;
+            tankGroup = player1.group;
             leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
             reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
             tankState.x = spX; tankState.z = spZ; tankState.yaw = spYaw;
@@ -4373,6 +4393,7 @@
             player1.dead = false;
             player1.mgLockTarget = null;
             player1.group.visible = true;
+            togglePlayerBars(player1, true);
             player1.group.position.set(sx, getGroundHeight(sx, sz), sz);
             player1.group.rotation.set(0, Math.PI / 2 - sy, 0);
             if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
@@ -4587,7 +4608,7 @@
             animationId=requestAnimationFrame(versusGameLoop);
         }
 
-        function placeCameraFor(p,cam){const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);const gy=getGroundHeight(p.state.x,p.state.z);cam.position.set(p.state.x-fx*CAMERA_BEHIND_VS,gy+CAMERA_ABOVE_VS,p.state.z-fz*CAMERA_BEHIND_VS);cam.lookAt(p.state.x,gy+CAMERA_LOOK_Y_VS,p.state.z);}
+        function placeCameraFor(p,cam){if(window._godMode)return;const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);const gy=getGroundHeight(p.state.x,p.state.z);cam.position.set(p.state.x-fx*CAMERA_BEHIND_VS,gy+CAMERA_ABOVE_VS,p.state.z-fz*CAMERA_BEHIND_VS);cam.lookAt(p.state.x,gy+CAMERA_LOOK_Y_VS,p.state.z);}
 
         function updateShellsFragsMuzzle(dt) {
             for(let i=shells.length-1;i>=0;i--){const s=shells[i];
@@ -4969,13 +4990,22 @@
             }
 
             el.textContent =
-                'v0.47.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.48.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
 
         function returnToMenu() {
-            hideMapSelector();
+            if (window._godMode) {
+                window._godMode = false;
+                scene.fog = window._godSavedFog;
+                camera.fov = window._godSavedFov; camera.far = window._godSavedFar; camera.updateProjectionMatrix();
+                scene.traverse(function(obj) {
+                    if (obj.isMesh && obj.material && obj.material.color &&
+                        obj.material.color.getHex() === 0x8899aa) obj.visible = true;
+                });
+            }
+            hideMapSelector(); hideGameOverScreen();
             gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
             splitLine.style.display='none';versusResult.style.display='none';
             arrowP1.style.display='none';arrowP2.style.display='none';
@@ -5269,6 +5299,10 @@
         btnExit.addEventListener('click',exitGame);btnBack.addEventListener('click',returnToMenu);
         btnPreviewBack.addEventListener('click', exitPreviewMode);
         btnStartGame.addEventListener('click', enterGame);
+        document.getElementById('go-retry-btn').addEventListener('click', () => {
+            hideGameOverScreen();
+            enterGame();
+        });
         btnCancelMap.addEventListener('click', hideMapSelector);
         window.addEventListener('resize',()=>{
             // 游戏渲染器
@@ -5292,8 +5326,39 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.47.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
+        console.log('⚡ 坦克运动demo v0.48.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
 
+        // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
+        window._godMode = false;
+        window._godSavedFog = null; window._godSavedFov = 45; window._godSavedFar = 300;
+        window.addEventListener('keydown', function(e) {
+            if (e.key !== 'F4') return;
+            e.preventDefault();
+            window._godMode = !window._godMode;
+            if (window._godMode) {
+                window._godSavedFog = scene.fog; scene.fog = null;
+                window._godSavedFov = camera.fov; window._godSavedFar = camera.far;
+                camera.fov = 80; camera.far = 800; camera.updateProjectionMatrix();
+                const hw = worldHalfW || 150, hd = worldHalfD || 150;
+                const maxExt = Math.max(hw, hd);
+                camera.position.set(maxExt * 0.1, maxExt * 2.2, maxExt * 0.1);
+                camera.up.set(0, 1, 0);
+                camera.lookAt(0, 0, 0);
+                if (typeof controls !== 'undefined' && controls && controls.target) controls.target.set(0, 0, 0);
+                scene.traverse(function(obj) {
+                    if (obj.isMesh && obj.material && obj.material.color &&
+                        obj.material.color.getHex() === 0x8899aa) obj.visible = false;
+                });
+            } else {
+                scene.fog = window._godSavedFog;
+                camera.fov = window._godSavedFov; camera.far = window._godSavedFar; camera.updateProjectionMatrix();
+                scene.traverse(function(obj) {
+                    if (obj.isMesh && obj.material && obj.material.color &&
+                        obj.material.color.getHex() === 0x8899aa) obj.visible = true;
+                });
+            }
+            console.log('🔭 上帝视角:', window._godMode ? '开' : '关');
+        });
 
     </script>
 </body>
