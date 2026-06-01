@@ -319,10 +319,26 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 |---|------|------|------|
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 | 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
-| 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段，与拖拽速度/角度相关 | map_editor.html→mousemove钳制逻辑 |
-| 4 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case，低概率出现转向不跟手 | input.js + index.html 驱动逻辑 |
-| 5 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
-| 6 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |
+| 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段 | map_editor.html→mousemove钳制逻辑 |
+| 4 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case | input.js + index.html 驱动逻辑 |
+| 5 | **800×800大地图生成耗时~54s** | FBM遍历64万格×4octaves，需分块优化 | editor_terrainGen.js→管线A |
+| 6 | **密度参数缩放不当** | 800×800地图池塘3→36个，需上限或非线性缩放 | editor_terrainGen.js→_resolvePondCount |
+| 7 | CDP测试标签页回收不可靠 | `/json/close` 不总是生效，残留tab积累 | CDP测试脚本 |
+| 8 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
+| 9 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |
+
+## 已修复问题（v0.50.0 — 双管线村落生成系统+CDP自动验证）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 村落生成全面重写：双管线+掩码网格+FloodFill+容量预验证+建筑簇+朝向+连接路 | v0.50.0 |
+| 2 | 自动平整保峰压谷：管线A内建，确保可建面积≥60% | v0.50.0 |
+| 3 | 建筑不再全朝北：面朝最近道路段(atan2计算yaw) | v0.50.0 |
+| 4 | 支路连接主路：截断到主路边距避免覆盖柏油纹理 | v0.50.0 |
+| 5 | 生成状态面板：实时进度+统计+评分+失败原因+30s自动隐藏 | v0.50.0 |
+| 6 | 确定性随机：Mulberry32 PRNG，相同种子→相同地图 | v0.50.0 |
+| 7 | 编辑器模块增至6个：+editor_genStatus.js | v0.50.0 |
+| 8 | CDP自动验证：真实Chrome控制台0错误通过 | v0.50.0 |
 
 ## 已修复问题（v0.49.0 — 编辑器模块拆分+池塘碰撞修复+自动验证）
 
@@ -422,16 +438,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.48.0）
+## 📋 待完成任务（截至 v0.50.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
-| 2 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
-| 3 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
-| 4 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 5 | Part 8 全面验证 | 🟡 近期 | 未分配 | 编辑器→Demo端到端全链路+兼容性回归测试 |
-| 6 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 1 | **800×800大地图性能优化** | 🔴 近期 | v0.51 | FBM分块+yield优化，目标<10s；密度参数非线性缩放 |
+| 2 | **村落数密度参数修复** | 🔴 近期 | v0.51 | 800×800目标24村实际仅1村，村落间距检查过严 |
+| 3 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
+| 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
+| 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
+| 6 | 状态面板在CDP生成时显示 | 🟡 中期 | 未分配 | 面板DOM在点击后状态更新未触发显示（CDP观测到display:none） |
+| 7 | CDP标签页回收 | 🟡 中期 | 未分配 | `/json/close` 不可靠，需改进测试脚本 |
+| 8 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 9 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 10 | 村落间距检查放宽 | 🟡 中期 | 未分配 | 当前80m/regionRadius×1.5对大区域过严 |
 
 ---
 

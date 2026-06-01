@@ -42,7 +42,7 @@ function createTreeMarker(x, y, z, stype) {
     return grp;
 }
 
-function createBuildingMarker(x, y, z, stype) {
+function createBuildingMarker(x, y, z, stype, yaw) {
     const grp = new THREE.Group();
     if (stype === 'villa') {
         const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4, 2.5), new THREE.MeshStandardMaterial({ color: 0xe8e8f0, roughness: 0.5 }));
@@ -59,6 +59,7 @@ function createBuildingMarker(x, y, z, stype) {
         roof.position.y = 3.6; roof.rotation.y = Math.PI / 4; grp.add(roof);
     }
     grp.position.set(x, y, z);
+    grp.rotation.y = yaw || 0;
     return grp;
 }
 
@@ -101,9 +102,9 @@ function refreshPatrolLines(enemyId) {
     scene.add(patrolLines[enemyId]);
 }
 
-function addEntity(type, x, y, z, etype) {
+function addEntity(type, x, y, z, etype, yaw) {
     const id = 'e' + (entityIdCounter++);
-    const ent = { id, type, position: { x, y, z }, yaw: 0, createdAt: Date.now() };
+    const ent = { id, type, position: { x, y, z }, yaw: yaw || 0, createdAt: Date.now() };
     if (type === 'tree') ent.subType = etype || treeType;
     if (type === 'building') ent.subType = etype || bldgType;
     if (type === 'enemy') { ent.enemyType = etype || entityType; ent.patrol = []; ent.cfg = defaultEnemyCfg(ent.enemyType); }
@@ -111,9 +112,9 @@ function addEntity(type, x, y, z, etype) {
 
     let marker;
     switch (type) {
-        case 'spawn': marker = createSpawnMarker(x, y, z, 0); break;
+        case 'spawn': marker = createSpawnMarker(x, y, z, yaw || 0); break;
         case 'tree': marker = createTreeMarker(x, y, z, ent.subType); break;
-        case 'building': marker = createBuildingMarker(x, y, z, ent.subType); break;
+        case 'building': marker = createBuildingMarker(x, y, z, ent.subType, yaw || 0); break;
         case 'enemy': marker = createEnemyMarker(x, y, z, ent.enemyType); break;
     }
     if (marker) { scene.add(marker); entityMarkers[id] = marker; }

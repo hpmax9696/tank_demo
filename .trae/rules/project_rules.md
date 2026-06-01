@@ -34,8 +34,9 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html` | ~5365 | 主游戏引擎 |
 | `maploader.js` | ~190 | 地图加载模块（蓝图转换+动态加载） |
 | `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
-| `map_editor.html` | ~1762 | 地图编辑器（v0.49.0 拆分为5模块：terrainGen/entities/waterBridge/data/terrainPaint） |
-| `js/editor_terrainGen.js` | ~1376 | 地形生成（FBM+A*寻路+道路+村落） |
+| `map_editor.html` | ~1800 | 地图编辑器（v0.50.0 拆分为6模块：terrainGen/genStatus/entities/waterBridge/data/terrainPaint） |
+| `js/editor_terrainGen.js` | ~750 | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇） |
+| `js/editor_genStatus.js` | ~120 | 生成状态面板（实时进度+统计+质量评分+自动隐藏） |
 | `js/editor_entities.js` | ~638 | 实体管理（标记+CRUD+配置面板+列表） |
 | `js/editor_waterBridge.js` | ~659 | 水体桥梁（水面+河床+桥梁检测） |
 | `js/editor_data.js` | ~503 | 数据持久化（蓝图+JSON+init） |
@@ -206,7 +207,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.49.0 — 编辑器模块拆分+池塘碰撞修复+自动验证）
+## 当前版本（v0.50.0 — 双管线村落生成系统+CDP自动验证）
 
 ### 关键参数
 | 参数 | 值 |
@@ -215,7 +216,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~5365 行 |
-| 编辑器模块 | 5个：terrainGen(1376)+entities(638)+waterBridge(659)+data(503)+terrainPaint(335) |
+| 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
 | 桥梁引道 | 平整区(deckY) + 内陆斜坡，_carvedCells可撤销，deckY存入蓝图 |

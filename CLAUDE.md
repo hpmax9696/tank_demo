@@ -29,10 +29,11 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── map_editor.html    # 地图编辑器 (~1762行)：v0.49.0 拆分为5模块
-├── js/editor_*.js     # 编辑器模块（5个）
-│   ├── editor_terrainGen.js  # 地形生成 (~1376行)：FBM+A*寻路+道路+村落
-│   ├── editor_entities.js   # 实体管理 (~638行)：标记+CRUD+配置面板+列表
+├── map_editor.html    # 地图编辑器 (~1800行)：v0.50.0 双管线村落生成
+├── js/editor_*.js     # 编辑器模块（6个）
+│   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
+│   ├── editor_genStatus.js   # 生成状态面板 (~120行)：实时进度+统计+质量评分+自动隐藏
+│   ├── editor_entities.js    # 实体管理 (~645行)：标记+CRUD+配置面板+列表+建筑朝向(yaw)
 │   ├── editor_waterBridge.js # 水体桥梁 (~659行)：水面+河床+桥梁检测
 │   ├── editor_data.js        # 数据持久化 (~503行)：蓝图+JSON+init
 │   └── editor_terrainPaint.js # 地形绘制 (~335行)：笔刷+高度图画布
@@ -47,6 +48,37 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 核心全局变量
 
 `scene`, `players[]`, `bullets[]`, `explosions[]`, `obstacles[]`, `currentMapData`
+
+## 生成管线（v0.50.0 新增）
+
+三个按钮驱动两条独立管线：
+
+| 按钮 | 函数 | 说明 |
+|------|------|------|
+| 🎲 一键全部 | `generateAll()` | 管线A→管线B，完整地图 |
+| 🌍 仅生成地形 | `generateTerrainOnly()` | 管线A：FBM→自动平整→生态区→池塘。结束后可手画河流 |
+| 🏘️ 生成道路与村落 | `generateRoadsAndVillages()` | 管线B：读当前terrain+water→掩码→主干道→FloodFill→选址预验证→落地→树木→桥梁 |
+
+### 管线A（仅地形）
+FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
+
+### 管线B（道路+村落+障碍物）
+构建掩码（MG_BUILDABLE/FORBIDDEN/WATER/ROAD）→ A*主干道 → Flood Fill区域分割 → 村落选址+容量预验证 → 落地（广场整平+村路+建筑+连接路）→ 分层采样树木 → 桥梁检测 → roadSystem存储
+
+### 新增数据结构
+- `MaskGrid` (Uint8Array位掩码)：`MG_BUILDABLE|MG_FORBIDDEN|MG_WATER|MG_ROAD|MG_PLAZA|MG_BUILDING|MG_BUFFER`
+- `BuildableRegion`：FloodFill连通区（面积/质心/平坦度/包围半径）
+- `VillagePlan`：预验证选址（广场+支路+建筑槽位+容量）
+- `GenerationReport`：诊断报告（统计+失败原因+质量评分+种子+耗时）
+
+### 关键函数
+- `_autoFlatten(cfg)`: 保峰压谷 — 保留N个山峰，谷削至 keepRatio%
+- `buildMaskGrid(cfg)`: 从当前地形+水体构建全图禁建掩码
+- `_findBuildableRegions()`: BFS连通域分析
+- `_simulateBuildingSlots()`: 建筑簇模拟（2-4个角度簇，每簇独立撒点）
+- `_growBranchRoad()`: 贪心支路生长（沿最低粗糙度梯度）
+- `_clusterByAngle()`: 建筑按角度分群（生成连接路用）
+- `createRng(seed)`: Mulberry32确定性随机
 
 ## 必须遵守的规则
 
