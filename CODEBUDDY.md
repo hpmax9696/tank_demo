@@ -73,7 +73,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | `shells.js` | ~267 | 炮弹系统（发射/爆炸/溅射伤害/HE冲击波） |
 | `mg.js` | ~180 | 机枪系统（自动锁敌/弹道/过热） |
 | `bars.js` | ~75 | UI元素（血条/装填条/HUD） |
-| `obstacles.js` | ~594 | 环境对象（树木/建筑/InstancedMesh管理） |
+| `obstacles.js` | ~794 | 环境对象（树木/建筑/InstancedMesh管理） |
+
+### 地图编辑器（v0.49.0 模块拆分后）
+
+`map_editor.html` 已从 ~5167 行拆分为 1 主文件 + 5 模块：
+
+| 文件 | 行数 | 功能 |
+|------|:----:|------|
+| `map_editor.html` | ~1762 | 核心框架（尺寸/撤销/事件绑定/3D场景/地面） |
+| `js/editor_terrainGen.js` | ~1376 | 地形生成（FBM噪声+A*寻路+主干道+村路+村落建筑集群+树木填充+平整） |
+| `js/editor_entities.js` | ~638 | 实体管理（出生点/树/建筑/敌人标记+CRUD+配置面板+实体列表+分组+巡逻线） |
+| `js/editor_waterBridge.js` | ~659 | 水体桥梁（水体记录+水面3D+河床雕刻+桥梁创建+桥梁检测+道路清理） |
+| `js/editor_data.js` | ~503 | 数据持久化（蓝图CRUD+JSON导入导出+base64编解码+init/animate） |
+| `js/editor_terrainPaint.js` | ~335 | 地形绘制（纹理合成+高度图画布+5种笔刷+相机控制） |
 
 ### 游戏引擎（index.html）
 
@@ -305,12 +318,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | # | 问题 | 影响 | 位置 |
 |---|------|------|------|
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
-| 2 | git revert后index.html部分修复丢失 | 水面渲染/纹理/出生点等10个修复需重新应用 | index.html |
-| 3 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
-| 4 | 河岸空气墙可视化红环未清理 | 调试用红色环会残留在场景中 | debugcolliders.js |
-| 5 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段，与拖拽速度/角度相关 | map_editor.html→mousemove钳制逻辑 |
-| 6 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case，低概率出现转向不跟手 | input.js + index.html 驱动逻辑 |
-| 7 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决（Canvas绘河道路径→alphaMap裁切，弯道零自交） | waters.js→createRiverWater |
+| 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
+| 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段，与拖拽速度/角度相关 | map_editor.html→mousemove钳制逻辑 |
+| 4 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case，低概率出现转向不跟手 | input.js + index.html 驱动逻辑 |
+| 5 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
+| 6 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |
+
+## 已修复问题（v0.49.0 — 编辑器模块拆分+池塘碰撞修复+自动验证）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | 池塘碰撞体对敌人失效修复：checkCollision()增加椭圆边界推离，池塘与河流行为一致 | v0.49.0 |
+| 2 | map_editor.html 拆分为5模块（5167→1762行，-66%） | v0.49.0 |
+| 3 | 新规则：模块优先架构（新功能优先独立JS模块） | v0.49.0 |
+| 4 | 新规则：Chrome headless CDP自动验证（改代码→抓错误→修复→循环） | v0.49.0 |
 
 ## 已修复问题（v0.48.0 — 河面AlphaMap+主路A*寻路+修复）
 

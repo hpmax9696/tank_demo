@@ -34,7 +34,12 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html` | ~5365 | 主游戏引擎 |
 | `maploader.js` | ~190 | 地图加载模块（蓝图转换+动态加载） |
 | `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
-| `map_editor.html` | ~2900 | 地图编辑器（灵活尺寸+矩形地图） |
+| `map_editor.html` | ~1762 | 地图编辑器（v0.49.0 拆分为5模块：terrainGen/entities/waterBridge/data/terrainPaint） |
+| `js/editor_terrainGen.js` | ~1376 | 地形生成（FBM+A*寻路+道路+村落） |
+| `js/editor_entities.js` | ~638 | 实体管理（标记+CRUD+配置面板+列表） |
+| `js/editor_waterBridge.js` | ~659 | 水体桥梁（水面+河床+桥梁检测） |
+| `js/editor_data.js` | ~503 | 数据持久化（蓝图+JSON+init） |
+| `js/editor_terrainPaint.js` | ~335 | 地形绘制（笔刷+高度图画布） |
 | `models/t34_v16_builder.js` | ~353 | T-34/85 v1.6 动画坦克构建器（index.html 引用，含 turretPivot/barrelPivot） |
 | `models/enemies.js` | ~920 | 装甲突击车 + 程序化丧尸 |
 | `combat/enemyAI.js` | ~535 | AI 状态机 |
@@ -201,29 +206,38 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.48.0 — 河面AlphaMap+主路A*寻路+修复）
+## 当前版本（v0.49.0 — 编辑器模块拆分+池塘碰撞修复+自动验证）
 
 ### 关键参数
 | 参数 | 值 |
 |------|----|
 | 世界尺寸 | worldWidth×worldDepth（可配置，默认300×300） |
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
-| 地图编辑器行数 | ~3100 行 |
+| 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~5365 行 |
+| 编辑器模块 | 5个：terrainGen(1376)+entities(638)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
 | 桥梁引道 | 平整区(deckY) + 内陆斜坡，_carvedCells可撤销，deckY存入蓝图 |
 | 河流深度 | 水面=河岸最低-3m，河床=地图最低-10m（排除已挖水体） |
 | 水体模块 | waters.js(317行)已拆分，alphaMap遮罩方案替换strip |
 
+### 模块优先架构
+- 新功能优先以独立 JS 模块加载
+- 三个主文件（index/map_editor/model_factory）不宜再增大
+- 主文件仅作框架和加载器
+
+### 自动验证
+- 代码修改后自动用 Chrome headless CDP 抓取控制台错误
+- 无误后才通知用户；有错则自行修复再验证，直到通过
+
 ### 已知问题
 | # | 问题 | 位置 |
 |---|------|------|
 | 1 | 模型工厂撤销一键回到初始状态 | model_factory.html |
-| 2 | git revert后index.html部分修复丢失（水面渲染/纹理/出生点） | index.html |
-| 3 | 桥梁两端地形高低差（addBridge引道雕刻不完善） | map_editor.html |
-| 4 | 河岸空气墙红环调试残留 | index.html |
-| 5 | ✅ v0.48.0 waters.js+bridges.js已拆分，alphaMap方案 | index.html |
+| 2 | 桥梁两端地形高低差（addBridge引道雕刻不完善） | map_editor.html |
+| 3 | 河岸空气墙红环调试残留 | index.html |
+| 4 | ✅ v0.49.0 池塘碰撞体对敌人失效修复 | index.html |
 
 ### 待完成任务
 | # | 任务 | 优先级 |
@@ -232,14 +246,6 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 2 | 同轴机枪功能 | 🟡 中期 |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 |
-
----
-
-## 调试配色（保留，确认结构无误后删除 color 字段）
-
-- 负重轮/主动轮/诱导轮：🔴 `color:'#ff3333'`
-- 履带链：🔵 `color:'#0066ff'`
-- 发烟筒：🟣 `color:'#ff00ff'`
 
 ---
 
@@ -253,4 +259,4 @@ git push origin master        # Gitee 主仓库
 git push github master        # GitHub 备用（失败可跳过）
 ```
 
-同步后更新 `CODEBUDDY.md`（参数表、架构、已知问题）。
+同步后更新 `CODEBUDDY.md`（参数表、架构、已知问题）和 `.trae/rules/project_rules.md`（规则、文件行数）。

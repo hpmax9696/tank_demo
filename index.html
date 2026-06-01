@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.48.0</title>
+    <title>坦克运动demo v0.49.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -504,7 +504,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.48.0</div>
+        <div class="menu-version">v0.49.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -519,11 +519,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🧩 v0.49.0 编辑器模块拆分+池塘碰撞修复 — map_editor.html(5167→1762行)拆5模块+池塘碰撞体对敌人生效+模块优先架构+Chrome headless CDP自动验证</div>
             <div class="cl-title">🌊 v0.48.0 河面AlphaMap+主路A*寻路 — 河面Canvas遮罩平面替换strip(弯道零自交)+主路A*寻路(指数坡度惩罚+StringPulling平滑)+村路/广场切splatMap+建筑群半圆约束+蓝图base64解码修复+死亡UI隐藏+重玩按钮+F4上帝视角+P7死代码清理</div>
             <div class="cl-title">🛤️ v0.47.0 地形系统重构+道路路径化 — 高度图动态分辨率(256²→~1m/格矩形)+河流归一化层(三种格式→统一路径点)+编辑器边界裁剪+动态河床雕刻+泥地纹理河岸加宽+出生点修复+幽灵树fix+道路strip渲染+自适应起伏偏移+垂直稳定器</div>
             <div class="cl-title">🔧 v0.46.0 模块拆分+水面ShapeGeometry+编辑器裁剪 — waters.js/bridges.js/debugcolliders.js模块拆分(5554→5094行)+编辑器河面earcut三角化消除自交+虚空拖拽裁剪+桥梁lx/lz轴互换修复+老格式桥Z轴无限延伸修复+getBridgeSurfaceY实际高度+手柄5段力度+倒车实际速度判定+摇杆换向dirFlip+F3碰撞可视化</div>
             <div class="cl-title">🌉 v0.45.0 水体/桥梁/出生点数据对接 — Float32Array序列化修复+矩形地图纹理坐标+多河流支持+水面弯曲平滑+桥面渲染重写+坦克出生点避水+速度翻倍+弯道缩窄公式修复+maploader.js拆分</div>
-            <div class="cl-title">🗺️ v0.44.0 地图拆分+桥梁修复+编辑器增强 — 地图数据动态加载+桥梁引道平整区+河床统一深度+编辑器3D视口多选+河流生成重构+小地图村落自适应+WORLD_SIZE残余清理</div>
         </div>
     </div>
 
@@ -2101,6 +2101,18 @@
                     const pushX = rnx * bestOverlap;
                     const pushZ = rnz * bestOverlap;
                     return { hit: true, pushX, pushZ };
+                }
+            }
+            // 池塘碰撞（椭圆边界推离，与河流行为一致）
+            const pond = _getPond();
+            if (pond && !isOnBridgeSurface(x, z) && !isOnBridge(x)) {
+                const ppx = x - pond.cx, ppz = z - pond.cz;
+                const margin = hw + 0.3, erx = pond.rx + margin, erz = pond.rz + margin;
+                if (Math.sqrt((ppx*ppx)/(erx*erx) + (ppz*ppz)/(erz*erz)) < 1.0) {
+                    const angle = Math.atan2(ppz / erz, ppx / erx);
+                    const tx = pond.cx + erx * Math.cos(angle);
+                    const tz = pond.cz + erz * Math.sin(angle);
+                    return { hit: true, pushX: tx - x, pushZ: tz - z };
                 }
             }
             return { hit: false, pushX: 0, pushZ: 0 };
@@ -4990,7 +5002,7 @@
             }
 
             el.textContent =
-                'v0.48.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.49.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5326,7 +5338,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.48.0 | 灵活地图尺寸+矩形地图+编辑器摄像控件修复');
+        console.log('⚡ 坦克运动demo v0.49.0 | 编辑器模块拆分+池塘碰撞修复+自动验证');
 
         // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
         window._godMode = false;

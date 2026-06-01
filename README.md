@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.48.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.49.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.49.0 — 编辑器模块拆分+池塘碰撞修复（2026-06-01）
+
+- **编辑器模块拆分**: map_editor.html 从5167行拆为5模块(1762行,-66%)，主文件仅留框架+事件绑定
+- **池塘碰撞修复**: checkCollision()增加椭圆边界推离，敌人/丧尸不再突破池塘空气墙
+- **模块优先架构**: 新功能优先独立JS模块，三个主文件不宜再增大，主文件作框架/加载器
+- **自动验证**: Chrome headless CDP抓取控制台错误，有错则自修复循环，无误再通知用户
 
 ### v0.48.0 — 河面AlphaMap+主路A*寻路+修复（2026-05-31）
 
@@ -909,9 +916,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.48.0）
-- `index.html`：约 5228 行（主游戏引擎）
-- `js/waters.js`：~439行 | `js/bridges.js`：~165行 | `js/debugcolliders.js`：~122行
+### 代码规模（截至 v0.49.0）
+- `index.html`：约 5365 行（主游戏引擎）
+- `map_editor.html`：约 1762 行（核心框架，-66%拆分）
+- 编辑器模块：5个共3567行（terrainGen 1376 + waterBridge 659 + entities 638 + data 503 + terrainPaint 335）
+- `js/waters.js`：~317行 | `js/bridges.js`：~165行 | `js/debugcolliders.js`：~122行
+- 游戏模块13个总计~4006行 | 战斗系统2个~875行 | 模型系统11个~3240行
+- **源代码总计约 2.1万行**
 - `js/audio.js`：~240行 | `js/input.js`：~70行 | `js/shells.js`：~309行 | `js/mg.js`：~198行
 - `js/bars.js`：~80行 | `js/obstacles.js`：~817行 | `js/spatialGrid.js`：~110行
 - `js/fireSmokeParticles.js`：~536行
