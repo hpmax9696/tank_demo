@@ -580,22 +580,6 @@
 <!-- 3D 视口 -->
 <div class="view3d" id="viewport-3d"><div class="selection-box" id="selection-box"></div>
     <div class="overlay-info" id="overlay-info">地图预览 — 拖拽旋转 | 滚轮缩放 | Shift+拖拽平移</div>
-<div class="gen-status-panel" id="gen-status-panel" style="display:none;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-        <span id="gs-phase-label" style="font-weight:bold;color:#f5954a;">初始化...</span>
-        <span id="gs-phase-count" style="color:#888;">阶段 0/0</span>
-    </div>
-    <div style="height:4px;background:#333;border-radius:2px;margin-bottom:6px;">
-        <div id="gs-progress-fill" style="height:100%;background:#f5954a;border-radius:2px;width:0%;transition:width 0.3s;"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin-bottom:4px;font-size:10px;" id="gs-stats">
-        <div><span style="color:#888;">区域</span> <span id="gs-stat-regions" style="float:right;">-</span></div>
-        <div><span style="color:#888;">村落</span> <span id="gs-stat-villages" style="float:right;">-</span></div>
-        <div><span style="color:#888;">建筑</span> <span id="gs-stat-buildings" style="float:right;">-</span></div>
-        <div><span style="color:#888;">树木</span> <span id="gs-stat-trees" style="float:right;">-</span></div>
-    </div>
-    <div id="gs-details" style="margin-top:4px;font-size:10px;color:#888;max-height:80px;overflow-y:auto;line-height:1.4;"></div>
-</div>
     <div class="brush-indicator" id="brush-indicator"></div>
 </div>
 
@@ -700,7 +684,7 @@
 //  版本: v0.1.0 | 日期: 2026-05-14
 // ============================================================
 
-console.log('🗺️ 地图编辑器 v0.50.0 — 引道地形修整 + 水平桥面 + 分段水面剖面');
+console.log('🗺️ 地图编辑器 v0.51.0 — 引道地形修整 + 水平桥面 + 分段水面剖面');
 
 // ----- 常量（矩形尺寸，可动态更新） -----
 let worldWidth = 300;          // 地图世界宽度 X（含外围缓冲区）
@@ -1479,7 +1463,7 @@ window.addEventListener('mouseup', (e) => {
         isWaterPainting = false;
         const t0 = performance.now();
         // 记录水体元数据（池塘 vs 河流）
-        // ===== v0.50.0: 走廊法 + 分段水面剖面 + 桥引道 =====
+        // ===== v0.51.0: 走廊法 + 分段水面剖面 + 桥引道 =====
         // 每段水面 = min(前段水面, 本地形-strength*0.3)，单调不增
         // 使用 hmStepW/hmStepD + worldHalfW/worldHalfD 替代固定 WORLD_SIZE，适配矩形地图
         if (!mapData.editedVerticesPaint) mapData.editedVerticesPaint = new Set();

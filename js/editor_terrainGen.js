@@ -29,6 +29,28 @@ function pointToSegmentDist(px,pz,ax,az,bx,bz){const dx=bx-ax,dz=bz-az;const len
 // --- FBM ---
 function fbm(x,z,seed,octaves,scale){let val=0,amp=1,freq=1,maxAmp=0;for(let o=0;o<octaves;o++){val+=smoothNoise(x/scale*freq,z/scale*freq,seed+o*137)*amp;maxAmp+=amp;amp*=0.5;freq*=2.0;}return val/maxAmp;}
 
+// FBM 降采样生成（大地图性能优化：>400m 时降为半分辨率，bilinear 插值）
+function _generateFbmGrid(resW,resD,worldW,worldD,seed,octaves,ptch,halfW,halfD){
+    const data=new Float32Array(resW*resD);
+    for(let y=0;y<resD;y++){for(let x=0;x<resW;x++){
+        const wx=(x/(resW-1)-0.5)*worldW,wz=(y/(resD-1)-0.5)*worldD;
+        data[y*resW+x]=fbm(wx,wz,seed,octaves,ptch);
+    }}
+    return data;
+}
+function _bilinearUpsample(lowRes,lw,ld,highW,highD){
+    const result=new Float32Array(highW*highD);
+    const scaleX=(lw-1)/(highW-1),scaleZ=(ld-1)/(highD-1);
+    for(let y=0;y<highD;y++){for(let x=0;x<highW;x++){
+        const fx=x*scaleX,fz=y*scaleZ;
+        const ix=Math.floor(fx),iz=Math.floor(fz);
+        const tx=fx-ix,tz=fz-iz;
+        const cx=Math.min(ix+1,lw-1),cz=Math.min(iz+1,ld-1);
+        const a=lw;result[y*highW+x]=(1-tx)*(1-tz)*lowRes[iz*a+ix]+tx*(1-tz)*lowRes[iz*a+cx]+(1-tx)*tz*lowRes[cz*a+ix]+tx*tz*lowRes[cz*a+cx];
+    }}
+    return result;
+}
+
 // --- splatMap 绘制 ---
 function drawCircleSplat(wx,wz,radius,texType){const rPxX=radius/hmStepW,rPxZ=radius/hmStepD;const{sx:sxC,sy:syC}=world2sm(wx,wz);const rWi=Math.ceil(rPxX),rZi=Math.ceil(rPxZ);for(let dy=-rZi;dy<=rZi;dy++){for(let dx=-rWi;dx<=rWi;dx++){const wDist=Math.sqrt(dx*dx*hmStepW*hmStepW+dy*dy*hmStepD*hmStepD);if(wDist>radius)continue;const sx2=sxC+dx,sy2=syC+dy;if(sx2<0||sx2>=hmResW||sy2<0||sy2>=hmResD)continue;if(!mapData.editedVerticesPaint.has(sx2+','+sy2))mapData.splatMap[sy2*hmResW+sx2]=texType;}}}
 
@@ -132,10 +154,23 @@ class GenerationReport{constructor(){this.phases=[];this.regionsFound=0;this.via
 
 function _readCfg(rngSeed){return{seed:rngSeed||0,maxH:parseFloat(document.getElementById('rg-maxh').value),ptch:parseFloat(document.getElementById('rg-ptch').value),hills:parseInt(document.getElementById('rg-hills').value),octaves:parseInt(document.getElementById('rg-octaves').value),moist:parseInt(document.getElementById('rg-moist').value)/100,sandLvl:parseFloat(document.getElementById('rg-sandlvl')?.value||55)/100,mudLvl:parseFloat(document.getElementById('rg-mudlvl')?.value||60)/100,ponds:parseInt(document.getElementById('rg-ponds').value),pondMaxR:parseFloat(document.getElementById('rg-pondr').value),pondMaxD:parseFloat(document.getElementById('rg-pondd').value),keepPeaks:parseFloat(document.getElementById('rg-keep').value)/100,flatRadius:parseFloat(document.getElementById('rg-flatrad').value)/100,vDensity:document.getElementById('rg-vdensity').value,roadW:parseFloat(document.getElementById('rg-roadw').value),plazaR:parseFloat(document.getElementById('rg-plazar').value),roadBuf:parseFloat(document.getElementById('rg-roadbuf').value),waterBuf:parseFloat(document.getElementById('rg-waterbuf').value),minBld:parseInt(document.getElementById('rg-minbld').value),safeR:parseFloat(document.getElementById('rg-safe').value),treeDensity:parseInt(document.getElementById('rg-treed').value)/100,treeSpacing:parseFloat(document.getElementById('rg-treesp').value),greenB:parseFloat(document.getElementById('rg-greenb').value),};}
 
-// 密度→绝对数转换（按可建面积自动缩放）
-function _resolveVillageCount(buildableArea,vDensity){const perVillage=vDensity==='dense'?12000:vDensity==='sparse'?50000:25000;return Math.max(1,Math.floor(buildableArea/perVillage));}
-function _resolveTreeCount(buildableArea,treeDensity,treeSpacing){const avgTreeArea=treeSpacing*treeSpacing*4;return Math.floor(buildableArea*treeDensity/avgTreeArea);}
-function _resolvePondCount(baseCount,buildableArea){return Math.max(0,Math.floor(baseCount*buildableArea/50000));}
+// 密度→绝对数转换（sqrt非线性缩放：面积×4→数量×2，避免超大/超小地图极端值）
+const _DENSITY_REF_AREA=100000; // 参考面积（~400m 地图可建面积）
+function _resolveVillageCount(buildableArea,vDensity){
+    const perVillage=vDensity==='dense'?12000:vDensity==='sparse'?50000:25000;
+    const scale=Math.sqrt(buildableArea/_DENSITY_REF_AREA);
+    return Math.max(1,Math.floor(buildableArea/(perVillage*scale)));
+}
+function _resolveTreeCount(buildableArea,treeDensity,treeSpacing){
+    const avgTreeArea=treeSpacing*treeSpacing*4;
+    const raw=Math.floor(buildableArea*treeDensity/avgTreeArea);
+    const scale=Math.sqrt(buildableArea/_DENSITY_REF_AREA);
+    return Math.max(10,Math.floor(raw/scale));
+}
+function _resolvePondCount(baseCount,buildableArea){
+    const scale=Math.sqrt(buildableArea/_DENSITY_REF_AREA);
+    return Math.max(0,Math.floor(baseCount*scale));
+}
 
 // ============================== 异步辅助 ==============================
 
@@ -166,21 +201,39 @@ async function generateTerrainOnly(cfgOverride,onStatus){
 
     const seedE=cfg.seed,seedM=cfg.seed+2718;
     const totalCells=hmResW*hmResD;
-    const chunkSize=50000;
 
-    // FBM（大地图分块）
-    const elevRaw=new Float32Array(totalCells),moistRaw=new Float32Array(totalCells);
-    for(let offset=0;offset<totalCells;offset+=chunkSize){
-        const end=Math.min(offset+chunkSize,totalCells);
-        for(let i=offset;i<end;i++){
+    // FBM — 大地图降采样优化：>400m 半分辨率（保持地形特征）
+    const mapSpan=Math.max(worldWidth,worldDepth);
+    const fbmRatio=mapSpan>400?0.5:1;
+    let elevRaw,moistRaw;
+    if(fbmRatio<1){
+        const fbmW=Math.max(3,Math.ceil(hmResW*fbmRatio)),fbmD=Math.max(3,Math.ceil(hmResD*fbmRatio));
+        // 高程低分辨率
+        const fbmElev=_generateFbmGrid(fbmW,fbmD,worldWidth,worldDepth,seedE,cfg.octaves,cfg.ptch,worldHalfW,worldHalfD);
+        await _yieldToUI();
+        elevRaw=_bilinearUpsample(fbmElev,fbmW,fbmD,hmResW,hmResD);
+        // 湿度用全分辨率避免过度均匀
+        moistRaw=new Float32Array(totalCells);
+        for(let i=0;i<totalCells;i++){
             const sy=Math.floor(i/hmResW),sx=i%hmResW;
             const wx=(sx/(hmResW-1)-0.5)*worldWidth,wz=(sy/(hmResD-1)-0.5)*worldDepth;
-            elevRaw[i]=fbm(wx,wz,seedE,cfg.octaves,cfg.ptch);
             moistRaw[i]=fbm(wx+50,wz+50,seedM,cfg.octaves,cfg.ptch*1.3);
         }
-        if(totalCells>500000)await _yieldToUI();
+    }else{
+        const chunkSize=50000;
+        elevRaw=new Float32Array(totalCells);moistRaw=new Float32Array(totalCells);
+        for(let offset=0;offset<totalCells;offset+=chunkSize){
+            const end=Math.min(offset+chunkSize,totalCells);
+            for(let i=offset;i<end;i++){
+                const sy=Math.floor(i/hmResW),sx=i%hmResW;
+                const wx=(sx/(hmResW-1)-0.5)*worldWidth,wz=(sy/(hmResD-1)-0.5)*worldDepth;
+                elevRaw[i]=fbm(wx,wz,seedE,cfg.octaves,cfg.ptch);
+                moistRaw[i]=fbm(wx+50,wz+50,seedM,cfg.octaves,cfg.ptch*1.3);
+            }
+            if(totalCells>500000)await _yieldToUI();
+        }
     }
-    for(let i=0;i<totalCells;i++){elevRaw[i]=Math.pow(Math.max(0,elevRaw[i]),1.8);moistRaw[i]=Math.max(0,Math.min(1,moistRaw[i]*1.2-0.1+cfg.moist));}
+    for(let i=0;i<totalCells;i++){elevRaw[i]=Math.pow(Math.max(0,elevRaw[i]),1.8);moistRaw[i]=Math.max(0,Math.min(1,moistRaw[i]*1.5-0.5+cfg.moist*0.5));}
     for(let i=0;i<totalCells;i++)mapData.heightmap[i]=(elevRaw[i]-0.45)*cfg.maxH;
 
     // 山丘
@@ -338,41 +391,45 @@ async function generateRoadsAndVillages(cfgOverride,onStatus){
     report.regionsFound=regions.length;
     report.viableRegions=regions.filter(r=>r.boundingRadius>=25).length;
 
-    // --- B4: 村落选址 + 容量预验证 ---
+    // --- B4: 村落选址 + 容量预验证（v0.51 多轮大区域选址）---
     emit(4,totalPhases,'村落选址与容量验证...',0.3,{regions:report.regionsFound,villages:0,buildings:0,trees:0});
     const buildableArea=buildableCount*hmStepW*hmStepD;
     const targetVillages=_resolveVillageCount(buildableArea,cfg.vDensity);
     const villagePlans=[];
-    const allRoadPoints=[...mainSmooth]; // 汇集所有道路点用于建筑朝向
-
-    for(const region of regions){
-        if(villagePlans.length>=targetVillages)break;
-        if(region.boundingRadius<25)continue;
-        // 与已有村落间距
-        let tooClose=false;
-        for(const existing of villagePlans){const d=Math.hypot(region.centroidWx-existing.plazaX,region.centroidWz-existing.plazaZ);if(d<Math.max(80,region.boundingRadius*1.5)){tooClose=true;report.failures.push({phase:'选址',reason:'距离过近',detail:'区域'+region.id+'与已有村落间距<80m'});break;}}
-        if(tooClose)continue;
-
-        // 尝试选址
-        let bestPlan=null;
-        for(let attempt=0;attempt<3&&!bestPlan;attempt++){
-            const plan=_tryPlanVillage(region,mainSmooth,cfg,rng);
-            if(plan&&plan.capacity>=cfg.minBld){bestPlan=plan;}else if(plan){
-                report.failures.push({phase:'容量验证',reason:'容量不足',detail:'区域'+region.id+' 最多'+plan.capacity+'栋(需要≥'+cfg.minBld+')'});
+    const allRoadPoints=[...mainSmooth];
+    // 村落最小间距：按地图尺寸自适应（大图80m，小图按10%边长）
+    const MIN_VILLAGE_SPACING=Math.min(80,Math.max(worldWidth,worldDepth)*0.1);
+    const MAX_ROUNDS=3;
+    // 多轮选址：每轮每个区域尝试放一个村，直到达目标或无可用位置
+    for(let round=0;round<MAX_ROUNDS&&villagePlans.length<targetVillages;round++){
+        let placedThisRound=0;
+        for(const region of regions){
+            if(villagePlans.length>=targetVillages)break;
+            if(region.boundingRadius<25)continue;
+            const existingPlazas=villagePlans.map(p=>({x:p.plazaX,z:p.plazaZ}));
+            let bestPlan=null;
+            for(let attempt=0;attempt<6&&!bestPlan;attempt++){
+                const plan=_tryPlanVillage(region,mainSmooth,cfg,rng,round,existingPlazas);
+                if(!plan)continue;
+                if(plan.capacity<cfg.minBld){report.failures.push({phase:'容量验证',reason:'容量不足',detail:'区域'+region.id+' 最多'+plan.capacity+'栋(需要≥'+cfg.minBld+')'});continue;}
+                let tooClose=false;
+                for(const existing of villagePlans){
+                    if(Math.hypot(plan.plazaX-existing.plazaX,plan.plazaZ-existing.plazaZ)<MIN_VILLAGE_SPACING){tooClose=true;break;}
+                }
+                if(!tooClose){bestPlan=plan;break;}
             }
+            if(bestPlan){villagePlans.push(bestPlan);report.villagesPlaced++;placedThisRound++;allRoadPoints.push(...bestPlan.branchRoadPts);}
         }
-        if(bestPlan){villagePlans.push(bestPlan);report.villagesPlaced++;}
+        if(placedThisRound===0)break;
         await _yieldToUI();
     }
     if(villagePlans.length===0&&regions.length>0){
-        // 最后兜底：在最大区域的质心强制建村
+        // 兜底：在最大区域的质心强制建村
         const r=regions[0];const plan=new VillagePlan();
         plan.plazaX=r.centroidWx;plan.plazaZ=r.centroidWz;plan.plazaRadius=cfg.plazaR;
         plan.regionId=r.id;plan.capacity=cfg.minBld;
-        // 生成最简支路（直连主路最近点）
         const directPts=[{x:plan.plazaX,z:plan.plazaZ},mainSmooth[Math.floor(mainSmooth.length/2)]];
         plan.branchRoadPts=directPts;
-        // 模拟建筑
         const slots=_simulateBuildingSlots(plan.plazaX,plan.plazaZ,plan.plazaRadius,mainSmooth,cfg,rng);
         plan.buildingSlots=slots;plan.capacity=slots.length;
         if(plan.capacity>=cfg.minBld){villagePlans.push(plan);report.villagesPlaced++;report.failures.push({phase:'选址',reason:'兜底模式',detail:'所有正常选址失败，在最大区域强制建村'});}
@@ -552,24 +609,34 @@ function _findBuildableRegions(){
 
 // ============================== 选址与容量验证 ==============================
 
-function _tryPlanVillage(region,mainSmooth,cfg,rng){
+function _tryPlanVillage(region,mainSmooth,cfg,rng,searchOffset=0,existingPlazas=[]){
     const plan=new VillagePlan();plan.regionId=region.id;
     const mainLen=computePathLength(mainSmooth);
 
-    // 搜索最佳广场位置：质心附近采样
+    // 搜索最佳广场位置：质心附近采样，多轮时递进搜索范围并回避已有村落
     let bestPlaza=null,bestScore=-Infinity;
-    const searchR=Math.min(region.boundingRadius*0.5,30);
-    for(let t=0;t<12;t++){
+    const maxSearch=Math.min(region.boundingRadius*0.6,150);
+    const minSearch=Math.min(maxSearch*0.25,30);
+    const searchR=minSearch+(maxSearch-minSearch)*Math.min(1,(searchOffset+1)/3); // offset从0.33开始
+    for(let t=0;t<18;t++){
         const ang=rng()*Math.PI*2;const dist=rng()*searchR;
         const px=region.centroidWx+Math.cos(ang)*dist,pz=region.centroidWz+Math.sin(ang)*dist;
         if(Math.abs(px)>worldHalfW-15||Math.abs(pz)>worldHalfD-15)continue;
         if(isPointInWater(px,pz,cfg.waterBuf))continue;
         const idx=_mgIdx(px,pz);if(idx<0||!(maskGrid[idx]&MG_BUILDABLE))continue;
-        // 评分：平坦度 + 距主路距离适中
+        // 与主干道保持安全距离（广场半径+道路半宽+缓冲）
+        const safeRdDist=cfg.plazaR+cfg.roadW/2+5;
+        let nearRoad=false;
+        for(let i=0;i<mainSmooth.length;i+=3){if(Math.hypot(px-mainSmooth[i].x,pz-mainSmooth[i].z)<safeRdDist){nearRoad=true;break;}}
+        if(nearRoad)continue;
+        // 评分：平坦度为主 + 距主路距离 + 回避已有村落
         const flatScore=1-_roughness(px,pz,8);
+        if(flatScore<0.35)continue; // 硬门槛：太崎岖直接排除
         let minRdDist=Infinity;for(let i=0;i<mainSmooth.length;i+=5){const d=Math.hypot(px-mainSmooth[i].x,pz-mainSmooth[i].z);if(d<minRdDist)minRdDist=d;}
-        const rdScore=Math.min(1,minRdDist/40);
-        const score=flatScore*0.6+rdScore*0.4;
+        const rdScore=Math.min(1,minRdDist/80);
+        let avoidPenalty=0;
+        for(const ep of existingPlazas){const ed=Math.hypot(px-ep.x,pz-ep.z);if(ed<60)avoidPenalty+=1.0-ed/60;}
+        const score=flatScore*0.6+rdScore*0.2-avoidPenalty*0.2;
         if(score>bestScore){bestScore=score;bestPlaza={x:px,z:pz};}
     }
     if(!bestPlaza)return null;

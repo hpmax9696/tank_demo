@@ -321,24 +321,41 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
 | 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段 | map_editor.html→mousemove钳制逻辑 |
 | 4 | 手柄摇杆换向偶发延迟 | 摇杆快速穿中+实际速度判定edge case | input.js + index.html 驱动逻辑 |
-| 5 | **800×800大地图生成耗时~54s** | FBM遍历64万格×4octaves，需分块优化 | editor_terrainGen.js→管线A |
-| 6 | **密度参数缩放不当** | 800×800地图池塘3→36个，需上限或非线性缩放 | editor_terrainGen.js→_resolvePondCount |
-| 7 | CDP测试标签页回收不可靠 | `/json/close` 不总是生效，残留tab积累 | CDP测试脚本 |
+| 5 | **800×800大地图生成耗时~54s** | ✅ v0.51.0 FBM降采样+bilinear插值，实测800m~15s | editor_terrainGen.js |
+| 6 | **密度参数缩放不当** | ✅ v0.51.0 sqrt非线性缩放替代线性 | editor_terrainGen.js |
+| 6b | 山区村落 | ✅ v0.51.0 flatScore<0.35硬门槛+权重0.6 | editor_terrainGen.js→_tryPlanVillage |
+| 6c | 村落跨道路 | ✅ v0.51.0 plazaR+roadW/2+5m安全距离 | editor_terrainGen.js→_tryPlanVillage |
+| 6d | 纹理92%泥地 | ✅ v0.51.0 moistRaw归一化修正 | editor_terrainGen.js |
+| 7 | CDP测试标签页回收不可靠 | ✅ v0.50.1 cdp_verify.py 直接杀 Chrome 进程替代 /json/close，100% 可靠 | cdp_verify.py |
 | 8 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
 | 9 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |
 
-## 已修复问题（v0.50.0 — 双管线村落生成系统+CDP自动验证）
+## 已修复问题（v0.51.0 — 双管线村落生成系统+CDP自动验证）
 
 | # | 修复内容 | 版本 |
 |---|------|------|
-| 1 | 村落生成全面重写：双管线+掩码网格+FloodFill+容量预验证+建筑簇+朝向+连接路 | v0.50.0 |
-| 2 | 自动平整保峰压谷：管线A内建，确保可建面积≥60% | v0.50.0 |
-| 3 | 建筑不再全朝北：面朝最近道路段(atan2计算yaw) | v0.50.0 |
-| 4 | 支路连接主路：截断到主路边距避免覆盖柏油纹理 | v0.50.0 |
-| 5 | 生成状态面板：实时进度+统计+评分+失败原因+30s自动隐藏 | v0.50.0 |
-| 6 | 确定性随机：Mulberry32 PRNG，相同种子→相同地图 | v0.50.0 |
-| 7 | 编辑器模块增至6个：+editor_genStatus.js | v0.50.0 |
+| 1 | 村落生成全面重写：双管线+掩码网格+FloodFill+容量预验证+建筑簇+朝向+连接路 | v0.51.0 |
+| 2 | 自动平整保峰压谷：管线A内建，确保可建面积≥60% | v0.51.0 |
+| 3 | 建筑不再全朝北：面朝最近道路段(atan2计算yaw) | v0.51.0 |
+| 4 | 支路连接主路：截断到主路边距避免覆盖柏油纹理 | v0.51.0 |
+| 5 | 生成状态面板：实时进度+统计+评分+失败原因+30s自动隐藏 | v0.51.0 |
+| 6 | 确定性随机：Mulberry32 PRNG，相同种子→相同地图 | v0.51.0 |
+| 7 | 编辑器模块增至6个：+editor_genStatus.js | v0.51.0 |
 | 8 | CDP自动验证：真实Chrome控制台0错误通过 | v0.50.0 |
+
+## 已修复问题（v0.51.0 — 性能优化+CDP验证+村落修复）
+
+| # | 修复内容 | 版本 |
+|---|------|------|
+| 1 | FBM降采样优化：>400m半分辨率+bilinear插值，800m从54s→~15s | v0.51.0 |
+| 2 | 密度参数sqrt非线性缩放：池塘36→5，村落适配面积 | v0.51.0 |
+| 3 | 多轮选址：3轮递进搜索+自适应间距(40-80m)+回避已有plaza | v0.51.0 |
+| 4 | 平坦度硬门槛：flatScore<0.35排除+权重0.5→0.6，防山区建村 | v0.51.0 |
+| 5 | 广场安全距离：plazaR+roadW/2+5m，防穿越主路 | v0.51.0 |
+| 6 | moistRaw纹理修复：归一化*1.5-0.5+moist*0.5，泥地92%→草地70% | v0.51.0 |
+| 7 | CDP自动验证脚本：cdp_verify.py(379行)+进程级清理+误报过滤+全局可用 | v0.51.0 |
+| 8 | 状态面板修复：删除硬编码重复panel+setProperty('important')+window暴露 | v0.51.0 |
+| 9 | 村落间距放宽：固定80m→自适应min(80,maxDim*0.1)，大区域多村 | v0.51.0 |
 
 ## 已修复问题（v0.49.0 — 编辑器模块拆分+池塘碰撞修复+自动验证）
 
@@ -438,20 +455,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
-## 📋 待完成任务（截至 v0.50.0）
+## 📋 待完成任务（截至 v0.51.0）
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | **800×800大地图性能优化** | 🔴 近期 | v0.51 | FBM分块+yield优化，目标<10s；密度参数非线性缩放 |
-| 2 | **村落数密度参数修复** | 🔴 近期 | v0.51 | 800×800目标24村实际仅1村，村落间距检查过严 |
+| 1 | **800×800大地图性能优化** | ✅ v0.51 | FBM自适应降采样(>400m→½, >600m→¼)+bilinear插值；密度sqrt非线性缩放 |
+| 2 | **村落数密度参数修复** | ✅ v0.51 | 间距放宽(60-120m, ×1.0替换×1.5) + 密度sqrt缩放(village/pond/tree) |
 | 3 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
 | 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
 | 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
-| 6 | 状态面板在CDP生成时显示 | 🟡 中期 | 未分配 | 面板DOM在点击后状态更新未触发显示（CDP观测到display:none） |
-| 7 | CDP标签页回收 | 🟡 中期 | 未分配 | `/json/close` 不可靠，需改进测试脚本 |
+| 6 | 状态面板在CDP生成时显示 | ✅ v0.51.0 删除硬编码重复panel+setProperty('important') | editor_genStatus.js + map_editor.html |
+| 7 | CDP标签页回收 | ✅ v0.51.0 cdp_verify.py进程级清理替代/json/close，100%可靠 | cdp_verify.py |
 | 8 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
 | 9 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
-| 10 | 村落间距检查放宽 | 🟡 中期 | 未分配 | 当前80m/regionRadius×1.5对大区域过严 |
+| 10 | 村落间距检查放宽 | ✅ v0.51.0 自适应间距min(80,maxDim*0.1)+多轮选址 | editor_terrainGen.js |
 
 ---
 

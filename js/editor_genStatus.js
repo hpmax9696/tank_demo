@@ -56,19 +56,21 @@ function createGenStatusPanel(parentEl) {
     function startHideTimer(seconds) {
         cancelHide();
         if (summaryMode) {
-            hideTimer = setTimeout(() => { panel.style.display = 'none'; }, seconds * 1000);
+            hideTimer = setTimeout(() => { panel.style.setProperty('display', 'none', 'important'); }, seconds * 1000);
         }
     }
 
     panel.addEventListener('mouseenter', cancelHide);
     panel.addEventListener('mouseleave', () => startHideTimer(30));
-    panel.addEventListener('click', () => { panel.style.display = 'none'; cancelHide(); });
+    panel.addEventListener('click', () => { panel.style.setProperty('display', 'none', 'important'); cancelHide(); });
 
     // --- 公开 API ---
-    return {
+    const api = {
+        /** 获取面板 DOM */
+        get el() { return panel; },
         /** 显示面板并初始化 */
         show(totalPhases) {
-            panel.style.display = 'block';
+            panel.style.setProperty('display', 'block', 'important');
             summaryMode = false;
             cancelHide();
             phaseCount.textContent = `阶段 0/${totalPhases}`;
@@ -88,7 +90,7 @@ function createGenStatusPanel(parentEl) {
 
         /** 每阶段更新 */
         update(status) {
-            if (panel.style.display === 'none') panel.style.display = 'block';
+            if (panel.style.display === 'none') panel.style.setProperty('display', 'block', 'important');
             const { phase, totalPhases, label, progress, stats, details } = status;
             phaseCount.textContent = `阶段 ${phase}/${totalPhases}`;
             phaseLabel.textContent = label || '';
@@ -115,7 +117,7 @@ function createGenStatusPanel(parentEl) {
         showSummary(report) {
             summaryMode = true;
             cancelHide();
-            panel.style.display = 'block';
+            panel.style.setProperty('display', 'block', 'important');
 
             // 切换为摘要模式
             phaseLabel.textContent = '✅ 生成完成';
@@ -166,11 +168,14 @@ function createGenStatusPanel(parentEl) {
 
         /** 隐藏面板 */
         hide() {
-            panel.style.display = 'none';
+            panel.style.setProperty('display', 'none', 'important');
             cancelHide();
         },
 
         /** 获取面板 DOM（调试用） */
         get el() { return panel; }
     };
+    // 暴露到 window 供 CDP 调试
+    window.__genStatusPanel = api;
+    return api;
 }

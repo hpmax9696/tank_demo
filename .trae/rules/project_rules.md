@@ -34,7 +34,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html` | ~5365 | 主游戏引擎 |
 | `maploader.js` | ~190 | 地图加载模块（蓝图转换+动态加载） |
 | `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
-| `map_editor.html` | ~1800 | 地图编辑器（v0.50.0 拆分为6模块：terrainGen/genStatus/entities/waterBridge/data/terrainPaint） |
+| `map_editor.html` | ~1800 | 地图编辑器（v0.51.0 拆分为6模块：terrainGen/genStatus/entities/waterBridge/data/terrainPaint） |
 | `js/editor_terrainGen.js` | ~750 | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇） |
 | `js/editor_genStatus.js` | ~120 | 生成状态面板（实时进度+统计+质量评分+自动隐藏） |
 | `js/editor_entities.js` | ~638 | 实体管理（标记+CRUD+配置面板+列表） |
@@ -207,7 +207,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.50.0 — 双管线村落生成系统+CDP自动验证）
+## 当前版本（v0.51.0 — 双管线村落生成系统+CDP自动验证）
 
 ### 关键参数
 | 参数 | 值 |

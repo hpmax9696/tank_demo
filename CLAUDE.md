@@ -29,7 +29,7 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── map_editor.html    # 地图编辑器 (~1800行)：v0.50.0 双管线村落生成
+├── map_editor.html    # 地图编辑器 (~1800行)：v0.51.0 双管线村落生成
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
 │   ├── editor_genStatus.js   # 生成状态面板 (~120行)：实时进度+统计+质量评分+自动隐藏
@@ -49,7 +49,7 @@ python -m http.server 8080 --bind 127.0.0.1
 
 `scene`, `players[]`, `bullets[]`, `explosions[]`, `obstacles[]`, `currentMapData`
 
-## 生成管线（v0.50.0 新增）
+## 生成管线（v0.51.0 新增）
 
 三个按钮驱动两条独立管线：
 
