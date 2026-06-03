@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.52.0</title>
+    <title>坦克运动demo v0.53.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -504,7 +504,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.52.0</div>
+        <div class="menu-version">v0.53.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -519,6 +519,7 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🦗 v0.53.0 六足分层动画 — AnimationSystem分层(身体层+武器层并发)+模型工厂动画按模型隔离+六足战车配置固化+坐标轴X↔Z交换+线框/高亮修复+Idle IK待办
             <div class="cl-title">🦗 v0.52.0 六足战车精英敌人 — 程序化模型+昆虫腿外伸姿态+三角步态9动画+加特林/导弹巢俯仰武器+转向延迟/提速/过热平衡+模型工厂彩色线框+XYZ轴标签+Group旋转+批量旋转+截图CDP工具链</div>
             <div class="cl-title">⚡ v0.51.0 性能优化+CDP验证 — FBM降采样(800m 54s→15s)+sqrt密度缩放+多轮选址+广场安全距离+纹理修复+cdp_verify.py全自动验证+面板修复</div>
             <div class="cl-title">🧩 v0.50.0 双管线村落生成 — 三按钮+掩码网格+FloodFill+容量预验证+建筑簇+朝向支路+连接路+自动平整+Mulberry32确定随机+CDP自动验证</div>
@@ -3567,6 +3568,10 @@
                             const hmap = { idle:'Idle', move_forward:'MoveForward', move_backward:'MoveBackward', turn_left:'TurnLeft', turn_right:'TurnRight', strafe_left:'StrafeLeft', strafe_right:'StrafeRight', attack:'Attack', death:'Death' };
                             const hmapped = hmap[hai.animRequest] || 'Idle';
                             if (hasys.current !== hmapped || !hasys.playing) hasys.play(hmapped, hmapped !== 'Death');
+                            // 武器层：攻击时切换到 Attack_Weapon，否则 WeaponIdle
+                            const hwep = hasys.layer(1);
+                            const hwepTarget = (hai.animRequest === 'attack') ? 'Attack_Weapon' : 'WeaponIdle';
+                            if (hwep.current !== hwepTarget || !hwep.playing) hwep.play(hwepTarget, true);
                         }
                         if (hai.gatlingRequest && player1 && !player1.dead) { hai.gatlingRequest = false; spawnHexapodGatlingBullet(enemy, player1, hai); }
                     }
@@ -5103,7 +5108,7 @@
             }
 
             el.textContent =
-                'v0.52.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.53.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5439,7 +5444,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.52.0 | 编辑器模块拆分+池塘碰撞修复+自动验证');
+        console.log('⚡ 坦克运动demo v0.53.0 | 编辑器模块拆分+池塘碰撞修复+自动验证');
 
         // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
         window._godMode = false;

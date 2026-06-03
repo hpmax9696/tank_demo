@@ -643,105 +643,139 @@
 }
 
 
-    // 2.5 AnimationSystem — 手动插值动画引擎（v0.28.0 支持分帧LOD）
-    class AnimationSystem {
-  constructor(root) {
-    this.root = root;
-    this.anims = {};
-    this.current = null;     // 当前动画名
-    this.currentTime = 0;    // 归一化时间 0~1
-    this.playing = false;
-    this.loop = true;
-    this.clampWhenFinished = false;
-    // LOD 分帧：skipInterval=0 每帧更新，值越大跳帧越多
-    this.skipInterval = 0;   // 秒（0=每帧，0.064=15fps，999=冻结）
-    this.skipAccum = 0;
-  }
-
-  // 注册动画定义
-  define(name, duration, trackDefs) {
-    // trackDefs = [{ target:obj, prop:'rotation', axis:'x', keys:[{t,v}] }, ...]
-    this.anims[name] = { duration, trackDefs };
-  }
-
-  // 查找 pivot (用于旋转) / outer (用于位移)
-  findPivot(nodeName) {
-    const g = this.root.getObjectByName(nodeName);
-    return g ? (g.userData.pivot || g) : null;
-  }
-  find(nodeName) {
-    return this.root.getObjectByName(nodeName);
-  }
-
-  play(name, loop = true) {
-    this.current = name;
-    this.currentTime = 0;
-    this.playing = true;
-    this.loop = loop;
-    this.clampWhenFinished = !loop;
-  }
-
-  stop() {
-    this.playing = false;
-    this.current = null;
-    this.currentTime = 0;
-  }
-
-  update(dt) {
-    if (!this.playing || !this.current) return;
-    // LOD 分帧：累积时间，不够间隔则跳过
-    this.skipAccum += dt;
-    if (this.skipInterval > 0) {
-      if (this.skipAccum < this.skipInterval) return;
-      dt = this.skipAccum;  // 一次性消耗累积的时间
-      this.skipAccum = 0;
-    }
-    const anim = this.anims[this.current];
-    if (!anim) return;
-
-    this.currentTime += dt / anim.duration;
-
-    if (this.loop) {
-      // 循环
-      this.currentTime = this.currentTime % 1.0;
-    } else if (this.currentTime >= 1.0) {
-      this.currentTime = 1.0;
-      if (this.clampWhenFinished) {
-        this.playing = false; // 播完停止（停留在最后一帧）
+    // 2.5 AnimationSystem — 手动插值动画引擎（v0.52.0 分层支持）
+    // 动画层：独立状态，同层内同时只能播一个动画
+    class AnimationLayer {
+      constructor() {
+        this.current = null;
+        this.currentTime = 0;
+        this.playing = false;
+        this.loop = true;
+        this.clampWhenFinished = false;
+      }
+      play(name, loop = true) {
+        this.current = name;
+        this.currentTime = 0;
+        this.playing = true;
+        this.loop = loop;
+        this.clampWhenFinished = !loop;
+      }
+      stop() {
+        this.playing = false;
+        this.current = null;
+        this.currentTime = 0;
       }
     }
 
-    const t = this.currentTime;
-    for (const td of anim.trackDefs) {
-      const { target, prop, axis, keys } = td;
-      if (!target) continue;
+    class AnimationSystem {
+      constructor(root) {
+        this.root = root;
+        this.anims = {};
+        // layers[0] = body/腿 , layers[1] = weapons/武器（并发播放，互不干扰）
+        this.layers = [new AnimationLayer()];
+        // LOD 分帧
+        this.skipInterval = 0;
+        this.skipAccum = 0;
+      }
 
-      // 线性插值查 key
-      let val;
-      if (t <= keys[0].t) {
-        val = keys[0].v;
-      } else if (t >= keys[keys.length - 1].t) {
-        val = keys[keys.length - 1].v;
-      } else {
-        for (let i = 1; i < keys.length; i++) {
-          if (t <= keys[i].t) {
-            const k0 = keys[i - 1], k1 = keys[i];
-            const frac = (t - k0.t) / (k1.t - k0.t);
-            val = k0.v + (k1.v - k0.v) * frac;
-            break;
+      // 获取或创建第 n 层（0=主体, 1=武器, ...）
+      layer(n) {
+        while (this.layers.length <= n) {
+          this.layers.push(new AnimationLayer());
+        }
+        return this.layers[n];
+      }
+
+      // 注册动画定义（所有层共享）
+      define(name, duration, trackDefs) {
+        this.anims[name] = { duration, trackDefs };
+      }
+
+      findPivot(nodeName) {
+        const g = this.root.getObjectByName(nodeName);
+        return g ? (g.userData.pivot || g) : null;
+      }
+      find(nodeName) {
+        return this.root.getObjectByName(nodeName);
+      }
+
+      // ── 向后兼容：play/stop 操作 layer 0 ──
+      play(name, loop = true) {
+        this.layers[0].play(name, loop);
+      }
+      stop() {
+        this.layers[0].stop();
+      }
+      get current() { return this.layers[0].current; }
+      get currentTime() { return this.layers[0].currentTime; }
+      get playing() { return this.layers[0].playing; }
+      get loop() { return this.layers[0].loop; }
+      get clampWhenFinished() { return this.layers[0].clampWhenFinished; }
+      set current(v) { this.layers[0].current = v; }
+      set currentTime(v) { this.layers[0].currentTime = v; }
+      set playing(v) { this.layers[0].playing = v; }
+      set loop(v) { this.layers[0].loop = v; }
+      set clampWhenFinished(v) { this.layers[0].clampWhenFinished = v; }
+
+      update(dt) {
+        // LOD 分帧
+        this.skipAccum += dt;
+        var effectiveDt = dt;
+        if (this.skipInterval > 0) {
+          if (this.skipAccum < this.skipInterval) return;
+          effectiveDt = this.skipAccum;
+          this.skipAccum = 0;
+        }
+        // 更新所有层
+        for (var li = 0; li < this.layers.length; li++) {
+          this._updateLayer(this.layers[li], effectiveDt);
+        }
+      }
+
+      _updateLayer(L, dt) {
+        if (!L.playing || !L.current) return;
+        var anim = this.anims[L.current];
+        if (!anim) return;
+
+        L.currentTime += dt / anim.duration;
+
+        if (L.loop) {
+          L.currentTime = L.currentTime % 1.0;
+        } else if (L.currentTime >= 1.0) {
+          L.currentTime = 1.0;
+          if (L.clampWhenFinished) {
+            L.playing = false;
+          }
+        }
+
+        var t = L.currentTime;
+        var trackDefs = anim.trackDefs;
+        for (var ti = 0; ti < trackDefs.length; ti++) {
+          var td = trackDefs[ti];
+          var target = td.target, prop = td.prop, axis = td.axis, keys = td.keys;
+          if (!target) continue;
+          var val;
+          if (t <= keys[0].t) {
+            val = keys[0].v;
+          } else if (t >= keys[keys.length - 1].t) {
+            val = keys[keys.length - 1].v;
+          } else {
+            for (var ki = 1; ki < keys.length; ki++) {
+              if (t <= keys[ki].t) {
+                var k0 = keys[ki - 1], k1 = keys[ki];
+                var frac = (t - k0.t) / (k1.t - k0.t);
+                val = k0.v + (k1.v - k0.v) * frac;
+                break;
+              }
+            }
+          }
+          if (val !== undefined) {
+            if (axis) target[prop][axis] = val;
+            else target[prop] = val;
           }
         }
       }
-      if (val !== undefined) {
-        if (axis) {
-          target[prop][axis] = val;
-        } else {
-          target[prop] = val;
-        }
-      }
     }
-  }
-}
 
 
     // 2.6 createAnimationSystem() — 注册6种动画（Idle/Hit/Attack/Walk/Run/Die）
@@ -1048,10 +1082,24 @@
             { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] },
         ]; })));
 
+        // Layer 0 (body) — 攻击时车身微后座，可与武器层并发
         asys.define('Attack', 0.8, [
+            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.05,v:0.02},{t:0.1,v:0},{t:0.2,v:0.02},{t:0.25,v:0},{t:0.4,v:0.02},{t:0.45,v:0},{t:0.6,v:0.02},{t:0.65,v:0},{t:1,v:0}] },
+        ]);
+
+        // Layer 1 (weapon) — 武器空闲（默认姿态）
+        asys.define('WeaponIdle', 0.5, [
+            { target: P.左加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:1,v:-0.05}] },
+            { target: P.右加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:1,v:-0.05}] },
+            { target: P.左导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:1,v:0}] },
+            { target: P.右导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:1,v:0}] },
+        ]);
+        // Layer 1 (weapon) — 攻击：加特林俯仰震动+导弹巢后座
+        asys.define('Attack_Weapon', 0.8, [
             { target: P.左加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
             { target: P.右加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
-            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.05,v:0.02},{t:0.1,v:0},{t:0.2,v:0.02},{t:0.25,v:0},{t:0.4,v:0.02},{t:0.45,v:0},{t:0.6,v:0.02},{t:0.65,v:0},{t:1,v:0}] },
+            { target: P.左导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.1,v:0.08},{t:0.2,v:0},{t:0.4,v:0.08},{t:0.5,v:0},{t:0.7,v:0.08},{t:0.8,v:0},{t:1,v:0}] },
+            { target: P.右导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.1,v:0.08},{t:0.2,v:0},{t:0.4,v:0.08},{t:0.5,v:0},{t:0.7,v:0.08},{t:0.8,v:0},{t:1,v:0}] },
         ]);
 
         asys.define('Death', 2.0, [
@@ -1066,6 +1114,8 @@
                 { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.3,v:0.3},{t:0.6,v:0.6},{t:1,v:0.9}] },
             ];
         })));
+        // 武器层默认播放 Idle
+        asys.layer(1).play('WeaponIdle', true);
         return asys;
     }
 

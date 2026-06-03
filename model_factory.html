@@ -15,6 +15,7 @@
   #toggle-anim { background:rgba(0,0,0,0.6); color:#4ecdc4; border:1px solid #4ecdc4; padding:8px 20px; border-radius:5px; cursor:pointer; font-size:14px; transition:all 0.2s; }
   #toggle-anim:hover { background:rgba(78,205,196,0.2); }
   #toggle-anim.active { background:rgba(78,205,196,0.3); color:#fff; animation:pulse 1.5s infinite; }
+  #toggle-anim:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
   @keyframes pulse { 0%,100% { box-shadow:0 0 5px #4ecdc4; } 50% { box-shadow:0 0 20px #4ecdc4; } }
   /* lil-gui 覆盖样式 — 深色主题高对比度 */
   .lil-gui {
@@ -755,14 +756,15 @@ ground.rotation.x = -Math.PI/2;
 ground.position.y = 0;
 ground.receiveShadow = true;
 scene.add(ground);
-// XYZ坐标轴 + 文字标签（红X/绿Y/蓝Z）
+// XYZ坐标轴 + 文字标签（红Z/绿Y/蓝X — X↔Z交换适配六足战车朝向）
 (function addLabeledAxes() {
   const len = 3.0, o = new THREE.Vector3(0, 0.01, 0);
-  const matXp = new THREE.LineBasicMaterial({color:0xff0000});
-  const matXn = new THREE.LineBasicMaterial({color:0x880000});
+  // 红=Z轴(+X世界方向), 蓝=X轴(+Z世界方向)
+  const matZp = new THREE.LineBasicMaterial({color:0xff0000});
+  const matZn = new THREE.LineBasicMaterial({color:0x880000});
   const matY = new THREE.LineBasicMaterial({color:0x00ff00});
-  const matZp = new THREE.LineBasicMaterial({color:0x0000ff});
-  const matZn = new THREE.LineBasicMaterial({color:0x000088});
+  const matXp = new THREE.LineBasicMaterial({color:0x0000ff});
+  const matXn = new THREE.LineBasicMaterial({color:0x000088});
   scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(len,0.01,0)]), matXp));
   scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(-len,0.01,0)]), matXn));
   scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(0,len,0)]), matY));
@@ -775,11 +777,11 @@ scene.add(ground);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv), depthTest:false}));
     sp.position.copy(pos); sp.scale.set(1.2,0.6,1); scene.add(sp);
   }
-  label('+X', new THREE.Vector3(len+0.5,0.05,0), '#ff4444');
-  label('-X', new THREE.Vector3(-len-0.5,0.05,0), '#884444');
+  label('+Z', new THREE.Vector3(len+0.5,0.05,0), '#ff4444');
+  label('-Z', new THREE.Vector3(-len-0.5,0.05,0), '#884444');
   label('+Y', new THREE.Vector3(0,len+0.3,0), '#44ff44');
-  label('+Z', new THREE.Vector3(0,0.05,len+0.5), '#4444ff');
-  label('-Z', new THREE.Vector3(0,0.05,-len-0.5), '#444488');
+  label('+X', new THREE.Vector3(0,0.05,len+0.5), '#4444ff');
+  label('-X', new THREE.Vector3(0,0.05,-len-0.5), '#444488');
 })();
 
 // ============================================================
@@ -916,26 +918,65 @@ let batchInfoObj = null;    // 批量编辑计数对象引用
 // --- 自动快照（参数变化前保存）---
 let autoSnapshot = true;
 
-// --- 动画展台 ---
+// --- 动画展台（按模型类型分发）---
 let animShowcase = false;
 let animPhase = 0;
 let animStartTime = 0;
 let animStatusEl = null;
-const ANIM_DURATIONS = [4000, 3000, 4000, 4000, 4000];
-const ANIM_NAMES = [
+let animRefs = {};
+let trackOffsetL = 0, trackOffsetR = 0;
+
+// ── 获取当前模型的动画定义 ──
+function getModelAnims() {
+  const map = {
+    'tank_v16': { names: _tankAnimNames, durations: _tankAnimDurations,
+      collectRefs: _tankCollectRefs, updateFrame: _tankUpdateFrame,
+      resetState: _tankResetState, destroyPivots: _tankDestroyPivots,
+      restorePlates: _tankRestorePlates },
+
+    'building': null,
+    'enemy': null,
+  };
+  return map[currentModelType] || null;
+}
+
+// ── 更新按钮状态 ──
+function updateAnimButton() {
+  const btn = document.getElementById('toggle-anim');
+  if (!btn) return;
+  const hasAnims = getModelAnims() !== null;
+  btn.disabled = !hasAnims;
+  if (!hasAnims) {
+    if (animShowcase) {
+      animShowcase = false;
+      btn.classList.remove('active');
+      btn.textContent = '\u{1f3ac} 动画展台';
+      animPhase = 0;
+      _doResetState();
+      trackOffsetL = 0; trackOffsetR = 0;
+      _doDestroyPivots();
+      const st = document.getElementById('anim-status');
+      if (st) st.style.display = 'none';
+    }
+    btn.title = '当前模型暂无动画';
+  } else {
+    btn.title = '';
+  }
+}
+
+// ── 坦克动画 ──
+const _tankAnimNames = [
   '1/5 炮塔旋转 360°',
   '2/5 炮管俯仰',
   '3/5 高射机枪 旋转+俯仰',
   '4/5 前进（履带+轮子）',
   '5/5 后退（履带+轮子）'
 ];
-let animRefs = {};
-let trackOffsetL = 0, trackOffsetR = 0;
+const _tankAnimDurations = [4000, 3000, 4000, 4000, 4000];
 
-function collectAnimRefs() {
+function _tankCollectRefs() {
   animRefs = {};
 
-  // --- 炮塔Pivot：放在炮塔座圈圆心 ---
   const turretInfo = nodeMap.get('炮塔总成');
   const ringInfo = nodeMap.get('炮塔座圈');
   if (turretInfo && ringInfo) {
@@ -960,7 +1001,6 @@ function collectAnimRefs() {
     animRefs.turretPivot = pivot;
   }
 
-  // --- 炮管Pivot：放在炮盾圆心 ---
   const barrelInfo = nodeMap.get('炮管总成');
   const mantletInfo = nodeMap.get('炮盾');
   if (barrelInfo && mantletInfo) {
@@ -985,7 +1025,6 @@ function collectAnimRefs() {
     animRefs.barrelPivot = pivot;
   }
 
-  // --- 高射机枪Pivot：放在支柱顶面圆心，只包裹上部可动件 ---
   const mgInfo = nodeMap.get('高射机枪');
   if (mgInfo) {
     const pillarInfo = nodeMap.get('MG枪座支柱');
@@ -1016,7 +1055,6 @@ function collectAnimRefs() {
     }
   }
 
-  // --- 轮子：直接用 mesh.rotateX（绕车轮自身高度轴旋转） ---
   animRefs.leftWheelPairs = [];
   animRefs.rightWheelPairs = [];
   for (let i = 1; i <= 5; i++) {
@@ -1045,7 +1083,6 @@ function collectAnimRefs() {
     if (w._initRotZ == null) w._initRotZ = w.mesh.rotation.z;
   }
 
-  // --- 履带 ---
   const leftTrackInfo = nodeMap.get('左履带链');
   const rightTrackInfo = nodeMap.get('右履带链');
   if (leftTrackInfo && leftTrackInfo.configNode && leftTrackInfo.configNode.trackParams) {
@@ -1068,44 +1105,13 @@ function collectAnimRefs() {
   }
 }
 
-function computeTrackTotalLen(tp) {
-  const cyF = tp.wheelCenterYFront, cyR = tp.wheelCenterYRear;
-  const rF = tp.wheelRadiusFront, rR = tp.wheelRadiusRear;
-  const zF = tp.wheelCenterZFront, zR = tp.wheelCenterZRear;
-  const zR1 = 1.4, zR5 = -2.55, wheelR = 0.40;
-  const pA = { z: zR - rR * Math.cos(Math.PI/2), y: cyR + rR * Math.sin(Math.PI/2) };
-  const pB = { z: zF - rF * Math.cos(Math.PI/2), y: cyF + rF * Math.sin(Math.PI/2) };
-  const angleC = -120 * Math.PI / 180;
-  const pC = { z: zF - rF * Math.cos(angleC), y: cyF + rF * Math.sin(angleC) };
-  const angleD = -105 * Math.PI / 180;
-  const pD = { z: zR1 - wheelR * Math.cos(angleD), y: 0.40 + wheelR * Math.sin(angleD) };
-  const angleE = -75 * Math.PI / 180;
-  const pE = { z: zR5 - wheelR * Math.cos(angleE), y: 0.40 + wheelR * Math.sin(angleE) };
-  const angleF = -75 * Math.PI / 180;
-  const pF = { z: zR - rR * Math.cos(angleF), y: cyR + rR * Math.sin(angleF) };
-  const lenAB = Math.sqrt((pB.z-pA.z)**2 + (pB.y-pA.y)**2);
-  const lenBC = (angleC + 2*Math.PI - Math.PI/2) * rF;
-  const lenCD = Math.sqrt((pD.z-pC.z)**2 + (pD.y-pC.y)**2);
-  const lenDE = Math.abs(pE.z - pD.z);
-  const lenEF = Math.sqrt((pF.z-pE.z)**2 + (pF.y-pE.y)**2);
-  const lenFA = (Math.PI/2 - angleF) * rR;
-  return lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
-}
-
-function updateAnimShowcase(dt) {
-  if (!animShowcase || animPhase === 0) return;
-  const elapsed = performance.now() - animStartTime;
-  const duration = ANIM_DURATIONS[animPhase - 1];
-  const t = Math.min(elapsed / duration, 1);
-
+function _tankUpdateFrame(dt, t, elapsed, duration) {
   switch (animPhase) {
-    case 1: { // 炮塔旋转 360° — 绕座圈圆心
-      if (animRefs.turretPivot) {
-        animRefs.turretPivot.rotation.y = t * Math.PI * 2;
-      }
+    case 1: {
+      if (animRefs.turretPivot) animRefs.turretPivot.rotation.y = t * Math.PI * 2;
       break;
     }
-    case 2: { // 炮管俯仰 (+25°上仰 ~ -10°下垂) — 绕炮盾圆心, +X旋转=下垂
+    case 2: {
       if (animRefs.barrelPivot) {
         const maxUp = 25 * Math.PI / 180;
         const maxDown = -10 * Math.PI / 180;
@@ -1114,54 +1120,33 @@ function updateAnimShowcase(dt) {
       }
       break;
     }
-    case 3: { // 高射机枪旋转+俯仰 — 绕支柱顶面圆心
+    case 3: {
       if (animRefs.mgPivot) {
         animRefs.mgPivot.rotation.y = t * Math.PI * 3;
         animRefs.mgPivot.rotation.x = Math.sin(t * Math.PI * 3) * 0.35;
       }
       break;
     }
-    case 4: { // 前进
+    case 4: {
       const wheelSpeed = dt * 8;
-      for (const w of animRefs.leftWheelPairs || []) {
-        if (w.mesh) w.mesh.rotateY(-wheelSpeed);
-      }
-      for (const w of animRefs.rightWheelPairs || []) {
-        if (w.mesh) w.mesh.rotateY(-wheelSpeed);
-      }
-      trackOffsetL += dt * 2.0;
-      trackOffsetR += dt * 2.0;
+      for (const w of animRefs.leftWheelPairs || []) { if (w.mesh) w.mesh.rotateY(-wheelSpeed); }
+      for (const w of animRefs.rightWheelPairs || []) { if (w.mesh) w.mesh.rotateY(-wheelSpeed); }
+      trackOffsetL += dt * 2.0; trackOffsetR += dt * 2.0;
       updateTrackPlates(animRefs, trackOffsetL, trackOffsetR);
       break;
     }
-    case 5: { // 后退
+    case 5: {
       const wheelSpeed = dt * 8;
-      for (const w of animRefs.leftWheelPairs || []) {
-        if (w.mesh) w.mesh.rotateY(wheelSpeed);
-      }
-      for (const w of animRefs.rightWheelPairs || []) {
-        if (w.mesh) w.mesh.rotateY(wheelSpeed);
-      }
-      trackOffsetL -= dt * 2.0;
-      trackOffsetR -= dt * 2.0;
+      for (const w of animRefs.leftWheelPairs || []) { if (w.mesh) w.mesh.rotateY(wheelSpeed); }
+      for (const w of animRefs.rightWheelPairs || []) { if (w.mesh) w.mesh.rotateY(wheelSpeed); }
+      trackOffsetL -= dt * 2.0; trackOffsetR -= dt * 2.0;
       updateTrackPlates(animRefs, trackOffsetL, trackOffsetR);
       break;
-    }
-  }
-
-  if (t >= 1) {
-    animPhase++;
-    if (animPhase > 5) animPhase = 1;
-    animStartTime = performance.now();
-    trackOffsetL = 0; trackOffsetR = 0;
-    resetAnimState();
-    if (animStatusEl) {
-      animStatusEl.textContent = ANIM_NAMES[animPhase - 1];
     }
   }
 }
 
-function resetAnimState() {
+function _tankResetState() {
   if (animRefs.turretPivot) animRefs.turretPivot.rotation.y = 0;
   if (animRefs.barrelPivot) animRefs.barrelPivot.rotation.x = 0;
   if (animRefs.mgPivot) { animRefs.mgPivot.rotation.y = 0; animRefs.mgPivot.rotation.x = 0; }
@@ -1173,79 +1158,7 @@ function resetAnimState() {
   }
 }
 
-function updateTrackPlates(refs, offsetL, offsetR) {
-  if (refs.leftTrackPlates && refs.leftTrackParams) {
-    const tp = refs.leftTrackParams;
-    const spacing = refs.leftTrackSpacing;
-    const totalLen = refs.leftTrackTotalLen;
-    for (let i = 0; i < refs.leftTrackPlates.length; i++) {
-      const dist = ((i * spacing + offsetL) % totalLen + totalLen) % totalLen;
-      const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
-      refs.leftTrackPlates[i].position.set(pp.x, pp.y, pp.z);
-      refs.leftTrackPlates[i].rotation.set(rot.x, rot.y, rot.z);
-    }
-  }
-  if (refs.rightTrackPlates && refs.rightTrackParams) {
-    const tp = refs.rightTrackParams;
-    const spacing = refs.rightTrackSpacing;
-    const totalLen = refs.rightTrackTotalLen;
-    for (let i = 0; i < refs.rightTrackPlates.length; i++) {
-      const dist = ((i * spacing + offsetR) % totalLen + totalLen) % totalLen;
-      const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
-      refs.rightTrackPlates[i].position.set(pp.x, pp.y, pp.z);
-      refs.rightTrackPlates[i].rotation.set(rot.x, rot.y, rot.z);
-    }
-  }
-}
-
-function toggleAnimShowcase() {
-  animShowcase = !animShowcase;
-  const btn = document.getElementById('toggle-anim');
-  const statusEl = document.getElementById('anim-status');
-  animStatusEl = statusEl;
-
-  if (animShowcase) {
-    btn.classList.add('active');
-    btn.textContent = '⏹ 停止展台';
-    collectAnimRefs();
-    animPhase = 1;
-    animStartTime = performance.now();
-    trackOffsetL = 0; trackOffsetR = 0;
-    resetAnimState();
-    statusEl.style.display = 'block';
-    statusEl.textContent = ANIM_NAMES[0];
-  } else {
-    btn.classList.remove('active');
-    btn.textContent = '🎬 动画展台';
-    animPhase = 0;
-    resetAnimState();
-    trackOffsetL = 0; trackOffsetR = 0;
-    destroyAnimPivots();
-    if (animRefs.leftTrackPlates && animRefs.leftTrackParams) {
-      const tp = animRefs.leftTrackParams;
-      const spacing = animRefs.leftTrackSpacing;
-      for (let i = 0; i < animRefs.leftTrackPlates.length; i++) {
-        const dist = i * spacing;
-        const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
-        animRefs.leftTrackPlates[i].position.set(pp.x, pp.y, pp.z);
-        animRefs.leftTrackPlates[i].rotation.set(rot.x, rot.y, rot.z);
-      }
-    }
-    if (animRefs.rightTrackPlates && animRefs.rightTrackParams) {
-      const tp = animRefs.rightTrackParams;
-      const spacing = animRefs.rightTrackSpacing;
-      for (let i = 0; i < animRefs.rightTrackPlates.length; i++) {
-        const dist = i * spacing;
-        const { pos: pp, rot } = getTrackPlateTransform(dist, tp);
-        animRefs.rightTrackPlates[i].position.set(pp.x, pp.y, pp.z);
-        animRefs.rightTrackPlates[i].rotation.set(rot.x, rot.y, rot.z);
-      }
-    }
-    statusEl.style.display = 'none';
-  }
-}
-
-function destroyAnimPivots() {
+function _tankDestroyPivots() {
   function restoreChildren(pivot, parent) {
     if (!pivot || !pivot.parent) return;
     while (pivot.children.length > 0) {
@@ -1259,41 +1172,130 @@ function destroyAnimPivots() {
     }
     pivot.parent.remove(pivot);
   }
-
   const turretInfo = nodeMap.get('炮塔总成');
   if (turretInfo && turretInfo.group.userData.animTurretPivot) {
-    const pivot = turretInfo.group.userData.animTurretPivot;
-    restoreChildren(pivot, pivot.parent);
+    restoreChildren(turretInfo.group.userData.animTurretPivot, turretInfo.group.userData.animTurretPivot.parent);
     turretInfo.group.userData.animTurretPivot = null;
   }
-
   const barrelInfo = nodeMap.get('炮管总成');
   if (barrelInfo && barrelInfo.group.userData.animBarrelPivot) {
-    const pivot = barrelInfo.group.userData.animBarrelPivot;
-    restoreChildren(pivot, pivot.parent);
+    restoreChildren(barrelInfo.group.userData.animBarrelPivot, barrelInfo.group.userData.animBarrelPivot.parent);
     barrelInfo.group.userData.animBarrelPivot = null;
   }
-
   const mgInfo = nodeMap.get('高射机枪');
   if (mgInfo && mgInfo.group.userData.animMGPivot) {
-    const pivot = mgInfo.group.userData.animMGPivot;
-    restoreChildren(pivot, mgInfo.group);
+    restoreChildren(mgInfo.group.userData.animMGPivot, mgInfo.group);
     mgInfo.group.userData.animMGPivot = null;
   }
-
   animRefs = {};
 }
 
+function _tankRestorePlates() {
+  if (animRefs.leftTrackPlates && animRefs.leftTrackParams) {
+    const tp = animRefs.leftTrackParams;
+    const spacing = animRefs.leftTrackSpacing;
+    for (let i = 0; i < animRefs.leftTrackPlates.length; i++) {
+      const dist = i * spacing;
+      const trans = getTrackPlateTransform(dist, tp);
+      animRefs.leftTrackPlates[i].position.set(trans.pos.x, trans.pos.y, trans.pos.z);
+      animRefs.leftTrackPlates[i].rotation.set(trans.rot.x, trans.rot.y, trans.rot.z);
+    }
+  }
+  if (animRefs.rightTrackPlates && animRefs.rightTrackParams) {
+    const tp = animRefs.rightTrackParams;
+    const spacing = animRefs.rightTrackSpacing;
+    for (let i = 0; i < animRefs.rightTrackPlates.length; i++) {
+      const dist = i * spacing;
+      const trans = getTrackPlateTransform(dist, tp);
+      animRefs.rightTrackPlates[i].position.set(trans.pos.x, trans.pos.y, trans.pos.z);
+      animRefs.rightTrackPlates[i].rotation.set(trans.rot.x, trans.rot.y, trans.rot.z);
+    }
+  }
+}
+
+// ── 六足战车动画 ──
+const _hexaAnimNames = [];
+const _hexaAnimDurations = [];
+const _hexaLegNames = ['左前腿','右前腿','左中腿','右中腿','左后腿','右后腿'];
+
+function _hexaCollectRefs() {
+  animRefs = {};
+}
+
+function _hexaUpdateFrame(dt, t, elapsed, duration) {
+}
+
+function _hexaResetState() {
+}
+
+function _hexaDestroyPivots() {
+  animRefs = {};
+}
+
+// ── 调度 ──
+function _doResetState() { const ma = getModelAnims(); if (ma && ma.resetState) ma.resetState(); else { animRefs = {}; } }
+function _doDestroyPivots() { const ma = getModelAnims(); if (ma && ma.destroyPivots) ma.destroyPivots(); else { animRefs = {}; } }
+function _doRestorePlates() { const ma = getModelAnims(); if (ma && ma.restorePlates) ma.restorePlates(); }
+
+// ── 每帧更新 ──
+function updateAnimShowcase(dt) {
+  if (!animShowcase || animPhase === 0) return;
+  const ma = getModelAnims();
+  if (!ma || !ma.updateFrame) return;
+  const elapsed = performance.now() - animStartTime;
+  const duration = (ma.durations || [4000])[animPhase - 1] || 4000;
+  const t = Math.min(elapsed / duration, 1);
+  ma.updateFrame(dt, t, elapsed, duration);
+  if (t >= 1) {
+    animPhase++;
+    if (animPhase > (ma.names || []).length) animPhase = 1;
+    animStartTime = performance.now();
+    trackOffsetL = 0; trackOffsetR = 0;
+    _doResetState();
+    if (animStatusEl && ma.names) animStatusEl.textContent = ma.names[animPhase - 1] || '';
+  }
+}
+
+// ── 开关 ──
+function toggleAnimShowcase() {
+  const ma = getModelAnims();
+  if (!ma) return;
+  animShowcase = !animShowcase;
+  const btn = document.getElementById('toggle-anim');
+  const statusEl = document.getElementById('anim-status');
+  animStatusEl = statusEl;
+  if (animShowcase) {
+    btn.classList.add('active');
+    btn.textContent = '⏹ 停止展台';
+    if (ma.collectRefs) ma.collectRefs();
+    animPhase = 1;
+    animStartTime = performance.now();
+    trackOffsetL = 0; trackOffsetR = 0;
+    _doResetState();
+    statusEl.style.display = 'block';
+    statusEl.textContent = (ma.names || [])[0] || '';
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '\u{1f3ac} 动画展台';
+    animPhase = 0;
+    _doResetState();
+    trackOffsetL = 0; trackOffsetR = 0;
+    _doDestroyPivots();
+    _doRestorePlates();
+    statusEl.style.display = 'none';
+  }
+}
+
+// ── 事件 ──
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('toggle-anim');
   if (btn) btn.addEventListener('click', toggleAnimShowcase);
 });
-
-// 确保按钮事件在 DOM 就绪后绑定（脚本在 body 底部，DOM 已解析）
 setTimeout(() => {
   const btn = document.getElementById('toggle-anim');
   if (btn) btn.addEventListener('click', toggleAnimShowcase);
 }, 0);
+
 
 function addWheelBolts() {
   const boltMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.35, metalness: 0.8 });
@@ -1386,8 +1388,8 @@ function rebuildModel() {
         try {
           var eg = new THREE.EdgesGeometry(ch.geometry, 15);
           var ln = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({color:0x111111}));
-          ln.position.copy(ch.position); ln.rotation.copy(ch.rotation); ln.scale.copy(ch.scale);
-          ch.parent.add(ln);
+          ch.add(ln);
+          ch.userData._wireLine = ln;
         } catch(e) {}
       }
     });
@@ -1398,6 +1400,7 @@ function rebuildModel() {
   if (gui) { gui.destroy(); gui = null; }
   buildGUI();
   refreshPartTree();
+  updateAnimButton();
 }
 
 // ============================================================
@@ -1419,7 +1422,7 @@ function createHighlight(_name) {
       if (!geo.attributes.position || geo.attributes.position.count === 0) continue;
       const e = new THREE.EdgesGeometry(geo);
       const h = new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color, linewidth:1, depthTest:false }));
-      inf.rotTarget.add(h);
+      inf.mesh.add(h);
       highlightLines.set(n, h);
     }
   }
@@ -1688,6 +1691,21 @@ function rebuildMesh(nodeName) {
     geo.translate(-cx, -cy, -cz);
   }
   mesh.geometry = geo;
+
+  // 更新六足战车线框
+  if (mesh.userData._wireLine) {
+    mesh.userData._wireLine.geometry.dispose();
+    mesh.remove(mesh.userData._wireLine);
+    mesh.userData._wireLine = null;
+  }
+  if (currentModelType === 'hexapod') {
+    try {
+      var _eg = new THREE.EdgesGeometry(geo, 15);
+      var _ln = new THREE.LineSegments(_eg, new THREE.LineBasicMaterial({color:0x111111}));
+      mesh.add(_ln);
+      mesh.userData._wireLine = _ln;
+    } catch(_e) {}
+  }
 
   // 重建材质（如果颜色参数在 configNode.color 中）
   if (!mesh.material._factoryColor) {

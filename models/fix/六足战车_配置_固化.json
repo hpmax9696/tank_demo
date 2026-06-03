@@ -1,0 +1,2283 @@
+{
+  "name": "六足战车",
+  "type": "Group",
+  "position": [
+    0,
+    0.3319,
+    0
+  ],
+  "children": [
+    {
+      "name": "车体",
+      "type": "Group",
+      "children": [
+        {
+          "name": "下车体",
+          "type": "TaperedBox",
+          "size": [
+            1.075,
+            0.5,
+            1,
+            1.6,
+            1.5,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0.25,
+            0
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "上车体",
+          "type": "TaperedBox",
+          "size": [
+            1,
+            0.6,
+            0.9,
+            1.4,
+            1.2,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            0.805,
+            0
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "前装甲",
+          "type": "Box",
+          "size": [
+            0.1,
+            0.4,
+            1
+          ],
+          "position": [
+            -0.6,
+            0.71,
+            0
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            0.35
+          ],
+          "visible": true
+        },
+        {
+          "name": "后装甲板",
+          "type": "Box",
+          "size": [
+            0.12,
+            0.5,
+            1.2
+          ],
+          "position": [
+            0.6,
+            0.755,
+            0
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            2.7053
+          ],
+          "visible": true
+        },
+        {
+          "name": "左侧裙板",
+          "type": "Box",
+          "size": [
+            1.6,
+            0.15,
+            0.06
+          ],
+          "position": [
+            0,
+            0.52,
+            -0.75
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "右侧裙板",
+          "type": "Box",
+          "size": [
+            1.6,
+            0.15,
+            0.06
+          ],
+          "position": [
+            0,
+            0.52,
+            0.75
+          ],
+          "materialId": "armor_dark",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "观瞄球体",
+          "type": "Sphere",
+          "size": [
+            0.3
+          ],
+          "segments": [
+            12,
+            8
+          ],
+          "position": [
+            0,
+            1.4,
+            0
+          ],
+          "materialId": "steel",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "观瞄底座",
+          "type": "Cylinder",
+          "size": [
+            0.25,
+            0.08,
+            0.25
+          ],
+          "segments": [
+            16
+          ],
+          "position": [
+            0,
+            1.125,
+            0
+          ],
+          "materialId": "dark_steel",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "观察缝",
+          "type": "Box",
+          "size": [
+            0.06,
+            0.04,
+            0.4
+          ],
+          "position": [
+            -0.65,
+            0.65,
+            0
+          ],
+          "materialId": "dark_steel",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "顶部面板",
+          "type": "Box",
+          "size": [
+            1.4,
+            0.04,
+            1.2
+          ],
+          "position": [
+            0,
+            1.125,
+            0
+          ],
+          "materialId": "armor_light",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "左散热口",
+          "type": "Box",
+          "size": [
+            0.3,
+            0.02,
+            0.4
+          ],
+          "position": [
+            0.5,
+            1.15,
+            -0.25
+          ],
+          "materialId": "dark_steel",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "右散热口",
+          "type": "Box",
+          "size": [
+            0.3,
+            0.02,
+            0.4
+          ],
+          "position": [
+            0.5,
+            1.15,
+            0.25
+          ],
+          "materialId": "dark_steel",
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "左前警示条",
+          "type": "Box",
+          "size": [
+            0.005,
+            0.04,
+            0.25
+          ],
+          "position": [
+            -0.4,
+            0.54,
+            -0.78
+          ],
+          "materialId": "warning_yellow",
+          "rotation": [
+            0,
+            1.5534,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "右前警示条",
+          "type": "Box",
+          "size": [
+            0.005,
+            0.04,
+            0.25
+          ],
+          "position": [
+            -0.4,
+            0.54,
+            0.78
+          ],
+          "materialId": "warning_yellow",
+          "rotation": [
+            0,
+            -1.5708,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "左后警示条",
+          "type": "Box",
+          "size": [
+            0.005,
+            0.04,
+            0.25
+          ],
+          "position": [
+            0.4,
+            0.54,
+            -0.78
+          ],
+          "materialId": "warning_yellow",
+          "rotation": [
+            0,
+            1.5534,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "右后警示条",
+          "type": "Box",
+          "size": [
+            0.005,
+            0.04,
+            0.25
+          ],
+          "position": [
+            0.4,
+            0.54,
+            0.78
+          ],
+          "materialId": "warning_yellow",
+          "rotation": [
+            0,
+            -1.5708,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "左武器平台",
+      "type": "Group",
+      "position": [
+        -0.2,
+        0.75,
+        -1.1
+      ],
+      "children": [
+        {
+          "name": "左加特林",
+          "type": "Group",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "name": "左加特林护套",
+              "type": "Cylinder",
+              "size": [
+                0.1,
+                0.45,
+                0.1
+              ],
+              "segments": [
+                16
+              ],
+              "position": [
+                -0.25,
+                0,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林枪管1",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0.04,
+                0
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林枪管2",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                -0.04,
+                0
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林枪管3",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0,
+                0.04
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林枪管4",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0,
+                -0.04
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林弹链",
+              "type": "Box",
+              "size": [
+                0.12,
+                0.15,
+                0.2
+              ],
+              "position": [
+                0.05,
+                -0.1,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左加特林支架",
+              "type": "Sphere",
+              "size": [
+                0.03
+              ],
+              "position": [
+                -0.1,
+                0,
+                0.125
+              ],
+              "materialId": "default",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true,
+              "segments": [
+                8,
+                6
+              ]
+            }
+          ],
+          "position": [
+            0,
+            0,
+            0.45
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "左导弹巢",
+          "type": "Group",
+          "position": [
+            0.75,
+            0.3,
+            0.4
+          ],
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "name": "左导弹外壳",
+              "type": "Box",
+              "size": [
+                0.14,
+                0.2,
+                0.16
+              ],
+              "materialId": "armor_dark",
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左导弹管1",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                0.03,
+                0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左导弹管2",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                -0.03,
+                0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左导弹管3",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                0.03,
+                -0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左导弹管4",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                -0.03,
+                -0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "左导弹支架",
+              "type": "Sphere",
+              "size": [
+                0.03
+              ],
+              "position": [
+                0,
+                0,
+                0.1
+              ],
+              "materialId": "default",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true,
+              "segments": [
+                8,
+                6
+              ]
+            }
+          ],
+          "rotation": [
+            0,
+            0,
+            -0.5236
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "右武器平台",
+      "type": "Group",
+      "position": [
+        -0.2,
+        0.75,
+        1.1
+      ],
+      "children": [
+        {
+          "name": "右加特林",
+          "type": "Group",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "name": "右加特林护套",
+              "type": "Cylinder",
+              "size": [
+                0.1,
+                0.45,
+                0.1
+              ],
+              "segments": [
+                16
+              ],
+              "position": [
+                -0.25,
+                0,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林枪管1",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0.04,
+                0
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林枪管2",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                -0.04,
+                0
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林枪管3",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0,
+                0.04
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林枪管4",
+              "type": "Cylinder",
+              "size": [
+                0.025,
+                0.6,
+                0.025
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.5,
+                0,
+                -0.04
+              ],
+              "materialId": "barrel_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林弹链",
+              "type": "Box",
+              "size": [
+                0.12,
+                0.15,
+                0.2
+              ],
+              "position": [
+                0.05,
+                -0.1,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右加特林支架",
+              "type": "Sphere",
+              "size": [
+                0.03
+              ],
+              "position": [
+                -0.1,
+                0,
+                -0.125
+              ],
+              "materialId": "default",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true,
+              "segments": [
+                8,
+                6
+              ]
+            }
+          ],
+          "position": [
+            0,
+            0,
+            -0.45
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "visible": true
+        },
+        {
+          "name": "右导弹巢",
+          "type": "Group",
+          "position": [
+            0.75,
+            0.3,
+            -0.4
+          ],
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "children": [
+            {
+              "name": "右导弹外壳",
+              "type": "Box",
+              "size": [
+                0.14,
+                0.2,
+                0.16
+              ],
+              "materialId": "armor_dark",
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右导弹管1",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                0.03,
+                0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右导弹管2",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                -0.03,
+                0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右导弹管3",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                0.03,
+                -0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右导弹管4",
+              "type": "Cylinder",
+              "size": [
+                0.05,
+                0.4,
+                0.05
+              ],
+              "segments": [
+                8
+              ],
+              "position": [
+                -0.22,
+                -0.03,
+                -0.03
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                1.5708
+              ],
+              "visible": true
+            },
+            {
+              "name": "右导弹支架",
+              "type": "Sphere",
+              "size": [
+                0.03
+              ],
+              "position": [
+                0,
+                0,
+                -0.1
+              ],
+              "materialId": "default",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true,
+              "segments": [
+                8,
+                6
+              ]
+            }
+          ],
+          "rotation": [
+            0,
+            0,
+            -0.5236
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "左前腿",
+      "type": "Group",
+      "position": [
+        -0.5,
+        0.05,
+        0.55
+      ],
+      "children": [
+        {
+          "name": "左前大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "左前小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "左前脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "左前脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "左前膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左前髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左前腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            -2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        -1.05,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "右前腿",
+      "type": "Group",
+      "position": [
+        -0.5,
+        0.05,
+        -0.55
+      ],
+      "children": [
+        {
+          "name": "右前大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "右前小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "右前脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "右前脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        -0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    -0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "右前膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                -1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右前髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右前腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                -0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        1.05,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "左中腿",
+      "type": "Group",
+      "position": [
+        0,
+        0.05,
+        0.55
+      ],
+      "children": [
+        {
+          "name": "左中大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "左中小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "左中脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "左中脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "左中膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左中髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左中腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            -2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "右中腿",
+      "type": "Group",
+      "position": [
+        0,
+        0.05,
+        -0.55
+      ],
+      "children": [
+        {
+          "name": "右中大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "右中小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "右中脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "右中脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        -0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    -0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "右中膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                -1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右中髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右中腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                -0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "左后腿",
+      "type": "Group",
+      "position": [
+        0.5,
+        0.05,
+        0.55
+      ],
+      "children": [
+        {
+          "name": "左后大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "左后小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "左后脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "左后脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "左后膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左后髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "左后腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            -2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        1.05,
+        0
+      ],
+      "visible": true
+    },
+    {
+      "name": "右后腿",
+      "type": "Group",
+      "position": [
+        0.5,
+        0.05,
+        -0.55
+      ],
+      "children": [
+        {
+          "name": "右后大腿",
+          "type": "TaperedBox",
+          "size": [
+            0.14,
+            0.7,
+            0.14,
+            0.1,
+            0.1
+          ],
+          "position": [
+            0,
+            -0.35,
+            0
+          ],
+          "pivot": [
+            0,
+            0.35,
+            0
+          ],
+          "materialId": "armor_dark",
+          "children": [
+            {
+              "name": "右后小腿",
+              "type": "TaperedBox",
+              "size": [
+                0.1,
+                0.55,
+                0.1,
+                0.07,
+                0.07
+              ],
+              "position": [
+                0,
+                -0.625,
+                0
+              ],
+              "pivot": [
+                0,
+                0.275,
+                0
+              ],
+              "materialId": "armor_dark",
+              "children": [
+                {
+                  "name": "右后脚踝",
+                  "type": "TaperedBox",
+                  "size": [
+                    0.06,
+                    0.25,
+                    0.06,
+                    0.05,
+                    0.05
+                  ],
+                  "position": [
+                    0,
+                    -0.4,
+                    0
+                  ],
+                  "pivot": [
+                    0,
+                    0.125,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "children": [
+                    {
+                      "name": "右后脚掌",
+                      "type": "Box",
+                      "size": [
+                        0.22,
+                        0.05,
+                        0.3
+                      ],
+                      "position": [
+                        0,
+                        -0.155,
+                        -0.08
+                      ],
+                      "materialId": "dark_steel",
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "visible": true
+                    }
+                  ],
+                  "rotation": [
+                    -0.69,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                },
+                {
+                  "name": "右后膝球",
+                  "type": "Sphere",
+                  "size": [
+                    0.05
+                  ],
+                  "segments": [
+                    6,
+                    4
+                  ],
+                  "position": [
+                    0,
+                    -0.28,
+                    0
+                  ],
+                  "materialId": "dark_steel",
+                  "rotation": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "visible": true
+                }
+              ],
+              "rotation": [
+                -1.4,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右后髋球",
+              "type": "Sphere",
+              "size": [
+                0.06
+              ],
+              "segments": [
+                6,
+                4
+              ],
+              "position": [
+                0,
+                0.35,
+                0
+              ],
+              "materialId": "dark_steel",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            },
+            {
+              "name": "右后腿警示条",
+              "type": "Box",
+              "size": [
+                0.15,
+                0.03,
+                0.005
+              ],
+              "position": [
+                0,
+                -0.15,
+                -0.075
+              ],
+              "materialId": "warning_yellow",
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "visible": true
+            }
+          ],
+          "rotation": [
+            2.09,
+            0,
+            0
+          ],
+          "visible": true
+        }
+      ],
+      "rotation": [
+        0,
+        -1.05,
+        0
+      ],
+      "visible": true
+    }
+  ],
+  "rotation": [
+    0,
+    1.5708,
+    0
+  ],
+  "visible": true
+}
