@@ -889,13 +889,215 @@
         createAssaultVehicle,
         createZombie,
         createZombieMaterials,
+        createHexapod,
         AnimationSystem,
     };
 
     // ─── 注册到 ModelRegistry（模型预览） ───
     window.ModelRegistry.register('enemies', '装甲突击车', makeAssaultVehicle);
     window.ModelRegistry.register('enemies', '丧尸', makeZombie);
+    window.ModelRegistry.register('enemies', '六足战车', makeHexapod);
 
-    console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 程序化丧尸(骨架动画)');
+    console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 程序化丧尸(骨架动画) + 六足战车');
+
+
+    // ═══════════════════════════════════════════════════════
+    // ─── ③ 六足战车（精英敌人·三角步态·加特林+导弹巢）───
+    // ═══════════════════════════════════════════════════════
+    // 模型配置已提取到 models/hexapod_config.js，通过 window.HexapodConfig 引用
+    function getHexapodConfig() {
+        return (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {};
+    }
+
+    var _hexapodMatCache = {};
+    function _getHexapodMat(id) {
+        if (_hexapodMatCache[id]) return _hexapodMatCache[id];
+        var DEFS = {
+            armor_dark:  { color: 0x3A3A44, roughness: 0.40, metalness: 0.85 },
+            armor_light: { color: 0x5A5A6A, roughness: 0.35, metalness: 0.80 },
+            dark_steel:  { color: 0x4a4a5a, roughness: 0.45, metalness: 0.85 },
+            barrel_steel:{ color: 0x3a3a44, roughness: 0.35, metalness: 0.9 },
+            steel:       { color: 0x6b6b7b, roughness: 0.5,  metalness: 0.8 },
+            warning_yellow: { color: 0xE8A820, roughness: 0.50, metalness: 0.40, emissive: 0xC08010, emissiveIntensity: 0.15 },
+        };
+        var d = DEFS[id] || { color: 0x888888, roughness: 0.6, metalness: 0.2 };
+        _hexapodMatCache[id] = new THREE.MeshStandardMaterial(d);
+        return _hexapodMatCache[id];
+    }
+
+    function _createHexapodGeo(node) {
+        var s = node.size || [1,1,1];
+        switch (node.type) {
+        case 'Box': return new THREE.BoxGeometry(s[0], s[1], s[2]);
+        case 'Cylinder': return new THREE.CylinderGeometry(s[0], s[2], s[1], (node.segments||[12])[0]);
+        case 'Sphere': return new THREE.SphereGeometry(s[0], (node.segments||[12])[0], (node.segments||[8])[1]||6);
+        case 'TaperedBox': {
+            var hw=s[0]/2, hd=s[2]/2, thw=s[3]/2, thd=s[4]/2, ox=s[5]||0, oz=s[6]||0;
+            var v=[], uv=[], idx=[]; var vi=0;
+            function q(a,b,c,d){v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]);uv.push(0,0,1,0,1,1,0,1);idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3);vi+=4;}
+            q([-hw,0,-hd],[hw,0,-hd],[hw,0,hd],[-hw,0,hd]);
+            q([-thw+ox,s[1],-thd+oz],[-thw+ox,s[1],thd+oz],[thw+ox,s[1],thd+oz],[thw+ox,s[1],-thd+oz]);
+            q([-hw,0,-hd],[-thw+ox,s[1],-thd+oz],[thw+ox,s[1],-thd+oz],[hw,0,-hd]);
+            q([hw,0,hd],[thw+ox,s[1],thd+oz],[-thw+ox,s[1],thd+oz],[-hw,0,hd]);
+            q([-hw,0,hd],[-thw+ox,s[1],thd+oz],[-thw+ox,s[1],-thd+oz],[-hw,0,-hd]);
+            q([hw,0,-hd],[thw+ox,s[1],-thd+oz],[thw+ox,s[1],thd+oz],[hw,0,hd]);
+            var g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(v),3));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));g.setIndex(idx);g.computeVertexNormals();
+            return g;
+        }
+        default: return new THREE.BoxGeometry(s[0], s[1], s[2]);
+        }
+    }
+
+    function buildHexapodFromConfig(config, parent, showHelpers) {
+        function adjustPos(rawPos, comp) { return [rawPos[0]+comp[0], rawPos[1]+comp[1], rawPos[2]+comp[2]]; }
+        function buildNode(node, parentObj, pivotComp) {
+            pivotComp = pivotComp || [0,0,0];
+            if (node.type === 'Group') {
+                var g = new THREE.Group(); g.name = node.name;
+                if (node.position) { var ap = adjustPos(node.position, pivotComp); g.position.set(ap[0], ap[1], ap[2]); }
+                if (node.rotation) g.rotation.set(node.rotation[0], node.rotation[1], node.rotation[2]);
+                g.visible = node.visible !== false; parentObj.add(g);
+                if (node.pivot) { var pv = new THREE.Group(); pv.name = node.name + '_pivot'; pv.position.set(node.pivot[0], node.pivot[1], node.pivot[2]); g.add(pv); g.userData.pivot = pv; }
+                if (node.children) { var cc = node.pivot ? [-node.pivot[0],-node.pivot[1],-node.pivot[2]] : [0,0,0]; for (var ci = 0; ci < node.children.length; ci++) buildNode(node.children[ci], node.pivot ? g.userData.pivot : g, cc); }
+                return;
+            }
+            var geo = _createHexapodGeo(node); geo.computeBoundingBox(); var box = geo.boundingBox;
+            if (box && isFinite(box.min.x)) { var cx=(box.min.x+box.max.x)/2, cy=(box.min.y+box.max.y)/2, cz=(box.min.z+box.max.z)/2; geo.translate(-cx,-cy,-cz); }
+            var mat = _getHexapodMat(node.materialId || 'armor_dark');
+            var mesh = new THREE.Mesh(geo, mat); mesh.name = node.name + '_mesh'; mesh.castShadow = true; mesh.receiveShadow = true;
+            var grp = new THREE.Group(); grp.name = node.name;
+            var pos = adjustPos(node.position || [0,0,0], pivotComp); grp.position.set(pos[0], pos[1], pos[2]);
+            grp.visible = node.visible !== false; parentObj.add(grp);
+            var rotTarget = grp;
+            if (node.pivot) { var pv = new THREE.Group(); pv.name = node.name + '_pivot'; pv.position.set(node.pivot[0], node.pivot[1], node.pivot[2]); grp.add(pv); mesh.position.set(-node.pivot[0], -node.pivot[1], -node.pivot[2]); pv.add(mesh); rotTarget = pv; grp.userData.pivot = pv; }
+            else { grp.add(mesh); }
+            if (node.rotation) rotTarget.rotation.set(node.rotation[0], node.rotation[1], node.rotation[2]);
+            var childComp = node.pivot ? [-node.pivot[0],-node.pivot[1],-node.pivot[2]] : [0,0,0];
+            if (node.children) { for (var ci2 = 0; ci2 < node.children.length; ci2++) buildNode(node.children[ci2], rotTarget, childComp); }
+        }
+        buildNode(config, parent, [0,0,0]);
+    }
+
+    function createHexapodAnimationSystem(root) {
+        var P = {}; var legNames = ['左前腿','右前腿','左中腿','右中腿','左后腿','右后腿'];
+        legNames.forEach(function(name) {
+            P[name] = root.getObjectByName(name);
+            P[name + '_hipX'] = root.getObjectByName(name.replace('腿', '大腿') + '_pivot');
+            P[name + '_knee'] = root.getObjectByName(name.replace('腿', '小腿') + '_pivot');
+            P[name + '_ankle'] = root.getObjectByName(name.replace('腿', '脚踝') + '_pivot');
+        });
+        ['左加特林','右加特林','左导弹巢','右导弹巢'].forEach(function(name) { P[name] = root.getObjectByName(name + '_pivot'); });
+        P.root = root;
+        var asys = new AnimationSystem(root);
+        var GA = ['左前腿','右中腿','左后腿'], GB = ['右前腿','左中腿','右后腿'];
+
+        function gaitTrack(off) {
+            function k(t, v) { return { t: ((t+off)%1.0+1.0)%1.0, v: v }; }
+            return {
+                hipZ: [k(0,0.08),k(0.15,0.18),k(0.4,-0.05),k(0.6,-0.12),k(0.75,0.05),k(0.9,0.12),k(1,0.08)],
+                hipX: [k(0,-0.05),k(0.2,-0.1),k(0.4,0.25),k(0.55,0.35),k(0.7,0.2),k(0.85,-0.05),k(1,-0.05)],
+                knee: [k(0,0.08),k(0.3,0.1),k(0.5,0.5),k(0.65,0.3),k(0.8,0.1),k(1,0.08)],
+                ankle: [k(0,0.05),k(0.3,0.0),k(0.5,-0.12),k(0.7,-0.05),k(1,0.05)]
+            };
+        }
+
+        function addGait(name, dur, gaOff, gbOff, bodyKeys, hzSign) {
+            var tracks = []; if (bodyKeys) tracks.push({ target: P.root, prop: 'position', axis: 'y', keys: bodyKeys });
+            var hs = hzSign || 1;
+            GA.forEach(function(n) { var g = gaitTrack(gaOff);
+                tracks.push({ target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) });
+                tracks.push({ target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX });
+                tracks.push({ target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee });
+                tracks.push({ target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle });
+            });
+            GB.forEach(function(n) { var g = gaitTrack(gbOff);
+                tracks.push({ target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) });
+                tracks.push({ target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX });
+                tracks.push({ target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee });
+                tracks.push({ target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle });
+            });
+            asys.define(name, dur, tracks);
+        }
+
+        asys.define('Idle', 2.0, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.25,v:0.02},{t:0.5,v:0},{t:0.75,v:-0.01},{t:1,v:0}] }].concat(legNames.flatMap(function(n) { return [
+            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:n.indexOf('右')>=0?-0.04:0.04},{t:0.5,v:n.indexOf('右')>=0?0.04:-0.04},{t:1,v:n.indexOf('右')>=0?-0.04:0.04}] },
+            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.02},{t:0.5,v:0.02},{t:1,v:-0.02}] },
+        ]; })));
+        addGait('MoveForward', 1.2, 0, 0.5, [{t:0,v:0},{t:0.125,v:0.04},{t:0.25,v:0.01},{t:0.5,v:0},{t:0.625,v:0.03},{t:0.75,v:0.01},{t:1,v:0}], 1);
+        addGait('MoveBackward', 1.2, 0, 0.5, [{t:0,v:0},{t:0.125,v:0.03},{t:0.375,v:0},{t:0.625,v:0.03},{t:0.875,v:0},{t:1,v:0}], -1);
+        addGait('StrafeLeft', 1.0, 0, 0.5, [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}], 1);
+        addGait('StrafeRight', 1.0, 0, 0.5, [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}], -1);
+
+        asys.define('TurnLeft', 1.5, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}] }].concat(['左前腿','左中腿','左后腿'].flatMap(function(n) { return [
+            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.35},{t:0.5,v:0.15},{t:0.75,v:0.25},{t:1,v:0.08}] },
+            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] },
+            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] },
+        ]; })).concat(['右前腿','右中腿','右后腿'].flatMap(function(n) { return [
+            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.15},{t:0.5,v:-0.05},{t:0.75,v:-0.12},{t:1,v:-0.08}] },
+            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] },
+            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] },
+        ]; })));
+
+        asys.define('TurnRight', 1.5, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}] }].concat(['左前腿','左中腿','左后腿'].flatMap(function(n) { return [
+            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.12},{t:0.5,v:0.05},{t:0.75,v:0.15},{t:1,v:0.08}] },
+            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] },
+            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] },
+        ]; })).concat(['右前腿','右中腿','右后腿'].flatMap(function(n) { return [
+            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.35},{t:0.5,v:-0.15},{t:0.75,v:-0.25},{t:1,v:-0.08}] },
+            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] },
+            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] },
+        ]; })));
+
+        asys.define('Attack', 0.8, [
+            { target: P.左加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
+            { target: P.右加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
+            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.05,v:0.02},{t:0.1,v:0},{t:0.2,v:0.02},{t:0.25,v:0},{t:0.4,v:0.02},{t:0.45,v:0},{t:0.6,v:0.02},{t:0.65,v:0},{t:1,v:0}] },
+        ]);
+
+        asys.define('Death', 2.0, [
+            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.2,v:0.3},{t:0.5,v:0.8},{t:0.8,v:1.0},{t:1,v:1.1}] },
+            { target: P.root, prop: 'rotation', axis: 'z', keys: [{t:0,v:0},{t:0.3,v:0.05},{t:0.6,v:0.12},{t:1,v:0.18}] },
+            { target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.3,v:-0.3},{t:0.6,v:-0.7},{t:1,v:-1.0}] },
+        ].concat(legNames.flatMap(function(n,i) {
+            var sign = n.indexOf('右')>=0 ? -1 : 1;
+            return [
+                { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:sign*0.05},{t:0.3,v:sign*0.4},{t:0.6,v:sign*0.7},{t:1,v:sign*0.9}] },
+                { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.6,v:0.5},{t:1,v:0.8}] },
+                { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.3,v:0.3},{t:0.6,v:0.6},{t:1,v:0.9}] },
+            ];
+        })));
+        return asys;
+    }
+
+    var _hexapodTemplate = null;
+    var _hexapodTemplateScale = 1.0;
+    var _hexapodTemplateBaseY = 0;
+    function createHexapod() {
+        if (!_hexapodTemplate) {
+            _hexapodTemplate = new THREE.Group();
+            var cfg = getHexapodConfig();
+            if (!cfg.name) { console.error('Hexapod config not loaded!'); return new THREE.Group(); }
+            buildHexapodFromConfig(cfg, _hexapodTemplate, false);
+            var bbox = new THREE.Box3().setFromObject(_hexapodTemplate);
+            var currentH = bbox.max.y - bbox.min.y;
+            if (currentH > 0) { _hexapodTemplateScale = 2.5 / currentH; _hexapodTemplateBaseY = -bbox.min.y * _hexapodTemplateScale; }
+        }
+        var root = _hexapodTemplate.clone(true);
+        root.scale.setScalar(_hexapodTemplateScale);
+        root.position.y = _hexapodTemplateBaseY;
+        var skel = new THREE.Group(); skel.name = '_skeleton';
+        while (root.children.length > 0) skel.add(root.children[0]);
+        root.add(skel);
+        var cylGeo = new THREE.CylinderGeometry(0.5, 0.7, 2.5, 6);
+        var cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial({ color: 0x4a4a5a }));
+        cylMesh.position.y = 1.25; cylMesh.visible = false; cylMesh.name = '_lodCylinder'; root.add(cylMesh);
+        root.userData._skeletonGroup = skel; root.userData._lodCylinder = cylMesh;
+        var asys = createHexapodAnimationSystem(root);
+        root.userData._animSystem = asys; root.userData.enemyType = 'hexapod';
+        asys.play('Idle', true);
+        return root;
+    }
+
+    function makeHexapod() { return createHexapod(); }
 
 })();

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.51.0</title>
+    <title>坦克运动demo v0.52.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -504,7 +504,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.51.0</div>
+        <div class="menu-version">v0.52.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -519,11 +519,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🦗 v0.52.0 六足战车精英敌人 — 程序化模型+昆虫腿外伸姿态+三角步态9动画+加特林/导弹巢俯仰武器+转向延迟/提速/过热平衡+模型工厂彩色线框+XYZ轴标签+Group旋转+批量旋转+截图CDP工具链</div>
             <div class="cl-title">⚡ v0.51.0 性能优化+CDP验证 — FBM降采样(800m 54s→15s)+sqrt密度缩放+多轮选址+广场安全距离+纹理修复+cdp_verify.py全自动验证+面板修复</div>
             <div class="cl-title">🧩 v0.50.0 双管线村落生成 — 三按钮+掩码网格+FloodFill+容量预验证+建筑簇+朝向支路+连接路+自动平整+Mulberry32确定随机+CDP自动验证</div>
             <div class="cl-title">📦 v0.49.0 编辑器模块拆分 — map_editor.html(5167→1762行)拆5模块+池塘碰撞修复+模块优先架构</div>
             <div class="cl-title">🌊 v0.48.0 河面AlphaMap+主路A*寻路 — Canvas遮罩平面替换strip+指数坡度惩罚+StringPulling平滑+村路/广场splatMap+建筑群半圆+死亡UI+上帝视角</div>
-            <div class="cl-title">🛤️ v0.47.0 地形系统重构+道路路径化 — 高度图动态分辨率+河流归一化+动态河床雕刻+泥地河岸+等高线道路+base64压缩</div>
         </div>
     </div>
 
@@ -614,7 +614,8 @@
     <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
-    <script src="models/enemies.js"></script>
+    <script src="models/hexapod_config.js"></script>
+<script src="models/enemies.js"></script>
     <script src="models/pickups.js"></script>
     <!-- PvE 战斗系统模块 -->
     <script src="combat/scoreSystem.js"></script>
@@ -1237,6 +1238,7 @@
         let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
         let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
         let enemies = [];  // PvE 战斗模式敌人数组
+        let hexapodBullets = [];  // 六足战车加特林弹丸
         let pickups = [];  // 战利品掉落物数组
         const PICKUP_RADIUS = 3.0;  // 拾取判定距离（宽松，坦克半宽~1.7m）
         let combatData = null;  // 战斗模式运行时数据 { score, lives, phase }
@@ -3159,6 +3161,38 @@
             // ── MG 子弹更新 ──
             updateMGBullets(dt);
 
+            // ── 六足战车加特林弹丸更新 ──
+            for (let hi = hexapodBullets.length - 1; hi >= 0; hi--) {
+                const hb = hexapodBullets[hi];
+                hb.dist += hb.speed * dt;
+                hb.pos.addScaledVector(hb.dir, hb.speed * dt);
+                hb.mesh.position.copy(hb.pos);
+                hb.mesh.lookAt(hb.pos.clone().add(hb.dir));
+                if (hb.dist > hb.maxDist) { scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); hexapodBullets.splice(hi, 1); continue; }
+                // 检测击中玩家
+                if (player1 && !player1.dead && player1.group) {
+                    const pp = player1.group.position.clone(); pp.y += 0.8;
+                    const d = hb.pos.distanceTo(pp);
+                    if (d < 1.0) {
+                        player1.hp -= hb.damage || 3;
+                        if (player1.hp < 0) player1.hp = 0;
+                        player1.ai = player1.ai || {}; player1.ai.hitFlash = 0.1;
+                        if (player1.hp <= 0) { player1.dead = true; player1.group.visible = false; togglePlayerBars(player1, false); }
+                        scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); hexapodBullets.splice(hi, 1);
+                    }
+                }
+            }
+
+            // 加特林枪管旋转视觉
+            for (const enemy of enemies) {
+                if (enemy.cfg && enemy.cfg.type === 'hexapod' && enemy.ai && enemy.ai.spinUp > 0.1) {
+                    const spinSpeed = enemy.ai.spinUp * 15 * dt;
+                    ['左加特林','右加特林'].forEach(function(n) {
+                        var p = enemy.getObjectByName(n); if (p) p.rotation.z += spinSpeed;
+                    });
+                }
+            }
+
             // ── 爆炸效果更新（坦克死亡时触发的大型火焰烟雾） ──
             for (let i = explosions.length - 1; i >= 0; i--) {
                 explosions[i].update(dt);
@@ -3506,12 +3540,43 @@
                             if (asys) asys.play('Die', false);
                         }
                     }
+
+                    // ── 六足战车动画更新 ──
+                    if (enemy.cfg && enemy.cfg.type === 'hexapod') {
+                        const hasys = enemy.userData._animSystem;
+                        const hai = enemy.ai;
+                        if (hasys) {
+                            const hpDist = player1 ? enemy.position.distanceTo(player1.group.position) : 999;
+                            const hprevLayer = enemy.userData._lodLayer || 'near';
+                            let hlayer;
+                            if (hprevLayer === 'near') hlayer = hpDist > 35 ? (hpDist > 75 ? 'far' : 'medium') : 'near';
+                            else if (hprevLayer === 'medium') hlayer = hpDist < 30 ? 'near' : (hpDist > 75 ? 'far' : 'medium');
+                            else hlayer = hpDist < 70 ? (hpDist < 30 ? 'near' : 'medium') : 'far';
+                            enemy.userData._lodLayer = hlayer;
+                            const isFar = (hlayer === 'far');
+                            const skel = enemy.userData._skeletonGroup;
+                            const cyl = enemy.userData._lodCylinder;
+                            if (skel) skel.visible = !isFar;
+                            if (cyl) cyl.visible = isFar;
+                            hasys.skipInterval = (hlayer === 'near') ? 0 : 999;
+                            hasys.update(dt);
+                        }
+                        if (enemy.hp <= 0 && hai.state !== 'dead') { hai.state = 'dead'; hai.animRequest = 'death'; hai.deathAnimStarted = false; if (hasys) hasys.skipInterval = 0; }
+                        if (enemy.hp <= 0 && hai.state === 'dead' && !hai.deathAnimStarted) { hai.deathAnimStarted = true; hai.animRequest = 'death'; if (hasys) hasys.play('Death', false); }
+                        if (hai.animRequest && hasys) {
+                            const hmap = { idle:'Idle', move_forward:'MoveForward', move_backward:'MoveBackward', turn_left:'TurnLeft', turn_right:'TurnRight', strafe_left:'StrafeLeft', strafe_right:'StrafeRight', attack:'Attack', death:'Death' };
+                            const hmapped = hmap[hai.animRequest] || 'Idle';
+                            if (hasys.current !== hmapped || !hasys.playing) hasys.play(hmapped, hmapped !== 'Death');
+                        }
+                        if (hai.gatlingRequest && player1 && !player1.dead) { hai.gatlingRequest = false; spawnHexapodGatlingBullet(enemy, player1, hai); }
+                    }
                 }
 
-                // 敌人障碍物碰撞检测（防止穿透建筑/树木/河流，使用装甲车半宽）
+                // 敌人障碍物碰撞检测（防止穿透建筑/树木/河流）
                 for (const enemy of enemies) {
                     if (!enemy || enemy.ai.state === 'dead') continue;
-                    const cr = checkCollision(enemy.position.x, enemy.position.z, ENEMY_HALF_W);
+                    const eRad = (enemy.cfg && enemy.cfg.type === 'zombie') ? 0.4 : (enemy.cfg && enemy.cfg.type === 'hexapod') ? 0.6 : ENEMY_HALF_W;
+                    const cr = checkCollision(enemy.position.x, enemy.position.z, eRad);
                     if (cr.hit) {
                         enemy.position.x += cr.pushX;
                         enemy.position.z += cr.pushZ;
@@ -3528,8 +3593,8 @@
                         const dz = ea.position.z - eb.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
                         // 按类型区分碰撞半径：丧尸 0.4m，车辆半宽 0.85m
-                        const ra = (ea.cfg && ea.cfg.type === 'zombie') ? 0.4 : ENEMY_HALF_W;
-                        const rb = (eb.cfg && eb.cfg.type === 'zombie') ? 0.4 : ENEMY_HALF_W;
+                        const ra = (ea.cfg && ea.cfg.type === 'zombie') ? 0.4 : (ea.cfg && ea.cfg.type === 'hexapod') ? 0.6 : ENEMY_HALF_W;
+                        const rb = (eb.cfg && eb.cfg.type === 'zombie') ? 0.4 : (eb.cfg && eb.cfg.type === 'hexapod') ? 0.6 : ENEMY_HALF_W;
                         const minDist = (ra + rb) * 1.5; // 留 50% 余量
                         if (dist < minDist && dist > 0.001) {
                             const push = (minDist - dist) / 2;
@@ -4066,6 +4131,7 @@
             totalDistance = 0;
             combatShakeTimer = 0;
             mgBullets.forEach(b => { scene.remove(b.mesh); b.mesh.traverse(c => { if (c !== b.mesh) { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); } }); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
+            hexapodBullets.forEach(hb => { scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); }); hexapodBullets = [];
             mgBullets = []; mgTimer = 0; mgHeat = 0; mgOverheated = false;
             if (player1) player1.mgLockTarget = null;
             combatData = {
@@ -4136,6 +4202,8 @@
                     model = window.EnemyModels.createAssaultVehicle();
                 } else if (ecfg.type === 'zombie') {
                     model = window.EnemyModels.createZombie();
+                } else if (ecfg.type === 'hexapod') {
+                    model = window.EnemyModels.createHexapod();
                 } else {
                     console.warn('createEnemies: 未知敌人类型 ' + ecfg.type);
                     continue;
@@ -4145,7 +4213,7 @@
                 model.position.set(pos[0], gy, pos[2]);
                 model.cfg = ecfg;
                 // 初始朝向：丧尸随机（避免整齐划一），车辆朝第一个巡逻点
-                if (ecfg.type === 'zombie') {
+                if (ecfg.type === 'zombie' || ecfg.type === 'hexapod') {
                     model.rotation.set(0, Math.random() * Math.PI * 2, 0);
                 } else if (ecfg.patrolPath && ecfg.patrolPath.length > 0) {
                     const wp0 = ecfg.patrolPath[0];
@@ -4171,6 +4239,7 @@
                 }
                 // AI 运行时数据
                 const isZombieAI = (ecfg.type === 'zombie');
+                const isHexapodAI = (ecfg.type === 'hexapod');
                 model.ai = {
                     state: isZombieAI ? 'idle' : 'patrol',  // 丧尸从 IDLE 起步
                     target: null,
@@ -4201,11 +4270,11 @@
                     searchTimer: 0,
                 };
                 // 绑定丧尸动画系统
-                if (ecfg.type === 'zombie' && model.userData._animSystem) {
+                if ((ecfg.type === 'zombie' || ecfg.type === 'hexapod') && model.userData._animSystem) {
                     model.userData.animSystem = model.userData._animSystem;
                 }
-                // 初始化炮塔朝前（仅车辆）
-                if (ecfg.type !== 'zombie' && model.userData.turretPivot) {
+                // 初始化炮塔朝前（仅突击车辆）
+                if (ecfg.type !== 'zombie' && ecfg.type !== 'hexapod' && model.userData.turretPivot) {
                     model.userData.turretPivot.rotation.y = 0;
                 }
                 // 添加受击闪光白膜（半透明叠加层）
@@ -4213,7 +4282,7 @@
                 // 添加HP条
                 createEnemyHpBar(model);
                 // 火焰喷射视觉（仅车辆）
-                if (ecfg.type !== 'zombie') {
+                if (ecfg.type !== 'zombie' && ecfg.type !== 'hexapod') {
                     createEnemyFlameVFX(model);
                 }
                 scene.add(model);
@@ -4235,6 +4304,38 @@
         }
 
 
+        // ─── 六足战车加特林子弹 ───
+        function spawnHexapodGatlingBullet(enemy, player1, ai) {
+            const spread = (ai.gatlingSpread || 0) * 0.06;
+            const gx = ai.gatlingSpread * (Math.random() - 0.5) * 0.15;
+            const gy = ai.gatlingSpread * (Math.random() - 0.5) * 0.15;
+            const barrelTip = new THREE.Vector3(-0.55, 0, 0);
+            const wpL = enemy.getObjectByName('左加特林_pivot');
+            const wpR = enemy.getObjectByName('右加特林_pivot');
+            const wp = (ai._lastGatlingSide === 'L') ? wpR : wpL;
+            ai._lastGatlingSide = (ai._lastGatlingSide === 'L') ? 'R' : 'L';
+            if (!wp) return;
+            const worldPos = barrelTip.clone();
+            wp.localToWorld(worldPos);
+            const dir = new THREE.Vector3().subVectors(player1.group.position, worldPos).normalize();
+            dir.x += gx; dir.y += gy; dir.z += (Math.random() - 0.5) * spread;
+            dir.normalize();
+            const tracerGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.3, 4);
+            const tracerMat = new THREE.MeshBasicMaterial({ color: 0xFFDD44 });
+            const tracer = new THREE.Mesh(tracerGeo, tracerMat);
+            tracer.position.copy(worldPos);
+            tracer.rotation.z = Math.PI / 2;
+            tracer.lookAt(worldPos.clone().add(dir));
+            scene.add(tracer);
+            const speed = 80;
+            const maxDist = 25;
+            const startPos = worldPos.clone();
+            const bulletData = { mesh: tracer, pos: worldPos.clone(), dir: dir, speed: speed, dist: 0, maxDist: maxDist,
+                startPos: startPos, damage: ai.gatlingDamage || 3, enemy: enemy };
+            hexapodBullets = hexapodBullets || [];
+            hexapodBullets.push(bulletData);
+        }
+
         function createEnemyHpBar(enemy) {
             const barW = 1.5, barH = 0.08, barD = 0.02;
             const bgGeo = new THREE.BoxGeometry(barW, barH, barD);
@@ -4246,7 +4347,7 @@
             fill.position.z = 0.015;
             const group = new THREE.Group();
             group.add(bg); group.add(fill);
-            group.position.y = (enemy.cfg && enemy.cfg.type === 'zombie') ? 2.0 : 1.8;
+            group.position.y = (enemy.cfg && enemy.cfg.type === 'zombie') ? 2.0 : (enemy.cfg && enemy.cfg.type === 'hexapod') ? 2.8 : 1.8;
             group.renderOrder = 999;
             group.materialDepthTest = false;
             enemy.add(group);
@@ -5002,7 +5103,7 @@
             }
 
             el.textContent =
-                'v0.51.0  ' + mapName + '  FPS:' + fpsCurrent +
+                'v0.52.0  ' + mapName + '  FPS:' + fpsCurrent +
                 (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
                 perfLine + renderStats + shadowHint;
         }
@@ -5338,7 +5439,7 @@
         loadMapConfig('test_map_01a'); // 默认加载单人地图
         // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
         initScene();placeCamera();renderer.render(scene,camera);
-        console.log('⚡ 坦克运动demo v0.51.0 | 编辑器模块拆分+池塘碰撞修复+自动验证');
+        console.log('⚡ 坦克运动demo v0.52.0 | 编辑器模块拆分+池塘碰撞修复+自动验证');
 
         // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
         window._godMode = false;

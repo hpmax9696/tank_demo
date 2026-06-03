@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>GLB Inspector</title>
+<style>body{margin:0;overflow:hidden;background:#333;font:13px monospace;}
+#info{position:absolute;top:10px;left:10px;color:#fff;background:rgba(0,0,0,0.8);padding:10px;border-radius:4px;white-space:pre-wrap;max-height:90vh;overflow-y:auto;}</style>
+</head><body>
+<div id="info">Loading...</div>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x444444);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.01, 100);
+camera.position.set(1.5, 0.7, 1.2);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+new OrbitControls(camera, renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+dl.position.set(2,3,1);
+scene.add(dl);
+scene.add(new THREE.GridHelper(2, 20, 0x888888, 0x444444));
+
+const info = document.getElementById('info');
+const loader = new GLTFLoader();
+loader.load('白模.glb', (gltf) => {
+  const model = gltf.scene;
+  scene.add(model);
+
+  // Compute world-space bounding box
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3(); box.getSize(size);
+  const center = new THREE.Vector3(); box.getCenter(center);
+
+  // Wireframe box
+  const boxGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+  const boxWire = new THREE.LineSegments(
+    new THREE.EdgesGeometry(boxGeo),
+    new THREE.LineBasicMaterial({color:0xffff00})
+  );
+  boxWire.position.copy(center);
+  scene.add(boxWire);
+
+  // Measure lines
+  const mat = new THREE.LineBasicMaterial({color:0x00ff00});
+  // X-axis (width)
+  const xPts = [new THREE.Vector3(box.min.x, box.min.y-0.02, box.min.z), new THREE.Vector3(box.max.x, box.min.y-0.02, box.min.z)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(xPts), new THREE.LineBasicMaterial({color:0xff4444})));
+  // Y-axis (height)
+  const yPts = [new THREE.Vector3(box.min.x-0.02, box.min.y, box.min.z), new THREE.Vector3(box.min.x-0.02, box.max.y, box.min.z)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(yPts), new THREE.LineBasicMaterial({color:0x44ff44})));
+  // Z-axis (depth)
+  const zPts = [new THREE.Vector3(box.min.x, box.min.y-0.02, box.min.z), new THREE.Vector3(box.min.x, box.min.y-0.02, box.max.z)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(zPts), new THREE.LineBasicMaterial({color:0x4444ff})));
+
+  // Analyze mesh
+  let totalTris = 0;
+  model.traverse(n => {
+    if (n.isMesh && n.geometry) {
+      const g = n.geometry;
+      const idx = g.index;
+      totalTris += idx ? idx.count/3 : g.attributes.position.count/3;
+    }
+  });
+
+  // Get vertex clusters to identify body vs legs vs weapons
+  const allVerts = [];
+  model.traverse(n => {
+    if (n.isMesh && n.geometry) {
+      const pos = n.geometry.attributes.position;
+      n.updateMatrixWorld();
+      for (let i = 0; i < pos.count; i++) {
+        const v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+        v.applyMatrix4(n.matrixWorld);
+        allVerts.push(v);
+      }
+    }
+  });
+
+  // Cluster vertices by Y height to understand vertical structure
+  const yBuckets = {};
+  for (const v of allVerts) {
+    const by = Math.floor(v.y * 20) / 20; // 0.05m buckets
+    if (!yBuckets[by]) yBuckets[by] = 0;
+    yBuckets[by]++;
+  }
+  const ySorted = Object.entries(yBuckets).sort((a,b) => parseFloat(a[0])-parseFloat(b[0]));
+
+  let report = `GLB 白模 — 精确尺寸分析\n`;
+  report += `═══════════════════════\n`;
+  report += `包围盒 (世界坐标):\n`;
+  report += `  宽(X): ${size.x.toFixed(3)}m  (${box.min.x.toFixed(3)} ~ ${box.max.x.toFixed(3)})\n`;
+  report += `  高(Y): ${size.y.toFixed(3)}m  (${box.min.y.toFixed(3)} ~ ${box.max.y.toFixed(3)})\n`;
+  report += `  深(Z): ${size.z.toFixed(3)}m  (${box.min.z.toFixed(3)} ~ ${box.max.z.toFixed(3)})\n`;
+  report += `  中心: (${center.x.toFixed(3)}, ${center.y.toFixed(3)}, ${center.z.toFixed(3)})\n`;
+  report += `\n三角形数: ${totalTris.toLocaleString()}\n`;
+  report += `顶点数: ${allVerts.length.toLocaleString()}\n`;
+  report += `\n高宽比: ${(size.y/size.x).toFixed(2)} : 1\n`;
+  report += `长宽比: ${(size.z/size.x).toFixed(2)} : 1\n`;
+  report += `高深比: ${(size.y/size.z).toFixed(2)} : 1\n`;
+  report += `\n顶点Y轴分布 (5cm桶):\n`;
+  for (const [y, count] of ySorted) {
+    const bar = '█'.repeat(Math.round(count / allVerts.length * 100));
+    report += `  Y=${parseFloat(y).toFixed(2).padStart(5)}: ${String(count).padStart(6)} verts ${bar}\n`;
+  }
+  report += `\n→ 腿部最低点: ${box.min.y.toFixed(3)}m\n`;
+  report += `→ 车顶最高点: ${box.max.y.toFixed(3)}m\n`;
+
+  info.textContent = report;
+  console.log(report);
+}, undefined, (e) => { info.textContent = 'Error: ' + e; });
+</script>
+</body></html>

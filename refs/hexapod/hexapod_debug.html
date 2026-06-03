@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Hexapod Debug View</title>
+<style>body{margin:0;overflow:hidden;background:#888}</style>
+</head><body>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+// 全局错误收集
+window.__errors = [];
+window.addEventListener('error', e => window.__errors.push(e.message));
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── 场景 ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x999999);
+// 视角相机（长焦减少透视变形）
+const camera = new THREE.PerspectiveCamera(28, 4/3, 0.1, 50);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(1400, 1050);
+renderer.setPixelRatio(1);
+document.body.appendChild(renderer.domElement);
+
+// 强环境光消除暗面
+scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+// 弱方向光提供轮廓
+const dl = new THREE.DirectionalLight(0xffffff, 0.4);
+dl.position.set(1,1,1); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0xffffff, 0.3);
+dl2.position.set(-1,0.5,-0.5); scene.add(dl2);
+scene.add(new THREE.GridHelper(8, 20, 0x666666, 0x555555));
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.0, 0);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+camera.position.set(3, 2.5, 5); camera.lookAt(0, 1, 0);
+controls.update();
+
+// ── 彩色区分材质（MeshBasicMaterial = 无光照计算，100%均匀亮度）──
+const MATS = {
+  armor_dark:   new THREE.MeshBasicMaterial({ color: 0x44CC44 }),  // 鲜绿=车体装甲
+  armor_light:  new THREE.MeshBasicMaterial({ color: 0x66EE66 }),  // 亮绿=顶部面板
+  dark_steel:   new THREE.MeshBasicMaterial({ color: 0x4488FF }),  // 蓝=关节/武器结构/脚
+  barrel_steel: new THREE.MeshBasicMaterial({ color: 0xFF3333 }),  // 红=加特林枪管
+  steel:        new THREE.MeshBasicMaterial({ color: 0xBB44FF }),  // 紫=观瞄球体
+  warning_yellow: new THREE.MeshBasicMaterial({ color: 0xFF8800 }), // 橙=警示条
+};
+
+// ── 几何工厂 ──
+function createGeo(node) {
+  const s = node.size || [1,1,1];
+  switch (node.type) {
+    case 'Box': return new THREE.BoxGeometry(s[0], s[1], s[2]);
+    case 'Cylinder': return new THREE.CylinderGeometry(s[0], s[2], s[1], (node.segments||[12])[0]);
+    case 'Sphere': return new THREE.SphereGeometry(s[0], (node.segments||[12])[0], (node.segments||[8])[1]||6);
+    case 'TaperedBox': {
+      const hw=s[0]/2, hd=s[2]/2, thw=s[3]/2, thd=s[4]/2, ox=s[5]||0, oz=s[6]||0;
+      const v=[], uv=[], idx=[]; let vi=0;
+      function q(a,b,c,d){v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]);uv.push(0,0,1,0,1,1,0,1);idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3);vi+=4;}
+      q([-hw,0,-hd],[hw,0,-hd],[hw,0,hd],[-hw,0,hd]);
+      q([-thw+ox,s[1],-thd+oz],[-thw+ox,s[1],thd+oz],[thw+ox,s[1],thd+oz],[thw+ox,s[1],-thd+oz]);
+      q([-hw,0,-hd],[-thw+ox,s[1],-thd+oz],[thw+ox,s[1],-thd+oz],[hw,0,-hd]);
+      q([hw,0,hd],[thw+ox,s[1],thd+oz],[-thw+ox,s[1],thd+oz],[-hw,0,hd]);
+      q([-hw,0,hd],[-thw+ox,s[1],thd+oz],[-thw+ox,s[1],-thd+oz],[-hw,0,-hd]);
+      q([hw,0,-hd],[thw+ox,s[1],-thd+oz],[thw+ox,s[1],thd+oz],[hw,0,hd]);
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(v),3));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(uv),2));g.setIndex(idx);g.computeVertexNormals();return g;
+    }
+    default: return new THREE.BoxGeometry(s[0], s[1], s[2]);
+  }
+}
+
+// ── 递归构建器 ──
+function adjustPos(rawPos, comp) { return [rawPos[0]+comp[0], rawPos[1]+comp[1], rawPos[2]+comp[2]]; }
+function buildNode(node, parentObj, pivotComp) {
+  pivotComp = pivotComp || [0,0,0];
+  if (node.type === 'Group') {
+    const g = new THREE.Group(); g.name = node.name;
+    if (node.position) { const ap = adjustPos(node.position, pivotComp); g.position.set(ap[0], ap[1], ap[2]); }
+    if (node.rotation) g.rotation.set(node.rotation[0], node.rotation[1], node.rotation[2]);
+    g.visible = node.visible !== false; parentObj.add(g);
+    if (node.pivot) {
+      const pv = new THREE.Group(); pv.name = node.name + '_pivot';
+      pv.position.set(node.pivot[0], node.pivot[1], node.pivot[2]); g.add(pv); g.userData.pivot = pv;
+    }
+    if (node.children) {
+      const cc = node.pivot ? [-node.pivot[0],-node.pivot[1],-node.pivot[2]] : [0,0,0];
+      for (const c of node.children) buildNode(c, node.pivot ? g.userData.pivot : g, cc);
+    }
+    return;
+  }
+  const geo = createGeo(node);
+  geo.computeBoundingBox(); const box = geo.boundingBox;
+  if (box && isFinite(box.min.x)) { const cx=(box.min.x+box.max.x)/2, cy=(box.min.y+box.max.y)/2, cz=(box.min.z+box.max.z)/2; geo.translate(-cx,-cy,-cz); }
+  const mat = MATS[node.materialId] || MATS.armor_dark;
+  const mesh = new THREE.Mesh(geo, mat); mesh.name = node.name + '_mesh';
+  const grp = new THREE.Group(); grp.name = node.name;
+  const pos = adjustPos(node.position || [0,0,0], pivotComp);
+  grp.position.set(pos[0], pos[1], pos[2]); grp.visible = node.visible !== false; parentObj.add(grp);
+  let rotTarget = grp;
+  if (node.pivot) {
+    const pv = new THREE.Group(); pv.name = node.name + '_pivot';
+    pv.position.set(node.pivot[0], node.pivot[1], node.pivot[2]); grp.add(pv);
+    mesh.position.set(-node.pivot[0], -node.pivot[1], -node.pivot[2]); pv.add(mesh);
+    rotTarget = pv; grp.userData.pivot = pv;
+  } else { grp.add(mesh); }
+  if (node.rotation) rotTarget.rotation.set(node.rotation[0], node.rotation[1], node.rotation[2]);
+  const childComp = node.pivot ? [-node.pivot[0],-node.pivot[1],-node.pivot[2]] : [0,0,0];
+  if (node.children) { for (const c of node.children) buildNode(c, rotTarget, childComp); }
+}
+
+// ── 加载配置 ──
+const HEXAPOD = {"name":"HexapodRoot","type":"Group","position":[0,0,0],"children":[{"name":"chassis","type":"Group","children":[{"name":"lowerHull","type":"TaperedBox","size":[2.0,0.5,2.5,1.6,2.0,0,0],"position":[0,0.25,0],"materialId":"armor_dark"},{"name":"upperHull","type":"TaperedBox","size":[1.8,0.35,2.2,1.4,1.7,0,0],"position":[0,0.68,0],"materialId":"armor_dark"},{"name":"frontArmor","type":"Box","size":[0.10,0.40,1.4],"position":[-1.05,0.45,0],"materialId":"armor_dark","rotation":[0,0,0.35]},{"name":"rearPlate","type":"Box","size":[0.12,0.50,1.8],"position":[1.25,0.45,0],"materialId":"armor_dark"},{"name":"sideSkirtL","type":"Box","size":[2.2,0.15,0.06],"position":[0.10,0.52,-1.05],"materialId":"armor_dark"},{"name":"sideSkirtR","type":"Box","size":[2.2,0.15,0.06],"position":[0.10,0.52,1.05],"materialId":"armor_dark"},{"name":"obsDome","type":"Sphere","size":[0.30],"segments":[12,8],"position":[-0.15,0.95,0],"materialId":"steel"},{"name":"domeNeck","type":"Cylinder","size":[0.25,0.08,0.25],"segments":[16],"position":[-0.15,0.82,0],"materialId":"dark_steel"},{"name":"visionSlit","type":"Box","size":[0.06,0.04,0.40],"position":[-1.05,0.65,0],"materialId":"dark_steel"},{"name":"topPanel","type":"Box","size":[1.5,0.04,1.5],"position":[0.10,0.87,0],"materialId":"armor_light"},{"name":"ventL","type":"Box","size":[0.30,0.02,0.40],"position":[0.80,0.88,-0.50],"materialId":"dark_steel"},{"name":"ventR","type":"Box","size":[0.30,0.02,0.40],"position":[0.80,0.88,0.50],"materialId":"dark_steel"},{"name":"stripeFL","type":"Box","size":[0.005,0.04,0.25],"position":[-0.40,0.54,-1.03],"materialId":"warning_yellow"},{"name":"stripeFR","type":"Box","size":[0.005,0.04,0.25],"position":[-0.40,0.54,1.03],"materialId":"warning_yellow"},{"name":"stripeRL","type":"Box","size":[0.005,0.04,0.25],"position":[0.80,0.54,-1.03],"materialId":"warning_yellow"},{"name":"stripeRR","type":"Box","size":[0.005,0.04,0.25],"position":[0.80,0.54,1.03],"materialId":"warning_yellow"}]},{"name":"weapon_L_shoulder","type":"Group","position":[-0.20,0.75,-1.10],"children":[{"name":"weapon_L_gatling","type":"Group","pivot":[0,0,0],"children":[{"name":"gatlingL_shroud","type":"Cylinder","size":[0.10,0.45,0.10],"segments":[16],"position":[-0.25,0,0],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"gatlingL_barrel1","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0.04,0],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingL_barrel2","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,-0.04,0],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingL_barrel3","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0,0.04],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingL_barrel4","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0,-0.04],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingL_feed","type":"Box","size":[0.12,0.15,0.20],"position":[0.05,-0.10,0],"materialId":"dark_steel"}]},{"name":"weapon_L_missile","type":"Group","position":[0.75,0,0],"pivot":[0,0,0],"children":[{"name":"missileL_housing","type":"Box","size":[0.14,0.20,0.16],"materialId":"armor_dark"},{"name":"missileL_tube1","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,0.03,0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileL_tube2","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,-0.03,0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileL_tube3","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,0.03,-0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileL_tube4","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,-0.03,-0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]}]}]},{"name":"weapon_R_shoulder","type":"Group","position":[-0.20,0.75,1.10],"children":[{"name":"weapon_R_gatling","type":"Group","pivot":[0,0,0],"children":[{"name":"gatlingR_shroud","type":"Cylinder","size":[0.10,0.45,0.10],"segments":[16],"position":[-0.25,0,0],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"gatlingR_barrel1","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0.04,0],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingR_barrel2","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,-0.04,0],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingR_barrel3","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0,0.04],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingR_barrel4","type":"Cylinder","size":[0.025,0.60,0.025],"segments":[8],"position":[-0.50,0,-0.04],"materialId":"barrel_steel","rotation":[0,0,1.5708]},{"name":"gatlingR_feed","type":"Box","size":[0.12,0.15,0.20],"position":[0.05,-0.10,0],"materialId":"dark_steel"}]},{"name":"weapon_R_missile","type":"Group","position":[0.75,0,0],"pivot":[0,0,0],"children":[{"name":"missileR_housing","type":"Box","size":[0.14,0.20,0.16],"materialId":"armor_dark"},{"name":"missileR_tube1","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,0.03,0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileR_tube2","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,-0.03,0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileR_tube3","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,0.03,-0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]},{"name":"missileR_tube4","type":"Cylinder","size":[0.05,0.40,0.05],"segments":[8],"position":[-0.22,-0.03,-0.03],"materialId":"dark_steel","rotation":[0,0,1.5708]}]}]},{"name":"leg_FL","type":"Group","position":[-0.90,0.05,1.10],"children":[{"name":"leg_FL_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_FL_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_FL_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_FL_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_FL_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_FL_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_FL_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,0.075],"materialId":"warning_yellow"}]},{"name":"leg_FR","type":"Group","position":[-0.90,0.05,-1.10],"children":[{"name":"leg_FR_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_FR_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_FR_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_FR_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_FR_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_FR_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_FR_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,-0.075],"materialId":"warning_yellow"}]},{"name":"leg_ML","type":"Group","position":[0.10,0.05,1.15],"children":[{"name":"leg_ML_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_ML_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_ML_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_ML_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_ML_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_ML_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_ML_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,0.075],"materialId":"warning_yellow"}]},{"name":"leg_MR","type":"Group","position":[0.10,0.05,-1.15],"children":[{"name":"leg_MR_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_MR_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_MR_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_MR_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_MR_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_MR_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_MR_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,-0.075],"materialId":"warning_yellow"}]},{"name":"leg_RL","type":"Group","position":[1.10,0.05,1.05],"children":[{"name":"leg_RL_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_RL_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_RL_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_RL_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_RL_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_RL_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_RL_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,0.075],"materialId":"warning_yellow"}]},{"name":"leg_RR","type":"Group","position":[1.10,0.05,-1.05],"children":[{"name":"leg_RR_thigh","type":"TaperedBox","size":[0.14,0.70,0.14,0.10,0.10],"position":[0,-0.35,0],"pivot":[0,0.35,0],"materialId":"armor_dark","children":[{"name":"leg_RR_shin","type":"TaperedBox","size":[0.10,0.55,0.10,0.07,0.07],"position":[0,-0.625,0],"pivot":[0,0.275,0],"materialId":"armor_dark","children":[{"name":"leg_RR_ankle","type":"Cylinder","size":[0.06,0.12,0.06],"segments":[8],"position":[0,-0.335,0],"pivot":[0,0.06,0],"materialId":"dark_steel","children":[{"name":"leg_RR_foot","type":"Box","size":[0.22,0.05,0.30],"position":[0,-0.09,0.08],"materialId":"dark_steel"}]},{"name":"leg_RR_kneeCap","type":"Sphere","size":[0.05],"segments":[6,4],"position":[0,-0.28,0],"materialId":"dark_steel"}]},{"name":"leg_RR_hipDeco","type":"Sphere","size":[0.06],"segments":[6,4],"position":[0,0.35,0],"materialId":"dark_steel"}]},{"name":"leg_RR_stripe","type":"Box","size":[0.15,0.03,0.005],"position":[0,-0.15,-0.075],"materialId":"warning_yellow"}]}]};
+
+const root = new THREE.Group();
+buildNode(HEXAPOD, root, [0,0,0]);
+
+// 计算包围盒，缩放到目标高度，并将脚底贴地（Y=0）
+const bbox = new THREE.Box3().setFromObject(root);
+const rawH = bbox.max.y - bbox.min.y;
+const targetH = 3.0;
+const scale = targetH / rawH;
+root.scale.setScalar(scale);
+// 脚底移到Y=0
+root.position.y = -bbox.min.y * scale;
+
+scene.add(root);
+
+// ── 脚踝加长：从0.12m Cylinder→0.25m TaperedBox，让腿有三节 ──
+(function elongateAnkles() {
+    var legNames = ['leg_FL','leg_FR','leg_ML','leg_MR','leg_RL','leg_RR'];
+    legNames.forEach(function(name) {
+        var ankleGroup = root.getObjectByName(name + '_ankle');
+        var ankleMesh = root.getObjectByName(name + '_ankle_mesh');
+        if (ankleGroup && ankleMesh) {
+            // 缩放脚踝几何体Y轴×2
+            ankleMesh.scale.y = 2.0;
+            ankleMesh.position.y -= 0.06; // 补偿缩放导致的偏移
+            // 脚下移补偿
+            var footGroup = root.getObjectByName(name + '_foot');
+            if (footGroup) footGroup.position.y -= 0.12;
+        }
+    });
+    root.updateMatrixWorld(true);
+})();
+
+// ── 昆虫腿外伸姿态 ──
+// 左腿(+Z侧)：大腿向外(+Z)弯，膝部向下回正，脚掌平贴地面
+// 右腿(-Z侧)：大腿向外(-Z)弯，镜像
+(function applyInsectPose() {
+    var legNames = ['leg_FL','leg_FR','leg_ML','leg_MR','leg_RL','leg_RR'];
+    legNames.forEach(function(name) {
+        var isRight = (name.charAt(name.length-1) === 'R');
+        // 大腿与Y+轴夹角60° = 从-Y转120° = 2.09rad
+        var thighAngle = isRight ? 2.09 : -2.09;
+        var shinAngle = isRight ? -1.4 : 1.4;   // 膝部弯回使小腿指向地面
+        var tp = root.getObjectByName(name + '_thigh_pivot');
+        if (tp) tp.rotation.x = thighAngle;
+        var sp = root.getObjectByName(name + '_shin_pivot');
+        if (sp) sp.rotation.x = shinAngle;
+        // 脚掌：右侧Z偏移取反，让脚尖朝外
+        var ap = root.getObjectByName(name + '_ankle_pivot');
+        var ankleAngle = -(thighAngle + shinAngle);
+        if (ap) ap.rotation.x = ankleAngle;
+        // 前腿向前(-X)60°、后腿向后(+X)60°、中腿直出。左右不同方向
+        var legGroup = root.getObjectByName(name);
+        if (legGroup) {
+            var posX = legGroup.position.x;
+            if (posX < -0.5) legGroup.rotation.y = isRight ? 1.05 : -1.05;      // 前腿
+            else if (posX > 0.5) legGroup.rotation.y = isRight ? -1.05 : 1.05;  // 后腿
+        }
+        var foot = root.getObjectByName(name + '_foot');
+        if (foot && isRight) foot.position.z = -foot.position.z;
+    });
+})();
+// 单独贴地：在所有变换后再算一次包围盒
+root.updateMatrixWorld(true);
+var finalBbox = new THREE.Box3().setFromObject(root);
+root.position.y -= finalBbox.min.y;
+
+// ── XYZ 方向指示 ──
+(function addAxes() {
+    const len = 3.0;
+    const origin = new THREE.Vector3(0, 0.02, 0);
+    // X轴 (红, 车头=-X 车尾=+X)
+    const xGeo = new THREE.BufferGeometry().setFromPoints([origin, new THREE.Vector3(len, 0.02, 0)]);
+    scene.add(new THREE.Line(xGeo, new THREE.LineBasicMaterial({color:0xff0000})));
+    const xGeo2 = new THREE.BufferGeometry().setFromPoints([origin, new THREE.Vector3(-len, 0.02, 0)]);
+    scene.add(new THREE.Line(xGeo2, new THREE.LineBasicMaterial({color:0x880000})));
+    // Y轴 (绿, 上)
+    const yGeo = new THREE.BufferGeometry().setFromPoints([origin, new THREE.Vector3(0, len, 0)]);
+    scene.add(new THREE.Line(yGeo, new THREE.LineBasicMaterial({color:0x00ff00})));
+    // Z轴 (蓝, +Z=左 -Z=右)
+    const zGeo = new THREE.BufferGeometry().setFromPoints([origin, new THREE.Vector3(0, 0.02, len)]);
+    scene.add(new THREE.Line(zGeo, new THREE.LineBasicMaterial({color:0x0000ff})));
+    const zGeo2 = new THREE.BufferGeometry().setFromPoints([origin, new THREE.Vector3(0, 0.02, -len)]);
+    scene.add(new THREE.Line(zGeo2, new THREE.LineBasicMaterial({color:0x000088})));
+    // 文字标签
+    function makeLabel(text, pos, color) {
+        const canvas = document.createElement('canvas'); canvas.width=128; canvas.height=64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle=color; ctx.font='bold 48px Arial'; ctx.textAlign='center';
+        ctx.fillText(text, 64, 48);
+        const tex = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({map:tex, depthTest:false});
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.position.copy(pos); sprite.scale.set(1.2, 0.6, 1);
+        scene.add(sprite);
+    }
+    makeLabel('+X →', new THREE.Vector3(len+0.6, 0.05, 0), '#ff4444');
+    makeLabel('← -X', new THREE.Vector3(-len-0.6, 0.05, 0), '#884444');
+    makeLabel('+Z ↑', new THREE.Vector3(0, 0.05, len+0.6), '#4444ff');
+    makeLabel('-Z ↓', new THREE.Vector3(0, 0.05, -len-0.6), '#444488');
+    makeLabel('+Y ▲', new THREE.Vector3(0, len+0.3, 0), '#44ff44');
+})();
+
+// ── 线框叠加层：挂到每个mesh同级，自动跟随所有变换 ──
+root.traverse(function(child) {
+    if (child.isMesh && child.geometry && child.parent) {
+        try {
+            var edgeGeo = new THREE.EdgesGeometry(child.geometry, 15);
+            var mat = new THREE.LineBasicMaterial({ color: 0x111111, depthTest: true });
+            var line = new THREE.LineSegments(edgeGeo, mat);
+            line.position.copy(child.position);
+            line.rotation.copy(child.rotation);
+            line.scale.copy(child.scale);
+            line.name = (child.name || 'mesh') + '_wire';
+            child.parent.add(line);
+        } catch(e) {
+            console.warn('线框失败:', child.name, e.message);
+        }
+    }
+});
+
+// 相机和场景渲染暴露到全局
+window._cam = camera;
+window._ren = renderer;
+window._scene = scene;
+window._ctrl = controls;
+window._root = root;
+
+function anim() { requestAnimationFrame(anim); controls.update(); renderer.render(scene, camera); }
+anim();
+console.log('Hexapod debug view ready');
+</script>
+</body></html>

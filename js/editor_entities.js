@@ -5,6 +5,9 @@
 // --- 敌人默认配置 ---
 function defaultEnemyCfg(etype) {
     if (etype === 'zombie') return { hp:40, speed:2.5, viewDist:35, attackDamage:10, attackCooldown:1.5, dropRate:0.3, dropHeal:20, reactive:true, aggressive:false, score:50 };
+    if (etype === 'hexapod') return { hp:100, speed:4.0, viewDist:60, attackDamage:15, attackCooldown:0.15, dropRate:0.35, dropHeal:40, reactive:true, aggressive:true, score:200,
+        engageDist:20, gatlingRange:25, missileRange:35, missileCooldown:4.0, fireRate:10, turnRate:1.5,
+        spinUpTime:0.8, overheatMax:100, heatPerSec:25, coolPerSec:15, spreadCone:3 };
     return { hp:60, speed:5.0, viewDist:50, attackDamage:15, attackCooldown:3.0, dropRate:0.25, dropHeal:30, reactive:true, aggressive:false, score:100 };
 }
 
@@ -70,6 +73,17 @@ function createEnemyMarker(x, y, z, etype) {
         body.position.y = 0.75; grp.add(body);
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), new THREE.MeshStandardMaterial({ color: 0x889966, roughness: 0.6 }));
         head.position.y = 1.7; grp.add(head);
+    } else if (etype === 'hexapod') {
+        const body = new THREE.Mesh(new THREE.TaperedBoxGeometry ? new THREE.BoxGeometry(1.5, 0.6, 1.8) : new THREE.BoxGeometry(1.5, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: 0x4a4a5a, roughness: 0.4 }));
+        body.position.y = 0.8; grp.add(body);
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshStandardMaterial({ color: 0x6b6b7b, roughness: 0.3 }));
+        dome.position.y = 1.2; grp.add(dome);
+        // 6 leg stubs
+        const legPos = [[-0.6,0.25,0.8],[0.1,0.25,0.85],[0.8,0.25,0.75],[-0.6,0.25,-0.8],[0.1,0.25,-0.85],[0.8,0.25,-0.75]];
+        legPos.forEach(function(p) {
+            var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.3, 6), new THREE.MeshStandardMaterial({ color: 0x888866, roughness: 0.6 }));
+            leg.position.set(p[0], p[1], p[2]); leg.rotation.x = Math.PI/2; grp.add(leg);
+        });
     } else { // assault vehicle
         const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 2.5), new THREE.MeshStandardMaterial({ color: 0xcc4444, roughness: 0.5 }));
         body.position.y = 0.5; grp.add(body);
@@ -331,7 +345,7 @@ function refreshEntityList() {
     if (sortBar) sortBar.style.display = 'flex';
     const treeNames = {cone:'锥形树', sphere:'球形树', oak:'橡树'};
     const bldgNames = {bungalow:'平房', villa:'别墅', apartment:'公寓'};
-    const enemyNames = {assault:'突击车', zombie:'丧尸'};
+    const enemyNames = {assault:'突击车', zombie:'丧尸', hexapod:'六足战车'};
     const icons = { spawn: '🚩', tree: '🌲', building: '🏠', enemy: '👾' };
     const labels = { spawn: '出生点', tree: '树木', building: '建筑', enemy: '敌人' };
     const catNames = { spawn: '🚩 出生点', enemy: '👾 敌人', building: '🏠 建筑', tree: '🌲 树木' };
@@ -401,7 +415,7 @@ function refreshEntityList() {
         }
         if (selEnt && selEnt.type === 'enemy') {
             html += '<div style="margin-top:6px;font-size:10px;color:#888;">修改敌人种类:</div><div style="display:flex;gap:4px;margin:4px 0;">' +
-                ['assault','zombie'].map(t => `<button class="chtype-btn${selEnt.enemyType===t?' active':''}" data-cht="${t}" style="background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;padding:3px 6px;font-size:10px;cursor:pointer;">${enemyNames[t]}</button>`).join('') + '</div>';
+                ['assault','zombie','hexapod'].map(t => `<button class="chtype-btn${selEnt.enemyType===t?' active':''}" data-cht="${t}" style="background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;padding:3px 6px;font-size:10px;cursor:pointer;">${enemyNames[t]}</button>`).join('') + '</div>';
         }
     }
     if (nSel >= 2) {
@@ -410,7 +424,7 @@ function refreshEntityList() {
         html += '<div style="margin-top:4px;font-size:10px;color:#f5954a;">已选 '+nSel+' 个实体 (类型:'+[...selTypes].join(',')+')</div>';
         if (selEnemies.length > 0) {
             html += '<div style="margin-top:4px;font-size:10px;color:#888;">批量修改敌人种类:</div><div style="display:flex;gap:4px;margin:4px 0;">' +
-                ['assault','zombie'].map(t => `<button class="chtype-btn" data-cht="${t}" style="background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;padding:3px 6px;font-size:10px;cursor:pointer;">${enemyNames[t]}</button>`).join('') + '</div>';
+                ['assault','zombie','hexapod'].map(t => `<button class="chtype-btn" data-cht="${t}" style="background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;padding:3px 6px;font-size:10px;cursor:pointer;">${enemyNames[t]}</button>`).join('') + '</div>';
             html += '<div style="display:flex;gap:4px;margin:4px 0;"><button class="batch-btn" data-batch="copy-patrol">📋巡逻点复制到选中敌人</button><button class="batch-btn danger" data-batch="clear-patrol">🗑️清空选中巡逻点</button></div>';
         }
     }

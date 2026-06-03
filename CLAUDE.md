@@ -29,7 +29,8 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── map_editor.html    # 地图编辑器 (~1800行)：v0.51.0 双管线村落生成
+├── models/hexapod_config.js # 六足战车共享模型配置 (~350行)：独立于模型工厂和游戏端
+├── map_editor.html    # 地图编辑器 (~1800行)：v0.52.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
 │   ├── editor_genStatus.js   # 生成状态面板 (~120行)：实时进度+统计+质量评分+自动隐藏

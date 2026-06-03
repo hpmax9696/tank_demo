@@ -324,6 +324,7 @@
         const ai = enemy.ai;
         const cfg = enemy.cfg || {};
         const isZombie = (cfg.type === 'zombie' || (enemy.userData && enemy.userData.enemyType === 'zombie'));
+        const isHexapod = (cfg.type === 'hexapod' || (enemy.userData && enemy.userData.enemyType === 'hexapod'));
 
         // 寻找最近的存活玩家
         const { player: nearestPlayer, dist: nearestDist } = findNearestPlayer(enemy, players);
@@ -528,6 +529,45 @@
                     }
                     break;
             }
+        } else if (isHexapod) {
+            // ═══════════════════════════════════════════
+            //  六足战车 AI — 车辆状态机 + 武器平衡
+            // ═══════════════════════════════════════════
+            if (ai.state === AI_STATE.STUNNED) { ai.animRequest = 'idle'; return; }
+            if (ai.state === AI_STATE.DEAD) { ai.animRequest = 'death'; return; }
+
+            if (ai.spinUp === undefined) ai.spinUp = 0;
+            if (ai.heat === undefined) ai.heat = 0;
+            if (ai.bodyYaw === undefined) ai.bodyYaw = enemy.rotation.y;
+
+            switch (ai.state) {
+                case AI_STATE.PATROL:
+                    updatePatrol(enemy, ai, cfg, dt);
+                    if (!cfg.reactive && nearestPlayer && canSeeTarget(enemy, nearestPlayer, Math.PI/4, cfg.viewDist || 60, scene)) {
+                        ai.state = AI_STATE.CHASE; ai.target = nearestPlayer;
+                        ai.lastSeenPlayerPos = nearestPlayer.group.position.clone(); ai.alertTimer = 0;
+                    }
+                    ai.animRequest = 'move_forward';
+                    break;
+                case AI_STATE.CHASE:
+                    updateChase(enemy, ai, cfg, dt, nearestPlayer);
+                    if (nearestPlayer && nearestDist < (cfg.engageDist || 20) * 0.85) { ai.state = AI_STATE.ENGAGE; }
+                    if (!nearestPlayer || nearestDist > (cfg.viewDist || 60) * 1.5) {
+                        ai.alertTimer = (ai.alertTimer || 0) + dt;
+                        if (ai.alertTimer > 8) { ai.state = AI_STATE.PATROL; ai.alertTimer = 0; ai.target = null; }
+                    } else { ai.alertTimer = 0; }
+                    ai.animRequest = 'move_forward';
+                    break;
+                case AI_STATE.ENGAGE:
+                    updateHexapodEngage(enemy, ai, cfg, dt, nearestPlayer, players, scene);
+                    if (!nearestPlayer || nearestDist > (cfg.engageDist || 20) * 1.5) { ai.state = AI_STATE.CHASE; }
+                    if (cfg.canFlee && enemy.hp < cfg.hp * 0.2) { ai.state = AI_STATE.FLEE; }
+                    break;
+                case AI_STATE.FLEE:
+                    updateFlee(enemy, ai, cfg, dt, nearestPlayer);
+                    ai.animRequest = 'move_backward';
+                    break;
+            }
         } else {
             // ── 原有车辆 AI ──
             switch (ai.state) {
@@ -579,12 +619,129 @@
         }
     }
 
-    // ─── 敌人受击回调（由 index.html 炮弹碰撞检测调用） ───
+    // ─── 六足战车 ENGAGE 逻辑（转向延迟+提速+过热+散布）───
+    function updateHexapodEngage(enemy, ai, cfg, dt, nearestPlayer, players, scene) {
+        if (!nearestPlayer) return;
+        const pp = nearestPlayer.group.position;
+        const dist = enemy.position.distanceTo(pp);
+        const turnRate = cfg.turnRate || 1.5;
+        const spinUpTime = cfg.spinUpTime || 0.8;
+        const overheatMax = cfg.overheatMax || 100;
+        const heatPerSec = cfg.heatPerSec || 25;
+        const coolPerSec = cfg.coolPerSec || 15;
+        const spreadCone = (cfg.spreadCone || 3) * Math.PI / 180;
+        const gatlingRange = cfg.gatlingRange || 25;
+        const missileRange = cfg.missileRange || 35;
+        const missileCooldown = cfg.missileCooldown || 4.0;
+        const idealDist = cfg.engageDist || 20;
+
+        // 1. 车身转向延迟 — 平滑逼近目标角度
+        const dx = pp.x - enemy.position.x;
+        const dz = pp.z - enemy.position.z;
+        const targetYaw = Math.atan2(dx, -dz);
+        const ad = angleDiff(ai.bodyYaw, targetYaw);
+        const rotStep = Math.min(Math.abs(ad), turnRate * dt) * Math.sign(ad);
+        ai.bodyYaw += rotStep;
+        enemy.rotation.y = ai.bodyYaw;
+        const isAligned = Math.abs(ad) < 0.25;
+
+        // 2. 武器俯仰追踪
+        const localTarget = new THREE.Vector3(pp.x, pp.y, pp.z);
+        enemy.worldToLocal(localTarget);
+        const hDist = Math.sqrt(localTarget.x * localTarget.x + localTarget.z * localTarget.z);
+        const pitchAngle = Math.atan2(-localTarget.y, hDist);
+        const gatlingPitch = Math.max(-0.35, Math.min(0.79, pitchAngle));
+        const missilePitch = Math.max(-0.17, Math.min(1.05, pitchAngle));
+        ['左加特林_pivot','右加特林_pivot'].forEach(function(n) {
+            var p = enemy.getObjectByName(n); if (p) p.rotation.x = gatlingPitch;
+        });
+        ['左导弹巢_pivot','右导弹巢_pivot'].forEach(function(n) {
+            var p = enemy.getObjectByName(n); if (p) p.rotation.x = missilePitch;
+        });
+
+        // 3. 加特林旋转提速/衰减
+        if (isAligned && dist < gatlingRange) {
+            ai.spinUp = Math.min(1.0, ai.spinUp + dt / spinUpTime);
+        } else {
+            ai.spinUp = Math.max(0, ai.spinUp - dt * 2);
+        }
+
+        // 4. 过热管理
+        var isFiring = ai.spinUp > 0.9 && isAligned && dist < gatlingRange;
+        if (isFiring && ai.heat < overheatMax) {
+            ai.heat += heatPerSec * dt;
+            ai.gatlingSpread = Math.min(1.0, ai.gatlingSpread + dt * 0.5);
+        } else {
+            ai.heat = Math.max(0, ai.heat - coolPerSec * dt);
+            ai.gatlingSpread = Math.max(0, ai.gatlingSpread - dt * 0.3);
+        }
+        if (ai.heat >= overheatMax) { ai.heat = overheatMax; enemy.hp = Math.max(0, enemy.hp - 5 * dt); }
+
+        // 5. 加特林发射请求
+        ai.gatlingRequest = false;
+        ai.missileRequest = false;
+        if (isFiring && ai.heat < 80) {
+            ai.gatlingTimer = (ai.gatlingTimer || 0) - dt;
+            if (ai.gatlingTimer <= 0) {
+                ai.gatlingTimer = 1.0 / (cfg.fireRate || 10);
+                ai.gatlingRequest = true;
+                ai.animRequest = 'attack';
+            }
+        }
+
+        // 6. 导弹发射（不受转向/过热限制，但需距离合适）
+        if (dist < missileRange && dist > 5 && isAligned) {
+            ai.missileTimer = (ai.missileTimer || 0) - dt;
+            if (ai.missileTimer <= 0) {
+                ai.missileTimer = missileCooldown;
+                ai.missileRequest = true;
+            }
+        }
+
+        // 7. 环形走位
+        ai.strafeTimer = (ai.strafeTimer || 0) + dt;
+        if (ai.strafeTimer > 3.0 + Math.random() * 2) { ai.strafeDir = (ai.strafeDir || 1) * -1; ai.strafeTimer = 0; }
+        var sd = ai.strafeDir || 1;
+        var nd = Math.max(0.1, dist);
+        var tanX = -dz / nd * sd;
+        var tanZ = dx / nd * sd;
+        var radX = dx / nd;
+        var radZ = dz / nd;
+        var radialW = 0, tangentW = 0.5;
+        if (dist < idealDist * 0.5) { radialW = 1.0; tangentW = 0; }
+        else if (dist > idealDist * 1.3) { radialW = -1.0; tangentW = 0.15; }
+        var moveX = tanX * tangentW + radX * radialW;
+        var moveZ = tanZ * tangentW + radZ * radialW;
+        var mn = Math.max(0.01, Math.sqrt(moveX*moveX + moveZ*moveZ));
+        var speed = cfg.speed || 4.0;
+        enemy.position.x += (moveX / mn) * speed * dt;
+        enemy.position.z += (moveZ / mn) * speed * dt;
+
+        // 8. 转向时用turn动画代替move_forward
+        if (Math.abs(ad) > 0.3 && !isFiring) {
+            ai.animRequest = ad > 0 ? 'turn_right' : 'turn_left';
+        } else if (!isFiring) {
+            ai.animRequest = (Math.abs(tangentW) > Math.abs(radialW)) ? 'strafe_left' : 'move_forward';
+            if (sd < 0) ai.animRequest = (Math.abs(tangentW) > Math.abs(radialW)) ? 'strafe_right' : 'move_forward';
+        }
+    }
+
+    /**
+     * 计算两个角度之间的最短差值 (-PI ~ PI)
+     */
+    function angleDiff(a, b) {
+        var d = b - a;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        return d;
+    }
+
     function onEnemyDamaged(enemy, damage, attacker) {
         if (!enemy || !enemy.ai) return;
         const ai = enemy.ai;
         const eid = (enemy.userData && enemy.userData.enemyId) || '??';
         const isZombie = (enemy.cfg && enemy.cfg.type === 'zombie') || (enemy.userData && enemy.userData.enemyType === 'zombie');
+        const isHexapodDmg = (enemy.cfg && enemy.cfg.type === 'hexapod') || (enemy.userData && enemy.userData.enemyType === 'hexapod');
 
         enemy.hp = Math.max(0, enemy.hp - damage);
 
@@ -600,8 +757,8 @@
             ai.lastHitTime = Date.now() / 1000;
         }
 
-        // 非丧尸：受击触发迎击（被动还击模式）
-        if (!isZombie) {
+        // 非丧尸/非六足：受击触发迎击（被动还击模式）
+        if (!isZombie && !isHexapodDmg) {
             const prevState = ai.state;
             if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE) {
                 ai.state = AI_STATE.CHASE;
@@ -680,7 +837,9 @@
         const radius = aggroRadius || 25;
         const hitId = (hitEnemy.userData && hitEnemy.userData.enemyId) || '??';
         const isZombieHit = (hitEnemy.cfg && hitEnemy.cfg.type === 'zombie');
+        const isHexapodHit = (hitEnemy.cfg && hitEnemy.cfg.type === 'hexapod');
         const pursuitState = isZombieHit ? ZS.PURSUIT : AI_STATE.CHASE;
+        const hexRadius = isHexapodHit ? (aggroRadius || 40) : 0;
 
         function canBeAlerted(ally) {
             if (!ally || !ally.ai) return false;
