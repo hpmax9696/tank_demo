@@ -31,6 +31,6 @@ const MODEL_CONFIGS = { tank_v16:T34_85_V16_CONFIG, building:BUILDING_CONFIG, en
 let currentModelType
 
 window.ModelConfigs = { T34_85_V16_CONFIG, BUILDING_CONFIG, ENEMY_CONFIG, get HEXAPOD_CONFIG() { return (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {}; }, MODEL_CONFIGS };
-window.ModelConfigs.currentModelType = 'tank_v16';
+window.ModelConfigs.currentModelType = 'hexapod';
 
 })();

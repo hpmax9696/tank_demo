@@ -29,7 +29,8 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── models/hexapod_config.js # 六足战车共享模型配置 (~10行)：独立于模型工厂和游戏端，模型工厂动画框架支持按模型隔离
+├── models/hexapod_config.js # 六足战车共享模型配置：6腿各4DOF(髋摆+髋抬+膝+踝)+万向跟关节+踝球，独立于模型工厂和游戏端
+├── js/hexapod_anim.js       # 六足动画模块 (~540行)：AnimationSystem分层+步行循环+单腿IK测试(6DOF CCD)
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
@@ -91,6 +92,32 @@ FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
 6. **自动验证**：修改代码后自动用 Chrome headless CDP 抓取控制台错误，无误后才通知用户；有错则自行修复再验证，直到通过
 7. **模块优先**：新功能优先以独立 JS 模块加载，三个主文件（index/map_editor/model_factory）不宜再增大，主文件仅作框架和加载器
 8. **文档同步**：更新 CLAUDE.md 时同步更新 CODEBUDDY.md（参数/架构/已知问题）和 `.trae/rules/project_rules.md`（规则/文件行数），三份文档保持一致
+
+## 六足战车 IK 系统
+
+### 腿结构（6条腿，每条 6 DOF）
+
+```
+legGroup (Y旋转=水平摆角)
+  └── thighPivot (X旋转=髋抬腿) [L1≈0.7]
+        ├── 大腿 mesh + 髋球 + 警示条
+        └── shinPivot (X旋转=膝) [L2≈0.55]
+              ├── 小腿 mesh + 膝球
+              └── anklePivot (X旋转=踝) [L3≈0.25]
+                    ├── 脚踝 mesh
+                    ├── 踝球 (Sphere r=0.08, 踝底与heelPivot中点)
+                    └── heelPivot (X+Z旋转=万向跟关节)
+                          └── 脚掌 mesh
+```
+
+### 单腿 IK 测试（`toggleHexIKTest`）
+
+- **按钮**：模型工厂 `#toggle-iktest`，仅六足战车可用
+- **算法**：CCD (Cyclic Coordinate Descent)，40迭代 + 0.5阻尼
+- **关节顺序**（足→髋）：heel Z → heel X → ankle X → shin X → thigh X → legGroup Y
+- **脚掌校平**：10迭代 heel leveling，底面法线对齐世界+Y
+- **精度**：XZ<1.2cm, Y<1.6cm
+- **身体运动**：沿body forward(world -Z)正弦摆动 ±0.25m，周期4s
 
 ## 游戏模式
 

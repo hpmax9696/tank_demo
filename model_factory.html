@@ -16,6 +16,14 @@
   #toggle-anim:hover { background:rgba(78,205,196,0.2); }
   #toggle-anim.active { background:rgba(78,205,196,0.3); color:#fff; animation:pulse 1.5s infinite; }
   #toggle-anim:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
+  #toggle-iktest { background:rgba(0,0,0,0.6); color:#f0a030; border:1px solid #f0a030; padding:8px 20px; border-radius:5px; cursor:pointer; font-size:14px; transition:all 0.2s; margin-left:10px; }
+  #toggle-iktest:hover { background:rgba(240,160,48,0.2); }
+  #toggle-iktest.active { background:rgba(240,160,48,0.3); color:#fff; animation:pulse-ik 1.5s infinite; }
+  #toggle-iktest:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
+  @keyframes pulse-ik { 0%,100% { box-shadow:0 0 5px #f0a030; } 50% { box-shadow:0 0 20px #f0a030; } }
+  #anim-list .anim-item { background:rgba(0,0,0,0.6); color:#aaa; border:1px solid #555; padding:3px 14px; border-radius:4px; cursor:pointer; font-size:12px; white-space:nowrap; transition:all 0.2s; pointer-events:auto; }
+  #anim-list .anim-item:hover { background:rgba(78,205,196,0.25); color:#fff; border-color:#4ecdc4; }
+  #anim-list .anim-item.active { background:rgba(78,205,196,0.35); color:#fff; border-color:#4ecdc4; box-shadow:0 0 8px #4ecdc4; }
   @keyframes pulse { 0%,100% { box-shadow:0 0 5px #4ecdc4; } 50% { box-shadow:0 0 20px #4ecdc4; } }
   /* lil-gui 覆盖样式 — 深色主题高对比度 */
   .lil-gui {
@@ -80,8 +88,10 @@
 <div id="bottom-bar">
 <button id="toggle-helpers">🔲 切换对齐辅助框 (BoxHelper)</button>
 <button id="toggle-anim">🎬 动画展台</button>
+<button id="toggle-iktest" disabled>🦿 单腿IK测试</button>
 </div>
 <div id="anim-status" style="position:absolute;bottom:60px;left:50%;z-index:10;color:#4ecdc4;font-size:13px;background:rgba(0,0,0,0.7);padding:4px 14px;border-radius:4px;pointer-events:none;display:none;"></div>
+<div id="anim-list" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:10;display:none;flex-direction:row;gap:6px;"></div>
 <div id="part-tree"></div>
 
 <script type="importmap">
@@ -555,14 +565,32 @@ function buildFromConfig(config, parent, showHelpers, nodeMap) {
       const g = new THREE.Group();
       g.name = node.name;
       if (node.position) g.position.set(...adjustPos(node.position, pivotComp));
-      if (node.rotation) g.rotation.set(...node.rotation);
       if (node.scale) g.scale.set(...node.scale);
       g.visible = node.visible !== false;
       parentObj.add(g);
+
+      let rotTarget = g;
+      if (node.pivot) {
+        const pivot = new THREE.Group();
+        pivot.name = node.name + '_pivot';
+        pivot.position.set(node.pivot[0], node.pivot[1], node.pivot[2]);
+        g.add(pivot);
+        rotTarget = pivot;
+        g.userData.pivot = pivot;
+      }
+      if (node.rotation) rotTarget.rotation.set(...node.rotation);
+
       // Group也要存入nodeMap，否则GUI面板找不到它
-      nodeMap.set(node.name, { group: g, mesh: null, configNode: node, rotTarget: g });
+      nodeMap.set(node.name, { group: g, mesh: null, configNode: node, rotTarget });
+
+      const childComp = node.pivot
+        ? [-node.pivot[0], -node.pivot[1], -node.pivot[2]]
+        : [0, 0, 0];
+      g.userData.appliedComp = pivotComp;
+      g.userData.childComp = childComp;
+
       if (node.children) {
-        for (const c of node.children) buildNode(c, g);
+        for (const c of node.children) buildNode(c, rotTarget, childComp);
       }
       return;
     }
@@ -689,6 +717,7 @@ let currentModelType = window.ModelConfigs.currentModelType;
 // 7. Three.js 初始化
 // ============================================================
 import * as THREE from 'three';
+window.THREE = THREE;  // 供外部模块使用
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import GUI from 'lil-gui';
@@ -923,7 +952,7 @@ let animShowcase = false;
 let animPhase = 0;
 let animStartTime = 0;
 let animStatusEl = null;
-let animRefs = {};
+let animRefs = window._animRefs = {};
 let trackOffsetL = 0, trackOffsetR = 0;
 
 // ── 获取当前模型的动画定义 ──
@@ -934,6 +963,8 @@ function getModelAnims() {
       resetState: _tankResetState, destroyPivots: _tankDestroyPivots,
       restorePlates: _tankRestorePlates },
 
+    'hexapod': window.HexapodAnims || null,
+
     'building': null,
     'enemy': null,
   };
@@ -943,24 +974,34 @@ function getModelAnims() {
 // ── 更新按钮状态 ──
 function updateAnimButton() {
   const btn = document.getElementById('toggle-anim');
-  if (!btn) return;
-  const hasAnims = getModelAnims() !== null;
-  btn.disabled = !hasAnims;
-  if (!hasAnims) {
-    if (animShowcase) {
-      animShowcase = false;
-      btn.classList.remove('active');
-      btn.textContent = '\u{1f3ac} 动画展台';
-      animPhase = 0;
-      _doResetState();
-      trackOffsetL = 0; trackOffsetR = 0;
-      _doDestroyPivots();
-      const st = document.getElementById('anim-status');
-      if (st) st.style.display = 'none';
+  if (btn) {
+    const hasAnims = getModelAnims() !== null;
+    btn.disabled = !hasAnims;
+    if (!hasAnims) {
+      if (animShowcase) {
+        animShowcase = false;
+        btn.classList.remove('active');
+        btn.textContent = '\u{1f3ac} 动画展台';
+        animPhase = 0;
+        _doResetState();
+        trackOffsetL = 0; trackOffsetR = 0;
+        _doDestroyPivots();
+        const st = document.getElementById('anim-status');
+        if (st) st.style.display = 'none';
+      }
+      btn.title = '当前模型暂无动画';
+    } else {
+      btn.title = '';
     }
-    btn.title = '当前模型暂无动画';
-  } else {
-    btn.title = '';
+  }
+  // IK测试按钮：仅六足战车可用
+  const ikBtn = document.getElementById('toggle-iktest');
+  if (ikBtn) {
+    const isHex = currentModelType === 'hexapod';
+    ikBtn.disabled = !isHex;
+    if (!isHex) {
+      if (window.toggleHexIKTest) window.toggleHexIKTest();
+    }
   }
 }
 
@@ -1213,28 +1254,9 @@ function _tankRestorePlates() {
   }
 }
 
-// ── 六足战车动画 ──
-const _hexaAnimNames = [];
-const _hexaAnimDurations = [];
-const _hexaLegNames = ['左前腿','右前腿','左中腿','右中腿','左后腿','右后腿'];
-
-function _hexaCollectRefs() {
-  animRefs = {};
-}
-
-function _hexaUpdateFrame(dt, t, elapsed, duration) {
-}
-
-function _hexaResetState() {
-}
-
-function _hexaDestroyPivots() {
-  animRefs = {};
-}
-
 // ── 调度 ──
-function _doResetState() { const ma = getModelAnims(); if (ma && ma.resetState) ma.resetState(); else { animRefs = {}; } }
-function _doDestroyPivots() { const ma = getModelAnims(); if (ma && ma.destroyPivots) ma.destroyPivots(); else { animRefs = {}; } }
+function _doResetState() { const ma = getModelAnims(); if (ma && ma.resetState) ma.resetState(); else { animRefs = window._animRefs = {}; } }
+function _doDestroyPivots() { const ma = getModelAnims(); if (ma && ma.destroyPivots) ma.destroyPivots(); else { animRefs = window._animRefs = {}; } }
 function _doRestorePlates() { const ma = getModelAnims(); if (ma && ma.restorePlates) ma.restorePlates(); }
 
 // ── 每帧更新 ──
@@ -1247,13 +1269,48 @@ function updateAnimShowcase(dt) {
   const t = Math.min(elapsed / duration, 1);
   ma.updateFrame(dt, t, elapsed, duration);
   if (t >= 1) {
-    animPhase++;
-    if (animPhase > (ma.names || []).length) animPhase = 1;
+    // 锁定当前动画循环播放（不再自动跳到下一个）
     animStartTime = performance.now();
     trackOffsetL = 0; trackOffsetR = 0;
     _doResetState();
-    if (animStatusEl && ma.names) animStatusEl.textContent = ma.names[animPhase - 1] || '';
   }
+}
+
+// 跳转到指定动画
+function jumpToAnim(index) {
+  const ma = getModelAnims();
+  if (!ma || !ma.names || index < 0 || index >= ma.names.length) return;
+  animPhase = index + 1;
+  animStartTime = performance.now();
+  trackOffsetL = 0; trackOffsetR = 0;
+  _doResetState();
+  if (animStatusEl && ma.names) animStatusEl.textContent = ma.names[index] || '';
+  _updateAnimListHighlight();
+}
+
+function _updateAnimListHighlight() {
+  var list = document.getElementById('anim-list');
+  if (!list) return;
+  var items = list.querySelectorAll('.anim-item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('active', i === animPhase - 1);
+  }
+}
+
+function _buildAnimList() {
+  var list = document.getElementById('anim-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var ma = getModelAnims();
+  if (!ma || !ma.names) return;
+  for (var i = 0; i < ma.names.length; i++) {
+    var item = document.createElement('div');
+    item.className = 'anim-item';
+    item.textContent = (i + 1) + ' ' + ma.names[i].split(' ').slice(1).join(' ');
+    item.onclick = (function(idx) { return function() { jumpToAnim(idx); }; })(i);
+    list.appendChild(item);
+  }
+  list.style.display = 'flex';
 }
 
 // ── 开关 ──
@@ -1263,6 +1320,7 @@ function toggleAnimShowcase() {
   animShowcase = !animShowcase;
   const btn = document.getElementById('toggle-anim');
   const statusEl = document.getElementById('anim-status');
+  const listEl = document.getElementById('anim-list');
   animStatusEl = statusEl;
   if (animShowcase) {
     btn.classList.add('active');
@@ -1274,6 +1332,8 @@ function toggleAnimShowcase() {
     _doResetState();
     statusEl.style.display = 'block';
     statusEl.textContent = (ma.names || [])[0] || '';
+    _buildAnimList();
+    _updateAnimListHighlight();
   } else {
     btn.classList.remove('active');
     btn.textContent = '\u{1f3ac} 动画展台';
@@ -1283,6 +1343,7 @@ function toggleAnimShowcase() {
     _doDestroyPivots();
     _doRestorePlates();
     statusEl.style.display = 'none';
+    if (listEl) { listEl.innerHTML = ''; listEl.style.display = 'none'; }
   }
 }
 
@@ -1347,6 +1408,8 @@ function rebuildModel() {
   _camoJungleTex = null; _camoDesertTex = null;
   // 关闭动画展台
   if (animShowcase) toggleAnimShowcase();
+  // 关闭IK测试（模块管理）
+  if (window._hexIKActive && window._hexIKActive()) window.toggleHexIKTest();
 
   // 清理旧模型
   if (modelRoot) {
@@ -2011,8 +2074,8 @@ function buildGUI() {
     if (!raw) { console.log('⚠️ 没有找到已保存的数据'); return; }
     try {
       const data = JSON.parse(raw);
-      currentModelType = data.modelType || 'tank_v16';
-      if (!MODEL_CONFIGS[currentModelType]) { console.warn('⚠️ 不支持的模型类型:' + data.modelType + '，已删除旧数据'); currentModelType = 'tank_v16'; localStorage.removeItem(SAVE_KEY); rebuildModel(); return; }
+      currentModelType = data.modelType || 'hexapod';
+      if (!MODEL_CONFIGS[currentModelType]) { console.warn('⚠️ 不支持的模型类型:' + data.modelType + '，已删除旧数据'); currentModelType = 'hexapod'; localStorage.removeItem(SAVE_KEY); rebuildModel(); return; }
       const cfg = MODEL_CONFIGS[currentModelType];
       deepRestore(cfg, data.config);
       rebuildModel();
@@ -2314,8 +2377,8 @@ function buildGUI() {
   if (!raw) return;
   try {
     const data = JSON.parse(raw);
-    currentModelType = data.modelType || 'tank_v16';
-    if (!MODEL_CONFIGS[currentModelType]) { console.warn('⚠️ 自动加载: 不支持的类型 ' + data.modelType + '，已清除旧数据'); localStorage.removeItem(SAVE_KEY); currentModelType = 'tank_v16'; return; }
+    currentModelType = data.modelType || 'hexapod';
+    if (!MODEL_CONFIGS[currentModelType]) { console.warn('⚠️ 自动加载: 不支持的类型 ' + data.modelType + '，已清除旧数据'); localStorage.removeItem(SAVE_KEY); currentModelType = 'hexapod'; return; }
     const cfg = MODEL_CONFIGS[currentModelType];
     Object.keys(cfg).forEach(k => delete cfg[k]);
     Object.assign(cfg, data.config);
@@ -2422,6 +2485,7 @@ window.currentModelType = currentModelType;
 window.rebuildModel = rebuildModel;
 window.nodeMap = nodeMap;
 window.modelRoot = modelRoot;
+window._scene = scene;
 
 // ============================================================
 // 15.5 视图切换系统
@@ -2524,5 +2588,6 @@ console.log('💡 可用全局变量: MODEL_CONFIGS, rebuildModel, nodeMap, mode
 console.log('💡 快捷键: H=切换辅助框');
 console.log('💡 右侧面板拖拽滑动条实时编辑坦克模型');
 </script>
+<script type="module" src="js/hexapod_anim.js"></script>
 </body>
 </html>

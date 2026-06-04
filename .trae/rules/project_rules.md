@@ -43,6 +43,8 @@ python -m http.server 8080 --bind 127.0.0.1
 | `js/editor_terrainPaint.js` | ~335 | 地形绘制（笔刷+高度图画布） |
 | `models/t34_v16_builder.js` | ~353 | T-34/85 v1.6 动画坦克构建器（index.html 引用，含 turretPivot/barrelPivot） |
 | `models/enemies.js` | ~920 | 装甲突击车 + 程序化丧尸 |
+| `models/hexapod_config.js` | ~100 | 六足战车模型配置（6腿6DOF+heelPivot+踝球） |
+| `js/hexapod_anim.js` | ~540 | 六足动画模块（AnimationSystem+步行+单腿IK测试CCD） |
 | `combat/enemyAI.js` | ~535 | AI 状态机 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统 |
 
@@ -207,7 +209,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.51.0 — 双管线村落生成系统+CDP自动验证）
+## 当前版本（v0.53.1 — 六足跟关节+CCD IK测试）
 
 ### 关键参数
 | 参数 | 值 |
@@ -239,11 +241,13 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 2 | 桥梁两端地形高低差（addBridge引道雕刻不完善） | map_editor.html |
 | 3 | 河岸空气墙红环调试残留 | index.html |
 | 4 | ✅ v0.49.0 池塘碰撞体对敌人失效修复 | index.html |
+| 5 | 六足单腿IK测试已跑通(XZ<1.2cm,Y<1.6cm)，待扩展到6腿Idle+Walk | js/hexapod_anim.js |
 
 ### 待完成任务
 | # | 任务 | 优先级 |
 |---|------|:------:|
-| 1 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 |
+| 1 | 六足Idle IK扩展到6腿 | 🟡 进行中 |
+| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 |
 | 2 | 同轴机枪功能 | 🟡 中期 |
 | 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
 | 4 | 树木 InstancedMesh 重构 | 🔵 远期 |

@@ -239,6 +239,11 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 负重轮zR1~zR5坐标(Z轴) | 1.40, 0.39, -0.74, -1.64, -2.55 | `model_factory.html` T34_85_V16_CONFIG |
 | 模型工厂视图 | 透视视图相机pos [5.0,3.5,6.0] | `model_factory.html` |
 | 固化脚本 | `固化.ps1` — 一行命令 JSON→源码 替换 | 项目根目录 |
+| 六足腿结构 | 6DOF: legGroup.Y(水平摆)+thigh.X(髋)+shin.X(膝)+ankle.X(踝)+heel.X(跟pitch)+heel.Z(跟roll) | `models/hexapod_config.js` |
+| 六足跟关节 | heelPivot Group(pivot[0,0,0]) 插在踝与脚掌之间，万向关节2DOF | `models/hexapod_config.js` |
+| 六足踝球 | Sphere r=0.08, 踝底与heelPivot中点，桥接踝骨和脚掌 | `models/hexapod_config.js` |
+| 六足IK测试 | CCD 40迭代+0.5阻尼, 精度XZ<1.2cm Y<1.6cm, 身体forward ±0.25m | `js/hexapod_anim.js` |
+| 六足动画 | Idle(3.5s)+Walk(2.4s), AnimationSystem分层, 三角步态, heelPivot蹬地 | `js/hexapod_anim.js` |
 | 导出JSON固化按钮 | 一键下载完整嵌套配置JSON | `model_factory.html` |
 
 ## 常见修复模式
@@ -459,9 +464,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | **800×800大地图性能优化** | ✅ v0.51 | FBM自适应降采样(>400m→½, >600m→¼)+bilinear插值；密度sqrt非线性缩放 |
-| 2 | **村落数密度参数修复** | ✅ v0.51 | 间距放宽(60-120m, ×1.0替换×1.5) + 密度sqrt缩放(village/pond/tree) |
-| 3 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
+| 1 | **六足战车 Idle IK** | 🟡 进行中 | v0.54 | 单腿IK测试已跑通(6DOF CCD), 待扩展到6腿Idle+Walk动画 |
+| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
 | 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
 | 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
 | 6 | 状态面板在CDP生成时显示 | ✅ v0.51.0 删除硬编码重复panel+setProperty('important') | editor_genStatus.js + map_editor.html |
