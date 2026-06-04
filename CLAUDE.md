@@ -29,8 +29,8 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── models/hexapod_config.js # 六足战车共享模型配置：6腿各4DOF(髋摆+髋抬+膝+踝)+万向跟关节+踝球，独立于模型工厂和游戏端
-├── js/hexapod_anim.js       # 六足动画模块 (~540行)：AnimationSystem分层+步行循环+单腿IK测试(6DOF CCD)
+├── models/hexapod_config.js # 六足战车共享模型配置：3节腿(大腿+小腿+尖刺足)，4DOF(髋摆+髋抬+膝+踝)，锥尖单点接地
+├── js/hexapod_anim.js       # 六足动画模块 (~540行)：待机+步行+奔跑+三角步态+单腿IK测试(3模式×3腿型)
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
@@ -95,7 +95,7 @@ FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
 
 ## 六足战车 IK 系统
 
-### 腿结构（6条腿，每条 6 DOF）
+### 腿结构（6条腿，每条 4 DOF）
 
 ```
 legGroup (Y旋转=水平摆角)
@@ -103,21 +103,26 @@ legGroup (Y旋转=水平摆角)
         ├── 大腿 mesh + 髋球 + 警示条
         └── shinPivot (X旋转=膝) [L2≈0.55]
               ├── 小腿 mesh + 膝球
-              └── anklePivot (X旋转=踝) [L3≈0.25]
-                    ├── 脚踝 mesh
-                    ├── 踝球 (Sphere r=0.08, 踝底与heelPivot中点)
-                    └── heelPivot (X+Z旋转=万向跟关节)
-                          └── 脚掌 mesh
+              └── anklePivot (X旋转=踝)
+                    ├── 踝球 (Sphere r=0.05, anklePivot原点)
+                    └── 尖刺足 (Cone, 锥尖朝下≈0.28)
 ```
 
 ### 单腿 IK 测试（`toggleHexIKTest`）
 
 - **按钮**：模型工厂 `#toggle-iktest`，仅六足战车可用
-- **算法**：CCD (Cyclic Coordinate Descent)，40迭代 + 0.5阻尼
-- **关节顺序**（足→髋）：heel Z → heel X → ankle X → shin X → thigh X → legGroup Y
-- **脚掌校平**：10迭代 heel leveling，底面法线对齐世界+Y
-- **精度**：XZ<1.2cm, Y<1.6cm
-- **身体运动**：沿body forward(world -Z)正弦摆动 ±0.25m，周期4s
+- **子菜单**：腿选择(左前/左中/左后) + 模式选择(Y轴下蹲/X轴左右/Z轴前后)
+- **算法**：CCD (Cyclic Coordinate Descent)，40迭代 + 0.5阻尼，踝关节锁死
+- **关节顺序**：thigh.X → shin.X → legGroup.Y（3关节，踝不参与）
+- **接地**：尖刺足锥尖单点固定，无需脚掌校平
+
+### 动画展台（`toggleAnimShowcase`）
+
+- **待机 Idle** (3.5s)：身体余弦起伏 ±0.08，6腿CCD保持锥尖固定
+- **步行 Walk** (1.5s)：三角步态，步幅0.22，步高0.15，周期0.7s，CCD 15迭代
+- **奔跑 Run** (0.8s)：三角步态，步幅0.38，步高0.24，周期0.38s，CCD 30迭代
+- **三角步态**：A组(左前+右中+左后)与B组(右前+左中+右后)交替支撑/摆动
+- **步态状态**：自累积时间，切换动画自动复位身体和步态
 
 ## 游戏模式
 

@@ -239,11 +239,10 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 负重轮zR1~zR5坐标(Z轴) | 1.40, 0.39, -0.74, -1.64, -2.55 | `model_factory.html` T34_85_V16_CONFIG |
 | 模型工厂视图 | 透视视图相机pos [5.0,3.5,6.0] | `model_factory.html` |
 | 固化脚本 | `固化.ps1` — 一行命令 JSON→源码 替换 | 项目根目录 |
-| 六足腿结构 | 6DOF: legGroup.Y(水平摆)+thigh.X(髋)+shin.X(膝)+ankle.X(踝)+heel.X(跟pitch)+heel.Z(跟roll) | `models/hexapod_config.js` |
-| 六足跟关节 | heelPivot Group(pivot[0,0,0]) 插在踝与脚掌之间，万向关节2DOF | `models/hexapod_config.js` |
-| 六足踝球 | Sphere r=0.08, 踝底与heelPivot中点，桥接踝骨和脚掌 | `models/hexapod_config.js` |
-| 六足IK测试 | CCD 40迭代+0.5阻尼, 精度XZ<1.2cm Y<1.6cm, 身体forward ±0.25m | `js/hexapod_anim.js` |
-| 六足动画 | Idle(3.5s)+Walk(2.4s), AnimationSystem分层, 三角步态, heelPivot蹬地 | `js/hexapod_anim.js` |
+| 六足腿结构 | 4DOF: legGroup.Y+thigh.X+shin.X+ankle.X，三节腿(大腿L1≈0.7+小腿L2≈0.55)+尖刺足(h=0.28) | `models/hexapod_config.js` |
+| 六足尖刺足 | Cylinder(rTop=0.055, rBottom≈0, h=0.28), 锥尖单点接地，内勾11°，踝球r=0.05 | `models/hexapod_config.js` |
+| 六足IK测试 | 3模式(Y下蹲/X左右/Z前后)×3腿型(前/中/后)，CCD 3关节+踝锁死，锥尖靶点固定 | `js/hexapod_anim.js` |
+| 六足动画 | Idle(3.5s)+Walk(1.5s,步幅0.22)+Run(0.8s,步幅0.38)，三角步态A/B组交替，CCD驱动 | `js/hexapod_anim.js` |
 | 导出JSON固化按钮 | 一键下载完整嵌套配置JSON | `model_factory.html` |
 
 ## 常见修复模式
