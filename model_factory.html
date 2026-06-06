@@ -21,6 +21,10 @@
   #toggle-iktest.active { background:rgba(240,160,48,0.3); color:#fff; animation:pulse-ik 1.5s infinite; }
   #toggle-iktest:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
   @keyframes pulse-ik { 0%,100% { box-shadow:0 0 5px #f0a030; } 50% { box-shadow:0 0 20px #f0a030; } }
+  #toggle-weaponcal { background:rgba(0,0,0,0.6); color:#0f0; border:1px solid #0f0; padding:8px 20px; border-radius:5px; cursor:pointer; font-size:14px; transition:all 0.2s; margin-left:10px; }
+  #toggle-weaponcal:hover { background:rgba(0,255,0,0.2); }
+  #toggle-weaponcal.active { background:rgba(0,255,0,0.3); color:#fff; }
+  #toggle-weaponcal:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
   #anim-list { position:absolute; top:100px; left:60px; z-index:20; display:none; flex-direction:column; gap:2px; max-height:calc(100vh - 180px); overflow-y:auto; background:rgba(0,0,0,0.85); padding:6px; border-radius:6px; border:1px solid #555; min-width:200px; }
   #anim-list::-webkit-scrollbar { width:5px; }
   #anim-list::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
@@ -94,6 +98,16 @@
 <button id="toggle-anim">🎬 动画展台</button>
 <button id="toggle-iktest" disabled>🦿 单腿IK测试</button>
 <button id="toggle-turntest" disabled>🔁 转弯验证</button>
+<button id="toggle-weaponcal" disabled>🎯 射击校准</button>
+	</div>
+	<div id="weaponcal-panel" style="display:none; position:absolute; bottom:70px; left:50%; transform:translateX(-50%); z-index:30; background:rgba(0,0,0,0.85); padding:10px 16px; border-radius:6px; border:1px solid #0f0; gap:24px; align-items:center;">
+  <span style="color:#0f0; font-size:13px; white-space:nowrap;">🎯 校准</span>
+  <span style="color:#fa0; font-size:12px;">🔫加特林</span>
+  <input type="range" id="weaponcal-gat" min="-90" max="90" value="0" step="0.5" style="width:120px;">
+  <span id="weaponcal-val-gat" style="color:#fa0; font-size:12px; min-width:36px;">0°</span>
+  <span style="color:#f66; font-size:12px;">🚀导弹</span>
+  <input type="range" id="weaponcal-mis" min="-90" max="90" value="0" step="0.5" style="width:120px;">
+  <span id="weaponcal-val-mis" style="color:#f66; font-size:12px; min-width:36px;">0°</span>
 </div>
 <div id="anim-status" style="position:absolute;bottom:60px;left:50%;z-index:10;color:#4ecdc4;font-size:13px;background:rgba(0,0,0,0.7);padding:4px 14px;border-radius:4px;pointer-events:none;display:none;"></div>
 <div id="anim-list"></div>
@@ -999,17 +1013,15 @@ function updateAnimButton() {
       btn.title = '';
     }
   }
-  // IK测试+转弯验证按钮：仅六足战车可用
-  const ikBtn = document.getElementById('toggle-iktest');
-  const ttBtn = document.getElementById('toggle-turntest');
-  if (ikBtn) {
-    const isHex = currentModelType === 'hexapod';
-    ikBtn.disabled = !isHex;
-    if (ttBtn) ttBtn.disabled = !isHex;
-    if (!isHex) {
-      if (window.toggleHexIKTest) window.toggleHexIKTest();
-      if (window.toggleHexTurnTest) window.toggleHexTurnTest();
-    }
+  // IK测试+转弯验证+射击校准按钮：仅六足战车可用
+  ['toggle-iktest','toggle-turntest','toggle-weaponcal'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (b) b.disabled = currentModelType !== 'hexapod';
+  });
+  if (currentModelType !== 'hexapod') {
+    if (window.toggleHexIKTest && window._hexIKActive && window._hexIKActive()) window.toggleHexIKTest();
+    if (window.toggleHexTurnTest) window.toggleHexTurnTest();
+    if (window.toggleWeaponCalibrate) window.toggleWeaponCalibrate();
   }
 }
 
@@ -1277,6 +1289,10 @@ function updateAnimShowcase(dt) {
   const t = Math.min(elapsed / duration, 1);
   ma.updateFrame(dt, t, elapsed, duration, animPhase - 1);
   if (t >= 1) {
+    // 受击踉跄: 一次性播放, 完毕后回待机
+    if (animPhase - 1 === 21) { jumpToAnim(0); return; }
+    // 死亡: 一次性播放, 停留1.5s后回待机(便于观察)
+    if (animPhase - 1 === 22) { setTimeout(function() { jumpToAnim(0); }, 1500); return; }
     // 锁定当前动画循环播放（不再自动跳到下一个）
     animStartTime = performance.now();
     trackOffsetL = 0; trackOffsetR = 0;
@@ -1311,12 +1327,16 @@ function _buildAnimList() {
   list.innerHTML = '';
   var ma = getModelAnims();
   if (!ma || !ma.names) return;
-  // 分类标签（索引基于 _hexaAnimNames 顺序）
+  // 分类标签（索引基于 _hexaAnimNames 顺序, 共21个）
   var categories = [
-    { label: '── 基础移动 ──', at: 0 },
-    { label: '── 后退 ──', at: 3 },
-    { label: '── 平移 ──', at: 5 },
-    { label: '── 转弯 ──', at: 7 },
+    { label: '── 待机 ──', at: 0 },
+    { label: '── 行进 (前进/后退) ──', at: 1 },
+    { label: '── 平移 (步行) ──', at: 5 },
+    { label: '── 转弯 (原地) ──', at: 7 },
+    { label: '── 转弯 (移动) ──', at: 9 },
+    { label: '── 平移 (奔跑) ──', at: 19 },
+    { label: '── 受击 ──', at: 21 },
+    { label: '── 死亡 ──', at: 22 },
   ];
   var catIdx = 0;
   for (var i = 0; i < ma.names.length; i++) {

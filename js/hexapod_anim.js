@@ -8,12 +8,15 @@ var animPhase = function() { return M._animPhase ? M._animPhase() : 0; };
 var animRefs;
 
 // ── 常量 ──
-var _hexaAnimNames = ['1/13 待机 (Idle)', '2/13 步行 (Walk)', '3/13 奔跑 (Run)', '4/13 步行后退 (Walk Back)', '5/13 奔跑后退 (Run Back)', '6/13 左平移 (Strafe Left)', '7/13 右平移 (Strafe Right)', '8/13 静态左转 (Turn Left)', '9/13 静态右转 (Turn Right)', '10/13 步行左转 (Walk Turn L)', '11/13 步行右转 (Walk Turn R)', '12/13 左移右转 (Strafe L Turn R)', '13/13 右移左转 (Strafe R Turn L)'];
-var _hexaAnimDurations = [3500, 1500, 800, 1600, 900, 1700, 1700, 2000, 2000, 2000, 2000, 2000, 2000];
+var _hexaAnimNames = ['1/23 待机 (Idle)', '2/23 步行 (Walk)', '3/23 奔跑 (Run)', '4/23 步行后退 (Walk Back)', '5/23 奔跑后退 (Run Back)', '6/23 左平移 (Strafe Left)', '7/23 右平移 (Strafe Right)', '8/23 静态左转 (Static Turn L)', '9/23 静态右转 (Static Turn R)', '10/23 步行左转 (Walk Turn L)', '11/23 步行右转 (Walk Turn R)', '12/23 平移左转 (Strafe Turn L)', '13/23 平移右转 (Strafe Turn R)', '14/23 后退左转 (Walk Back Turn L)', '15/23 后退右转 (Walk Back Turn R)', '16/23 奔跑左转 (Run Turn L)', '17/23 奔跑右转 (Run Turn R)', '18/23 奔退左转 (Run Back Turn L)', '19/23 奔退右转 (Run Back Turn R)', '20/23 奔跑左平移 (Strafe Run L)', '21/23 奔跑右平移 (Strafe Run R)', '22/23 受击踉跄 (Stagger)', '23/23 死亡 (Death)'];
+var _hexaAnimDurations = [3500, 1500, 800, 1600, 900, 1700, 1700, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 1200, 1200, 1300, 1300, 1000, 1000, 1100, 2500];
 // 移动方向: 0=原地, ±1=X轴(前/后), ±2=Z轴(左/右平移)
-var _hexaAnimDirections = [0, 1, 1, -1, -1, 2, -2, 1, 1, 1, 1, 2, -2];
-// 转弯速率: rad/s, 0=直行, ±1.5=静态转, ±1.2=步行转, ±1.0=平移转
-var _hexaAnimTurnRates = [0, 0, 0, 0, 0, 0, 0, 1.5, -1.5, 1.2, -1.2, -1.0, 1.0];
+var _hexaAnimDirections = [0, 1, 1, -1, -1, 2, -2, 1, 1, 1, 1, 2, -2, -1, -1, 1, 1, -1, -1, 2, -2, 0, 0];
+// 转弯速率: rad/s, 0=直行, >1=静态转, <1=移动转弯
+var _hexaAnimTurnRates = [0, 0, 0, 0, 0, 0, 0, 1.2, -1.2, 0.5, -0.5, -0.45, 0.45, 0.5, -0.5, 0.7, -0.7, 0.7, -0.7, 0, 0, 0, 0];
+// 每动画步幅/步高 (与上面一一对应)
+var _hexaStrides     = [0,   0.22, 0.38, 0.18, 0.28, 0.14, 0.14, 0.135,0.135,0.22, 0.22, 0.14, 0.14, 0.18, 0.18, 0.38, 0.38, 0.28, 0.28, 0.19, 0.19, 0, 0];
+var _hexaStepHeights = [0,   0.15, 0.24, 0.12, 0.18, 0.10, 0.10, 0.10, 0.10, 0.15, 0.15, 0.10, 0.10, 0.12, 0.12, 0.24, 0.24, 0.18, 0.18, 0.18, 0.18, 0, 0];
 var _hexaLegPrefixes = ['左前','右前','左中','右中','左后','右后'];
 // 三角步态分组: A组(相位0) vs B组(相位0.5)
 var _TRIPOD_A = { '左前':true, '右中':true, '左后':true };
@@ -27,8 +30,8 @@ var _WALK_BACK_STRIDE = 0.18, _WALK_BACK_STEP_H = 0.12;
 var _RUN_BACK_STRIDE = 0.28, _RUN_BACK_STEP_H = 0.18;
 // Strafe params: 横向移动步幅更小 (侧向运动效率低)
 var _STRAFE_STRIDE = 0.14, _STRAFE_STEP_H = 0.10;
-// Turn params: 转弯步幅决定腿部绕圈步距
-var _TURN_STRIDE = 0.10, _TURN_STEP_H = 0.08;
+// Turn params: 转弯步幅决定腿部绕圈步距+前进量(步态周期已由turnRate推导)
+var _TURN_STRIDE = 0.18, _TURN_STEP_H = 0.10;
 
 // ── 动画引用收集 ──
 function _hexaCollectRefs() {
@@ -63,6 +66,11 @@ function _hexaCollectRefs() {
     var hw2 = new THREE.Vector3(); hexRoot.getWorldPosition(hw2);
     var hipW = new THREE.Vector3(); thighPivot.getWorldPosition(hipW);
     var hipDX = hipW.x - hw2.x, hipDZ = hipW.z - hw2.z;
+    // 脚到身体中心的XZ距离 — 在初始化时固定，防止CCD误差导致距离漂移
+    var initFootDist = Math.sqrt(
+      (tipWorld.x - hw2.x) * (tipWorld.x - hw2.x) +
+      (tipWorld.z - hw2.z) * (tipWorld.z - hw2.z)
+    );
     animRefs.legs.push({
       prefix: prefix,
       tripodA: !!_TRIPOD_A[prefix],
@@ -72,6 +80,7 @@ function _hexaCollectRefs() {
       restAnkleX: anklePivot.rotation.x, restLegY: thighInfo.group.parent.rotation.y,
       tipWorld: tipWorld.clone(), tipLocal: tipLocal,
       _hipDist: Math.sqrt(hipDX*hipDX + hipDZ*hipDZ), // 髋距(不变)
+      _initFootDist: initFootDist, // 固定脚距, swingTo用(防漂移)
       plantPos: null, swingFrom: null, swingTo: null
     });
   }
@@ -113,6 +122,41 @@ function _ccdLeg(leg, targetWorld, iters, damp) {
 function _hexaUpdateFrame(dt, t, elapsed, duration, animIndex) {
   animRefs = M._animRefs;
   if (!animRefs || !animRefs.legs || !animRefs.hexRoot) return;
+  // 受击踉跄/死亡进行中: 交各自系统接管, 但先更新动画追踪
+  if (animRefs._staggerActive) {
+    animRefs._lastDuration = duration;
+    animRefs._lastAnimIndex = animIndex;
+    _hexaStaggerUpdate(dt);
+    return;
+  }
+  if (animRefs._deathActive) {
+    animRefs._lastDuration = duration;
+    animRefs._lastAnimIndex = animIndex;
+    _hexaDeathUpdate(dt);
+    return;
+  }
+  // 受击踉跄动画 (index 21): 一次性触发, 每次轮换方向
+  if (animIndex === 21 && !animRefs._staggerDone) {
+    var staggerDirs = [
+      new THREE.Vector3(0,0,1),   // 前方
+      new THREE.Vector3(1,0,0),   // 左侧
+      new THREE.Vector3(-1,0,0),  // 右侧
+      new THREE.Vector3(0,0,-1),  // 后方
+      new THREE.Vector3(1,0,1).normalize(),  // 左前
+      new THREE.Vector3(-1,0,1).normalize(), // 右前
+    ];
+    var idx = (animRefs._staggerDirIdx || 0) % staggerDirs.length;
+    animRefs._staggerDirIdx = idx + 1;
+    triggerHexStagger(staggerDirs[idx], 0.7);
+    return;
+  }
+  // 死亡动画 (index 22): 一次性触发
+  if (animIndex === 22 && !animRefs._deathDone) {
+    triggerHexDeath();
+    return;
+  }
+  // 死亡已完成(等待t>=1跳回): 冻结姿态, 防止idle逻辑接管
+  if (animIndex === 22 && animRefs._deathDone) return;
   animRefs._animDuration = duration;
   animRefs._frameDt = dt; // 供 _updateGait 计算旋转增量
   animRefs._curAnimIndex = animIndex; // 供 _updateGait 区分静态/组合转弯
@@ -127,12 +171,19 @@ function _hexaUpdateFrame(dt, t, elapsed, duration, animIndex) {
               || (animRefs._lastAnimIndex !== undefined && animRefs._lastAnimIndex !== animIndex);
   if (switched) {
     animRefs._gaitInit = false; animRefs._prevTotalDist = 0; animRefs._totalTime = 0;
+    // 切换动画: 腿关节+步态状态+车身全复位
     for (var li = 0; li < animRefs.legs.length; li++) {
       var lg = animRefs.legs[li];
+      lg.thighPivot.rotation.x = lg.restThighX;
+      lg.shinPivot.rotation.x = lg.restShinX;
+      lg.anklePivot.rotation.x = lg.restAnkleX;
+      lg.thighGroup.parent.rotation.y = lg.restLegY;
       lg.plantPos = null; lg.swingFrom = null; lg.swingTo = null; lg._wasStance = undefined;
     }
     animRefs.hexRoot.position.set(animRefs.restHexRootX, animRefs.restHexRootY, animRefs.restHexRootZ);
-    animRefs.hexRoot.rotation.y = animRefs.restHexRootRotY;
+    animRefs.hexRoot.rotation.set(0, animRefs.restHexRootRotY, 0); // 含倾斜恢复
+    animRefs._staggerDone = false;
+    animRefs._deathDone = false;
   }
   animRefs._lastDuration = duration;
   animRefs._lastAnimIndex = animIndex;
@@ -151,25 +202,17 @@ function _hexaUpdateFrame(dt, t, elapsed, duration, animIndex) {
 
   if (!isIdle) {
     // ── 步态参数选择 ──
-    var stride, stepH, ccdIters;
-    var absDir = Math.abs(dir);
-    if (duration === 2000) {
-      // 转弯动画: CCD迭代随转速增加 (0.5阻尼需多轮补偿)
-      stride = (absDir === 2) ? _STRAFE_STRIDE : _TURN_STRIDE;
-      stepH  = (absDir === 2) ? _STRAFE_STEP_H : _TURN_STEP_H;
-      ccdIters = 20 + Math.round(Math.abs(turnRate) * 13); // 转弯需高强度CCD
-    } else if (absDir === 2) {
-      // 平移 (Z轴)
-      stride = _STRAFE_STRIDE; stepH = _STRAFE_STEP_H; ccdIters = 15;
-    } else if (duration === 800 || duration === 900) {
-      // 奔跑 (前/后)
-      stride = (duration === 800) ? _RUN_STRIDE : _RUN_BACK_STRIDE;
-      stepH  = (duration === 800) ? _RUN_STEP_H : _RUN_BACK_STEP_H;
-      ccdIters = 30;
+    var stride = (animIndex >= 0 && animIndex < _hexaStrides.length) ? _hexaStrides[animIndex] : 0;
+    var stepH  = (animIndex >= 0 && animIndex < _hexaStepHeights.length) ? _hexaStepHeights[animIndex] : 0.1;
+    // CCD迭代: 高速转弯多迭代补偿, 奔跑多迭代, 其余默认
+    var ccdIters;
+    if (Math.abs(turnRate) > 1.0) {
+      ccdIters = 20 + Math.round(Math.abs(turnRate) * 13);
+    } else if (Math.abs(turnRate) > 0) {
+      ccdIters = 20 + Math.round(Math.abs(turnRate) * 8);
+    } else if (stride > 0.30) {
+      ccdIters = 30; // 奔跑
     } else {
-      // 步行 (前/后)
-      stride = (duration === 1500) ? _WALK_STRIDE : _WALK_BACK_STRIDE;
-      stepH  = (duration === 1500) ? _WALK_STEP_H : _WALK_BACK_STEP_H;
       ccdIters = 15;
     }
     if (!animRefs._gaitInit) _initGait(stride, stepH);
@@ -207,9 +250,16 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
   ccdIters = ccdIters || 15;
   // totalTime: 秒, 自累积不受循环重置影响
   // 步行: 周期1.2s/步态, 奔跑: 0.7s/步态 (A+B各半步)
-  var gaitPeriod = stride > 0.30 ? 0.38 : 0.7;
-  // 转弯时略微加快步频，防止旋转过快时腿跟不上
-  if (Math.abs(turnRate) > 1.0) gaitPeriod *= 0.85;
+  var gaitPeriod;
+  if (Math.abs(turnRate) > 1.0) {
+    // 静态转弯(高速): 周期由转速推导, 保证每步角位移~0.525rad
+    gaitPeriod = 1.05 / Math.abs(turnRate);
+  } else if (Math.abs(turnRate) > 0) {
+    // 移动转弯(低速): 固定周期, 以移动步频为主
+    gaitPeriod = 0.72;
+  } else {
+    gaitPeriod = stride > 0.30 ? 0.38 : 0.7;
+  }
   var gaitCycles = totalTime / gaitPeriod;
   var bodyBob = Math.sin(gaitCycles * Math.PI * 2) * 0.03;
 
@@ -266,10 +316,10 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
           toFoot.y = 0;
           var footAngle = Math.atan2(toFoot.z, toFoot.x);
           var newAngle = footAngle - turnRate * gaitPeriod; // 反向全周期位移
-          var hipDist = leg._hipDist || (toFoot.length() || 1); // 髋距(不变), 不用被拉伸的脚距
+          var footDist = leg._initFootDist || (toFoot.length() || 1); // 固定脚距, 防止CCD误差累积漂移
           leg.swingTo = bodyC.clone();
-          leg.swingTo.x += Math.cos(newAngle) * hipDist;
-          leg.swingTo.z += Math.sin(newAngle) * hipDist;
+          leg.swingTo.x += Math.cos(newAngle) * footDist;
+          leg.swingTo.z += Math.sin(newAngle) * footDist;
           leg.swingTo.y = leg._groundY; // 不变参考, 防漂移
           // 静态转弯不加前进偏移(身体不位移), 组合转弯才加
           if (!isStaticTurn) {
@@ -286,9 +336,22 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
       // 防护: 首次即入摆动相 (TripodB at gaitT=0.5)
       if (!leg.swingFrom || !leg.swingTo) {
         leg.swingFrom = leg.plantPos.clone();
-        leg.swingTo = leg.plantPos.clone();
-        leg.swingTo.x += fwdBody.x * stride * 2;
-        leg.swingTo.z += fwdBody.z * stride * 2;
+        if (turnRate !== 0) {
+          // 转弯首次: 用旋转逻辑放置落地位置
+          var bodyC2 = new THREE.Vector3();
+          animRefs.hexRoot.getWorldPosition(bodyC2);
+          var tf2 = leg.plantPos.clone().sub(bodyC2); tf2.y = 0;
+          var fa2 = Math.atan2(tf2.z, tf2.x);
+          var fd2 = leg._initFootDist || (tf2.length() || 1);
+          leg.swingTo = bodyC2.clone();
+          leg.swingTo.x += Math.cos(fa2 - turnRate * gaitPeriod) * fd2;
+          leg.swingTo.z += Math.sin(fa2 - turnRate * gaitPeriod) * fd2;
+          leg.swingTo.y = leg._groundY;
+        } else {
+          leg.swingTo = leg.plantPos.clone();
+          leg.swingTo.x += fwdBody.x * stride * 2;
+          leg.swingTo.z += fwdBody.z * stride * 2;
+        }
       }
       // Lerp
       var target = new THREE.Vector3().lerpVectors(leg.swingFrom, leg.swingTo, stanceFrac);
@@ -315,14 +378,16 @@ function _hexaResetState() {
   if (animRefs.legs) {
     for (var li = 0; li < animRefs.legs.length; li++) {
       var leg = animRefs.legs[li];
-      leg.thighPivot.rotation.x = leg.restThighX;
-      leg.shinPivot.rotation.x = leg.restShinX;
-      leg.anklePivot.rotation.x = leg.restAnkleX;
-      leg.thighGroup.parent.rotation.y = leg.restLegY;
       if (!isGait) {
+        // 非步态(停止): 完全复位关节+步态状态
+        leg.thighPivot.rotation.x = leg.restThighX;
+        leg.shinPivot.rotation.x = leg.restShinX;
+        leg.anklePivot.rotation.x = leg.restAnkleX;
+        leg.thighGroup.parent.rotation.y = leg.restLegY;
         leg.plantPos = null; leg.swingFrom = null; leg.swingTo = null;
         leg._wasStance = undefined;
       }
+      // 步态中(含动画循环): 关节由CCD持续控制, 不清plantPos/swing — 实现无缝衔接
     }
     animRefs.hexRoot.updateMatrixWorld(true);
   }
@@ -333,6 +398,302 @@ function _hexaDestroyPivots() {
 }
 
 // ── 导出动画接口 ──
+// ═══════════════════════════════════════════
+// 受击踉跄系统 (v0.55)
+// 四阶段: 冲击→踉跄→恢复→回归
+// ═══════════════════════════════════════════
+var staggerState = null;
+
+function _easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function _easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+
+function triggerHexStagger(hitWorldDir, force) {
+  if (!animRefs || !animRefs.hexRoot || !animRefs.legs || !animRefs.legs.length) {
+    _hexaCollectRefs();
+    if (!animRefs || !animRefs.hexRoot) return;
+  }
+  force = Math.max(0.15, Math.min(1, force || 0.5));
+  var dirWorld = new THREE.Vector3(hitWorldDir.x, 0, hitWorldDir.z);
+  if (dirWorld.length() < 0.01) dirWorld.set(0, 0, 1);
+  dirWorld.normalize();
+
+  // 转本地方向, 判断哪些腿在受击对面(用于支撑)
+  animRefs.hexRoot.updateMatrixWorld(true);
+  var hp = new THREE.Vector3(); animRefs.hexRoot.getWorldPosition(hp);
+  var localEnd = animRefs.hexRoot.worldToLocal(hp.clone().add(dirWorld));
+  var lx = localEnd.x, lz = localEnd.z;
+
+  // 保存所有脚当前位置
+  var plants = [];
+  for (var li = 0; li < animRefs.legs.length; li++) {
+    var l = animRefs.legs[li];
+    plants.push(l.tipLocal.clone().applyMatrix4(l.anklePivot.matrixWorld));
+  }
+
+  // 按腿位置打分, 选出受击反向侧2~3条腿跺地
+  var scores = [];
+  for (var li2 = 0; li2 < animRefs.legs.length; li2++) {
+    var pf = animRefs.legs[li2].prefix;
+    var sc = 0;
+    if (pf.indexOf('前')>=0) sc -= lx; if (pf.indexOf('后')>=0) sc += lx;
+    if (pf.indexOf('左')>=0) sc -= lz; if (pf.indexOf('右')>=0) sc += lz;
+    scores.push({i:li2, s:sc});
+  }
+  scores.sort(function(a,b){return b.s-a.s;});
+  var stompIdx = [scores[0].i, scores[1].i];
+  if (Math.random()<0.4) stompIdx.push(scores[2].i);
+
+  var push = 0.22*force;
+  staggerState = {
+    t0: performance.now()/1000,
+    force: force, dir: dirWorld,
+    tImp: 0.12, tStag: 0.35, tRec: 0.50,
+    pushX: dirWorld.x*push, pushZ: dirWorld.z*push,
+    tiltX: dirWorld.z*0.10*force, tiltZ: -dirWorld.x*0.10*force,
+    plants: plants,
+    stompIdx: stompIdx, stompTargets: {}, stompFired: false,
+    bodyStart: hp.clone()
+  };
+  animRefs._gaitActive = false;
+  animRefs._staggerActive = true;
+}
+
+function _hexaStaggerUpdate(dt) {
+  if (!staggerState || !animRefs) return;
+  var s = staggerState;
+  var elapsed = performance.now()/1000 - s.t0;
+  var total = s.tImp + s.tStag + s.tRec;
+  if (elapsed >= total) { _hexaStaggerEnd(); return; }
+
+  var hr = animRefs.hexRoot;
+  var inImp = elapsed < s.tImp;
+  var inStag = elapsed >= s.tImp && elapsed < s.tImp+s.tStag;
+  var inRec = elapsed >= s.tImp+s.tStag;
+
+  // ── 身体位移 ──
+  var bFrac;
+  if (inImp) bFrac = _easeOut(elapsed/s.tImp);
+  else if (inStag) bFrac = 1 + 0.08*Math.sin((elapsed-s.tImp)/s.tStag*Math.PI*3);
+  else bFrac = 1 - _easeInOut((elapsed-s.tImp-s.tStag)/s.tRec);
+  hr.position.x = s.bodyStart.x + s.pushX*bFrac;
+  hr.position.z = s.bodyStart.z + s.pushZ*bFrac;
+
+  // ── 身体倾斜 ──
+  var tFrac = inImp ? _easeOut(elapsed/s.tImp) : inStag ? 1 : 1-_easeInOut((elapsed-s.tImp-s.tStag)/s.tRec);
+  hr.rotation.x = s.tiltX*tFrac;
+  hr.rotation.z = s.tiltZ*tFrac;
+  hr.updateMatrixWorld(true);
+
+  // ── 跺脚触发 ──
+  if (inStag && !s.stompFired) {
+    for (var si=0; si<s.stompIdx.length; si++) {
+      var li = s.stompIdx[si];
+      s.stompTargets[li] = {
+        from: s.plants[li].clone(),
+        to: s.plants[li].clone().add(new THREE.Vector3(-s.dir.x*0.1*s.force, 0.04, -s.dir.z*0.1*s.force))
+      };
+    }
+    s.stompFired = true;
+  }
+
+  // ── 逐腿CCD ──
+  for (var li3=0; li3<animRefs.legs.length; li3++) {
+    var leg = animRefs.legs[li3];
+    var tgt;
+    if (s.stompTargets[li3]) {
+      var st = s.stompTargets[li3];
+      var frac = Math.min(1, (elapsed-s.tImp)/(s.tStag*0.35));
+      tgt = new THREE.Vector3().lerpVectors(st.from, st.to, _easeOut(frac));
+      tgt.y += Math.sin(Math.min(frac,1)*Math.PI)*0.07;
+    } else {
+      tgt = s.plants[li3];
+    }
+    _ccdLeg(leg, tgt, 25, 0.7);
+  }
+}
+
+function _hexaStaggerEnd() {
+  staggerState = null;
+  if (!animRefs) return;
+  animRefs._staggerActive = false;
+  animRefs._staggerDone = true; // 防止动画循环重触发
+  if (animRefs.hexRoot) {
+    animRefs.hexRoot.position.set(animRefs.restHexRootX, animRefs.restHexRootY, animRefs.restHexRootZ);
+    animRefs.hexRoot.rotation.set(0, animRefs.restHexRootRotY || 0, 0);
+  }
+  _hexaResetState();
+}
+
+M.triggerHexStagger = triggerHexStagger;
+
+// ═══════════════════════════════════════════
+// 死亡瘫倒系统 (v0.55)
+// 三阶段: 僵直→瘫软→触地, damp渐降模拟关节失力
+// ═══════════════════════════════════════════
+var deathState = null;
+
+function triggerHexDeath() {
+  if (!animRefs || !animRefs.hexRoot || !animRefs.legs) return;
+
+  animRefs.hexRoot.updateMatrixWorld(true);
+  var restY = animRefs.restHexRootY;
+  var bodyC = new THREE.Vector3(); animRefs.hexRoot.getWorldPosition(bodyC);
+  var restX = animRefs.hexRoot.position.x;
+  var restZ = animRefs.hexRoot.position.z;
+
+  // 地面高度
+  var groundY = restY;
+  var startPlants = [];
+  for (var li = 0; li < animRefs.legs.length; li++) {
+    var l = animRefs.legs[li];
+    var tw = l.tipLocal.clone().applyMatrix4(l.anklePivot.matrixWorld);
+    startPlants.push(tw.clone());
+    if (tw.y < groundY) groundY = tw.y;
+  }
+  var bellyY = groundY + 0.14; // 倾斜触地, 压低高度
+
+  // ── 每腿各异的死亡瘫姿 (全伸展, 角度不对称) ──
+  var splayPresets = [
+    { mul:1.18, ao: 0.55 },  // 左前: 偏前左
+    { mul:1.25, ao:-0.15 },  // 右前: 几乎正前
+    { mul:1.22, ao: 0.08 },  // 左中: 几乎正左
+    { mul:1.30, ao:-0.45 },  // 右中: 偏前右
+    { mul:1.15, ao:-0.50 },  // 左后: 偏右后(交叉)
+    { mul:1.20, ao: 0.60 },  // 右后: 偏右后
+  ];
+  var deathTargets = [];
+  for (var li2 = 0; li2 < animRefs.legs.length; li2++) {
+    var fromB = startPlants[li2].clone().sub(bodyC); fromB.y = 0;
+    var baseAngle = Math.atan2(fromB.z, fromB.x);
+    var baseDist = fromB.length() || 0.5;
+    var sp = splayPresets[li2];
+    var dd = baseDist * sp.mul;
+    var da = sp.ao + (Math.random() - 0.5) * 0.12; // 微随机
+    var dAngle = baseAngle + da;
+    var dt = bodyC.clone();
+    dt.x += Math.cos(dAngle) * dd;
+    dt.z += Math.sin(dAngle) * dd;
+    dt.y = groundY;
+    deathTargets.push(dt);
+  }
+
+  // ── 昂首阶段: 前腿撑地, 身体抬起 ──
+  var rearTargets = [];
+  for (var li3 = 0; li3 < animRefs.legs.length; li3++) {
+    var pf2 = animRefs.legs[li3].prefix;
+    var p = startPlants[li3].clone();
+    if (pf2.indexOf('前') >= 0) {
+      // 前腿: 向内微收撑地, 把身体推起来
+      var toBody = bodyC.clone().sub(p); toBody.y = 0;
+      toBody.normalize().multiplyScalar(0.06);
+      p.add(toBody);
+    }
+    // 中后腿: 保持原位
+    p.y = groundY;
+    rearTargets.push(p);
+  }
+
+  deathState = {
+    t0: performance.now()/1000,
+    tRearUp: 0.22, tApex: 0.10, tCollapse: 0.7, tSettle: 0.5,
+    restY: restY, restX: restX, restZ: restZ,
+    bellyY: bellyY, groundY: groundY,
+    peakY: restY + 0.12, // 昂首时身体高度
+    startPlants: startPlants,
+    rearTargets: rearTargets,
+    deathTargets: deathTargets
+  };
+
+  animRefs._gaitActive = false;
+  animRefs._deathActive = true;
+}
+
+function _hexaDeathUpdate(dt) {
+  if (!deathState || !animRefs) return;
+  var ds = deathState;
+  var elapsed = performance.now()/1000 - ds.t0;
+  var tRear = ds.tRearUp, tApex = ds.tApex;
+  var tPhase2 = tRear + tApex;
+  var tPhase3 = tPhase2 + ds.tCollapse;
+  var total = tPhase3 + ds.tSettle;
+  if (elapsed >= total) { _hexaDeathEnd(); return; }
+
+  var hr = animRefs.hexRoot;
+
+  // ── 阶段判定 ──
+  var phase = elapsed < tRear ? 0          // 昂首
+            : elapsed < tPhase2 ? 1         // 极点停顿
+            : elapsed < tPhase3 ? 2         // 瘫倒
+            : 3;                            // 触地静止
+
+  // ── 身体Y ──
+  if (phase === 0) {
+    var rf = _easeOut(elapsed / tRear);
+    hr.position.y = ds.restY + (ds.peakY - ds.restY) * rf;
+  } else if (phase === 1) {
+    hr.position.y = ds.peakY;
+  } else if (phase === 2) {
+    var cf = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
+    hr.position.y = ds.peakY + (ds.bellyY - ds.peakY) * cf;
+  } else {
+    hr.position.y = ds.bellyY;
+  }
+  hr.position.x = ds.restX; hr.position.z = ds.restZ;
+
+  // ── 身体倾斜: 昂首后仰 → 瘫倒前倾+侧倾 ──
+  if (phase === 0) {
+    hr.rotation.x = -0.10 * _easeOut(elapsed / tRear);
+    hr.rotation.z = 0;
+  } else if (phase === 1) {
+    hr.rotation.x = -0.10;
+    hr.rotation.z = 0;
+  } else if (phase === 2) {
+    var cf2 = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
+    hr.rotation.x = -0.10 + 0.22 * cf2; // 后仰→前倾(+0.12)
+    hr.rotation.z = 0.07 * cf2;          // 右倾
+  } else {
+    hr.rotation.x = 0.12;
+    hr.rotation.z = 0.07;
+  }
+  hr.updateMatrixWorld(true);
+
+  // ── CCD damp ──
+  var damp;
+  if (phase <= 1) damp = 0.85;
+  else if (phase === 2) damp = 0.85 - 0.82 * Math.min(1, (elapsed - tPhase2) / ds.tCollapse);
+  else damp = 0.03;
+
+  // ── 腿靶点 ──
+  var legTargets = phase <= 1 ? ds.rearTargets
+                 : phase === 2 ? null // lerped below
+                 : ds.deathTargets;
+
+  for (var li = 0; li < animRefs.legs.length; li++) {
+    var leg = animRefs.legs[li];
+    var tgt;
+    if (phase <= 1) {
+      tgt = ds.rearTargets[li];
+    } else if (phase === 2) {
+      var cf3 = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
+      tgt = new THREE.Vector3().lerpVectors(ds.rearTargets[li], ds.deathTargets[li], cf3);
+    } else {
+      tgt = ds.deathTargets[li];
+    }
+    _ccdLeg(leg, tgt, phase >= 3 ? 10 : 20, damp);
+  }
+}
+
+function _hexaDeathEnd() {
+  deathState = null;
+  if (!animRefs) return;
+  animRefs._deathActive = false;
+  animRefs._deathDone = true;
+}
+
+M.triggerHexDeath = triggerHexDeath;
+
+// ═══════════════════════════════════════════
+
 M.HexapodAnims = {
   names: _hexaAnimNames,
   durations: _hexaAnimDurations,
@@ -925,4 +1286,171 @@ document.addEventListener('DOMContentLoaded', function() {
 setTimeout(function() {
   var ttb = document.getElementById('toggle-turntest');
   if (ttb) ttb.addEventListener('click', toggleHexTurnTest);
+}, 0);
+
+// ═══════════════════════════════════════════
+// 射击校准 — 武器支架俯仰可视化
+// ═══════════════════════════════════════════
+var weaponCalActive = false;
+var weaponCalData = null;
+// 瞄准线从支架射出: 右=身体左侧(命名反了)
+var _WC_MOUNT_NAMES = ['右加特林支架','右导弹支架'];
+var _WC_BARREL_NAMES = ['右加特林枪管1','右导弹管1']; // 仅用于取枪管方向
+var _WC_LINE_LEN = 2.5;
+
+function toggleWeaponCalibrate() {
+  // 已在运行→先清理
+  if (weaponCalActive) {
+    var btn2 = document.getElementById('toggle-weaponcal');
+    if (btn2) { btn2.classList.remove('active'); btn2.textContent = '🎯 射击校准'; }
+    var pnl2 = document.getElementById('weaponcal-panel');
+    if (pnl2) pnl2.style.display = 'none';
+    var btn3 = document.getElementById('toggle-weaponcal');
+    if (btn3) { btn3.classList.remove('active'); btn3.textContent = '🎯 射击校准'; }
+    _weaponCalCleanup();
+    return;
+  }
+  if (M.currentModelType !== 'hexapod') return;
+  weaponCalActive = true;
+  var btn = document.getElementById('toggle-weaponcal');
+
+  if (btn) { btn.classList.add('active'); btn.textContent = '⏹ 停止校准'; }
+  var pnl = document.getElementById('weaponcal-panel');
+  if (pnl) pnl.style.display = 'flex';
+  weaponCalData = { muzzles:[], gatPitch:0, misPitch:0 };
+  var hexRoot = null;
+  M.modelRoot.children.forEach(function(c) { if (c.name === '六足战车') hexRoot = c; });
+  if (!hexRoot) { weaponCalActive = false; return; }
+  hexRoot.updateMatrixWorld(true);
+
+  // 收集支架和枪管节点, 创建枢轴组让武器绕支架旋转
+  var mountNodes = {};
+  var barrelDirs = {};
+  hexRoot.traverse(function(node) {
+    var mi = _WC_MOUNT_NAMES.indexOf(node.name);
+    if (mi >= 0) { mountNodes[mi] = node; node.updateMatrixWorld(); }
+    var bi = _WC_BARREL_NAMES.indexOf(node.name);
+    if (bi >= 0) { node.updateMatrixWorld(); var wq=new THREE.Quaternion(); node.getWorldQuaternion(wq); barrelDirs[bi]=new THREE.Vector3(0,1,0).applyQuaternion(wq).normalize(); }
+  });
+
+  weaponCalData.pivots = [];
+  for (var ni = 0; ni < _WC_MOUNT_NAMES.length; ni++) {
+    var mount = mountNodes[ni];
+    var dir = barrelDirs[ni];
+    if (!mount || !dir) continue;
+    var wp = new THREE.Vector3(); mount.getWorldPosition(wp);
+    var wq = new THREE.Quaternion(); mount.getWorldQuaternion(wq);
+    var lz = new THREE.Vector3(0,0,1).applyQuaternion(wq).normalize();
+    var isGat = mount.name.indexOf('加特林')>=0;
+    var color = isGat ? 0xffaa00 : 0xff6666;
+
+    // 瞄准线+球
+    var lineGeo = new THREE.BufferGeometry().setFromPoints([wp.clone(), wp.clone().addScaledVector(dir, _WC_LINE_LEN)]);
+    var line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color:color}));
+    line.name = '_wc_aim_'+ni; getScene().add(line);
+    var dot = new THREE.Mesh(new THREE.SphereGeometry(0.05,6,4), new THREE.MeshBasicMaterial({color:color}));
+    dot.position.copy(wp); dot.name = '_wc_dot_'+ni; getScene().add(dot);
+
+    // ── 创建枢轴组: 让武器绕支架旋转 ──
+    var weaponGroup = mount.parent; // 支架所在武器组
+    var grandParent = weaponGroup.parent;
+    var mountLocal = mount.position.clone(); // 支架在武器组中的本地位置
+    var pivot = new THREE.Group();
+    pivot.name = '_wc_pivot_'+ni;
+    // 从场景中暂时移除武器组, 插入枢轴
+    grandParent.remove(weaponGroup);
+    grandParent.add(pivot);
+    pivot.position.copy(wp);          // 枢轴放在支架世界位置
+    pivot.rotation.set(0,0,0);
+    pivot.add(weaponGroup);
+    weaponGroup.position.copy(mountLocal).multiplyScalar(-1); // 偏移回原位
+    grandParent.updateMatrixWorld(true);
+
+    weaponCalData.pivots.push({pivot:pivot, weaponGroup:weaponGroup, grandParent:grandParent, origMatrix:weaponGroup.matrix.clone(), lz:lz});
+    weaponCalData.muzzles.push({mount:mount, muzzle:wp, dir:dir, lz:lz, line:line, dot:dot, name:mount.name, isGat:isGat});
+  }
+
+  if (weaponCalData.muzzles.length === 0) { weaponCalActive = false; if(btn)btn.classList.remove('active'); return; }
+  // 双滑块
+  var gatSlider = document.getElementById('weaponcal-gat');
+  var misSlider = document.getElementById('weaponcal-mis');
+  if (gatSlider) { gatSlider.value = 0; gatSlider.oninput = function() { _onCalSlider('gatling', this.value); }; }
+  if (misSlider) { misSlider.value = 0; misSlider.oninput = function() { _onCalSlider('missile', this.value); }; }
+}
+
+function _onCalSlider(type, valDeg) {
+  var deg = parseFloat(valDeg);
+  var rad = deg * Math.PI / 180;
+  if (!weaponCalData) return;
+  if (type === 'gatling') {
+    weaponCalData.gatPitch = rad;
+    document.getElementById('weaponcal-val-gat').textContent = deg + '°';
+  } else {
+    weaponCalData.misPitch = rad;
+    document.getElementById('weaponcal-val-mis').textContent = deg + '°';
+  }
+  // 旋转武器枢轴
+  if (weaponCalData.pivots) {
+    for (var p = 0; p < weaponCalData.pivots.length; p++) {
+      var pv = weaponCalData.pivots[p];
+      // 找到对应的支架名判断武器类型
+      var pname = pv.weaponGroup.name || '';
+      var isGat = pname.indexOf('加特林')>=0;
+      var pitch = isGat ? (weaponCalData.gatPitch || 0) : (weaponCalData.misPitch || 0);
+      pv.pivot.quaternion.setFromAxisAngle(pv.lz, pitch);
+    }
+  }
+  // 更新瞄准线
+  for (var i = 0; i < weaponCalData.muzzles.length; i++) {
+    var m = weaponCalData.muzzles[i];
+    var pitch = m.isGat ? (weaponCalData.gatPitch || 0) : (weaponCalData.misPitch || 0);
+    _updateOneMuzzleLine(m, pitch);
+  }
+}
+
+function _updateOneMuzzleLine(m, pitchRad) {
+  var cosA = Math.cos(pitchRad), sinA = Math.sin(pitchRad);
+  var kxv = new THREE.Vector3().crossVectors(m.lz, m.dir);
+  var kdv = m.lz.dot(m.dir);
+  var newDir = new THREE.Vector3()
+    .addScaledVector(m.dir, cosA)
+    .addScaledVector(kxv, sinA)
+    .addScaledVector(m.lz, kdv * (1 - cosA))
+    .normalize();
+  var pts = [m.muzzle.clone(), m.muzzle.clone().addScaledVector(newDir, _WC_LINE_LEN)];
+  m.line.geometry.dispose();
+  m.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+}
+
+function _weaponCalCleanup() {
+  weaponCalActive = false;
+  // 恢复武器层级: 还原原始矩阵, 移除枢轴
+  if (weaponCalData && weaponCalData.pivots) {
+    for (var p = 0; p < weaponCalData.pivots.length; p++) {
+      var pv = weaponCalData.pivots[p];
+      pv.pivot.remove(pv.weaponGroup);
+      pv.grandParent.add(pv.weaponGroup);
+      pv.weaponGroup.matrix.copy(pv.origMatrix);
+      pv.weaponGroup.matrix.decompose(pv.weaponGroup.position, pv.weaponGroup.quaternion, pv.weaponGroup.scale);
+      pv.grandParent.remove(pv.pivot);
+    }
+  }
+  // 清除瞄准线和球
+  var sc = getScene();
+  for (var i = sc.children.length-1; i >= 0; i--) {
+    var c = sc.children[i];
+    if (c.name && c.name.indexOf('_wc_') === 0) { sc.remove(c); if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }
+  }
+  weaponCalData = null;
+}
+
+M.toggleWeaponCalibrate = toggleWeaponCalibrate;
+
+document.addEventListener('DOMContentLoaded', function() {
+  var wcb = document.getElementById('toggle-weaponcal');
+  if (wcb) wcb.addEventListener('click', toggleWeaponCalibrate);
+});
+setTimeout(function() {
+  var wcb = document.getElementById('toggle-weaponcal');
+  if (wcb) wcb.addEventListener('click', toggleWeaponCalibrate);
 }, 0);

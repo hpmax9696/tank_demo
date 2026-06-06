@@ -118,24 +118,43 @@ legGroup (Y旋转=水平摆角)
 
 ### 动画展台（`toggleAnimShowcase`）
 
-- **13 动画**：7基础 + 6转弯。列表左侧垂直滚动，分类分隔
-- **基础 (7个已通过)**：Idle/Walk/Run/WalkBack/RunBack/StrafeL/StrafeR
-- **转弯 (6个待修复)**：StaticTurn/WalkTurn/StrafeTurn × L/R，已知右前腿拖行
+- **23 动画**：21步态 + 踉跄 + 死亡。列表左侧垂直滚动，7分类分隔
+- **步态参数**：stride/stepH 由 `_hexaStrides`/`_hexaStepHeights` 数组驱动 (21项)，direction+turnRate 正交组合
+- **步态周期公式**：静态转弯 `gaitPeriod=1.05/|ω|`，移动转弯 0.72s，直行 0.38~0.7s；实装后换连续钳位 `clamp(1.05/|ω|, 0.5, 0.8)`
+- **CCD迭代**：高速转 `20+|ω|×13`，低速转 `20+|ω|×8`，奔跑 30，其余 15
 - **三角步态**：A组(左前+右中+左后)与B组(右前+左中+右后)交替支撑/摆动
-- **步态状态**：自累积时间，duration+animIndex 双键检测切换，自动复位
+- **循环无缝**：同动画loop不reset腿关节；切动画时自动复位
 
 ### 转弯验证（`toggleHexTurnTest`）
 
 - **按钮**：模型工厂 `#toggle-turntest`，仅六足战车可用
 - **策略**：隐藏武器+上车体，仅保留下车体+6腿，极慢旋转(0.3rad/s)
 - **可视化**：🔵蓝球=bodyCenter, 🔴红球=plantPos, 🟢绿球=swingTarget
-- **公式**：swingTo = bodyCenter + rotate(plantPos-bodyCenter, -turnRate×全周期)
-- **CCD**：damp=0.8 (转弯高阻尼), ccdIters=20+|turnRate|×13
+- **公式**：swingTo = bodyCenter + rotate(plantPos-bodyCenter, -turnRate×T_cycle)
+- **CCD**：damp=0.8, ccdIters=20+|turnRate|×13, T_cycle=3.5s
+
+### 受击踉跄（`triggerHexStagger`）
+
+- **调用**：`triggerHexStagger(worldDir, force)` — AI/玩家命中时触发
+- **四阶段**：冲击(0.12s)→踉跄(0.35s)→恢复(0.50s)→回归
+- **机制**：身体沿受击方向位移+倾斜，2~3条反方向腿跺地支撑，CCD damp=0.7
+
+### 死亡瘫倒（`triggerHexDeath`）
+
+- **调用**：`triggerHexDeath()` — 血量归零时触发
+- **四阶段**：昂首(0.22s)→极点(0.1s)→瘫软(0.7s)→触地(0.5s)
+- **机制**：前腿撑地昂起→身体急坠至groundY+0.14→damp 0.85→0.03，6腿伸展外摊，6种各异瘫姿
+
+### 武器俯仰校准（`toggleWeaponCalibrate`）
+
+- **按钮**：模型工厂 `#toggle-weaponcal`，仅六足战车可用
+- **状态**：瞄准线可视化OK，武器实体旋转有bug（层级重组导致飞移）
+- **待修**：枢轴组创建逻辑
 
 ### CCD 系统
 
-- **核心**：`_ccdLeg(leg, target, iters, damp)` — damp 默认 0.5，转弯用 0.8
-- **髋距**：`leg._hipDist` 从身体中心到髋关节的不变距离，替代拉伸后的脚距
+- **核心**：`_ccdLeg(leg, target, iters, damp)` — damp 默认 0.5，转弯用 0.8，死亡渐降至0.03
+- **固定脚距**：`leg._initFootDist` 初始化时缓存，swingTo用定值防CCD误差漂移
 - **落地Y**：`leg._groundY` 初始接地高度，防止代际漂移
 
 ## 游戏模式
