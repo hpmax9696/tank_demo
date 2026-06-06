@@ -944,17 +944,74 @@
     }
 
     var _hexapodMatCache = {};
+    var _urbanCamoTex = null;
+    function _getUrbanCamoTex() {
+        if (_urbanCamoTex) return _urbanCamoTex;
+        var size = 512;
+        var cv = document.createElement('canvas');
+        cv.width = size; cv.height = size;
+        var ctx = cv.getContext('2d');
+        // 城市迷彩: 亮灰色为主调, 浅灰+银灰+蓝灰区块
+        var bg = '#a8a8b8';
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size);
+        // 大块斑纹: 中灰/浅灰/银灰
+        var blobs = ['#8a8a9a', '#b5b5c2', '#9a9aac', '#808090', '#a0a0b0'];
+        var count = 35 + Math.floor(Math.random() * 15);
+        for (var i = 0; i < count; i++) {
+            ctx.fillStyle = blobs[Math.floor(Math.random() * blobs.length)];
+            ctx.globalAlpha = 0.65 + Math.random() * 0.35;
+            ctx.beginPath();
+            var cx = Math.random() * size, cy = Math.random() * size;
+            var rx = 25 + Math.random() * 70, ry = 18 + Math.random() * 50;
+            var angle = Math.random() * Math.PI * 2;
+            ctx.ellipse(cx, cy, rx, ry, angle, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // 小斑点: 中灰, 增加纹理密度
+        ctx.globalAlpha = 1;
+        count = 18 + Math.floor(Math.random() * 12);
+        for (var i2 = 0; i2 < count; i2++) {
+            ctx.fillStyle = '#707080';
+            ctx.globalAlpha = 0.45 + Math.random() * 0.35;
+            ctx.beginPath();
+            var cx2 = Math.random() * size, cy2 = Math.random() * size;
+            var rx2 = 4 + Math.random() * 20, ry2 = 3 + Math.random() * 14;
+            ctx.ellipse(cx2, cy2, rx2, ry2, Math.random() * Math.PI * 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // 细锐边线模拟城市建筑的棱角
+        ctx.globalAlpha = 0.22;
+        ctx.strokeStyle = '#6a6a7a';
+        ctx.lineWidth = 1.5;
+        for (var i3 = 0; i3 < 12; i3++) {
+            ctx.beginPath();
+            var sx = Math.random() * size, sy = Math.random() * size;
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx + (Math.random()-0.5)*140, sy + (Math.random()-0.5)*100);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        _urbanCamoTex = new THREE.CanvasTexture(cv);
+        _urbanCamoTex.wrapS = THREE.RepeatWrapping;
+        _urbanCamoTex.wrapT = THREE.RepeatWrapping;
+        _urbanCamoTex.colorSpace = THREE.SRGBColorSpace;
+        return _urbanCamoTex;
+    }
     function _getHexapodMat(id) {
         if (_hexapodMatCache[id]) return _hexapodMatCache[id];
         var DEFS = {
-            armor_dark:  { color: 0x3A3A44, roughness: 0.40, metalness: 0.85 },
-            armor_light: { color: 0x5A5A6A, roughness: 0.35, metalness: 0.80 },
+            armor_dark:  { color: 0xa8a8b8, roughness: 0.50, metalness: 0.75 },
+            armor_light: { color: 0xb8b8c8, roughness: 0.45, metalness: 0.70 },
             dark_steel:  { color: 0x4a4a5a, roughness: 0.45, metalness: 0.85 },
             barrel_steel:{ color: 0x3a3a44, roughness: 0.35, metalness: 0.9 },
             steel:       { color: 0x6b6b7b, roughness: 0.5,  metalness: 0.8 },
             warning_yellow: { color: 0xE8A820, roughness: 0.50, metalness: 0.40, emissive: 0xC08010, emissiveIntensity: 0.15 },
         };
         var d = DEFS[id] || { color: 0x888888, roughness: 0.6, metalness: 0.2 };
+        // 装甲材质叠加城市迷彩纹理 (观瞄/武器/关节保留纯色)
+        if (id === 'armor_dark' || id === 'armor_light') {
+            d.map = _getUrbanCamoTex();
+        }
         _hexapodMatCache[id] = new THREE.MeshStandardMaterial(d);
         return _hexapodMatCache[id];
     }
@@ -1128,6 +1185,7 @@
             var cfg = getHexapodConfig();
             if (!cfg.name) { console.error('Hexapod config not loaded!'); return new THREE.Group(); }
             buildHexapodFromConfig(cfg, _hexapodTemplate, false);
+            _hexapodTemplate.updateMatrixWorld(true);
             var bbox = new THREE.Box3().setFromObject(_hexapodTemplate);
             var currentH = bbox.max.y - bbox.min.y;
             if (currentH > 0) { _hexapodTemplateScale = 2.5 / currentH; _hexapodTemplateBaseY = -bbox.min.y * _hexapodTemplateScale; }

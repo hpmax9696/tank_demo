@@ -244,6 +244,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 六足IK测试 | 3模式(Y下蹲/X左右/Z前后)×3腿型(前/中/后)，CCD 3关节+踝锁死，锥尖靶点固定 | `js/hexapod_anim.js` |
 | 六足动画 | **23个** (21步态+踉跄+死亡), stride/stepH数组驱动, 步态周期|ω|钳位公式 | `js/hexapod_anim.js` |
 | 六足转弯系统 | direction+turnRate正交, CCD damp=0.8/0.5, _initFootDist固定脚距防漂移 | `js/hexapod_anim.js` |
+| 六足武器限位 | 加特林[-17°,+20°], 导弹[-60°,+30°] | `model_factory.html` `hexapod_anim.js` |
+| 六足城市迷彩 | 亮灰底色+深浅灰斑纹, 观瞄保留纯色 | `enemies.js` |
+| 地形坡度适应 | 装甲突击车俯仰+侧倾, 六足独立管理(hexapod_anim) | `engine.js` `hexapod_anim.js` |
 | 转弯验证 | toggleHexTurnTest: 极慢0.3rad/s旋转, 三角步态, bodyC/plantPos/swingTarget可视化 | `js/hexapod_anim.js` |
 | 受击踉跄 | triggerHexStagger(dir,force): 4阶段CCD驱动, 反方向腿跺地, 身体倾斜 | `js/hexapod_anim.js` |
 | 死亡瘫倒 | triggerHexDeath(): 昂首→瘫软→触地, damp 0.85→0.03, 6腿各异伸展 | `js/hexapod_anim.js` |
@@ -336,7 +339,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 6c | 村落跨道路 | ✅ v0.51.0 plazaR+roadW/2+5m安全距离 | editor_terrainGen.js→_tryPlanVillage |
 | 6d | 纹理92%泥地 | ✅ v0.51.0 moistRaw归一化修正 | editor_terrainGen.js |
 | 6e | **六足转弯动画拖行** | v0.54已修复: 步态周期由turnRate推导+_initFootDist固定脚距 | `js/hexapod_anim.js` |
-| 6f | **武器俯仰校准旋转bug** | 枢轴组创建后武器飞移, 旋转轴不匹配 | `js/hexapod_anim.js` |
+| 6f | **武器俯仰校准旋转bug** | ✅ v0.55.1 world→local坐标转换修复，武器不再飞移 | `js/hexapod_anim.js` |
+| 6g | **六足转弯反曲膝** | ✅ v0.55.1 shin关节零点夹紧+plantPos同步修复 | `js/hexapod_anim.js` |
+| 6h | **尖刺足陷入地面** | ✅ v0.55.1 updateMatrixWorld修复bbox计算 | `js/engine.js` `enemies.js` |
 | 7 | CDP测试标签页回收不可靠 | ✅ v0.50.1 cdp_verify.py 直接杀 Chrome 进程替代 /json/close，100% 可靠 | cdp_verify.py |
 | 8 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
 | 9 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |
@@ -470,7 +475,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | **六足战车动画系统** | 🟢 基本完成 | v0.55 | 23动画可用, 踉跄+死亡就绪; 武器校准有bug待修 |
+| 1 | **六足战车动画系统** | 🟢 基本完成 | v0.55.1 | 23动画可用, 踉跄+死亡就绪, 武器校准/反曲/贴地修复 |
 | 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
 | 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
 | 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |

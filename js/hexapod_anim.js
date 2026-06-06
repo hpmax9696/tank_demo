@@ -81,8 +81,47 @@ function _hexaCollectRefs() {
       tipWorld: tipWorld.clone(), tipLocal: tipLocal,
       _hipDist: Math.sqrt(hipDX*hipDX + hipDZ*hipDZ), // 髋距(不变)
       _initFootDist: initFootDist, // 固定脚距, swingTo用(防漂移)
+      _shinSign: shinPivot.rotation.x > 0 ? 1 : -1, // 正常膝弯方向: +1=正值, -1=负值(防反曲)
       plantPos: null, swingFrom: null, swingTo: null
     });
+  }
+
+  // ── 收集武器引用(用于死亡垂下) ──
+  var _weaponNames = ['左加特林','右加特林','左导弹巢','右导弹巢'];
+  animRefs.weapons = [];
+  for (var wi = 0; wi < _weaponNames.length; wi++) {
+    var wg = null, mount = null;
+    hexRoot.traverse(function(n) {
+      if (n.name === _weaponNames[wi]) wg = n;
+      if (n.name === _weaponNames[wi].replace('加特林','加特林支架').replace('导弹巢','导弹支架')) mount = n;
+    });
+    if (wg && mount) {
+      animRefs.weapons.push({
+        name: _weaponNames[wi],
+        weaponGroup: wg,
+        mount: mount,
+        isGatling: _weaponNames[wi].indexOf('加特林') >= 0
+      });
+    }
+  }
+
+  // ── 自动抬升: 让最低尖刺足恰好触地(Y=0) ──
+  hexRoot.updateMatrixWorld(true);
+  var lowestTipY = Infinity;
+  for (var li2 = 0; li2 < animRefs.legs.length; li2++) {
+    var l2 = animRefs.legs[li2];
+    var tw2 = l2.tipLocal.clone().applyMatrix4(l2.anklePivot.matrixWorld);
+    if (tw2.y < lowestTipY) lowestTipY = tw2.y;
+  }
+  if (lowestTipY < 0) {
+    hexRoot.position.y += (-lowestTipY);
+    animRefs.restHexRootY = hexRoot.position.y;
+    // 抬升后更新所有腿的tipWorld引用
+    hexRoot.updateMatrixWorld(true);
+    for (var li3 = 0; li3 < animRefs.legs.length; li3++) {
+      var l3 = animRefs.legs[li3];
+      l3.tipWorld = l3.tipLocal.clone().applyMatrix4(l3.anklePivot.matrixWorld);
+    }
   }
 }
 
@@ -109,6 +148,9 @@ function _ccdLeg(leg, targetWorld, iters, damp) {
     d = tipW.clone().sub(sW).normalize(); dt = targetWorld.clone().sub(sW).normalize();
     ax = new THREE.Vector3().crossVectors(d, dt); l = ax.length();
     if (l > 0.0003) { ax.normalize(); sp.rotation.x += Math.atan2(l, d.dot(dt)) * ax.dot(_worldX(sp)) * damp; }
+    // 膝关节目录: 禁止穿越零点(反曲), 留0.05rad安全边界
+    if (leg._shinSign > 0) { if (sp.rotation.x < 0.05) sp.rotation.x = 0.05; }
+    else                   { if (sp.rotation.x > -0.05) sp.rotation.x = -0.05; }
     // LegGroup Y
     var hW = new THREE.Vector3(); tp.getWorldPosition(hW);
     d = tipW.clone().sub(hW).normalize(); dt = targetWorld.clone().sub(hW).normalize();
@@ -287,7 +329,33 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
     animRefs.hexRoot.position.x += fwdBody.x * deltaDist;
     animRefs.hexRoot.position.z += fwdBody.z * deltaDist;
   }
-  animRefs.hexRoot.position.y = animRefs.restHexRootY - (isStaticTurn ? 0 : bodyBob);
+  // ── 地形适应: 若window.getGroundHeight存在(游戏中), 贴合地形 ──
+  if (typeof window.getGroundHeight === 'function') {
+    var gh = window.getGroundHeight;
+    var hwPos = new THREE.Vector3(); animRefs.hexRoot.getWorldPosition(hwPos);
+    // 身体Y: 取地形高度(不叠加bodyBob, CCD处理起伏)
+    animRefs.hexRoot.position.y = gh(hwPos.x, hwPos.z);
+    // 确保旋转顺序YXZ: Y(转向)→X(俯仰)→Z(侧倾)
+    if (!animRefs.hexRoot.rotation.order || animRefs.hexRoot.rotation.order !== 'YXZ') {
+      animRefs.hexRoot.rotation.order = 'YXZ';
+    }
+    // 采样方向: 用身体当前朝向
+    var hYaw = animRefs.hexRoot.rotation.y;
+    var hFwdX = -Math.cos(hYaw), hFwdZ = Math.sin(hYaw);
+    var hRgtX = -Math.cos(hYaw + Math.PI/2), hRgtZ = Math.sin(hYaw + Math.PI/2);
+    var sD = 1.2; // 六足车身宽, 采样距离稍远
+    // 俯仰: 前后采样
+    var fhT = gh(hwPos.x + hFwdX * sD, hwPos.z + hFwdZ * sD);
+    var bhT = gh(hwPos.x - hFwdX * sD, hwPos.z - hFwdZ * sD);
+    animRefs.hexRoot.rotation.x = -Math.atan2(fhT - bhT, sD * 2);
+    // 侧倾: 左右采样
+    var lhT = gh(hwPos.x - hRgtX * sD, hwPos.z - hRgtZ * sD);
+    var rhT = gh(hwPos.x + hRgtX * sD, hwPos.z + hRgtZ * sD);
+    animRefs.hexRoot.rotation.z = -Math.atan2(rhT - lhT, sD * 2);
+  } else {
+    // 模型工厂: 固定高度 + bodyBob
+    animRefs.hexRoot.position.y = animRefs.restHexRootY - (isStaticTurn ? 0 : bodyBob);
+  }
   animRefs.hexRoot.updateMatrixWorld(true);
 
   for (var li = 0; li < animRefs.legs.length; li++) {
@@ -335,6 +403,10 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
       }
       // 防护: 首次即入摆动相 (TripodB at gaitT=0.5)
       if (!leg.swingFrom || !leg.swingTo) {
+        // 用当前真实足位更新plantPos/swingFrom, 补偿身体已发生的旋转+平移
+        // (否则plantPos是_initGait在身体移动前捕获的旧值, 与swingTo不一致, CCD会收敛到反曲)
+        animRefs.hexRoot.updateMatrixWorld(true);
+        leg.plantPos = leg.tipLocal.clone().applyMatrix4(leg.anklePivot.matrixWorld);
         leg.swingFrom = leg.plantPos.clone();
         if (turnRate !== 0) {
           // 转弯首次: 用旋转逻辑放置落地位置
@@ -365,6 +437,9 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
 function _hexaResetState() {
   animRefs = M._animRefs;
   if (!animRefs) return;
+  // 清理死亡武器垂下枢轴(如果死亡被中断)
+  _cleanupWeaponDroopPivots();
+  if (animRefs._deathActive) { animRefs._deathActive = false; animRefs._deathDone = true; deathState = null; }
   var isGait = animRefs._gaitActive;
   if (animRefs.hexRoot && !isGait) {
     animRefs.hexRoot.position.set(animRefs.restHexRootX, animRefs.restHexRootY, animRefs.restHexRootZ);
@@ -394,6 +469,8 @@ function _hexaResetState() {
 }
 
 function _hexaDestroyPivots() {
+  _cleanupWeaponDroopPivots();
+  if (deathState) deathState = null;
   M._animRefs = {};
 }
 
@@ -604,6 +681,49 @@ function triggerHexDeath() {
     deathTargets: deathTargets
   };
 
+  // ── 武器垂下枢轴: 让武器绕支架旋转, 瘫倒阶段逐渐垂下 ──
+  // 先清理武器校准(如果有)避免层级冲突
+  if (weaponCalActive) { _weaponCalCleanup(); }
+  deathState.weaponPivots = [];
+  var wrefs = animRefs.weapons;
+  if (wrefs && wrefs.length) {
+    for (var wi = 0; wi < wrefs.length; wi++) {
+      var wr = wrefs[wi];
+      var wg = wr.weaponGroup, mount = wr.mount;
+      var gp = wg.parent; // grandParent (武器平台)
+      var mountLocal = mount.position.clone();
+      // 保存原始矩阵用于cleanup
+      var origMatrix = wg.matrix.clone();
+
+      // mount世界位置 → grandParent本地坐标
+      var mwp = new THREE.Vector3(); mount.getWorldPosition(mwp);
+      var gpWorldPos = new THREE.Vector3(); gp.getWorldPosition(gpWorldPos);
+      var gpWorldQuat = new THREE.Quaternion(); gp.getWorldQuaternion(gpWorldQuat);
+      var mountInGP = mwp.clone().sub(gpWorldPos).applyQuaternion(gpWorldQuat.clone().invert());
+
+      // 旋转轴: weaponGroup本地Z轴 → grandParent本地空间
+      var wq = new THREE.Quaternion(); wg.getWorldQuaternion(wq);
+      var lzWorld = new THREE.Vector3(0,0,1).applyQuaternion(wq).normalize();
+      var lzInGP = lzWorld.clone().applyQuaternion(gpWorldQuat.clone().invert()).normalize();
+
+      var pivot = new THREE.Group();
+      pivot.name = '_death_wp_' + wi;
+      gp.remove(wg);
+      gp.add(pivot);
+      pivot.position.copy(mountInGP);
+      pivot.rotation.set(0,0,0);
+      pivot.add(wg);
+      wg.position.copy(mountLocal).multiplyScalar(-1);
+      gp.updateMatrixWorld(true);
+
+      deathState.weaponPivots.push({
+        pivot: pivot, weaponGroup: wg, grandParent: gp,
+        origMatrix: origMatrix, lz: lzInGP,
+        isGatling: wr.isGatling
+      });
+    }
+  }
+
   animRefs._gaitActive = false;
   animRefs._deathActive = true;
 }
@@ -681,9 +801,45 @@ function _hexaDeathUpdate(dt) {
     }
     _ccdLeg(leg, tgt, phase >= 3 ? 10 : 20, damp);
   }
+
+  // ── 武器垂下: 瘫倒阶段武器绕支架逐渐下垂 ──
+  if (ds.weaponPivots && ds.weaponPivots.length) {
+    var droopFrac; // 0=中立, 1=完全垂下至机械限位
+    if (phase <= 1) {
+      // 昂首/极点: 武器微抬(惯性效应)
+      droopFrac = -0.25;
+    } else if (phase === 2) {
+      var cf4 = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
+      droopFrac = -0.25 + 1.25 * cf4; // -0.25→1.0
+    } else {
+      droopFrac = 1.0;
+    }
+    for (var pi = 0; pi < ds.weaponPivots.length; pi++) {
+      var wpv = ds.weaponPivots[pi];
+      var maxDroopRad = (wpv.isGatling ? 20 : 30) * Math.PI / 180;
+      var angle = droopFrac * maxDroopRad;
+      if (angle > maxDroopRad) angle = maxDroopRad;
+      if (angle < -5 * Math.PI / 180) angle = -5 * Math.PI / 180; // 最多微抬5°
+      wpv.pivot.quaternion.setFromAxisAngle(wpv.lz, angle);
+    }
+  }
+}
+
+function _cleanupWeaponDroopPivots() {
+  if (!deathState || !deathState.weaponPivots) return;
+  for (var pi = 0; pi < deathState.weaponPivots.length; pi++) {
+    var pv = deathState.weaponPivots[pi];
+    pv.pivot.remove(pv.weaponGroup);
+    pv.grandParent.add(pv.weaponGroup);
+    pv.weaponGroup.matrix.copy(pv.origMatrix);
+    pv.weaponGroup.matrix.decompose(pv.weaponGroup.position, pv.weaponGroup.quaternion, pv.weaponGroup.scale);
+    pv.grandParent.remove(pv.pivot);
+  }
+  deathState.weaponPivots = null;
 }
 
 function _hexaDeathEnd() {
+  _cleanupWeaponDroopPivots();
   deathState = null;
   if (!animRefs) return;
   animRefs._deathActive = false;
@@ -1340,11 +1496,11 @@ function toggleWeaponCalibrate() {
     if (!mount || !dir) continue;
     var wp = new THREE.Vector3(); mount.getWorldPosition(wp);
     var wq = new THREE.Quaternion(); mount.getWorldQuaternion(wq);
-    var lz = new THREE.Vector3(0,0,1).applyQuaternion(wq).normalize();
+    var lz = new THREE.Vector3(0,0,1).applyQuaternion(wq).normalize(); // 世界空间Z轴(瞄准线用)
     var isGat = mount.name.indexOf('加特林')>=0;
     var color = isGat ? 0xffaa00 : 0xff6666;
 
-    // 瞄准线+球
+    // 瞄准线+球 (场景直接子节点, 世界坐标)
     var lineGeo = new THREE.BufferGeometry().setFromPoints([wp.clone(), wp.clone().addScaledVector(dir, _WC_LINE_LEN)]);
     var line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color:color}));
     line.name = '_wc_aim_'+ni; getScene().add(line);
@@ -1352,21 +1508,35 @@ function toggleWeaponCalibrate() {
     dot.position.copy(wp); dot.name = '_wc_dot_'+ni; getScene().add(dot);
 
     // ── 创建枢轴组: 让武器绕支架旋转 ──
-    var weaponGroup = mount.parent; // 支架所在武器组
+    var weaponGroup = mount.parent; // 支架所在武器组 (左/右加特林 或 左/右导弹巢)
     var grandParent = weaponGroup.parent;
     var mountLocal = mount.position.clone(); // 支架在武器组中的本地位置
+
+    // 保存武器组原始矩阵(在grandParent空间)用于cleanup恢复
+    var origMatrix = weaponGroup.matrix.clone();
+
+    // 获取grandParent的世界变换, 用于世界→本地坐标转换
+    var gpWorldPos = new THREE.Vector3(); grandParent.getWorldPosition(gpWorldPos);
+    var gpWorldQuat = new THREE.Quaternion(); grandParent.getWorldQuaternion(gpWorldQuat);
+
+    // 支架世界位置→grandParent本地空间
+    var mountInGP = wp.clone().sub(gpWorldPos).applyQuaternion(gpWorldQuat.clone().invert());
+    // 旋转轴世界方向→grandParent本地空间
+    var lzInGP = lz.clone().applyQuaternion(gpWorldQuat.clone().invert()).normalize();
+
     var pivot = new THREE.Group();
     pivot.name = '_wc_pivot_'+ni;
-    // 从场景中暂时移除武器组, 插入枢轴
+    // 插入枢轴: grandParent → pivot → weaponGroup
     grandParent.remove(weaponGroup);
     grandParent.add(pivot);
-    pivot.position.copy(wp);          // 枢轴放在支架世界位置
+    pivot.position.copy(mountInGP);   // 枢轴在grandParent本地空间置于支架位置
     pivot.rotation.set(0,0,0);
     pivot.add(weaponGroup);
-    weaponGroup.position.copy(mountLocal).multiplyScalar(-1); // 偏移回原位
+    // 武器组偏移: 让支架恰好落在枢轴原点(旋转中心)
+    weaponGroup.position.copy(mountLocal).multiplyScalar(-1);
     grandParent.updateMatrixWorld(true);
 
-    weaponCalData.pivots.push({pivot:pivot, weaponGroup:weaponGroup, grandParent:grandParent, origMatrix:weaponGroup.matrix.clone(), lz:lz});
+    weaponCalData.pivots.push({pivot:pivot, weaponGroup:weaponGroup, grandParent:grandParent, origMatrix:origMatrix, lz:lzInGP});
     weaponCalData.muzzles.push({mount:mount, muzzle:wp, dir:dir, lz:lz, line:line, dot:dot, name:mount.name, isGat:isGat});
   }
 

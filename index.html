@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.54.0</title>
+    <title>坦克运动demo v0.55.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -504,7 +504,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.54.0</div>
+        <div class="menu-version">v0.55.1</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -519,11 +519,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🦗 v0.55.1 武器校准修复+城市迷彩+死亡垂下+地形适应 — 武器旋转轴world→local修复+俯仰限位+膝关节反曲夹紧+尖刺足贴地+装甲突击车地形侧倾+灰色城市迷彩纹理+六足玩家操控计划</div>
+            <div class="cl-title">🦗 v0.55.0 23动画+踉跄+死亡+武器校准 — 步态周期由turnRate推导, stride/stepH数组驱动, _initFootDist防漂移, 动画循环无缝衔接, 引擎拆分index→engine.js</div>
             <div class="cl-title">🦗 v0.54.0 六足腿结构简化+引擎拆分 — 3节腿+尖刺足+待机/步行/奔跑三角步态+index.html内嵌JS提取到js/engine.js(5483→627行)</div>
             <div class="cl-title">🦗 v0.53.0 六足分层动画 — AnimationSystem分层(身体层+武器层并发)+模型工厂动画按模型隔离+六足战车配置固化+坐标轴X↔Z交换+线框/高亮修复+Idle IK待办</div>
             <div class="cl-title">🦗 v0.52.0 六足战车精英敌人 — 程序化模型+昆虫腿外伸姿态+三角步态9动画+加特林/导弹巢俯仰武器+转向延迟/提速/过热平衡+模型工厂彩色线框+XYZ轴标签+Group旋转+批量旋转+截图CDP工具链</div>
-            <div class="cl-title">⚡ v0.51.0 性能优化+CDP验证 — FBM降采样(800m 54s→15s)+sqrt密度缩放+多轮选址+广场安全距离+纹理修复+cdp_verify.py全自动验证+面板修复</div>
-            <div class="cl-title">🧩 v0.50.0 双管线村落生成 — 三按钮+掩码网格+FloodFill+容量预验证+建筑簇+朝向支路+连接路+自动平整+Mulberry32确定随机+CDP自动验证</div>
         </div>
     </div>
 

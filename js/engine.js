@@ -2658,16 +2658,26 @@ function gameLoop() {
             }
             // AI 状态机更新
             window.EnemyAI.updateEnemyAI(enemy, dt, [player1], scene);
-            // 贴地 + 地形俯仰 (v0.26.4fix: 敌人车身随地形俯仰)
+            // 贴地 + 地形俯仰/侧倾 (v0.26.4fix: 六足由hexapod_anim自己管)
             enemy.position.y = getGroundHeight(enemy.position.x, enemy.position.z);
             if (!enemy.userData._noTerrainPitch) {
+                if (!enemy.rotation.order || enemy.rotation.order !== 'YXZ') enemy.rotation.order = 'YXZ';
                 const sampleDist = 1.0;
                 const eFwdX = -Math.cos(enemy.rotation.y);
                 const eFwdZ = Math.sin(enemy.rotation.y);
+                // 俯仰: 前后采样
                 const fh = getGroundHeight(enemy.position.x + eFwdX * sampleDist, enemy.position.z + eFwdZ * sampleDist);
                 const bh = getGroundHeight(enemy.position.x - eFwdX * sampleDist, enemy.position.z - eFwdZ * sampleDist);
                 const eTerrainPitch = Math.atan2(fh - bh, sampleDist * 2);
                 enemy.rotation.x = -eTerrainPitch;
+                // 侧倾: 左右采样
+                const sideDist = 1.0;
+                const eRightX = -Math.cos(enemy.rotation.y + Math.PI / 2);
+                const eRightZ = Math.sin(enemy.rotation.y + Math.PI / 2);
+                const lh = getGroundHeight(enemy.position.x - eRightX * sideDist, enemy.position.z - eRightZ * sideDist);
+                const rh = getGroundHeight(enemy.position.x + eRightX * sideDist, enemy.position.z + eRightZ * sideDist);
+                const eTerrainRoll = Math.atan2(rh - lh, sideDist * 2);
+                enemy.rotation.z = -eTerrainRoll;
             }
             // 🚜 坦克 vs 丧尸碰撞（碾压 或 推开）
             if (isZombie && player1 && !player1.dead) {
@@ -3614,8 +3624,8 @@ function createEnemies() {
         model.userData.maxHp = model.hp;
         model.userData.enemyType = ecfg.type;
         model.userData.enemyId = ecfg.id;
-        // 丧尸不需要地形俯仰（人形单位应保持直立）
-        if (ecfg.type === 'zombie') {
+        // 丧尸不需要地形俯仰（人形单位应保持直立）；六足由hexapod_anim自己管理
+        if (ecfg.type === 'zombie' || ecfg.type === 'hexapod') {
             model.userData._noTerrainPitch = true;
         }
         // AI 运行时数据
@@ -4491,7 +4501,7 @@ function updateDebugInfo() {
     }
 
     el.textContent =
-        'v0.54.0  ' + mapName + '  FPS:' + fpsCurrent +
+        'v0.55.1  ' + mapName + '  FPS:' + fpsCurrent +
         (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
         perfLine + renderStats + shadowHint;
 }
@@ -4721,6 +4731,12 @@ function loadPreviewModel(m) {
         window.T34V16Builder.addTankWheelBolts(previewModel);
     }
     // 统一按高度(Y)缩放到 1.5 米，底面贴地
+    // 先归零模型的scale/position, 用原始包围盒算出正确缩放和偏移
+    var oldScale2 = previewModel.scale.x;
+    var oldPosY2 = previewModel.position.y;
+    previewModel.scale.setScalar(1);
+    previewModel.position.y = 0;
+    previewModel.updateMatrixWorld(true);
     const bbox = new THREE.Box3().setFromObject(previewModel);
     const sz = new THREE.Vector3(); bbox.getSize(sz);
     if (sz.y > 0.001) {
@@ -4728,6 +4744,10 @@ function loadPreviewModel(m) {
         previewModel.scale.setScalar(s);
         const center = new THREE.Vector3(); bbox.getCenter(center);
         previewModel.position.set(-center.x * s, -bbox.min.y * s, -center.z * s);
+    } else {
+        // 复原
+        previewModel.scale.setScalar(oldScale2);
+        previewModel.position.y = oldPosY2;
     }
     previewScene.add(previewModel);
     previewLabel.textContent = '拖拽鼠标旋转模型 | 滚轮缩放 | 当前: ' + m.cat + '/' + m.name;
@@ -4827,7 +4847,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.54.0 | 六足腿简化+尖刺足+三角步态+引擎拆分index.html→js/engine.js');
+console.log('⚡ 坦克运动demo v0.55.1 | 武器校准修复+城市迷彩+地形适应+膝关节防反曲+死亡武器垂下+尖刺足贴地');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

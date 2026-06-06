@@ -14,7 +14,8 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏引擎 (~5365行)：状态机/场景/物理/瞄准/摄像机
+├── index.html         # 核心游戏引擎 (~630行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~4850行)：状态机/场景/物理/瞄准/摄像机/AI
 ├── js/                # 游戏模块（13个）
 │   ├── waters.js      # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -30,7 +31,7 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
 ├── models/hexapod_config.js # 六足战车共享模型配置：3节腿(大腿+小腿+尖刺足)，4DOF(髋摆+髋抬+膝+踝)，锥尖单点接地
-├── js/hexapod_anim.js       # 六足动画模块 (~540行)：待机+步行+奔跑+三角步态+单腿IK测试(3模式×3腿型)
+├── js/hexapod_anim.js       # 六足动画模块 (~1630行)：23动画+CCD IK+步态+踉跄+死亡+武器校准+地形适应+膝关节夹
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
