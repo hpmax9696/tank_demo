@@ -118,11 +118,25 @@ legGroup (Y旋转=水平摆角)
 
 ### 动画展台（`toggleAnimShowcase`）
 
-- **待机 Idle** (3.5s)：身体余弦起伏 ±0.08，6腿CCD保持锥尖固定
-- **步行 Walk** (1.5s)：三角步态，步幅0.22，步高0.15，周期0.7s，CCD 15迭代
-- **奔跑 Run** (0.8s)：三角步态，步幅0.38，步高0.24，周期0.38s，CCD 30迭代
+- **13 动画**：7基础 + 6转弯。列表左侧垂直滚动，分类分隔
+- **基础 (7个已通过)**：Idle/Walk/Run/WalkBack/RunBack/StrafeL/StrafeR
+- **转弯 (6个待修复)**：StaticTurn/WalkTurn/StrafeTurn × L/R，已知右前腿拖行
 - **三角步态**：A组(左前+右中+左后)与B组(右前+左中+右后)交替支撑/摆动
-- **步态状态**：自累积时间，切换动画自动复位身体和步态
+- **步态状态**：自累积时间，duration+animIndex 双键检测切换，自动复位
+
+### 转弯验证（`toggleHexTurnTest`）
+
+- **按钮**：模型工厂 `#toggle-turntest`，仅六足战车可用
+- **策略**：隐藏武器+上车体，仅保留下车体+6腿，极慢旋转(0.3rad/s)
+- **可视化**：🔵蓝球=bodyCenter, 🔴红球=plantPos, 🟢绿球=swingTarget
+- **公式**：swingTo = bodyCenter + rotate(plantPos-bodyCenter, -turnRate×全周期)
+- **CCD**：damp=0.8 (转弯高阻尼), ccdIters=20+|turnRate|×13
+
+### CCD 系统
+
+- **核心**：`_ccdLeg(leg, target, iters, damp)` — damp 默认 0.5，转弯用 0.8
+- **髋距**：`leg._hipDist` 从身体中心到髋关节的不变距离，替代拉伸后的脚距
+- **落地Y**：`leg._groundY` 初始接地高度，防止代际漂移
 
 ## 游戏模式
 

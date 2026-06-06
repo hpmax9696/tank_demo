@@ -242,7 +242,9 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 六足腿结构 | 4DOF: legGroup.Y+thigh.X+shin.X+ankle.X，三节腿(大腿L1≈0.7+小腿L2≈0.55)+尖刺足(h=0.28) | `models/hexapod_config.js` |
 | 六足尖刺足 | Cylinder(rTop=0.055, rBottom≈0, h=0.28), 锥尖单点接地，内勾11°，踝球r=0.05 | `models/hexapod_config.js` |
 | 六足IK测试 | 3模式(Y下蹲/X左右/Z前后)×3腿型(前/中/后)，CCD 3关节+踝锁死，锥尖靶点固定 | `js/hexapod_anim.js` |
-| 六足动画 | Idle(3.5s)+Walk(1.5s,步幅0.22)+Run(0.8s,步幅0.38)，三角步态A/B组交替，CCD驱动 | `js/hexapod_anim.js` |
+| 六足动画 | **13个**: Idle/Walk/Run/WalkBack/RunBack/StrafeL/StrafeR + 6转弯(待修复) | `js/hexapod_anim.js` |
+| 六足转弯系统 | direction+turnRate正交, CCD damp=0.8, hipDist固定髋距, _groundY防Y漂移 | `js/hexapod_anim.js` |
+| 转弯验证 | toggleHexTurnTest: 隐藏武器+上车体, 极慢0.3rad/s, 三角步态 | `js/hexapod_anim.js` |
 | 导出JSON固化按钮 | 一键下载完整嵌套配置JSON | `model_factory.html` |
 
 ## 常见修复模式
@@ -330,6 +332,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 6b | 山区村落 | ✅ v0.51.0 flatScore<0.35硬门槛+权重0.6 | editor_terrainGen.js→_tryPlanVillage |
 | 6c | 村落跨道路 | ✅ v0.51.0 plazaR+roadW/2+5m安全距离 | editor_terrainGen.js→_tryPlanVillage |
 | 6d | 纹理92%泥地 | ✅ v0.51.0 moistRaw归一化修正 | editor_terrainGen.js |
+| 6e | **六足转弯动画拖行** | 静态右转右前腿拖行，疑髋铰链伸展极限。turnRate=-1.5时stance相髋位移~0.47单位 | `js/hexapod_anim.js` |
 | 7 | CDP测试标签页回收不可靠 | ✅ v0.50.1 cdp_verify.py 直接杀 Chrome 进程替代 /json/close，100% 可靠 | cdp_verify.py |
 | 8 | 编辑器河流弯道处水面透明叠加变暗 | ✅ v0.48.0 alphaMap遮罩平面方案彻底解决 | waters.js→createRiverWater |
 | 9 | 池塘碰撞体对敌人不生效 | ✅ v0.49.0 checkCollision()增加池塘椭圆边界推离 | index.html→checkCollision |

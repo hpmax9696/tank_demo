@@ -33,7 +33,7 @@ python -m http.server 8080 --bind 127.0.0.1
 |------|:----:|----------|
 | `index.html` | ~5365 | 主游戏引擎 |
 | `maploader.js` | ~190 | 地图加载模块（蓝图转换+动态加载） |
-| `model_factory.html` | ~2372 | 程序化模型编辑器（含 T-34/85 v1.6 + 动画展台） |
+| `model_factory.html` | ~2640 | 程序化模型编辑器（含 13 动画展台 + 部件树默认折叠 + 转弯验证） |
 | `map_editor.html` | ~1800 | 地图编辑器（v0.51.0 拆分为6模块：terrainGen/genStatus/entities/waterBridge/data/terrainPaint） |
 | `js/editor_terrainGen.js` | ~750 | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇） |
 | `js/editor_genStatus.js` | ~120 | 生成状态面板（实时进度+统计+质量评分+自动隐藏） |
@@ -44,7 +44,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `models/t34_v16_builder.js` | ~353 | T-34/85 v1.6 动画坦克构建器（index.html 引用，含 turretPivot/barrelPivot） |
 | `models/enemies.js` | ~920 | 装甲突击车 + 程序化丧尸 |
 | `models/hexapod_config.js` | ~100 | 六足战车模型配置（3节腿+尖刺足+4DOF） |
-| `js/hexapod_anim.js` | ~540 | 六足动画模块（待机+步行+奔跑三角步态+单腿IK测试3模式×3腿型） |
+| `js/hexapod_anim.js` | ~928 | 六足动画模块（13动画+CCD可调阻尼+转弯验证+turnRate系统） |
 | `combat/enemyAI.js` | ~535 | AI 状态机 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统 |
 

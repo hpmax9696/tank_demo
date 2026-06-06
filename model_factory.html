@@ -21,9 +21,13 @@
   #toggle-iktest.active { background:rgba(240,160,48,0.3); color:#fff; animation:pulse-ik 1.5s infinite; }
   #toggle-iktest:disabled { opacity:0.35; cursor:not-allowed; border-color:#555; color:#777; background:rgba(0,0,0,0.3); }
   @keyframes pulse-ik { 0%,100% { box-shadow:0 0 5px #f0a030; } 50% { box-shadow:0 0 20px #f0a030; } }
-  #anim-list .anim-item { background:rgba(0,0,0,0.6); color:#aaa; border:1px solid #555; padding:3px 14px; border-radius:4px; cursor:pointer; font-size:12px; white-space:nowrap; transition:all 0.2s; pointer-events:auto; }
-  #anim-list .anim-item:hover { background:rgba(78,205,196,0.25); color:#fff; border-color:#4ecdc4; }
-  #anim-list .anim-item.active { background:rgba(78,205,196,0.35); color:#fff; border-color:#4ecdc4; box-shadow:0 0 8px #4ecdc4; }
+  #anim-list { position:absolute; top:100px; left:60px; z-index:20; display:none; flex-direction:column; gap:2px; max-height:calc(100vh - 180px); overflow-y:auto; background:rgba(0,0,0,0.85); padding:6px; border-radius:6px; border:1px solid #555; min-width:200px; }
+  #anim-list::-webkit-scrollbar { width:5px; }
+  #anim-list::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
+  #anim-list .anim-item { background:rgba(255,255,255,0.05); color:#aaa; border:1px solid transparent; padding:3px 10px; border-radius:3px; cursor:pointer; font-size:11px; white-space:nowrap; transition:all 0.15s; }
+  #anim-list .anim-item:hover { background:rgba(78,205,196,0.2); color:#fff; border-color:#4ecdc4; }
+  #anim-list .anim-item.active { background:rgba(78,205,196,0.3); color:#fff; border-color:#4ecdc4; box-shadow:0 0 6px #4ecdc4; }
+  #anim-list .anim-separator { color:#555; font-size:10px; padding:4px 10px 1px; border-top:1px solid #333; margin-top:4px; pointer-events:none; }
   @keyframes pulse { 0%,100% { box-shadow:0 0 5px #4ecdc4; } 50% { box-shadow:0 0 20px #4ecdc4; } }
   /* lil-gui 覆盖样式 — 深色主题高对比度 */
   .lil-gui {
@@ -89,9 +93,10 @@
 <button id="toggle-helpers">🔲 切换对齐辅助框 (BoxHelper)</button>
 <button id="toggle-anim">🎬 动画展台</button>
 <button id="toggle-iktest" disabled>🦿 单腿IK测试</button>
+<button id="toggle-turntest" disabled>🔁 转弯验证</button>
 </div>
 <div id="anim-status" style="position:absolute;bottom:60px;left:50%;z-index:10;color:#4ecdc4;font-size:13px;background:rgba(0,0,0,0.7);padding:4px 14px;border-radius:4px;pointer-events:none;display:none;"></div>
-<div id="anim-list" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:10;display:none;flex-direction:row;gap:6px;"></div>
+<div id="anim-list"></div>
 <div id="part-tree"></div>
 
 <script type="importmap">
@@ -994,13 +999,16 @@ function updateAnimButton() {
       btn.title = '';
     }
   }
-  // IK测试按钮：仅六足战车可用
+  // IK测试+转弯验证按钮：仅六足战车可用
   const ikBtn = document.getElementById('toggle-iktest');
+  const ttBtn = document.getElementById('toggle-turntest');
   if (ikBtn) {
     const isHex = currentModelType === 'hexapod';
     ikBtn.disabled = !isHex;
+    if (ttBtn) ttBtn.disabled = !isHex;
     if (!isHex) {
       if (window.toggleHexIKTest) window.toggleHexIKTest();
+      if (window.toggleHexTurnTest) window.toggleHexTurnTest();
     }
   }
 }
@@ -1267,7 +1275,7 @@ function updateAnimShowcase(dt) {
   const elapsed = performance.now() - animStartTime;
   const duration = (ma.durations || [4000])[animPhase - 1] || 4000;
   const t = Math.min(elapsed / duration, 1);
-  ma.updateFrame(dt, t, elapsed, duration);
+  ma.updateFrame(dt, t, elapsed, duration, animPhase - 1);
   if (t >= 1) {
     // 锁定当前动画循环播放（不再自动跳到下一个）
     animStartTime = performance.now();
@@ -1303,7 +1311,23 @@ function _buildAnimList() {
   list.innerHTML = '';
   var ma = getModelAnims();
   if (!ma || !ma.names) return;
+  // 分类标签（索引基于 _hexaAnimNames 顺序）
+  var categories = [
+    { label: '── 基础移动 ──', at: 0 },
+    { label: '── 后退 ──', at: 3 },
+    { label: '── 平移 ──', at: 5 },
+    { label: '── 转弯 ──', at: 7 },
+  ];
+  var catIdx = 0;
   for (var i = 0; i < ma.names.length; i++) {
+    // 在分类点插入分隔符
+    while (catIdx < categories.length && categories[catIdx].at === i) {
+      var sep = document.createElement('div');
+      sep.className = 'anim-separator';
+      sep.textContent = categories[catIdx].label;
+      list.appendChild(sep);
+      catIdx++;
+    }
     var item = document.createElement('div');
     item.className = 'anim-item';
     item.textContent = (i + 1) + ' ' + ma.names[i].split(' ').slice(1).join(' ');
@@ -1462,6 +1486,12 @@ function rebuildModel() {
   updateTriCount();
   if (gui) { gui.destroy(); gui = null; }
   buildGUI();
+  // 默认折叠所有顶层节点，保持面板整洁
+  ptCollapsed.clear();
+  var topCfg = MODEL_CONFIGS[currentModelType];
+  if (topCfg && topCfg.children) {
+    for (var ci = 0; ci < topCfg.children.length; ci++) ptCollapsed.add(topCfg.children[ci].name);
+  }
   refreshPartTree();
   updateAnimButton();
 }
@@ -1550,10 +1580,25 @@ function selectSingle(name) {
   selectedParts.clear();
   selectedParts.add(name);
   createHighlight(name);
+  // 展开选中节点到根节点的路径
+  expandToNode(name);
   focusPanel(name);
   updateBatchPanel();
   updateBreadcrumb();
   refreshPartTree();
+}
+function expandToNode(name) {
+  function findAndExpand(cfg, target) {
+    if (cfg.name === target) return true;
+    if (cfg.children) {
+      for (var ci = 0; ci < cfg.children.length; ci++) {
+        if (findAndExpand(cfg.children[ci], target)) { ptCollapsed.delete(cfg.name); return true; }
+      }
+    }
+    return false;
+  }
+  var topCfg = MODEL_CONFIGS[currentModelType];
+  if (topCfg) findAndExpand(topCfg, name);
 }
 
 // 多选模式（切换）
@@ -2367,6 +2412,8 @@ function buildGUI() {
       addPartUI(gui, child);
     }
   }
+  // 默认折叠所有部件文件夹，保持面板整洁
+  guiFolderMap.forEach(f => f.close());
 }
 
 // ============================================================

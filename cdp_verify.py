@@ -32,6 +32,52 @@ DEBUG_PORT = 9222
 DEFAULT_URL = "http://127.0.0.1:8080"
 DEFAULT_TIMEOUT = 15  # 秒：等待页面加载 + 错误捕获
 
+HTML_FILES = ['index.html', 'map_editor.html', 'model_factory.html']
+
+# ── 按文件区分的 DOM 布局检查 ──
+# 每个 HTML 文件有独立的关键元素列表，避免跨文件误报
+DOM_CHECKS = {
+    'index.html': {
+        'required': ['game-container'],          # 游戏主容器
+        'optional': ['hud'],                     # HUD 可能延迟创建
+        'describe': 'index.html 游戏引擎',
+    },
+    'model_factory.html': {
+        'required': ['info', 'view-toolbar', 'bottom-bar', 'part-tree'],
+        'optional': ['stats', 'toggle-anim', 'toggle-iktest'],
+        'describe': 'model_factory.html 模型工厂',
+    },
+    'map_editor.html': {
+        'required': ['sel-view', 'btn-cursor', 'btn-raise', 'btn-lower'],
+        'optional': ['btn-entity-select', 'btn-water', 'btn-road'],
+        'describe': 'map_editor.html 地图编辑器',
+    },
+}
+
+def _extract_filename(url: str) -> str:
+    """从 URL 提取文件名，如 'http://x:8080/model_factory.html' → 'model_factory.html'"""
+    from urllib.parse import urlparse
+    path = urlparse(url).path
+    filename = path.rsplit('/', 1)[-1] if '/' in path else path
+    return filename or 'index.html'
+
+def check_html_tags():
+    """检查 HTML 文件标签配对（<div> 等块级标签），返回错误列表"""
+    import re
+    errors = []
+    tags_to_check = ['div', 'span', 'section', 'ul', 'ol', 'li']
+    for filepath in HTML_FILES:
+        if not os.path.exists(filepath):
+            continue
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        for tag in tags_to_check:
+            opens = len(re.findall(f'<{tag}\\b', content))
+            closes = len(re.findall(f'</{tag}>', content))
+            if opens != closes:
+                errors.append(f'HTML:{filepath} {tag}不匹配({opens}开/{closes}闭)')
+    return errors
+
 
 def log(msg: str):
     """输出到 stderr，不污染 stdout 的 JSON 结果"""
@@ -97,8 +143,8 @@ def kill_chrome_process():
         subprocess.run(['pkill', '-f', f'remote-debugging-port={DEBUG_PORT}'], capture_output=True)
 
 
-def collect_errors(ws_url: str, timeout: int) -> list[dict]:
-    """通过 WebSocket CDP 收集页面控制台错误"""
+def collect_errors(ws_url: str, timeout: int, page_url: str = "") -> list[dict]:
+    """通过 WebSocket CDP 收集页面控制台错误（page_url 用于匹配 DOM 检查配置）"""
     errors = []
     page_loaded = False
     cmd_id = [0]  # 可变计数器
@@ -201,6 +247,62 @@ def collect_errors(ws_url: str, timeout: int) -> list[dict]:
             log(f"WebSocket 错误: {e}")
             break
 
+    # ── DOM 布局完整性检查（按文件区分） ──
+    filename = _extract_filename(page_url or "")
+    dom_cfg = DOM_CHECKS.get(filename)
+    if dom_cfg:
+        log(f"DOM布局检查 ({dom_cfg.get('describe', filename)})...")
+        required_ids = dom_cfg.get('required', [])
+        optional_ids = dom_cfg.get('optional', [])
+        all_ids = required_ids + optional_ids
+        ids_json = json.dumps(all_ids)
+        req_json = json.dumps(required_ids)
+        try:
+            send("Runtime.evaluate", {
+                "expression": f"""
+                    (() => {{
+                        const checks = [];
+                        const required = {req_json};
+                        const allIds = {ids_json};
+                        for (const id of required) {{
+                            const el = document.getElementById(id);
+                            if (!el) checks.push('FAIL: 缺少元素 #' + id);
+                            else {{
+                                const r = el.getBoundingClientRect();
+                                if (r.width === 0 && r.height === 0) checks.push('WARN: 元素#' + id + ' 尺寸为0');
+                                else checks.push('PASS: #' + id + '=' + Math.round(r.width) + 'x' + Math.round(r.height));
+                            }}
+                        }}
+                        for (const id of allIds) {{
+                            if (required.indexOf(id) >= 0) continue;
+                            const el = document.getElementById(id);
+                            if (!el) checks.push('NOTE: 可选元素 #' + id + ' 不存在');
+                        }}
+                        // 通用检查: Three.js canvas 是否渲染
+                        const canvas = document.querySelector('canvas');
+                        if (!canvas) checks.push('NOTE: 无canvas (可能尚未渲染)');
+                        return JSON.stringify(checks);
+                    }})()
+                """
+            })
+            for _ in range(3):
+                raw = recv_until_deadline(time.time() + 2)
+                msg = json.loads(raw)
+                val = msg.get("result", {}).get("result", {}).get("value")
+                if val:
+                    dom_checks = json.loads(val)
+                    for c in dom_checks:
+                        log(f"  {c}")
+                        if c.startswith('FAIL'):
+                            errors.append({"type": "dom.check", "text": c})
+                        elif c.startswith('WARN'):
+                            errors.append({"type": "dom.check", "text": c})
+                    break
+        except Exception as e:
+            log(f"  DOM检查失败: {e}")
+    else:
+        log(f"DOM检查: 跳过 (无 {filename} 配置)")
+
     # 最后读取注入的错误收集器
     log("收集注入的错误...")
     try:
@@ -295,6 +397,15 @@ def verify(url: str, timeout: int, keep_chrome: bool = False) -> dict:
     http_proc = start_http_server()
 
     # 2. 启动 Chrome
+    # 2.5. HTML 标签配对检查（预检，防止缺失闭合标签导致布局bug）
+    log("HTML标签检查...")
+    html_errors = check_html_tags()
+    if html_errors:
+        for e in html_errors:
+            log(f"  {e}")
+    else:
+        log("  标签配对正常")
+
     chrome_proc = start_chrome()
 
     # 3. 打开页面并收集错误
@@ -303,7 +414,7 @@ def verify(url: str, timeout: int, keep_chrome: bool = False) -> dict:
     if not ws_url:
         return {"status": "error", "message": "无法创建标签页", "errors": []}
 
-    errors = collect_errors(ws_url, timeout)
+    errors = collect_errors(ws_url, timeout, url)
 
     # 4. 清理 — 杀 Chrome 进程 + HTTP 服务器（不再用 /json/close！）
     if not keep_chrome:
