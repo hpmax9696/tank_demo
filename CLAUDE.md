@@ -15,7 +15,7 @@ python -m http.server 8080 --bind 127.0.0.1
 
 ```
 ├── index.html         # 核心游戏引擎 (~630行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~4850行)：状态机/场景/物理/瞄准/摄像机/AI
+├── js/engine.js        # 游戏引擎 (~5450行)：状态机/场景/物理/瞄准/摄像机/AI/训练场
 ├── js/                # 游戏模块（13个）
 │   ├── waters.js      # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -157,11 +157,27 @@ legGroup (Y旋转=水平摆角)
 - **核心**：`_ccdLeg(leg, target, iters, damp)` — damp 默认 0.5，转弯用 0.8，死亡渐降至0.03
 - **固定脚距**：`leg._initFootDist` 初始化时缓存，swingTo用定值防CCD误差漂移
 - **落地Y**：`leg._groundY` 初始接地高度，防止代际漂移
+- **髋Y限位(v0.56.0)**：`leg._yLimit` — 中腿±0.7rad(≈40°)，前后腿±0.45rad(≈25°)，防转弯时腿360°缠绕
 
 ## 游戏模式
 
-- `menu` | `single` | `versus` | `combat`
+- `menu` | `single` | `versus` | `combat` | `training`
 - WASD驾驶 + 鼠标瞄准 + 左键开炮 / ESC返回
+
+### 训练场模式（v0.56.0 新增）
+
+主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
+
+| 配置项 | 可选值 |
+|--------|--------|
+| 我方 | 坦克、六足(灰色不可选) |
+| 敌方 | 坦克(T-34/85全参数对齐)、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) |
+
+- **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
+- **无限重生**：敌我死亡1s后在出生点重生，ESC退出训练
+- **敌方AI**：`engageDist:50` + `flameRange:55` 控制交战距离，CHASE阶段炮塔跟踪玩家，受击冷却1.5s防秒射
+- 相关变量：`isTrainingMode`, `trainingPlayerSpawn`, `trainingEnemySpawn`, `trainingRespawnQueued`
 
 ## 详细文档
 

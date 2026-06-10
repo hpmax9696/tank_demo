@@ -64,7 +64,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | 文件 | 行数 | 功能 |
 |------|:----:|------|
-| `index.html` | ~5094 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机） |
+| `index.html` | ~5094 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机/训练场UI） |
 | `waters.js` | ~317 | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画） |
 | `bridges.js` | ~177 | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤） |
 | `debugcolliders.js` | ~120 | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
@@ -93,7 +93,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 `index.html` 是核心游戏引擎，约 5365 行，采用以下模块化结构：
 
 ```
-├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat'
+├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat' | 'training'
+├── 训练场: 主菜单→配置面板(我方/敌方/行为)→01a地图100单位间距→无限重生
 ├── 玩家工厂: createPlayer() — 创建坦克实例
 ├── 场景初始化: initScene() — 渲染器/光照/雾/地面/坦克/障碍物
 ├── 天空系统: 已移除（v0.24.5，陡视角不可见，节省性能）
@@ -245,6 +246,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 六足动画 | **23个** (21步态+踉跄+死亡), stride/stepH数组驱动, 步态周期|ω|钳位公式 | `js/hexapod_anim.js` |
 | 六足转弯系统 | direction+turnRate正交, CCD damp=0.8/0.5, _initFootDist固定脚距防漂移 | `js/hexapod_anim.js` |
 | 六足武器限位 | 加特林[-17°,+20°], 导弹[-60°,+30°] | `model_factory.html` `hexapod_anim.js` |
+| 六足髋Y限位 | 中腿±0.7rad, 前后腿±0.45rad | `hexapod_anim.js` `_ccdLeg` |
+| 训练场模式 | 敌我T-34坦克对战+配置面板+无限重生 | `index.html` `js/engine.js` |
 | 六足城市迷彩 | 亮灰底色+深浅灰斑纹, 观瞄保留纯色 | `enemies.js` |
 | 地形坡度适应 | 装甲突击车俯仰+侧倾, 六足独立管理(hexapod_anim) | `engine.js` `hexapod_anim.js` |
 | 转弯验证 | toggleHexTurnTest: 极慢0.3rad/s旋转, 三角步态, bodyC/plantPos/swingTarget可视化 | `js/hexapod_anim.js` |
