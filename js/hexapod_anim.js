@@ -35,6 +35,7 @@ var _TURN_STRIDE = 0.18, _TURN_STEP_H = 0.10;
 
 // ── 动画引用收集 ──
 function _hexaCollectRefs() {
+  var oldAnimRefs = M._animRefs; // 保留旧refs用于清理枪管簇
   animRefs = M._animRefs = { legs: [], hexRoot: null, restHexRootY: 0, restHexRootX: 0, restHexRootZ: 0 };
   M.modelRoot.children.forEach(function(c) { if (c.name === '六足战车') animRefs.hexRoot = c; });
   var hexRoot = animRefs.hexRoot;
@@ -104,6 +105,40 @@ function _hexaCollectRefs() {
         isGatling: _weaponNames[wi].indexOf('加特林') >= 0
       });
     }
+  }
+  // ── 加特林枪管簇: 将4根枪管放入子Group, 绕中央轴公转(而非自转) ──
+  // 先清理旧簇 (防止重复collectRefs时嵌套; 用旧refs检查)
+  if (oldAnimRefs && oldAnimRefs.barrelClusters) {
+    for (var ci = 0; ci < oldAnimRefs.barrelClusters.length; ci++) {
+      var oc = oldAnimRefs.barrelClusters[ci];
+      if (oc && oc.parent) {
+        while (oc.children.length > 0) oc.parent.add(oc.children[0]);
+        oc.parent.remove(oc);
+      }
+    }
+  }
+  animRefs.barrelClusters = [];
+  for (var wi = 0; wi < animRefs.weapons.length; wi++) {
+    var wp = animRefs.weapons[wi];
+    if (!wp.isGatling) continue;
+    var pivotGroup = wp.weaponGroup.userData.pivot;
+    if (!pivotGroup) continue;
+    // 收集pivot下所有枪管子Group (只收集pivot直接子节点)
+    var barrelGroups = [];
+    for (var ci = pivotGroup.children.length - 1; ci >= 0; ci--) {
+      var child = pivotGroup.children[ci];
+      if (child.name && child.name.indexOf('枪管') >= 0) barrelGroups.push(child);
+    }
+    if (barrelGroups.length === 0) continue;
+    // 创建枪管簇Group, 挂在pivot下
+    var cluster = new THREE.Group();
+    cluster.name = wp.name + '_barrelCluster';
+    pivotGroup.add(cluster);
+    // 把枪管移入簇 (簇在pivot原点, add()自动保持世界变换)
+    for (var bi = 0; bi < barrelGroups.length; bi++) {
+      cluster.add(barrelGroups[bi]);
+    }
+    animRefs.barrelClusters.push(cluster);
   }
 
   // ── 自动抬升: 让最低尖刺足恰好触地(Y=0) ──
@@ -439,6 +474,23 @@ function _updateGait(totalTime, stride, stepH, ccdIters, direction, turnRate) {
       _ccdLeg(leg, target, ccdIters, damp);
     }
     leg._wasStance = inStance;
+  }
+
+  // ── 加特林枪管旋转 ──
+  _updateGatlingSpin(dt);
+}
+
+// 加特林枪管簇绕中央轴公转 (模仿真实加特林机枪枪管旋转)
+var _barrelSpinAccum = 0;
+function _updateGatlingSpin(dt) {
+  if (!animRefs || !animRefs.barrelClusters || animRefs.barrelClusters.length === 0) return;
+  var spinRPS = 3; // 转/秒
+  var delta = spinRPS * Math.PI * 2 * dt;
+  _barrelSpinAccum += delta;
+  for (var ci = 0; ci < animRefs.barrelClusters.length; ci++) {
+    var cluster = animRefs.barrelClusters[ci];
+    if (!cluster) continue;
+    cluster.rotation.x += delta; // 绕簇组局部X轴旋转
   }
 }
 

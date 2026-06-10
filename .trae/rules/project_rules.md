@@ -218,7 +218,8 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~5460 行 |
-| engine.js 行数 | ~5450 行（v0.56.0含训练场~600行） |
+| engine.js 行数 | ~5600 行（v0.56.1含训练场六足敌人+枪管簇初始化） |
+| hexapod_anim.js 行数 | ~1680 行（v0.56.1含加特林枪管簇动画） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |

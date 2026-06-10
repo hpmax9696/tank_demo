@@ -1200,6 +1200,7 @@
         var cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial({ color: 0x4a4a5a }));
         cylMesh.position.y = 1.25; cylMesh.visible = false; cylMesh.name = '_lodCylinder'; root.add(cylMesh);
         root.userData._skeletonGroup = skel; root.userData._lodCylinder = cylMesh;
+        root.userData._baseY = _hexapodTemplateBaseY; // 模型底部→y=0偏移, 游戏贴地需要
         var asys = createHexapodAnimationSystem(root);
         root.userData._animSystem = asys; root.userData.enemyType = 'hexapod';
         asys.play('Idle', true);

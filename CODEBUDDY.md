@@ -328,10 +328,20 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
+## v0.56.1 变更摘要（2026-06-10）
+
+- **训练场六足敌人**: 可选敌方类型，模型+AI+死亡重生完整流程
+- **加特林枪管簇动画**: 模型工厂23动画中枪管绕中央轴公转(`_hexaCollectRefs`创建`_barrelCluster`→`_updateGatlingSpin`旋转)
+- **六足贴地**: `_hexapodTemplateBaseY`存到`userData._baseY`，游戏循环`groundY+_baseY`
+- **训练场修复**: 玩家被火焰/丧尸击杀→复活而非结算；丧尸重生→重置AnimationSystem为Idle
+- **已知新问题**: 游戏端六足武器俯仰轴不正确(模型工厂正常)；装甲突击车障碍物平移
+
 ## 已知问题
 
 | # | 问题 | 影响 | 位置 |
 |---|------|------|------|
+| 10 | **游戏端六足武器俯仰旋转轴错误** | 加特林/导弹pitch绕错误轴旋转，v0.56.1已禁用俯仰，武器保持默认角度 | `combat/enemyAI.js:updateHexapodEngage` |
+| 11 | **装甲突击车遇障平移** | 障碍物碰撞仅位移推出不改朝向，车辆侧滑 | `engine.js:checkCollision` → AI通用 |
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 | 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
 | 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段 | map_editor.html→mousemove钳制逻辑 |

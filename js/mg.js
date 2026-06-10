@@ -127,8 +127,13 @@ function updateMGAutoTarget(player, dt) {
                         spawnSilentHitSparks(hitWorldPos);
                         if (killed) {
                             const isZombie = (en.cfg && en.cfg.type === 'zombie');
+                            const isHex = (en.cfg && en.cfg.type === 'hexapod');
                             if (isZombie) {
                                 en.ai.state = 'dead';
+                            } else if (isHex) {
+                                // 训练场六足: 走重生队列, 不移除实体
+                                if (window._killEnemyInTraining) { window._killEnemyInTraining(en); }
+                                else { en.ai.state = 'dead'; en.visible = false; }
                             } else {
                                 en.ai.state = 'dead';
                                 en.visible = false;

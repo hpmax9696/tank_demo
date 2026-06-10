@@ -158,26 +158,30 @@ legGroup (Y旋转=水平摆角)
 - **固定脚距**：`leg._initFootDist` 初始化时缓存，swingTo用定值防CCD误差漂移
 - **落地Y**：`leg._groundY` 初始接地高度，防止代际漂移
 - **髋Y限位(v0.56.0)**：`leg._yLimit` — 中腿±0.7rad(≈40°)，前后腿±0.45rad(≈25°)，防转弯时腿360°缠绕
+- **加特林枪管簇动画(v0.56.1)**：`_hexaCollectRefs`中为每侧加特林创建`_barrelCluster`子Group，将4根枪管移入簇后`cluster.rotation.x`绕中央轴公转。模型工厂23动画均可见。`_updateGatlingSpin(dt)`在`_hexaUpdateFrame`末尾调用
+- **六足贴地(v0.56.1)**：`createHexapod()`存储`_hexapodTemplateBaseY`到`userData._baseY`，游戏循环`position.y=groundHeight+_baseY`
 
 ## 游戏模式
 
 - `menu` | `single` | `versus` | `combat` | `training`
 - WASD驾驶 + 鼠标瞄准 + 左键开炮 / ESC返回
 
-### 训练场模式（v0.56.0 新增）
+### 训练场模式（v0.56.0 新增，v0.56.1 扩展六足）
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
 | 配置项 | 可选值 |
 |--------|--------|
 | 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、突击车、丧尸 |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(模型+AI)**、突击车、丧尸 |
 | 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
-- **无限重生**：敌我死亡1s后在出生点重生，ESC退出训练
+- **敌方六足(v0.56.1)**：完整模型显示，底部贴地，AI驱动移动+加特林射击，死亡1s重生。MG击杀走训练场重生队列
+- **无限重生**：敌我死亡1s后在出生点重生，玩家被火焰/丧尸击杀也复活。ESC退出训练
 - **敌方AI**：`engageDist:50` + `flameRange:55` 控制交战距离，CHASE阶段炮塔跟踪玩家，受击冷却1.5s防秒射
 - 相关变量：`isTrainingMode`, `trainingPlayerSpawn`, `trainingEnemySpawn`, `trainingRespawnQueued`
+- **已知问题(v0.56.1)**：六足武器俯仰旋转轴不正确(模型工厂OK)；装甲突击车遇障碍物平移(AI通用)
 
 ## 详细文档
 

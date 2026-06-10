@@ -646,21 +646,11 @@
         const rotStep = Math.min(Math.abs(ad), turnRate * dt) * Math.sign(ad);
         ai.bodyYaw += rotStep;
         enemy.rotation.y = ai.bodyYaw;
+        enemy.updateMatrixWorld(); // 确保pivot的worldToLocal使用最新矩阵
         const isAligned = Math.abs(ad) < 0.25;
 
-        // 2. 武器俯仰追踪
-        const localTarget = new THREE.Vector3(pp.x, pp.y, pp.z);
-        enemy.worldToLocal(localTarget);
-        const hDist = Math.sqrt(localTarget.x * localTarget.x + localTarget.z * localTarget.z);
-        const pitchAngle = Math.atan2(-localTarget.y, hDist);
-        const gatlingPitch = Math.max(-0.35, Math.min(0.79, pitchAngle));
-        const missilePitch = Math.max(-0.17, Math.min(1.05, pitchAngle));
-        ['左加特林_pivot','右加特林_pivot'].forEach(function(n) {
-            var p = enemy.getObjectByName(n); if (p) p.rotation.x = gatlingPitch;
-        });
-        ['左导弹巢_pivot','右导弹巢_pivot'].forEach(function(n) {
-            var p = enemy.getObjectByName(n); if (p) p.rotation.x = missilePitch;
-        });
+        // 2. 武器俯仰追踪 — TODO: 坐标系待校准, 当前禁用避免错误旋转
+        // (v0.56.1已知问题: game模型层级含六足战车Y+90°, pivot的worldToLocal与瞄准计算不匹配)
 
         // 3. 加特林旋转提速/衰减
         if (isAligned && dist < gatlingRange) {
