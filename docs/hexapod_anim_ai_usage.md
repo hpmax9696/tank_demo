@@ -116,23 +116,40 @@ damp: 转弯用 0.8, 直行用 0.5
 
 ## 玩家使用场景
 
+**原则：键盘一律全速，手柄摇杆力度分档。没有 Shift 加速键。**
+
+### 键盘操作（全速·Run 系列）
+
 | 操作 | 动画 | 说明 |
 |------|------|------|
-| W (低力度) | Walk | 步行前进 |
-| W (满力度) | Run | 奔跑前进 |
-| S (低力度) | Walk Back | 步行后退 |
-| S (满力度) | Run Back | 奔跑后退 |
-| A | Strafe L | 左平移 |
-| D | Strafe R | 右平移 |
-| Shift+A | Strafe Run L | 奔跑左平移 |
-| Shift+D | Strafe Run R | 奔跑右平移 |
+| W | Run | 全速前进 |
+| S | Run Back | 全速后退 |
+| A | Strafe Run L | 全速左平移 |
+| D | Strafe Run R | 全速右平移 |
 | Q | Static Turn L | 原地左转 |
 | E | Static Turn R | 原地右转 |
-| W+A (低力度) | Walk Turn | 步行前进左转 |
-| W+A (满力度) | Run Turn | 奔跑前进左转 |
-| S+A (低力度) | Walk Back Turn | 步行后退左转 |
-| S+A (满力度) | Run Back Turn | 奔跑后退左转 |
-| A+鼠标指向 | Strafe Turn | 平移+转向瞄准 |
+| W+A | Run Turn L | 全速前进左转 |
+| W+D | Run Turn R | 全速前进右转 |
+| S+A | Run Back Turn L | 全速后退左转 |
+| S+D | Run Back Turn R | 全速后退右转 |
+| A+鼠标右转 | Strafe Turn | 侧移绕圈+车身持续转向瞄准 |
+
+### 手柄操作（力度分档·Walk/Run 切换）
+
+手柄左摇杆力度阈值：`|tilt| < 0.5` → 低速 (Walk) · `|tilt| ≥ 0.5` → 高速 (Run)
+
+| 摇杆方向 | 轻推 (<0.5) | 推满 (≥0.5) |
+|----------|------------|------------|
+| 正前方 ↑ | Walk | Run |
+| 正后方 ↓ | Walk Back | Run Back |
+| 正左方 ← | Strafe L | Strafe Run L |
+| 正右方 → | Strafe R | Strafe Run R |
+| 前左 ↖ | Walk Turn L | Run Turn L |
+| 前右 ↗ | Walk Turn R | Run Turn R |
+| 后左 ↙ | Walk Back Turn L | Run Back Turn L |
+| 后右 ↘ | Walk Back Turn R | Run Back Turn R |
+| 无方向+右摇杆 | Static Turn | Static Turn |
+| 横向+右摇杆 | Strafe Turn | Strafe Turn |
 
 ## 武器俯仰机械限位
 

@@ -41,7 +41,7 @@
     function canSeeTarget(enemy, target, coneAngle, maxDist, scene) {
         if (!target || target.hp <= 0) return false;
         const ePos = enemy.position.clone();
-        const tPos = target.position.clone();
+        const tPos = (target.group ? target.group.position : target.position).clone();
         const dist = ePos.distanceTo(tPos);
         if (dist > maxDist) return false;
 
@@ -178,6 +178,8 @@
         const pp = nearestPlayer.group.position;
         // 追击用全速（速度×1.3，比巡逻/绕圈更快）
         moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
+        // 追击过程中炮塔跟踪玩家, 接近后即可开火
+        ai._turretAimed = aimTurretAt(enemy, pp, dt, 3.0);
         ai.lastSeenPlayerPos = pp.clone();
     }
 
@@ -238,6 +240,7 @@
 
         // 3. 炮塔独立瞄准玩家
         const aimed = aimTurretAt(enemy, pp, dt, 4.0);
+        ai._turretAimed = aimed; // 训练场用: 炮塔是否已对准
 
         // 喷火器开火
         ai.flameTimer = (ai.flameTimer || 0) - dt;
@@ -757,16 +760,17 @@
             ai.lastHitTime = Date.now() / 1000;
         }
 
-        // 非丧尸/非六足：受击触发迎击（被动还击模式）
-        if (!isZombie && !isHexapodDmg) {
+        // 非丧尸/非六足：受击触发迎击（被动还击模式, 训练场不反击则跳过）
+        if (!isZombie && !isHexapodDmg && !(enemy.cfg && enemy.cfg.passive)) {
             const prevState = ai.state;
-            if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE) {
+            if (ai.state === AI_STATE.PATROL || ai.state === AI_STATE.FLEE || ai.state === 'idle') {
                 ai.state = AI_STATE.CHASE;
                 ai.target = attacker;
                 if (attacker && attacker.group) {
                     ai.lastSeenPlayerPos = attacker.group.position.clone();
                 }
                 ai.alertTimer = 0;
+                ai._tankFireTimer = 1.5; // 受击冷却: 不秒射, 等炮塔转过来
                 console.log('⚡ ' + eid + ' 受击! ' + prevState + ' → CHASE (HP:' + enemy.hp + ')');
             }
         }

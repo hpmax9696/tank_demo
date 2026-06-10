@@ -73,10 +73,7 @@ function spawnScorchMark(pos) {
         transparent: true,
         opacity: 0.65,
         side: THREE.DoubleSide,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -4,
-        polygonOffsetUnit: -4
+        depthWrite: false
     });
     const mark = new THREE.Mesh(geo, mat);
     const quat = new THREE.Quaternion().setFromUnitVectors(

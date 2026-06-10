@@ -3,7 +3,7 @@ const menuOverlay = document.getElementById('menu-overlay');
 const gameContainer = document.getElementById('game-container');
 const btnEnter = document.getElementById('btn-enter');
 const btnVersus = document.getElementById('btn-versus');
-const btnExit = document.getElementById('btn-exit');
+const btnTraining = document.getElementById('btn-training');
 const btnBack = document.getElementById('btn-back');
 const hintBar = document.getElementById('controls-hint');
 const splitLine = document.getElementById('split-line');
@@ -512,7 +512,11 @@ function generateCompositeGroundTexture(groundHalf) {
 // spawnGroundDebris/spawnScorchMark → shells.js
 
 // ==================== 状态机 ====================
-let gameMode = 'menu'; // 'menu' | 'single' | 'versus'
+let gameMode = 'menu'; // 'menu' | 'single' | 'versus' | 'training'
+let isTrainingMode = false;
+let trainingPlayerSpawn = { x: -20, z: 0 };
+let trainingEnemySpawn = { x: 20, z: 0 };
+let trainingRespawnQueued = null; // { player: bool, delay: float } or null
 let animationId = null;
 
 // ==================== 键盘输入（事件监听） ====================
@@ -612,6 +616,7 @@ let shadowEnabled = true;  // 阴影开关状态
 let groundPlane;
 let shells = [], fragments = [], muzzleLights = [], ringFX = [];
 let explosions = [];  // 爆炸效果数组（坦克死亡时触发的大型火焰烟雾）
+let _tmpQuat = new THREE.Quaternion(); // 训练场 enemy shell 复用
 let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
 let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
 let enemies = [];  // PvE 战斗模式敌人数组
@@ -1731,7 +1736,7 @@ function updateTrajectoryLine(player) {
 
     const hitTargets = [...obstacleMeshes];
     const enemyDefs = [];
-    if (gameMode === 'combat') {
+    if (gameMode === 'combat' || isTrainingMode) {
         for (const en of enemies) {
             if (!en || !en.visible) continue;
             if (en.ai && en.ai.state === 'dead') continue;
@@ -1861,6 +1866,8 @@ function gameLoop() {
 
     const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
     visibilityTimer += dt;
+    // ── 训练场重生处理 ──
+    if (isTrainingMode) _processTrainingRespawn(dt);
 
     const isGameOver = gameMode === 'combat' && combatData && combatData.lives <= 0;
     const playerDead = player1 && player1.dead;
@@ -2056,7 +2063,7 @@ function gameLoop() {
     perfAcc.physics += _t1 - _t0;
 
     // ── 开炮（鼠标左键 / 手柄RT扳机） ──
-    if ((gameMode === 'single' || gameMode === 'combat') && !isGameOver) {
+    if ((gameMode === 'single' || gameMode === 'combat' || isTrainingMode) && !isGameOver) {
         if (mouseFireRequested && mouseFireReady) {
             fireShell();
             mouseFireReady = false;
@@ -2210,8 +2217,8 @@ function gameLoop() {
             }
         }
 
-        // 战斗模式：炮弹 vs 敌人
-        if (!hit && gameMode === 'combat' && s.owner === player1) {
+        // 战斗/训练模式：炮弹 vs 敌人
+        if (!hit && (gameMode === 'combat' || isTrainingMode) && s.owner === player1) {
             for (let ei = enemies.length - 1; ei >= 0; ei--) {
                 const enemy = enemies[ei];
                 if (!enemy || enemy.ai.state === 'dead') continue;
@@ -2252,14 +2259,18 @@ function gameLoop() {
                             }
                             spawnPickup(enemy);
                             const deadEnemy = enemy;
-                            setTimeout(() => {
-                                if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                                deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
-                                const idx = enemies.indexOf(deadEnemy);
-                                if (idx >= 0) enemies.splice(idx, 1);
-                            }, 300);
-                            if (enemies.every(e => e.ai.state === 'dead')) {
+                            if (isTrainingMode) {
+                                _killEnemyInTraining(deadEnemy);
+                            } else {
+                                setTimeout(() => {
+                                    if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                    deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                    if (deadEnemy.userData.flameEffect) deadEnemy.userData.flameEffect.dispose();
+                                    const idx = enemies.indexOf(deadEnemy);
+                                    if (idx >= 0) enemies.splice(idx, 1);
+                                }, 300);
+                            }
+                            if (!isTrainingMode && enemies.every(e => e.ai.state === 'dead')) {
                                 setTimeout(() => {
                                     if (combatData) {
                                         const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
@@ -2272,6 +2283,20 @@ function gameLoop() {
                     }
                     break; // 一发炮弹最多命中一个敌人
                 }
+            }
+        }
+
+        // 训练场: 敌人AP炮弹直接命中判定(无溅射)
+        if(!hit&&isTrainingMode&&s.isEnemyShell&&player1&&!player1.dead&&player1.group){
+            var edx2 = s.mesh.position.x - player1.group.position.x;
+            var edz2 = s.mesh.position.z - player1.group.position.z;
+            var edy2 = s.mesh.position.y - (player1.group.position.y + 1.0);
+            var ed2 = Math.sqrt(edx2*edx2 + edz2*edz2 + edy2*edy2);
+            if(ed2 < 2.5){
+                player1.hp -= 20; if(player1.hp < 0) player1.hp = 0; hit = true;
+                player1.ai = player1.ai || {}; player1.ai.hitFlash = 0.2;
+                if(player1.hp <= 0){ _killPlayerInTraining(); }
+                else { spawnHitSparks(s.mesh.position.clone()); playHitSound(); }
             }
         }
 
@@ -2317,13 +2342,13 @@ function gameLoop() {
                     }
                 }
             }
-            if (gameMode === 'combat') {
+            if (gameMode === 'combat' || isTrainingMode) {
                 for (let ei = enemies.length - 1; ei >= 0; ei--) {
                     const en = enemies[ei]; if (!en || en.ai.state === 'dead') continue;
                     const ep2 = en.position, edx = hPos.x - ep2.x, edz = hPos.z - ep2.z, edy = hPos.y - ep2.y;
                     const eDist = Math.sqrt(edx * edx + edz * edz + edy * edy);
                     if (eDist < HE_SPLASH + 1.0) {
-                        const isArmored = (en.cfg && en.cfg.type === 'assault-vehicle');
+                        const isArmored = (en.cfg && (en.cfg.type === 'assault-vehicle' || en.cfg.type === 'tank'));
                         if (isArmored && eDist > 0.3) continue;
                         const dmg = isArmored ? HE_DAMAGE : Math.round(HE_DAMAGE * Math.max(0.3, 1 - eDist / HE_SPLASH));
                         const killed = window.EnemyAI.onEnemyDamaged(en, Math.max(1, dmg), player1);
@@ -2341,12 +2366,16 @@ function gameLoop() {
                                 }
                                 spawnPickup(en);
                                 const dead = en;
-                                setTimeout(() => {
-                                    if (dead.parent) dead.parent.remove(dead);
-                                    dead.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                    const idx2 = enemies.indexOf(dead);
-                                    if (idx2 >= 0) enemies.splice(idx2, 1);
-                                }, 300);
+                                if (isTrainingMode) {
+                                    _killEnemyInTraining(dead);
+                                } else {
+                                    setTimeout(() => {
+                                        if (dead.parent) dead.parent.remove(dead);
+                                        dead.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                        const idx2 = enemies.indexOf(dead);
+                                        if (idx2 >= 0) enemies.splice(idx2, 1);
+                                    }, 300);
+                                }
                             }
                         }
                     }
@@ -2372,6 +2401,7 @@ function gameLoop() {
         const shellGroundY = getGroundHeight(s.mesh.position.x, s.mesh.position.z);
         if (hit || s.mesh.position.y < shellGroundY || distToTank > SHELL_MAX_DIST ||
             Math.abs(s.mesh.position.x) > worldHalfW+50 || Math.abs(s.mesh.position.z) > worldHalfD+50) {
+
             // 🆕 地面命中效果（非障碍物/坦克碰撞，且炮弹低于地形）
             if (!hit && s.mesh.position.y < shellGroundY) {
                 const impactPos = s.mesh.position.clone();
@@ -2554,7 +2584,10 @@ function gameLoop() {
                 player1.hp -= hb.damage || 3;
                 if (player1.hp < 0) player1.hp = 0;
                 player1.ai = player1.ai || {}; player1.ai.hitFlash = 0.1;
-                if (player1.hp <= 0) { player1.dead = true; player1.group.visible = false; togglePlayerBars(player1, false); }
+                if (player1.hp <= 0) {
+                    if (isTrainingMode) { _killPlayerInTraining(); }
+                    else { player1.dead = true; player1.group.visible = false; togglePlayerBars(player1, false); }
+                }
                 scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); hexapodBullets.splice(hi, 1);
             }
         }
@@ -2570,6 +2603,49 @@ function gameLoop() {
         }
     }
 
+    // ── 训练场坦克敌人炮击（带随机偏离, 使用shells系统）──
+    if (isTrainingMode) {
+        for (const enemy of enemies) {
+            if (enemy.cfg && (enemy.cfg.type === 'assault-vehicle' || enemy.cfg.type === 'tank') && enemy.ai && !enemy.dead && player1 && !player1.dead) {
+                var ed = enemy.position.distanceTo(player1.group.position);
+                // 主炮: engage状态+距离>10m 开火
+                var et = enemy.ai._tankFireTimer || 0;
+                et -= dt;
+                if (et <= 0 && enemy.ai.state === 'engage' && ed > 10 && enemy.ai._turretAimed) {
+                    et = 2.5 + Math.random() * 1.0;
+                    fireEnemyTrainingShell(enemy);
+                }
+                enemy.ai._tankFireTimer = et;
+                // MG: 参数对齐玩家(MG_RANGE=25, 10rps, 过热6s)
+                if (enemy.ai.state === 'engage' && ed < MG_RANGE) {
+                    var mgt = enemy.ai._mgFireTimer || 0;
+                    var mgHeatE = enemy.ai._mgHeat || 0;
+                    var mgOverheatedE = enemy.ai._mgOverheated || false;
+                    if (mgOverheatedE) {
+                        mgHeatE = Math.max(0, mgHeatE - dt);
+                        if (mgHeatE <= 0) mgOverheatedE = false;
+                    } else {
+                        mgt -= dt;
+                        if (mgt <= 0) {
+                            mgt = MG_FIRE_INTERVAL;
+                            mgHeatE += MG_FIRE_INTERVAL;
+                            if (mgHeatE >= MG_OVERHEAT_TIME) { mgOverheatedE = true; mgHeatE = MG_OVERHEAT_TIME; }
+                            else { _spawnEnemyMGTracer(enemy); }
+                        }
+                    }
+                    enemy.ai._mgFireTimer = mgt;
+                    enemy.ai._mgHeat = mgHeatE;
+                    enemy.ai._mgOverheated = mgOverheatedE;
+                } else {
+                    var mgHeatC = enemy.ai._mgHeat || 0;
+                    mgHeatC = Math.max(0, mgHeatC - dt * 2);
+                    if (mgHeatC <= 0) enemy.ai._mgOverheated = false;
+                    enemy.ai._mgHeat = mgHeatC;
+                }
+            }
+        }
+    }
+
     // ── 爆炸效果更新（坦克死亡时触发的大型火焰烟雾） ──
     for (let i = explosions.length - 1; i >= 0; i--) {
         explosions[i].update(dt);
@@ -2580,7 +2656,7 @@ function gameLoop() {
     }
 
     // ── 战斗模式：敌人 AI + HP条 + 受击反馈 ──
-    if (gameMode === 'combat' && enemies.length > 0) {
+    if ((gameMode === 'combat' || isTrainingMode) && enemies.length > 0) {
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
             const enemy = enemies[ei];
             if (!enemy) continue;
@@ -2617,14 +2693,17 @@ function gameLoop() {
                             }
                             spawnPickup(enemy);
                             const deadEnemy = enemy;
-                            setTimeout(() => {
-                                if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                                deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                                // v0.27.0: animSystem 无需手动清理（纯JS对象）
-                                const idx = enemies.indexOf(deadEnemy);
-                                if (idx >= 0) enemies.splice(idx, 1);
-                            }, 300);
-                            if (enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
+                            if (isTrainingMode) {
+                                _killEnemyInTraining(deadEnemy);
+                            } else {
+                                setTimeout(() => {
+                                    if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                                    deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                                    const idx = enemies.indexOf(deadEnemy);
+                                    if (idx >= 0) enemies.splice(idx, 1);
+                                }, 300);
+                            }
+                            if (!isTrainingMode && enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
                                 setTimeout(() => {
                                     if (combatData) {
                                         const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
@@ -2639,13 +2718,17 @@ function gameLoop() {
                     if (combatData) combatData.score += (enemy.cfg.score || 50);
                     spawnPickup(enemy);
                     const deadEnemy = enemy;
-                    setTimeout(() => {
-                        if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
-                        deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-                        const idx = enemies.indexOf(deadEnemy);
-                        if (idx >= 0) enemies.splice(idx, 1);
-                    }, 300);
-                    if (enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
+                    if (isTrainingMode) {
+                        _killEnemyInTraining(deadEnemy);
+                    } else {
+                        setTimeout(() => {
+                            if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
+                            deadEnemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+                            const idx = enemies.indexOf(deadEnemy);
+                            if (idx >= 0) enemies.splice(idx, 1);
+                        }, 300);
+                    }
+                    if (!isTrainingMode && enemies.every(e => e.ai && (e.ai.state === 'dead' || e.visible === false))) {
                         setTimeout(() => {
                             if (combatData) {
                                 const result = window.ScoreSystem.settleScore(selectedMapId || 'test_map_03a', combatData.score);
@@ -3073,7 +3156,7 @@ function gameLoop() {
     const _t4 = performance.now();  // perf: 渲染阶段结束
     perfAcc.render += _t4 - _t3;
     perfAcc.frames++;
-    } catch(e) { console.warn('gameLoop error:', e.message); }
+    } catch(e) { console.warn('gameLoop error:', e.message, e.stack); }
     animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -3727,6 +3810,180 @@ function spawnHexapodGatlingBullet(enemy, player1, ai) {
     hexapodBullets.push(bulletData);
 }
 
+// ─── 训练场坦克敌人炮击（完整视效+音效）───
+function fireEnemyTrainingShell(enemy) {
+    if (!player1 || player1.dead) return;
+    var barrelPivot = enemy.userData && enemy.userData.barrelPivot;
+    // 炮口位置+方向: 从炮管实际朝向发射
+    var muzzlePos, barrelDir;
+    if (barrelPivot) {
+        muzzlePos = new THREE.Vector3(0, 0, 1.8);
+        barrelPivot.localToWorld(muzzlePos);
+        barrelDir = new THREE.Vector3(0, 0, 1);
+        barrelPivot.getWorldQuaternion(_tmpQuat);
+        barrelDir.applyQuaternion(_tmpQuat);
+    } else {
+        muzzlePos = enemy.position.clone(); muzzlePos.y += 1.5;
+        barrelDir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
+    }
+    // 微小散布 ±2°
+    var spread = 0.035;
+    barrelDir.x += (Math.random() - 0.5) * spread;
+    barrelDir.z += (Math.random() - 0.5) * spread;
+    barrelDir.normalize();
+    // 重力补偿
+    var dist = muzzlePos.distanceTo(player1.group.position);
+    var flightTime = dist / SHELL_SPEED;
+    var aimDir = barrelDir.clone();
+    aimDir.y += 0.5 * SHELL_GRAVITY * flightTime / SHELL_SPEED;
+    aimDir.normalize();
+    // 炮口闪光
+    var flash = new THREE.PointLight('#ffcc44', 10, 6, 2);
+    flash.position.copy(muzzlePos); scene.add(flash);
+    muzzleLights.push({ light: flash, life: 0.12 });
+    // 炮弹模型
+    var shellGroup = new THREE.Group();
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.18, 8),
+        new THREE.MeshStandardMaterial({ color: '#ffcc00', roughness: 0.05, metalness: 0.3, emissive: '#ff9900', emissiveIntensity: 2.5 }));
+    body.rotation.x = Math.PI/2; body.castShadow = true;
+    shellGroup.add(body);
+    var tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 8),
+        new THREE.MeshStandardMaterial({ color: '#ffcc00', roughness: 0.05, metalness: 0.3, emissive: '#ff9900', emissiveIntensity: 2.5 }));
+    tip.rotation.x = Math.PI/2; tip.position.z = 0.13; tip.castShadow = true;
+    shellGroup.add(tip);
+    shellGroup.position.copy(muzzlePos);
+    scene.add(shellGroup);
+    var glowTail = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8),
+        new THREE.MeshBasicMaterial({ color: '#ff8800', transparent: true, opacity: 0.55, depthWrite: false }));
+    glowTail.position.copy(muzzlePos); glowTail.renderOrder = 999;
+    scene.add(glowTail);
+    var tracerLight = new THREE.PointLight('#ff8800', 3, 5, 2);
+    tracerLight.position.copy(muzzlePos); scene.add(tracerLight);
+    shells.push({
+        mesh: shellGroup, vel: aimDir.clone().multiplyScalar(SHELL_SPEED), type: 'ap',
+        tracerLight: tracerLight, glowTail: glowTail,
+        owner: enemy, prevPos: null, isEnemyShell: true
+    });
+    playFireSound();
+}
+
+// ─── 训练场敌人MG曳光弹 ──
+function _spawnEnemyMGTracer(enemy) {
+    if (!player1 || player1.dead) return;
+    var mgGroup = enemy.userData && enemy.userData.mgGroup;
+    var muzzlePos;
+    if (mgGroup) {
+        muzzlePos = new THREE.Vector3(0, 0.32, 0.55); // MG枪口相对MG组
+        mgGroup.localToWorld(muzzlePos);
+    } else {
+        muzzlePos = enemy.position.clone(); muzzlePos.y += 2.2;
+    }
+    var toPlayer = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
+    // 轻微散布
+    toPlayer.x += (Math.random() - 0.5) * 0.06;
+    toPlayer.z += (Math.random() - 0.5) * 0.06;
+    toPlayer.normalize();
+    var tracerGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2, 4);
+    var tracerMat = new THREE.MeshBasicMaterial({ color: 0xFFDD44 });
+    var tracer = new THREE.Mesh(tracerGeo, tracerMat);
+    tracer.position.copy(muzzlePos);
+    tracer.rotation.z = Math.PI / 2;
+    tracer.lookAt(muzzlePos.clone().add(toPlayer));
+    scene.add(tracer);
+    var startPos = muzzlePos.clone();
+    var bulletData = { mesh: tracer, pos: startPos.clone(), dir: toPlayer, speed: MG_BULLET_SPEED, dist: 0, maxDist: MG_RANGE,
+        startPos: startPos, damage: MG_DAMAGE, enemy: enemy, isEnemyMG: true };
+    hexapodBullets = hexapodBullets || [];
+    hexapodBullets.push(bulletData);
+}
+
+// ─── 训练场玩家死亡（重生队列）───
+function _killPlayerInTraining() {
+    player1.dead = true;
+    var pep = player1.group.position.clone(); pep.y += 0.5;
+    spawnFragments(pep, '#4a5c2e');
+    playExplosionSound();
+    spawnExplosion(pep);
+    player1.group.visible = false;
+    togglePlayerBars(player1, false);
+    hintBar.textContent = '💀 1秒后重生...';
+    trainingRespawnQueued = { player: true, delay: 1.0 };
+}
+
+// ─── 训练场敌人死亡（重生队列）───
+function _killEnemyInTraining(enemy) {
+    enemy.dead = true;
+    enemy.ai.state = 'dead';
+    var ep = enemy.position.clone(); ep.y += 0.5;
+    spawnFragments(ep, '#666');
+    playExplosionSound();
+    enemy.visible = false;
+    if (enemy.userData && enemy.userData.hpBarGroup) enemy.userData.hpBarGroup.visible = false;
+    if (!trainingRespawnQueued) {
+        trainingRespawnQueued = { player: false, delay: 1.0 };
+    }
+}
+
+// ─── 训练场重生执行 ──
+function _processTrainingRespawn(dt) {
+    if (!isTrainingMode) return;
+    // 自动检测训练场敌人死亡(兜底, 覆盖所有死亡路径)
+    if (!trainingRespawnQueued) {
+        for (var ei = 0; ei < enemies.length; ei++) {
+            var en = enemies[ei];
+            if (en.dead || en.hp <= 0 || !en.visible) {
+                if (!en.dead) { en.dead = true; en.visible = false; en.ai.state = 'dead'; if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = false; }
+                trainingRespawnQueued = { player: false, delay: 1.0 };
+                break;
+            }
+        }
+    }
+    if (!trainingRespawnQueued) return;
+    trainingRespawnQueued.delay -= dt;
+    if (trainingRespawnQueued.delay > 0) return;
+    var q = trainingRespawnQueued;
+    trainingRespawnQueued = null;
+    if (q.player) {
+        // 重生玩家
+        var gy = getGroundHeight(trainingPlayerSpawn.x, trainingPlayerSpawn.z);
+        player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
+        player1.group.visible = true;
+        player1.hp = 100; player1.dead = false;
+        player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
+        player1.state.yaw = Math.PI;
+        player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+        player1.reloadTimer = 0;
+        player1.group.rotation.set(0, 0, 0); // 游戏循环自动修正
+        player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+        player1.reloadTimer = 0;
+        if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+        togglePlayerBars(player1, true);
+        hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
+    } else {
+        // 重生敌人
+        for (var ei = enemies.length - 1; ei >= 0; ei--) {
+            var en = enemies[ei];
+            if (en.dead) {
+                var egy = getGroundHeight(trainingEnemySpawn.x, trainingEnemySpawn.z);
+                en.position.set(trainingEnemySpawn.x, egy, trainingEnemySpawn.z);
+                en.rotation.set(0, 0, 0);
+                en.visible = true;
+                en.hp = en.userData.maxHp || 60;
+                en.dead = false;
+                en.ai.state = 'patrol';
+                en.ai.target = null;
+                en.ai.alertTimer = 0;
+                en.ai._tankFireTimer = 0;
+                if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = true;
+                if (en.userData._animSystem) {
+                    en.userData._animSystem.play('Idle', true);
+                }
+                break;
+            }
+        }
+    }
+}
+
 function createEnemyHpBar(enemy) {
     const barW = 1.5, barH = 0.08, barD = 0.02;
     const bgGeo = new THREE.BoxGeometry(barW, barH, barD);
@@ -4168,6 +4425,8 @@ function updateShellsFragsMuzzle(dt) {
                         spawnExplosion(ep);
                         setTimeout(()=>showVersusResult(s.owner),2000);}
                     else{spawnHitSparks(s.mesh.position.clone());}}}}
+
+
         const heDet=(s.type==='he'&&(hit||s.mesh.position.y<getGroundHeight(s.mesh.position.x,s.mesh.position.z)));
         if(heDet){const hP=s.mesh.position.clone();hP.y=Math.max(hP.y,getGroundHeight(hP.x,hP.z));spawnHeExplosion(hP);playHeExplosionSound();
             const checkObs = window._obstacleGrid ? 
@@ -4211,6 +4470,18 @@ function updateShellsFragsMuzzle(dt) {
         const ref=s.owner||{state:tankState};const rx=ref.state?ref.state.x:tankState.x,rz=ref.state?ref.state.z:tankState.z;
         const sgy=getGroundHeight(s.mesh.position.x,s.mesh.position.z);
         if(hit||s.mesh.position.y<sgy||Math.sqrt((s.mesh.position.x-rx)**2+(s.mesh.position.z-rz)**2)>SHELL_MAX_DIST||Math.abs(s.mesh.position.x)>worldHalfW+50||Math.abs(s.mesh.position.z)>worldHalfD+50){
+            // 训练场: 敌人炮弹落地近炸溅射
+            if(!hit&&s.mesh.position.y<sgy&&isTrainingMode&&s.isEnemyShell&&player1&&!player1.dead){
+                var edx2 = s.mesh.position.x - player1.group.position.x;
+                var edz2 = s.mesh.position.z - player1.group.position.z;
+                if(Math.sqrt(edx2*edx2+edz2*edz2) < 5.0){
+                    player1.hp -= 7;
+                    if(player1.hp < 0) player1.hp = 0;
+                    player1.ai = player1.ai || {}; player1.ai.hitFlash = 0.15;
+                    if(player1.hp <= 0) _killPlayerInTraining();
+                    else playHitSound();
+                }
+            }
             if(!hit&&s.mesh.position.y<sgy){const ip=s.mesh.position.clone();ip.y=sgy;if(s.type!=='he')playGroundHitSound();spawnGroundDebris(ip);spawnScorchMark(ip);}
             scene.remove(s.mesh);disposeShellMesh(s.mesh);if(s.tracerLight){scene.remove(s.tracerLight);}if(s.glowTail){scene.remove(s.glowTail);s.glowTail.geometry.dispose();s.glowTail.material.dispose();}shells.splice(i,1);}}
     for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.life-=dt;f.vel.y-=SHELL_GRAVITY*dt;
@@ -4517,6 +4788,7 @@ function returnToMenu() {
         });
     }
     hideMapSelector(); hideGameOverScreen();
+    isTrainingMode = false; trainingRespawnQueued = null;
     gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
     splitLine.style.display='none';versusResult.style.display='none';
     arrowP1.style.display='none';arrowP2.style.display='none';
@@ -4541,7 +4813,251 @@ function returnToMenu() {
     stopEngineSound();if(animationId){cancelAnimationFrame(animationId);animationId=null;}
 }
 
-function exitGame(){window.close();setTimeout(()=>{document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#ccc;font-family:sans-serif;font-size:1.2rem;">请关闭浏览器标签页以退出</div>';},300);}
+// ==================== 训练场系统 ====================
+const trainingConfig = document.getElementById('training-config');
+const tcPlayerOpts = document.getElementById('tc-player-opts');
+const tcEnemyOpts = document.getElementById('tc-enemy-opts');
+const tcBehaviorOpts = document.getElementById('tc-behavior-opts');
+const btnTrainingStart = document.getElementById('btn-training-start');
+const btnTrainingCancel = document.getElementById('btn-training-cancel');
+
+let trainingPlayerType = 'tank';
+let trainingEnemyType = 'tank';
+let trainingBehavior = 'reactive'; // 'active' | 'reactive' | 'passive'
+
+// 初始化训练场配置面板的选择按钮交互
+(function initTrainingConfigUI() {
+    function setupToggle(container, onChange) {
+        container.querySelectorAll('.tc-btn:not(.disabled)').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.tc-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                if (onChange) onChange(btn.dataset.val);
+            });
+        });
+    }
+    setupToggle(tcPlayerOpts, v => { trainingPlayerType = v; });
+    setupToggle(tcEnemyOpts, v => { trainingEnemyType = v; });
+    setupToggle(tcBehaviorOpts, v => { trainingBehavior = v; });
+    btnTrainingStart.addEventListener('click', enterTrainingMode);
+    btnTrainingCancel.addEventListener('click', hideTrainingConfig);
+})();
+
+function showTrainingConfig() {
+    document.querySelectorAll('#menu-overlay > .menu-btn').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('#menu-overlay > .menu-hint').forEach(h => h.style.display = 'none');
+    document.querySelectorAll('#menu-overlay > .changelog').forEach(c => c.style.display = 'none');
+    trainingConfig.classList.add('active');
+}
+
+function hideTrainingConfig() {
+    trainingConfig.classList.remove('active');
+    document.querySelectorAll('#menu-overlay > .menu-btn').forEach(b => b.style.display = '');
+    document.querySelectorAll('#menu-overlay > .menu-hint').forEach(h => h.style.display = '');
+    document.querySelectorAll('#menu-overlay > .changelog').forEach(c => c.style.display = '');
+}
+
+async function enterTrainingMode() {
+    hideTrainingConfig();
+    showLoading('🎯 正在载入训练场');
+    try {
+    await raf(); updateLoadingProgress(5, '加载地图 01a...');
+    selectedMapId = 'test_map_01a';
+    if (!loadMapConfig(selectedMapId)) {
+        console.warn('地图 01a 加载失败');
+        hideLoading();
+        return;
+    }
+    gameMode = 'training'; isTrainingMode = true; isVersusMap = false; currentShellType = 'ap';
+    const playerSpawnX = -50, playerSpawnZ = 0;
+    const enemySpawnX = 50, enemySpawnZ = 0;
+    trainingPlayerSpawn = { x: playerSpawnX, z: playerSpawnZ };
+    trainingEnemySpawn = { x: enemySpawnX, z: enemySpawnZ };
+    trainingRespawnQueued = null;
+    menuOverlay.classList.add('hidden'); gameContainer.classList.add('active');
+    splitLine.style.display = 'none'; arrowP1.style.display = 'none'; arrowP2.style.display = 'none';
+    crosshairEl.style.display = 'block';
+    crosshairEl.style.left = mouseX + 'px';
+    crosshairEl.style.top = mouseY + 'px';
+    document.body.style.cursor = 'none';
+    hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键/RT 主炮 | ESC 返回菜单';
+    scene = scene1;
+
+    await raf(); updateLoadingProgress(10, '清理旧场景...');
+    if (player2 && player2.group && player2.group.parent) player2.group.parent.remove(player2.group);
+    if (player2 && player2.reloadBarGroup && player2.reloadBarGroup.parent) player2.reloadBarGroup.parent.remove(player2.reloadBarGroup);
+    if (player2 && player2.hpBarGroup && player2.hpBarGroup.parent) player2.hpBarGroup.parent.remove(player2.hpBarGroup);
+    if (player2 && player2.damageEffects) { if (player2.damageEffects.firePoints.parent) player2.damageEffects.firePoints.parent.remove(player2.damageEffects.firePoints); if (player2.damageEffects.smokePoints.parent) player2.damageEffects.smokePoints.parent.remove(player2.damageEffects.smokePoints); }
+    explosions.forEach(exp => exp.dispose()); explosions = [];
+
+    await rebuildMapAsync();
+
+    await raf(); updateLoadingProgress(85, '初始化训练场...');
+    // 玩家出生点: playerSpawnX/Z 已在函数顶部定义
+    if (player1) {
+        player1.state.x = playerSpawnX; player1.state.z = playerSpawnZ; player1.state.yaw = Math.PI;
+        player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+        player1.prevForwardSpeed = 0; player1.pitch = 0; player1.recoilPitch = 0;
+        player1.reloadTimer = 0;
+        player1.hp = 100; player1.dead = false;
+        if (player1.group) {
+            player1.group.visible = true;
+            player1.group.position.set(playerSpawnX, getGroundHeight(playerSpawnX, playerSpawnZ), playerSpawnZ);
+            player1.group.rotation.set(0, 0, 0); // 游戏循环会用 π/2-yaw 自动修正
+        }
+        if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+    }
+    resetTank();
+    totalDistance = 0;
+    visibilityTimer = 0;
+
+    // 清除地图自带的敌人, 用训练场配置替换
+    enemies.forEach(e => { if (e.parent) e.parent.remove(e); });
+    enemies = [];
+    shells.forEach(s => { scene.remove(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } s.mesh.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); });
+    shells = [];
+    hexapodBullets.forEach(hb => { scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); });
+    hexapodBullets = [];
+
+    // 创建训练场敌人: enemySpawnX/Z 已在函数顶部定义
+    const enemyGy = getGroundHeight(enemySpawnX, enemySpawnZ);
+    const realEnemyType = trainingEnemyType;
+    const enemyHP = realEnemyType === 'tank' ? 100 : realEnemyType === 'assault-vehicle' ? 60 : realEnemyType === 'zombie' ? 40 : 60;
+    const enemySpeed = realEnemyType === 'tank' ? MAX_SPEED : realEnemyType === 'assault-vehicle' ? 5.0 : realEnemyType === 'zombie' ? 2.5 : 5.0;
+
+    let enemyModel;
+    if (realEnemyType === 'tank') {
+        var t34result = T34V16Builder.buildAnimatedT34_85({
+            camoColor: 'desert',
+            position: { x: 0, y: 0, z: 0 },
+            yaw: 0
+        });
+        t34result.group.position.set(0, 0, 0);
+        t34result.group.rotation.set(0, 0, 0);
+        var children = t34result.group.children.slice();
+        for (var ci = 0; ci < children.length; ci++) {
+            var child = children[ci];
+            var cx = child.position.x, cz = child.position.z;
+            child.position.x = cz;
+            child.position.z = -cx;
+            child.rotation.y -= Math.PI / 2;
+        }
+        t34result.group.updateMatrixWorld(true);
+        enemyModel = t34result.group;
+        enemyModel.group = enemyModel;
+        enemyModel.userData = {
+            turretPivot: t34result.turretPivot,
+            barrelPivot: t34result.barrelPivot,
+            mgGroup: t34result.mgGroup
+        };
+    } else if (realEnemyType === 'assault-vehicle') {
+
+        enemyModel = window.EnemyModels.createAssaultVehicle();
+    } else if (realEnemyType === 'zombie') {
+        enemyModel = window.EnemyModels.createZombie();
+    } else {
+        console.error('未知训练敌人类型: ' + trainingEnemyType);
+        hideLoading(); returnToMenu(); return;
+    }
+    if (!enemyModel) {
+        console.error('无法创建训练场敌人模型');
+        hideLoading();
+        returnToMenu();
+        return;
+    }
+    enemyModel.position.set(enemySpawnX, enemyGy, enemySpawnZ);
+    enemyModel.rotation.set(0, 0, 0); // rotation.y=0 → fwd=-X → 面朝玩家
+    var isTankEnemy = (realEnemyType === 'tank');
+    enemyModel.cfg = {
+        type: realEnemyType,
+        id: 'training_enemy',
+        hp: enemyHP || 60,
+        speed: isTankEnemy ? 3.5 : (enemySpeed || 5.0),
+        viewDist: 80,
+        attackDamage: 15,
+        attackCooldown: realEnemyType === 'zombie' ? 1.5 : 3.0,
+        dropRate: 0,
+        dropHeal: 0,
+        reactive: trainingBehavior !== 'active',
+        aggressive: trainingBehavior === 'active',
+        passive: trainingBehavior === 'passive',
+        engageDist: isTankEnemy ? 50 : 20,
+        flameRange: isTankEnemy ? 55 : 12, // 坦克用主炮射程, 影响理想交战距离
+        canFlee: false
+    };
+    enemyModel.hp = enemyHP || 60;
+    enemyModel.userData = enemyModel.userData || {};
+    enemyModel.userData.maxHp = enemyModel.hp;
+    enemyModel.userData.enemyType = realEnemyType;
+    enemyModel.userData.enemyId = 'training_enemy';
+    if (realEnemyType === 'zombie' || realEnemyType === 'hexapod') {
+        enemyModel.userData._noTerrainPitch = true;
+    }
+    // AI 初始化: 全部从patrol起步; reactive=true阻止主动追击, passive=true阻止受击反击
+    const startState = 'patrol';
+    enemyModel.ai = {
+        state: startState,
+        target: null,
+        patrolIndex: 0,
+        lastSeenPlayerPos: null,
+        alertTimer: 0,
+        flameTimer: 0,
+        flameRequest: false,
+        flameTicksLeft: 0,
+        isFlaming: false,
+        flameTickTimer: 0,
+        flameStartTime: 0,
+        strafeTimer: 0,
+        strafeDir: 1,
+        wpStuckTimer: 0,
+        hitFlash: 0,
+        animRequest: (realEnemyType === 'zombie' || realEnemyType === 'hexapod') ? 'idle' : 'walk',
+        animAtkStart: 0,
+        animHitApplied: false,
+        atkReady: true,
+        atkCooldown: 0,
+        lastHitTime: 0,
+        prevState: startState,
+        deathAnimStarted: false,
+        idleTimer: 0,
+        spinUp: 0,
+        heat: 0
+    };
+    // 非主动攻击模式: 即使看到玩家也不主动追击 (overwrite update functions later, or use cfg)
+    scene.add(enemyModel);
+    enemies.push(enemyModel);
+    createEnemyHpBar(enemyModel);
+    if (realEnemyType === 'zombie') createEnemyHitFlashOverlay(enemyModel);
+    updateObstacleVisibility();
+
+    if (reloadBarGroup) reloadBarGroup.visible = true;
+    if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = true;
+    if (player1 && player1.shellLabel) player1.shellLabel.visible = true;
+    placeCamera();
+    handleObstacleOcclusion();
+    initAudio(); startEngineSound();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.setScissorTest(false);
+    const cssW = window.innerWidth, cssH = window.innerHeight;
+    renderer.setViewport(0, 0, cssW, cssH);
+    camera.aspect = cssW / cssH;
+    camera.updateProjectionMatrix();
+    updateLoadingProgress(100, '完成！');
+    await raf();
+    hideLoading();
+    renderer.render(scene, camera);
+    updateDebugInfo();
+    if (animationId) { cancelAnimationFrame(animationId); }
+    clock.getDelta(); animationId = requestAnimationFrame(gameLoop);
+    } catch(e) {
+        console.error('进入训练场失败:', e);
+        hideLoading();
+        returnToMenu();
+    }
+}
 
 // ==================== 模型预览系统 ====================
 const previewContainer = document.getElementById('preview-container');
@@ -4817,7 +5333,7 @@ function exitPreviewMode() {
 // ==================== 事件绑定 ====================
 btnEnter.addEventListener('click',showMapSelector);btnVersus.addEventListener('click',enterVersusMode);
 btnPreview.addEventListener('click', enterPreviewMode);
-btnExit.addEventListener('click',exitGame);btnBack.addEventListener('click',returnToMenu);
+btnTraining.addEventListener('click',showTrainingConfig);btnBack.addEventListener('click',returnToMenu);
 btnPreviewBack.addEventListener('click', exitPreviewMode);
 btnStartGame.addEventListener('click', enterGame);
 document.getElementById('go-retry-btn').addEventListener('click', () => {
@@ -4847,7 +5363,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.55.1 | 武器校准修复+城市迷彩+地形适应+膝关节防反曲+死亡武器垂下+尖刺足贴地');
+console.log('⚡ 坦克运动demo v0.56.0 | 训练场模式+T-34敌方坦克+炮塔瞄准+无限重生+六足髋限位');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

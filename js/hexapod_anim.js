@@ -82,6 +82,7 @@ function _hexaCollectRefs() {
       _hipDist: Math.sqrt(hipDX*hipDX + hipDZ*hipDZ), // 髋距(不变)
       _initFootDist: initFootDist, // 固定脚距, swingTo用(防漂移)
       _shinSign: shinPivot.rotation.x > 0 ? 1 : -1, // 正常膝弯方向: +1=正值, -1=负值(防反曲)
+      _yLimit: (prefix.indexOf('M') >= 0) ? 0.7 : 0.45, // 中腿±40°, 前后腿±25°防越界缠绕
       plantPos: null, swingFrom: null, swingTo: null
     });
   }
@@ -156,6 +157,13 @@ function _ccdLeg(leg, targetWorld, iters, damp) {
     d = tipW.clone().sub(hW).normalize(); dt = targetWorld.clone().sub(hW).normalize();
     ax = new THREE.Vector3().crossVectors(d, dt); l = ax.length();
     if (l > 0.0003) { ax.normalize(); lp.rotation.y += Math.atan2(l, d.dot(dt)) * ax.dot(_worldY(lp)) * damp; }
+    // 髋Y限位: 相对restLegY最多±0.7rad(≈40°), 防360°自由旋转致腿缠绕
+    var yLimit = leg._yLimit || 0.7;
+    var diff = lp.rotation.y - leg.restLegY;
+    while (diff > Math.PI) diff -= 2*Math.PI;
+    while (diff < -Math.PI) diff += 2*Math.PI;
+    if (diff > yLimit) { lp.rotation.y = leg.restLegY + yLimit; }
+    else if (diff < -yLimit) { lp.rotation.y = leg.restLegY - yLimit; }
     animRefs.hexRoot.updateMatrixWorld(true);
   }
 }
@@ -1429,6 +1437,13 @@ function _turnTestCcdLeg(leg, targetWorld, iters, hexRoot) {
     d = tipW.clone().sub(hW).normalize(); dt = targetWorld.clone().sub(hW).normalize();
     ax = new THREE.Vector3().crossVectors(d, dt); l = ax.length();
     if (l > 0.0003) { ax.normalize(); lp.rotation.y += Math.atan2(l, d.dot(dt)) * ax.dot(_worldY(lp)) * damp; }
+    // 髋Y限位: 相对restLegY最多±0.7rad(≈40°)
+    var yLimit2 = leg._yLimit || 0.7;
+    var diff2 = lp.rotation.y - leg.restLegY;
+    while (diff2 > Math.PI) diff2 -= 2*Math.PI;
+    while (diff2 < -Math.PI) diff2 += 2*Math.PI;
+    if (diff2 > yLimit2) { lp.rotation.y = leg.restLegY + yLimit2; }
+    else if (diff2 < -yLimit2) { lp.rotation.y = leg.restLegY - yLimit2; }
   }
 }
 
