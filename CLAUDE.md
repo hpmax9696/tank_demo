@@ -30,9 +30,10 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── spatialGrid.js # 空间网格 (~110行)
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── models/hexapod_config.js # 六足战车共享模型配置：3节腿(大腿+小腿+尖刺足)，4DOF(髋摆+髋抬+膝+踝)，锥尖单点接地
-├── js/hexapod_anim.js       # 六足动画模块 (~1630行)：模型工厂用，23动画+CCD IK+步态+踉跄+死亡+武器校准+地形适应
-├── js/hexapod_enemy.js      # 六足敌人动画模块 (~890行)：训练场/战斗模式用，多实例CCD IK+三角步态+踉跄+死亡, homeOffset相对定位
+├── models/hexapod_config.js # 六足战车共享模型配置+动画参数表：3节腿(大腿+小腿+尖刺足)+4DOF+ANIM_TABLE(23项)+腿配置
+├── js/hexapod_core.js        # 六足CCD IK核心模块 (~920行)：纯计算层，模型工厂+游戏共享，hipAxis/bodyWriter参数化
+├── js/hexapod_factory.js     # 六足工厂适配器 (~600行)：nodeMap→legRefs+IK测试+转弯验证+武器校准
+├── js/hexapod_enemy.js       # 六足游戏适配器 (~220行)：getObjectByName→legRefs, bodyWriter=false, homeOffset相对定位
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
@@ -162,20 +163,18 @@ legGroup (Y旋转=水平摆角)
 - **加特林枪管簇动画(v0.56.1)**：`_hexaCollectRefs`中为每侧加特林创建`_barrelCluster`子Group，将4根枪管移入簇后`cluster.rotation.x`绕中央轴公转。模型工厂23动画均可见。`_updateGatlingSpin(dt)`在`_hexaUpdateFrame`末尾调用
 - **六足贴地(v0.56.1)**：`createHexapod()`存储`_hexapodTemplateBaseY`到`userData._baseY`，游戏循环`position.y=groundHeight+_baseY`
 
-### 六足敌人 IK 系统（v0.57.0 新增，`js/hexapod_enemy.js`）
+### 六足敌人 IK 系统（v0.58.0 重构，`js/hexapod_core.js` + `js/hexapod_enemy.js`）
 
-独立于模型工厂的 CCD IK 系统，支持训练场/战斗模式中多个六足敌人独立动画。
+统一 CCD IK 核心，模型工厂和游戏通过薄适配器共享。
 
-- **多实例架构**：每敌人独立 `HexAnimState`，通过 `HexapodEnemy.init(enemyGroup)` 初始化
-- **引用收集**：`init()` 遍历模型树找到6腿×4关节 + 尖刺足 + 武器 pivot，与模型工厂命名兼容
-- **homeOffset 相对定位**：计算休息姿态下足端相对身体中心的本地位移，所有 CCD 目标基于此偏移，保证永远在腿可达范围内
-- **CCD 解算**：3关节 (thigh.X → shin.X → hip.Z)，髋轴用`_worldZ`(模型绕Z)，大腿轴`_worldX`，阻尼0.5~0.85
-- **三角步态**：A组(左前+右中+左后) / B组(右前+左中+右后)交替，步态周期随身体速度自适应
-- **支撑相反打滑**：进入支撑相时锁定 homePos 为世界固定点 → CCD 自动补偿身体位移
-- **受击踉跄**：`triggerStagger()` 外部调用，四阶段CCD驱动；仅炮弹触发(`!skipStagger`)，MG 不触发
-- **死亡瘫倒**：`triggerDeath()` 四阶段瘫倒+武器垂下
-- **自动抬升**：`init()` 找到最低尖刺足 → 抬升身体至标准站姿高度；空闲时所有腿CCD回到 homePos
-- **关键参数**：`_baseY`(身高偏移)、`homeOffset`(休息脚位)、`_initFootDist`(脚距)、`_shinSign`(膝弯方向)、`_yLimit`(髋限位)
+- **核心模块** `HexapodCore`：纯计算层 — CCD解算(3关节: thigh.X→shin.X→hip.{Y|Z}) + 三角步态 + 踉跄/死亡状态机
+- **髋轴参数化**：`opts.hipAxis='y'|'z'` — 工厂用Y(legGroup.rotation.y), 游戏用Z(skeletonGroup旋转后等效)
+- **身体控制解耦**：`opts.bodyWriter=true`(工厂写body) / `false`(游戏读body)，核心只输出 `bodyDelta`
+- **homeOffset 相对定位**：休息姿态足端在身体本地空间的偏移，CCD目标基于此保证永远可达
+- **数据打通**：`ANIM_TABLE`(23项参数)存 `hexapod_config.js`，工厂调参→游戏自动生效
+- **支撑相反打滑**：bodyWriter=false时 stance target 锁定为世界固定点，CCD自动补偿身体位移
+- **MG不触发踉跄**：`onEnemyDamaged` 增加 `skipStagger` 参数
+- **已知问题**：AI绕圈逻辑待完善(六足进入ENGAGE后移动不明显)；复活后腿部偶有异常
 
 ## 游戏模式
 

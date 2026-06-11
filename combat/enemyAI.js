@@ -703,8 +703,7 @@
             }
         }
 
-        // 7. 距离控制: 车身相对移动 (前端-X, 右侧+Z)
-        // idealDist由cfg.engageDist控制, 训练场设为50
+        // 7. 距离控制: 始终绕圈，离太远时逼近，太近时后退
         var fwdX = -Math.cos(enemy.rotation.y);
         var fwdZ = Math.sin(enemy.rotation.y);
         var speed = cfg.speed || 4.0;
@@ -712,31 +711,30 @@
         ai.strafeTimer = (ai.strafeTimer || 0) + dt;
         if (ai.strafeTimer > 4.0 + Math.random() * 3) { ai.strafeDir = (ai.strafeDir || 1) * -1; ai.strafeTimer = 0; }
         var sd = ai.strafeDir || 1;
-        if (dist < idealDist * 0.5) {
-            // 太近: 后退 (沿车身前方反向)
-            moveFwd = -1.0;
-        } else if (dist > idealDist * 1.2) {
-            // 太远: 前进逼近
-            moveFwd = 1.0;
-        } else {
-            // 理想距离: 小幅前进+缓转形成绕圈, 或被击退后慢慢靠回
-            moveFwd = 0.3 * sd;
-            // 微调车身朝向: 瞄准的同时略偏移制造绕圈
-            var orbitOffset = 0.15 * sd;
-            ai.bodyYaw += orbitOffset * dt;
-            enemy.rotation.y = ai.bodyYaw;
+        // 绕圈: 恒速侧移 + 缓慢转向
+        moveFwd = 0.5 * sd;
+        var orbitOffset = 0.4 * sd;
+        // 距离修正: 太近后退, 太远加速前进（叠加在绕圈上）
+        if (dist < idealDist * 0.4) {
+            moveFwd = sd * 0.2 - 0.8; // 后退为主
+        } else if (dist > idealDist * 1.5) {
+            moveFwd = sd * 0.2 + 0.8; // 前进逼近
         }
+        ai.bodyYaw += orbitOffset * dt;
+        enemy.rotation.y = ai.bodyYaw;
         enemy.position.x += fwdX * moveFwd * speed * dt;
         enemy.position.z += fwdZ * moveFwd * speed * dt;
 
-        // 8. 动画请求: 按移动方向
+        // 8. 动画请求: 绕圈时始终用步行转弯
         if (!canFire) {
-            if (Math.abs(ad) > 0.3 && dist > idealDist * 0.5) {
+            if (Math.abs(ad) > 0.6) {
+                // 未对齐: 转向玩家
                 ai.animRequest = ad > 0 ? 'turn_right' : 'turn_left';
             } else if (moveFwd < -0.5) {
                 ai.animRequest = 'move_backward';
-            } else if (moveFwd > 0.1) {
-                ai.animRequest = 'move_forward';
+            } else if (Math.abs(moveFwd) > 0.05) {
+                // 绕圈中: 用步行转弯 (有前进+有转向=Walk Turn)
+                ai.animRequest = sd > 0 ? 'turn_left' : 'turn_right';
             } else {
                 ai.animRequest = 'idle'; // 理想距离时待机(微动)
             }

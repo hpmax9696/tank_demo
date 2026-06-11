@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.57.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.58.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -240,6 +240,17 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.58.0 — 六足动画系统重构（2026-06-11）
+
+- **核心模块 `js/hexapod_core.js`** (~920行): 从模型工厂移植CCD IK+三角步态+踉跄+死亡, 纯计算层
+- **数据打通**: 23动画参数表迁入 `models/hexapod_config.js`, 模型工厂+游戏读同一份ANIM_TABLE
+- **工厂适配器 `js/hexapod_factory.js`** (~600行): 替代旧hexapod_anim.js, nodeMap→legRefs→core
+- **游戏适配器重写 `js/hexapod_enemy.js`** (890→~220行): getObjectByName→legRefs→core, 薄封装
+- **髋轴参数化**: hipAxis='y'|'z' 处理模型工厂(Y轴)和游戏(Z轴,skeletonGroup旋转)差异
+- **homeOffset相对定位**: 休息姿态足端在身体本地空间偏移, 永远可达
+- **NaN根因修复**: ANIM_TABLE字段索引偏移→方向读为字符串→数学运算产生NaN→模型消失
+- **已知问题**: AI绕圈攻击逻辑待完善(六足ENGAGE后移动不明显); 训练场复活后第二轮动画偶有异常
 
 ### v0.57.0 — 训练场六足CCD IK动画（2026-06-11）
 

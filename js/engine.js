@@ -3156,63 +3156,8 @@ function gameLoop() {
                 }
             }
 
-            // ── 六足战车：旧版 keyframe 动画（仅在新版 CCD 未激活时使用）──
-            if (enemy.cfg && enemy.cfg.type === 'hexapod' && !enemy.userData._hexAnimState) {
-                const hasys = enemy.userData._animSystem;
-                const hai = enemy.ai;
-                // ── 步态动画: 直接驱动6腿×4关节 ──
-                var legJoints = enemy.userData._legJoints;
-                if (legJoints && legJoints.length > 0 && !enemy.dead) {
-                    var animReq = hai.animRequest || 'idle';
-                    var gaitCycle = 1.5, stride = 0.60, stepH = 0.55, hzAmp = 0.50;
-                    var isReverse = false, isTurn = false, turnDir = 0;
-                    if (animReq === 'move_forward')  { gaitCycle = 1.2; stride = 0.65; stepH = 0.60; hzAmp = 0.55; }
-                    else if (animReq === 'move_backward') { gaitCycle = 1.3; stride = 0.50; stepH = 0.45; hzAmp = 0.35; isReverse = true; }
-                    else if (animReq === 'turn_left')    { gaitCycle = 1.5; stride = 0.35; stepH = 0.40; hzAmp = 0.60; isTurn = true; turnDir = 1; }
-                    else if (animReq === 'turn_right')   { gaitCycle = 1.5; stride = 0.35; stepH = 0.40; hzAmp = 0.60; isTurn = true; turnDir = -1; }
-                    else if (animReq === 'strafe_left')  { gaitCycle = 1.1; stride = 0.30; stepH = 0.30; hzAmp = 0.15; }
-                    else if (animReq === 'strafe_right') { gaitCycle = 1.1; stride = 0.30; stepH = 0.30; hzAmp = 0.15; }
-                    else if (animReq === 'attack')       { gaitCycle = 0.8; stride = 0.25; stepH = 0.25; hzAmp = 0.15; }
-                    else { gaitCycle = 2.5; stride = 0; stepH = 0.05; hzAmp = 0.04; }
-                    if (!enemy.userData._gaitTime) enemy.userData._gaitTime = 0;
-                    enemy.userData._gaitTime += dt;
-                    var gaitT = (enemy.userData._gaitTime / gaitCycle) % 1.0;
-                    var isStanceA = gaitT < 0.5;
-                    var stanceFrac = isStanceA ? gaitT * 2 : (gaitT - 0.5) * 2;
-                    for (var lji = 0; lji < legJoints.length; lji++) {
-                        var lj = legJoints[lji];
-                        var inStance = lj.tripodA ? isStanceA : !isStanceA;
-                        var sf = inStance ? stanceFrac : 1 - stanceFrac;
-                        var signHZ = (lj.prefix.indexOf('右') >= 0) ? -1 : 1;
-                        if (isTurn) signHZ = turnDir * (lj.prefix.indexOf('右') >= 0 ? -1 : 1);
-                        if (inStance) {
-                            var push = (sf - 0.5) * stride * (isReverse ? -1 : 1);
-                            if (lj.hipGrp) lj.hipGrp.rotation.z = lj.restHipZ + signHZ * (hzAmp * 0.2 - push);
-                            lj.thighPv.rotation.x = lj.restHipX + Math.sin(sf * Math.PI) * stepH * 0.25;
-                            lj.shinPv.rotation.x = lj.restKnee + 0.25 * Math.abs(Math.sin(sf * Math.PI));
-                            if (lj.anklePv) lj.anklePv.rotation.x = lj.restAnkle - 0.08;
-                        } else {
-                            var fwd = (0.5 - sf) * stride * (isReverse ? -1 : 1);
-                            if (lj.hipGrp) lj.hipGrp.rotation.z = lj.restHipZ + signHZ * (hzAmp * 0.2 + fwd);
-                            lj.thighPv.rotation.x = lj.restHipX - Math.sin(sf * Math.PI) * stepH;
-                            lj.shinPv.rotation.x = lj.restKnee + 0.7 * Math.sin(sf * Math.PI);
-                            if (lj.anklePv) lj.anklePv.rotation.x = lj.restAnkle - 0.15 * Math.sin(sf * Math.PI);
-                        }
-                    }
-                }
-                if (hasys) {
-                    var animMap = { 'idle':'Idle','move_forward':'MoveForward','move_backward':'MoveBackward','turn_left':'TurnLeft','turn_right':'TurnRight','strafe_left':'StrafeLeft','strafe_right':'StrafeRight','attack':'Attack','death':'Death' };
-                    var reqName = animMap[hai.animRequest] || 'Idle';
-                    var lastReq = enemy.userData._lastHexAnimReq;
-                    if (reqName === 'Attack') { if (lastReq !== 'Attack') hasys.layer(1).play('Attack_Weapon', true); }
-                    else { if (lastReq === 'Attack') hasys.layer(1).play('WeaponIdle', true); }
-                    if (reqName === 'Death' && lastReq === 'Death') {}
-                    else if (reqName === 'Death') { hasys.play('Death', false); hasys.layer(1).stop(); }
-                    else if (reqName !== lastReq) { hasys.play(reqName, reqName !== 'Death'); }
-                    enemy.userData._lastHexAnimReq = reqName;
-                    hasys.update(dt);
-                }
-            }
+            // ── 六足战车动画: 统一由 HexapodEnemy (hexapod_core) 处理 ──
+            // (旧版 keyframe 动画已移除，v0.58.0)
 
             // ── 六足战车武器与视觉系统（独立于动画引擎，始终运行）──
             if (enemy.cfg && enemy.cfg.type === 'hexapod') {
@@ -5732,7 +5677,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.56.1 | 训练场六足敌人+加特林枪管簇动画(模型工厂)+底部贴地+死亡重生修复');
+console.log('⚡ 坦克运动demo v0.58.0 | 六足动画重构: hexapod_core统一CCD IK, 模型工厂+游戏共享, ANIM_TABLE数据打通');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
