@@ -328,6 +328,17 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ---
 
+## v0.57.0 变更摘要（2026-06-11）
+
+- **六足CCD IK动画系统**: 新建 `js/hexapod_enemy.js` (~890行)，从模型工厂移植CCD IK+三角步态+踉跄+死亡到训练场/战斗模式
+- **homeOffset相对定位**: 脚位基于休息姿态偏移，永远在腿可达范围内，解决反曲/下陷/浮空累积误差
+- **髋Z轴修正**: 六足模型hip绕Z轴旋转，修正CCD投影轴(→`_worldZ`)，关键bug修复
+- **武器系统独立**: 加特林/导弹发射+枪管红热+观瞄发光从旧动画块提取，不受CCD激活状态影响
+- **MG不触发踉跄**: `onEnemyDamaged`增加`skipStagger`参数，高射速不会定身六足
+- **动态步幅**: 步态周期/步幅按AI实际速度自适应，支撑相位移不超腿长
+- **自动抬升**: `init()`尖刺足贴地→身体抬升至标准站姿，空闲/idle自然回到标准姿态
+- **已知新问题**: 动画切换后偶有腿部绷直；卡障碍物时步态仍推进
+
 ## v0.56.1 变更摘要（2026-06-10）
 
 - **训练场六足敌人**: 可选敌方类型，模型+AI+死亡重生完整流程
@@ -342,6 +353,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 |---|------|------|------|
 | 10 | **游戏端六足武器俯仰旋转轴错误** | 加特林/导弹pitch绕错误轴旋转，v0.56.1已禁用俯仰，武器保持默认角度 | `combat/enemyAI.js:updateHexapodEngage` |
 | 11 | **装甲突击车遇障平移** | 障碍物碰撞仅位移推出不改朝向，车辆侧滑 | `engine.js:checkCollision` → AI通用 |
+| 12 | **六足动画切换偶有腿部绷直** | idle↔walk切换时CCD从未收敛位姿过渡，个别腿暂时翘起 | `js/hexapod_enemy.js:_updateGait` |
+| 13 | **六足卡障碍物时步态推进** | 碰撞阻止位移但AI仍设移动指令，步态继续循环导致原地踏步 | `js/hexapod_enemy.js:update` |
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 | 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
 | 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段 | map_editor.html→mousemove钳制逻辑 |

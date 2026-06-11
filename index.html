@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.56.1</title>
+    <title>坦克运动demo v0.57.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -569,7 +569,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.56.1</div>
+        <div class="menu-version">v0.57.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -613,11 +613,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🦗 v0.57.0 训练场六足CCD IK动画 — 新建hexapod_enemy.js(~890行), 从模型工厂移植CCD IK+三角步态+踉跄+死亡, homeOffset相对定位防下陷, 髋Z轴修正, 加特林/导弹武器系统独立运行, MG不触发踉跄防定身</div>
             <div class="cl-title">🎯 v0.56.1 训练场六足敌人+枪管动画 — 训练场可选择六足敌方(模型/AI/死亡重生)+六足底部贴地+模型工厂加特林枪管簇公转+玩家被火焰/丧尸击杀复活修复+丧尸重生姿势修复</div>
             <div class="cl-title">🦗 v0.55.1 武器校准修复+城市迷彩+死亡垂下+地形适应 — world→local坐标修复+俯仰限位+加特林/导弹机械限位+CCD shin夹紧+plantPos同步+装甲突击车侧倾+灰色城市迷彩纹理</div>
             <div class="cl-title">🦗 v0.55.0 23动画+踉跄+死亡+武器校准 — 步态周期由turnRate推导, stride/stepH数组驱动, _initFootDist防漂移, 动画循环无缝衔接, 引擎拆分index→engine.js</div>
             <div class="cl-title">🦗 v0.54.0 六足腿结构简化+引擎拆分 — 3节腿+尖刺足+待机/步行/奔跑三角步态+index.html内嵌JS提取到js/engine.js(5483→627行)</div>
-            <div class="cl-title">🦗 v0.53.0 六足分层动画 — AnimationSystem分层(身体层+武器层并发)+模型工厂动画按模型隔离+六足战车配置固化+坐标轴X↔Z交换+线框/高亮修复+Idle IK待办</div>
         </div>
     </div>
 
@@ -709,6 +709,7 @@
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
     <script src="models/hexapod_config.js"></script>
+    <script src="js/hexapod_enemy.js"></script>
 <script src="models/enemies.js"></script>
     <script src="models/pickups.js"></script>
     <!-- PvE 战斗系统模块 -->

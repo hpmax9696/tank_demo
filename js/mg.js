@@ -121,7 +121,7 @@ function updateMGAutoTarget(player, dt) {
                 if (obj === en || obj === en.userData?.turretPivot || obj === en.userData?.hpBarGroup) {
                     foundEnemy = true;
                     if (en.hp !== undefined && en.ai && en.ai.state !== 'dead') {
-                        const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1);
+                        const killed = window.EnemyAI.onEnemyDamaged(en, MG_DAMAGE, player1, true); // MG不触发踉跄
                         window.EnemyAI.shareAggro(en, player1, enemies, 40);
                         const hitWorldPos = hit.point.clone();
                         spawnSilentHitSparks(hitWorldPos);
@@ -131,9 +131,9 @@ function updateMGAutoTarget(player, dt) {
                             if (isZombie) {
                                 en.ai.state = 'dead';
                             } else if (isHex) {
-                                // 训练场六足: 走重生队列, 不移除实体
-                                if (window._killEnemyInTraining) { window._killEnemyInTraining(en); }
-                                else { en.ai.state = 'dead'; en.visible = false; }
+                                // 六足: 触发死亡动画，重生由 HexapodEnemy 死亡完成后的 gameLoop 处理
+                                en.ai.state = 'dead';
+                                en.ai.animRequest = 'death';
                             } else {
                                 en.ai.state = 'dead';
                                 en.visible = false;

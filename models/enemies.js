@@ -750,6 +750,7 @@
 
         var t = L.currentTime;
         var trackDefs = anim.trackDefs;
+        var restPoses = this._restPoses;
         for (var ti = 0; ti < trackDefs.length; ti++) {
           var td = trackDefs[ti];
           var target = td.target, prop = td.prop, axis = td.axis, keys = td.keys;
@@ -770,6 +771,10 @@
             }
           }
           if (val !== undefined) {
+            // 如果有休息姿态基准，关键帧值作为偏移量叠加
+            if (td._restKey && restPoses && restPoses[td._restKey] !== undefined) {
+              val = restPoses[td._restKey] + val;
+            }
             if (axis) target[prop][axis] = val;
             else target[prop] = val;
           }
@@ -951,11 +956,11 @@
         var cv = document.createElement('canvas');
         cv.width = size; cv.height = size;
         var ctx = cv.getContext('2d');
-        // 城市迷彩: 亮灰色为主调, 浅灰+银灰+蓝灰区块
-        var bg = '#a8a8b8';
+        // 城市迷彩: 亮灰色为主调, 浅灰+银灰+蓝灰区块 (提亮30%)
+        var bg = '#d0d0db';
         ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size);
-        // 大块斑纹: 中灰/浅灰/银灰
-        var blobs = ['#8a8a9a', '#b5b5c2', '#9a9aac', '#808090', '#a0a0b0'];
+        // 大块斑纹
+        var blobs = ['#b8b8c5', '#d8d8e0', '#c2c2d0', '#a8a8b5', '#c5c5d2'];
         var count = 35 + Math.floor(Math.random() * 15);
         for (var i = 0; i < count; i++) {
             ctx.fillStyle = blobs[Math.floor(Math.random() * blobs.length)];
@@ -971,7 +976,7 @@
         ctx.globalAlpha = 1;
         count = 18 + Math.floor(Math.random() * 12);
         for (var i2 = 0; i2 < count; i2++) {
-            ctx.fillStyle = '#707080';
+            ctx.fillStyle = '#9a9aa8';
             ctx.globalAlpha = 0.45 + Math.random() * 0.35;
             ctx.beginPath();
             var cx2 = Math.random() * size, cy2 = Math.random() * size;
@@ -981,7 +986,7 @@
         }
         // 细锐边线模拟城市建筑的棱角
         ctx.globalAlpha = 0.22;
-        ctx.strokeStyle = '#6a6a7a';
+        ctx.strokeStyle = '#90909c';
         ctx.lineWidth = 1.5;
         for (var i3 = 0; i3 < 12; i3++) {
             ctx.beginPath();
@@ -1000,11 +1005,11 @@
     function _getHexapodMat(id) {
         if (_hexapodMatCache[id]) return _hexapodMatCache[id];
         var DEFS = {
-            armor_dark:  { color: 0xa8a8b8, roughness: 0.50, metalness: 0.75 },
-            armor_light: { color: 0xb8b8c8, roughness: 0.45, metalness: 0.70 },
-            dark_steel:  { color: 0x4a4a5a, roughness: 0.45, metalness: 0.85 },
-            barrel_steel:{ color: 0x3a3a44, roughness: 0.35, metalness: 0.9 },
-            steel:       { color: 0x6b6b7b, roughness: 0.5,  metalness: 0.8 },
+            armor_dark:  { color: 0xc8c8d4, roughness: 0.50, metalness: 0.75 },
+            armor_light: { color: 0xd4d4de, roughness: 0.45, metalness: 0.70 },
+            dark_steel:  { color: 0x6a6a7a, roughness: 0.45, metalness: 0.85 },
+            barrel_steel:{ color: 0x5a5a64, roughness: 0.35, metalness: 0.9 },
+            steel:       { color: 0x8b8b98, roughness: 0.5,  metalness: 0.8 },
             warning_yellow: { color: 0xE8A820, roughness: 0.50, metalness: 0.40, emissive: 0xC08010, emissiveIntensity: 0.15 },
         };
         var d = DEFS[id] || { color: 0x888888, roughness: 0.6, metalness: 0.2 };
@@ -1080,6 +1085,32 @@
         ['左加特林','右加特林','左导弹巢','右导弹巢'].forEach(function(name) { P[name] = root.getObjectByName(name + '_pivot'); });
         P.root = root;
         var asys = new AnimationSystem(root);
+
+        // ── 捕获休息姿态: 所有关节的初始旋转值作为动画基准 ──
+        var RP = {};
+        // 根节点: 位置和旋转也需保留基准 (否则动画会把pos.y重置为0)
+        RP['root_y'] = root.position.y;
+        RP['root_rx'] = root.rotation.x;
+        RP['root_rz'] = root.rotation.z;
+        legNames.forEach(function(name) {
+            if (P[name + '_hipX']) RP[name + '_hipX_x'] = P[name + '_hipX'].rotation.x;
+            if (P[name + '_knee']) RP[name + '_knee_x'] = P[name + '_knee'].rotation.x;
+            if (P[name + '_ankle']) RP[name + '_ankle_x'] = P[name + '_ankle'].rotation.x;
+            if (P[name]) RP[name + '_z'] = P[name].rotation.z;
+        });
+        ['左加特林','右加特林','左导弹巢','右导弹巢'].forEach(function(name) {
+            if (P[name]) RP[name + '_x'] = P[name].rotation.x;
+        });
+        asys._restPoses = RP;
+        // 辅助: 给track标记_restKey
+        function rk(td, key) { td._restKey = key; }
+        // 辅助: 创建root track并标记restKey
+        function rootTrk(prop, axis, keys) {
+            var t = { target: P.root, prop: prop, axis: axis, keys: keys };
+            rk(t, 'root_' + (axis || 'y'));
+            return t;
+        }
+
         var GA = ['左前腿','右中腿','左后腿'], GB = ['右前腿','左中腿','右后腿'];
 
         function gaitTrack(off) {
@@ -1093,84 +1124,99 @@
         }
 
         function addGait(name, dur, gaOff, gbOff, bodyKeys, hzSign) {
-            var tracks = []; if (bodyKeys) tracks.push({ target: P.root, prop: 'position', axis: 'y', keys: bodyKeys });
+            var tracks = []; if (bodyKeys) tracks.push(rootTrk('position', 'y', bodyKeys));
             var hs = hzSign || 1;
             GA.forEach(function(n) { var g = gaitTrack(gaOff);
-                tracks.push({ target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) });
-                tracks.push({ target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX });
-                tracks.push({ target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee });
-                tracks.push({ target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle });
+                var tz = { target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) }; rk(tz, n+'_z'); tracks.push(tz);
+                var tx = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX }; rk(tx, n+'_hipX_x'); tracks.push(tx);
+                var tk = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee }; rk(tk, n+'_knee_x'); tracks.push(tk);
+                var ta = { target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle }; rk(ta, n+'_ankle_x'); tracks.push(ta);
             });
             GB.forEach(function(n) { var g = gaitTrack(gbOff);
-                tracks.push({ target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) });
-                tracks.push({ target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX });
-                tracks.push({ target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee });
-                tracks.push({ target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle });
+                var tz2 = { target: P[n], prop: 'rotation', axis: 'z', keys: g.hipZ.map(function(k){return {t:k.t,v:k.v*hs};}) }; rk(tz2, n+'_z'); tracks.push(tz2);
+                var tx2 = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: g.hipX }; rk(tx2, n+'_hipX_x'); tracks.push(tx2);
+                var tk2 = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: g.knee }; rk(tk2, n+'_knee_x'); tracks.push(tk2);
+                var ta2 = { target: P[n+'_ankle'], prop: 'rotation', axis: 'x', keys: g.ankle }; rk(ta2, n+'_ankle_x'); tracks.push(ta2);
             });
             asys.define(name, dur, tracks);
         }
 
-        asys.define('Idle', 2.0, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.25,v:0.02},{t:0.5,v:0},{t:0.75,v:-0.01},{t:1,v:0}] }].concat(legNames.flatMap(function(n) { return [
-            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:n.indexOf('右')>=0?-0.04:0.04},{t:0.5,v:n.indexOf('右')>=0?0.04:-0.04},{t:1,v:n.indexOf('右')>=0?-0.04:0.04}] },
-            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.02},{t:0.5,v:0.02},{t:1,v:-0.02}] },
-        ]; })));
+        // Idle: 身体微呼吸 + 六腿微动 (放大振幅使其可见)
+        var idleTracks = [rootTrk('position', 'y', [{t:0,v:0},{t:0.25,v:0.02},{t:0.5,v:0},{t:0.75,v:-0.01},{t:1,v:0}])];
+        legNames.forEach(function(n) {
+            var tz = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:n.indexOf('右')>=0?-0.06:0.06},{t:0.5,v:n.indexOf('右')>=0?0.06:-0.06},{t:1,v:n.indexOf('右')>=0?-0.06:0.06}] }; rk(tz, n+'_z'); idleTracks.push(tz);
+            var tx = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.04},{t:0.5,v:0.04},{t:1,v:-0.04}] }; rk(tx, n+'_hipX_x'); idleTracks.push(tx);
+            var tk = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.03},{t:0.5,v:0.03},{t:1,v:-0.03}] }; rk(tk, n+'_knee_x'); idleTracks.push(tk);
+        });
+        asys.define('Idle', 2.0, idleTracks);
         addGait('MoveForward', 1.2, 0, 0.5, [{t:0,v:0},{t:0.125,v:0.04},{t:0.25,v:0.01},{t:0.5,v:0},{t:0.625,v:0.03},{t:0.75,v:0.01},{t:1,v:0}], 1);
         addGait('MoveBackward', 1.2, 0, 0.5, [{t:0,v:0},{t:0.125,v:0.03},{t:0.375,v:0},{t:0.625,v:0.03},{t:0.875,v:0},{t:1,v:0}], -1);
         addGait('StrafeLeft', 1.0, 0, 0.5, [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}], 1);
         addGait('StrafeRight', 1.0, 0, 0.5, [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}], -1);
 
-        asys.define('TurnLeft', 1.5, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}] }].concat(['左前腿','左中腿','左后腿'].flatMap(function(n) { return [
-            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.35},{t:0.5,v:0.15},{t:0.75,v:0.25},{t:1,v:0.08}] },
-            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] },
-            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] },
-        ]; })).concat(['右前腿','右中腿','右后腿'].flatMap(function(n) { return [
-            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.15},{t:0.5,v:-0.05},{t:0.75,v:-0.12},{t:1,v:-0.08}] },
-            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] },
-            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] },
-        ]; })));
+        // TurnLeft
+        var tlTracks = [rootTrk('position', 'y', [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}])];
+        ['左前腿','左中腿','左后腿'].forEach(function(n) {
+            var tz = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.35},{t:0.5,v:0.15},{t:0.75,v:0.25},{t:1,v:0.08}] }; rk(tz, n+'_z'); tlTracks.push(tz);
+            var tx = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] }; rk(tx, n+'_hipX_x'); tlTracks.push(tx);
+            var tk = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] }; rk(tk, n+'_knee_x'); tlTracks.push(tk);
+        });
+        ['右前腿','右中腿','右后腿'].forEach(function(n) {
+            var tz2 = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.15},{t:0.5,v:-0.05},{t:0.75,v:-0.12},{t:1,v:-0.08}] }; rk(tz2, n+'_z'); tlTracks.push(tz2);
+            var tx2 = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] }; rk(tx2, n+'_hipX_x'); tlTracks.push(tx2);
+            var tk2 = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] }; rk(tk2, n+'_knee_x'); tlTracks.push(tk2);
+        });
+        asys.define('TurnLeft', 1.5, tlTracks);
 
-        asys.define('TurnRight', 1.5, [{ target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}] }].concat(['左前腿','左中腿','左后腿'].flatMap(function(n) { return [
-            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.12},{t:0.5,v:0.05},{t:0.75,v:0.15},{t:1,v:0.08}] },
-            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] },
-            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] },
-        ]; })).concat(['右前腿','右中腿','右后腿'].flatMap(function(n) { return [
-            { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.35},{t:0.5,v:-0.15},{t:0.75,v:-0.25},{t:1,v:-0.08}] },
-            { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] },
-            { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] },
-        ]; })));
+        // TurnRight
+        var trTracks = [rootTrk('position', 'y', [{t:0,v:0},{t:0.5,v:0.02},{t:1,v:0}])];
+        ['左前腿','左中腿','左后腿'].forEach(function(n) {
+            var tz = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:0.08},{t:0.25,v:0.12},{t:0.5,v:0.05},{t:0.75,v:0.15},{t:1,v:0.08}] }; rk(tz, n+'_z'); trTracks.push(tz);
+            var tx = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.7,v:0},{t:1,v:-0.05}] }; rk(tx, n+'_hipX_x'); trTracks.push(tx);
+            var tk = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.2},{t:0.8,v:0.1},{t:1,v:0.1}] }; rk(tk, n+'_knee_x'); trTracks.push(tk);
+        });
+        ['右前腿','右中腿','右后腿'].forEach(function(n) {
+            var tz2 = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:-0.08},{t:0.25,v:-0.35},{t:0.5,v:-0.15},{t:0.75,v:-0.25},{t:1,v:-0.08}] }; rk(tz2, n+'_z'); trTracks.push(tz2);
+            var tx2 = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.25},{t:0.7,v:0.05},{t:1,v:-0.05}] }; rk(tx2, n+'_hipX_x'); trTracks.push(tx2);
+            var tk2 = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.4,v:0.35},{t:0.8,v:0.1},{t:1,v:0.1}] }; rk(tk2, n+'_knee_x'); trTracks.push(tk2);
+        });
+        asys.define('TurnRight', 1.5, trTracks);
 
-        // Layer 0 (body) — 攻击时车身微后座，可与武器层并发
+        // Layer 0 — 攻击车身微后座
         asys.define('Attack', 0.8, [
-            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.05,v:0.02},{t:0.1,v:0},{t:0.2,v:0.02},{t:0.25,v:0},{t:0.4,v:0.02},{t:0.45,v:0},{t:0.6,v:0.02},{t:0.65,v:0},{t:1,v:0}] },
+            rootTrk('rotation', 'x', [{t:0,v:0},{t:0.05,v:0.02},{t:0.1,v:0},{t:0.2,v:0.02},{t:0.25,v:0},{t:0.4,v:0.02},{t:0.45,v:0},{t:0.6,v:0.02},{t:0.65,v:0},{t:1,v:0}]),
         ]);
 
-        // Layer 1 (weapon) — 武器空闲（默认姿态）
-        asys.define('WeaponIdle', 0.5, [
-            { target: P.左加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:1,v:-0.05}] },
-            { target: P.右加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:1,v:-0.05}] },
-            { target: P.左导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:1,v:0}] },
-            { target: P.右导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:1,v:0}] },
-        ]);
-        // Layer 1 (weapon) — 攻击：加特林俯仰震动+导弹巢后座
-        asys.define('Attack_Weapon', 0.8, [
-            { target: P.左加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
-            { target: P.右加特林, prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] },
-            { target: P.左导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.1,v:0.08},{t:0.2,v:0},{t:0.4,v:0.08},{t:0.5,v:0},{t:0.7,v:0.08},{t:0.8,v:0},{t:1,v:0}] },
-            { target: P.右导弹巢, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.1,v:0.08},{t:0.2,v:0},{t:0.4,v:0.08},{t:0.5,v:0},{t:0.7,v:0.08},{t:0.8,v:0},{t:1,v:0}] },
-        ]);
+        // Layer 1 (weapon) — 空闲
+        var widleTracks = [];
+        ['左加特林','右加特林','左导弹巢','右导弹巢'].forEach(function(name) {
+            var isGat = name.indexOf('加特林') >= 0;
+            var tw = { target: P[name], prop: 'rotation', axis: 'x', keys: [{t:0,v:isGat ? -0.05 : 0},{t:1,v:isGat ? -0.05 : 0}] }; rk(tw, name+'_x'); widleTracks.push(tw);
+        });
+        asys.define('WeaponIdle', 0.5, widleTracks);
+        // Layer 1 (weapon) — 攻击
+        var watkTracks = [];
+        ['左加特林','右加特林'].forEach(function(name) {
+            var tw = { target: P[name], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.1,v:0.1},{t:0.2,v:-0.05},{t:0.3,v:0.1},{t:0.4,v:-0.05},{t:0.5,v:0.1},{t:0.6,v:-0.05},{t:0.7,v:0.1},{t:1,v:-0.05}] }; rk(tw, name+'_x'); watkTracks.push(tw);
+        });
+        ['左导弹巢','右导弹巢'].forEach(function(name) {
+            var tw = { target: P[name], prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.1,v:0.08},{t:0.2,v:0},{t:0.4,v:0.08},{t:0.5,v:0},{t:0.7,v:0.08},{t:0.8,v:0},{t:1,v:0}] }; rk(tw, name+'_x'); watkTracks.push(tw);
+        });
+        asys.define('Attack_Weapon', 0.8, watkTracks);
 
-        asys.define('Death', 2.0, [
-            { target: P.root, prop: 'rotation', axis: 'x', keys: [{t:0,v:0},{t:0.2,v:0.3},{t:0.5,v:0.8},{t:0.8,v:1.0},{t:1,v:1.1}] },
-            { target: P.root, prop: 'rotation', axis: 'z', keys: [{t:0,v:0},{t:0.3,v:0.05},{t:0.6,v:0.12},{t:1,v:0.18}] },
-            { target: P.root, prop: 'position', axis: 'y', keys: [{t:0,v:0},{t:0.3,v:-0.3},{t:0.6,v:-0.7},{t:1,v:-1.0}] },
-        ].concat(legNames.flatMap(function(n,i) {
+        // Death
+        var deathTracks = [
+            rootTrk('rotation', 'x', [{t:0,v:0},{t:0.2,v:0.3},{t:0.5,v:0.8},{t:0.8,v:1.0},{t:1,v:1.1}]),
+            rootTrk('rotation', 'z', [{t:0,v:0},{t:0.3,v:0.05},{t:0.6,v:0.12},{t:1,v:0.18}]),
+            rootTrk('position', 'y', [{t:0,v:0},{t:0.3,v:-0.3},{t:0.6,v:-0.7},{t:1,v:-1.0}]),
+        ];
+        legNames.forEach(function(n,i) {
             var sign = n.indexOf('右')>=0 ? -1 : 1;
-            return [
-                { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:sign*0.05},{t:0.3,v:sign*0.4},{t:0.6,v:sign*0.7},{t:1,v:sign*0.9}] },
-                { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.6,v:0.5},{t:1,v:0.8}] },
-                { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.3,v:0.3},{t:0.6,v:0.6},{t:1,v:0.9}] },
-            ];
-        })));
+            var tz = { target: P[n], prop: 'rotation', axis: 'z', keys: [{t:0,v:sign*0.05},{t:0.3,v:sign*0.4},{t:0.6,v:sign*0.7},{t:1,v:sign*0.9}] }; rk(tz, n+'_z'); deathTracks.push(tz);
+            var tx = { target: P[n+'_hipX'], prop: 'rotation', axis: 'x', keys: [{t:0,v:-0.05},{t:0.3,v:0.15},{t:0.6,v:0.5},{t:1,v:0.8}] }; rk(tx, n+'_hipX_x'); deathTracks.push(tx);
+            var tk = { target: P[n+'_knee'], prop: 'rotation', axis: 'x', keys: [{t:0,v:0.1},{t:0.3,v:0.3},{t:0.6,v:0.6},{t:1,v:0.9}] }; rk(tk, n+'_knee_x'); deathTracks.push(tk);
+        });
+        asys.define('Death', 2.0, deathTracks);
         // 武器层默认播放 Idle
         asys.layer(1).play('WeaponIdle', true);
         return asys;
@@ -1195,6 +1241,8 @@
         root.position.y = _hexapodTemplateBaseY;
         var skel = new THREE.Group(); skel.name = '_skeleton';
         while (root.children.length > 0) skel.add(root.children[0]);
+        // 抵消六足战车内置的 +90° Y旋转, 使模型前端(-X)对齐世界-X标准约定
+        skel.rotation.y = -Math.PI / 2;
         root.add(skel);
         var cylGeo = new THREE.CylinderGeometry(0.5, 0.7, 2.5, 6);
         var cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial({ color: 0x4a4a5a }));
@@ -1204,6 +1252,61 @@
         var asys = createHexapodAnimationSystem(root);
         root.userData._animSystem = asys; root.userData.enemyType = 'hexapod';
         asys.play('Idle', true);
+        // ── 加特林枪管簇: 将4根枪管放入子Group, 绕中央轴公转(模仿真实加特林) ──
+        var barrelClusters = [];
+        ['左加特林','右加特林'].forEach(function(name) {
+            var pivot = root.getObjectByName(name + '_pivot');
+            if (!pivot) return;
+            var barrelGroups = [];
+            for (var ci = pivot.children.length - 1; ci >= 0; ci--) {
+                var child = pivot.children[ci];
+                if (child.name && child.name.indexOf('枪管') >= 0) barrelGroups.push(child);
+            }
+            if (barrelGroups.length === 0) return;
+            var cluster = new THREE.Group();
+            cluster.name = name + '_barrelCluster';
+            pivot.add(cluster);
+            for (var bi = 0; bi < barrelGroups.length; bi++) {
+                cluster.add(barrelGroups[bi]);
+            }
+            barrelClusters.push(cluster);
+        });
+        root.userData._barrelClusters = barrelClusters;
+        // ── 观瞄设备发光引用 ──
+        root.userData._obsMesh = root.getObjectByName('观瞄球体_mesh');
+        // ── 加特林枪管材质引用（用于红热发光）──
+        var barrelMats = [];
+        ['左加特林','右加特林'].forEach(function(name) {
+            for (var bi = 1; bi <= 4; bi++) {
+                var bg = root.getObjectByName(name + '枪管' + bi);
+                if (bg && bg.children[0] && bg.children[0].material) {
+                    barrelMats.push(bg.children[0].material);
+                }
+            }
+        });
+        root.userData._barrelMats = barrelMats;
+        // ── 腿关节 pivot 引用（完整6腿×4关节, 用于步态动画直驱）──
+        var legJoints = [];
+        var tripodA = { '左前':true, '右中':true, '左后':true };
+        ['左前','右前','左中','右中','左后','右后'].forEach(function(prefix) {
+            var hipGrp = root.getObjectByName(prefix + '腿');           // hipZ: 水平摆角
+            var thighPv = root.getObjectByName(prefix + '大腿_pivot');  // hipX: 髋抬腿
+            var shinPv = root.getObjectByName(prefix + '小腿_pivot');   // knee: 膝关节
+            var anklePv = root.getObjectByName(prefix + '脚踝_pivot');  // ankle: 踝关节
+            if (thighPv && shinPv) {
+                legJoints.push({
+                    prefix: prefix,
+                    tripodA: !!tripodA[prefix],
+                    hipGrp: hipGrp,
+                    thighPv: thighPv, shinPv: shinPv, anklePv: anklePv,
+                    restHipZ: hipGrp ? hipGrp.rotation.z : 0,
+                    restHipX: thighPv.rotation.x,
+                    restKnee: shinPv.rotation.x,
+                    restAnkle: anklePv ? anklePv.rotation.x : 0,
+                });
+            }
+        });
+        root.userData._legJoints = legJoints;
         return root;
     }
 

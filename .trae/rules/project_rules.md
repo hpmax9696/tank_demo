@@ -44,8 +44,9 @@ python -m http.server 8080 --bind 127.0.0.1
 | `models/t34_v16_builder.js` | ~353 | T-34/85 v1.6 动画坦克构建器（index.html 引用，含 turretPivot/barrelPivot） |
 | `models/enemies.js` | ~920 | 装甲突击车 + 程序化丧尸 |
 | `models/hexapod_config.js` | ~100 | 六足战车模型配置（3节腿+尖刺足+4DOF） |
-| `js/hexapod_anim.js` | ~928 | 六足动画模块（13动画+CCD可调阻尼+转弯验证+turnRate系统） |
-| `combat/enemyAI.js` | ~535 | AI 状态机 |
+| `js/hexapod_anim.js` | ~1630 | 六足动画模块（模型工厂用，23动画+CCD IK+步态+踉跄+死亡） |
+| `js/hexapod_enemy.js` | ~890 | 六足敌人动画模块（训练场/战斗模式用，CCD IK+homeOffset定位+三角步态+踉跄+死亡） |
+| `combat/enemyAI.js` | ~560 | AI 状态机 + 六足ENGAGE武器平衡 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统 |
 
 ### model_factory.html 关键行
@@ -218,8 +219,9 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~5460 行 |
-| engine.js 行数 | ~5600 行（v0.56.1含训练场六足敌人+枪管簇初始化） |
-| hexapod_anim.js 行数 | ~1680 行（v0.56.1含加特林枪管簇动画） |
+| engine.js 行数 | ~5770 行（v0.57.0含CCD IK动画集成+武器系统独立） |
+| hexapod_anim.js 行数 | ~1630 行（模型工厂用） |
+| hexapod_enemy.js 行数 | ~890 行（v0.57.0新增，训练场六足CCD IK动画） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |

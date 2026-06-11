@@ -31,7 +31,8 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
 ├── models/hexapod_config.js # 六足战车共享模型配置：3节腿(大腿+小腿+尖刺足)，4DOF(髋摆+髋抬+膝+踝)，锥尖单点接地
-├── js/hexapod_anim.js       # 六足动画模块 (~1630行)：23动画+CCD IK+步态+踉跄+死亡+武器校准+地形适应+膝关节夹
+├── js/hexapod_anim.js       # 六足动画模块 (~1630行)：模型工厂用，23动画+CCD IK+步态+踉跄+死亡+武器校准+地形适应
+├── js/hexapod_enemy.js      # 六足敌人动画模块 (~890行)：训练场/战斗模式用，多实例CCD IK+三角步态+踉跄+死亡, homeOffset相对定位
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
@@ -161,27 +162,42 @@ legGroup (Y旋转=水平摆角)
 - **加特林枪管簇动画(v0.56.1)**：`_hexaCollectRefs`中为每侧加特林创建`_barrelCluster`子Group，将4根枪管移入簇后`cluster.rotation.x`绕中央轴公转。模型工厂23动画均可见。`_updateGatlingSpin(dt)`在`_hexaUpdateFrame`末尾调用
 - **六足贴地(v0.56.1)**：`createHexapod()`存储`_hexapodTemplateBaseY`到`userData._baseY`，游戏循环`position.y=groundHeight+_baseY`
 
+### 六足敌人 IK 系统（v0.57.0 新增，`js/hexapod_enemy.js`）
+
+独立于模型工厂的 CCD IK 系统，支持训练场/战斗模式中多个六足敌人独立动画。
+
+- **多实例架构**：每敌人独立 `HexAnimState`，通过 `HexapodEnemy.init(enemyGroup)` 初始化
+- **引用收集**：`init()` 遍历模型树找到6腿×4关节 + 尖刺足 + 武器 pivot，与模型工厂命名兼容
+- **homeOffset 相对定位**：计算休息姿态下足端相对身体中心的本地位移，所有 CCD 目标基于此偏移，保证永远在腿可达范围内
+- **CCD 解算**：3关节 (thigh.X → shin.X → hip.Z)，髋轴用`_worldZ`(模型绕Z)，大腿轴`_worldX`，阻尼0.5~0.85
+- **三角步态**：A组(左前+右中+左后) / B组(右前+左中+右后)交替，步态周期随身体速度自适应
+- **支撑相反打滑**：进入支撑相时锁定 homePos 为世界固定点 → CCD 自动补偿身体位移
+- **受击踉跄**：`triggerStagger()` 外部调用，四阶段CCD驱动；仅炮弹触发(`!skipStagger`)，MG 不触发
+- **死亡瘫倒**：`triggerDeath()` 四阶段瘫倒+武器垂下
+- **自动抬升**：`init()` 找到最低尖刺足 → 抬升身体至标准站姿高度；空闲时所有腿CCD回到 homePos
+- **关键参数**：`_baseY`(身高偏移)、`homeOffset`(休息脚位)、`_initFootDist`(脚距)、`_shinSign`(膝弯方向)、`_yLimit`(髋限位)
+
 ## 游戏模式
 
 - `menu` | `single` | `versus` | `combat` | `training`
 - WASD驾驶 + 鼠标瞄准 + 左键开炮 / ESC返回
 
-### 训练场模式（v0.56.0 新增，v0.56.1 扩展六足）
+### 训练场模式（v0.56.0 新增，v0.57.0 六足CCD IK）
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
 | 配置项 | 可选值 |
 |--------|--------|
 | 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、**六足(模型+AI)**、突击车、丧尸 |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
 | 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
-- **敌方六足(v0.56.1)**：完整模型显示，底部贴地，AI驱动移动+加特林射击，死亡1s重生。MG击杀走训练场重生队列
+- **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
 - **无限重生**：敌我死亡1s后在出生点重生，玩家被火焰/丧尸击杀也复活。ESC退出训练
-- **敌方AI**：`engageDist:50` + `flameRange:55` 控制交战距离，CHASE阶段炮塔跟踪玩家，受击冷却1.5s防秒射
+- **敌方AI**：`engageDist:30`(六足)/`50`(坦克)，`gatlingRange:30`，CHASE阶段追击，ENGAGE阶段绕圈攻击
 - 相关变量：`isTrainingMode`, `trainingPlayerSpawn`, `trainingEnemySpawn`, `trainingRespawnQueued`
-- **已知问题(v0.56.1)**：六足武器俯仰旋转轴不正确(模型工厂OK)；装甲突击车遇障碍物平移(AI通用)
+- **已知问题(v0.57.0)**：动画切换后偶有腿部绷直(CCD过渡未完成)；卡障碍物时步态仍会尝试推进；六足武器俯仰旋转轴不正确
 
 ## 详细文档
 
