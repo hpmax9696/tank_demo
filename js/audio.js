@@ -238,3 +238,35 @@ function playDebrisSound() {
         osc.start(t); osc.stop(t + 0.07);
     }
 }
+
+// ── 六足导弹发射音效 (嗖——长音+噪声) ──
+function playMissileLaunchSound() {
+    ensureAudio();
+    const now = audioCtx.currentTime;
+    // 噪声嗖声 → bandpass扫频 2000→400Hz, 持续0.6s
+    const bufSize = audioCtx.sampleRate * 0.7;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    const bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 1.5;
+    bp.frequency.setValueAtTime(2000, now);
+    bp.frequency.exponentialRampToValueAtTime(300, now + 0.6);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    noise.connect(bp); bp.connect(gain); gain.connect(audioCtx.destination);
+    noise.start(now); noise.stop(now + 0.7);
+    // 叠加低频轰鸣
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+    const og = audioCtx.createGain();
+    og.gain.setValueAtTime(0.1, now);
+    og.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(og); og.connect(audioCtx.destination);
+    osc.start(now); osc.stop(now + 0.6);
+}

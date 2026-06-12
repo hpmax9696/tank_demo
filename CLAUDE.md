@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.0
 
 ## 运行
 
@@ -50,9 +50,25 @@ python -m http.server 8080 --bind 127.0.0.1
 └── CODEBUDDY.md       # 详细架构/参数/已知问题/待办 → 查阅细节时读它
 ```
 
+## 摄像机系统 (v0.59.0)
+
+- **Pointer Lock**: 进入游戏自动请求 `gameContainer.requestPointerLock()`，鼠标锁定到屏幕中心
+- **X轴驱动视角**: `e.movementX * 0.004` 累加到 `cameraYaw`，`placeCamera()` 用 `cameraYaw` 定位摄像机
+- **Y轴虚拟准星**: `e.movementY` 累加到 `_virtualMouseY`，射线投射用 `(centerX, virtualY)` 做瞄准
+- **独立于车身/炮塔**: `cameraYaw` 完全解耦，车身转向不再带动画面
+- **点击重锁**: `gameContainer.click` → 重新请求 pointer lock
+- **ESC退出**: `returnToMenu()` 开头 `document.exitPointerLock()`
+
+## 炮塔稳定器 (v0.59.0)
+
+- `updateAiming()` / `updateAimingForVs()` 开头：`turretYaw += hullDyaw`（车体转多少，炮塔反向补偿多少）
+- `tankGroup.rotation.y = π/2 - state.yaw`，世界炮塔 = `tankGroup.rotation.y + turretYaw`
+- 车体 yaw 增加 → tankGroup Y 减小 → turretYaw 需增加等量补偿
+- 补偿不计入 `turretAngVel` 限速，瞬间完成
+
 ## 核心全局变量
 
-`scene`, `players[]`, `bullets[]`, `explosions[]`, `obstacles[]`, `currentMapData`
+`scene`, `players[]`, `bullets[]`, `explosions[]`, `obstacles[]`, `currentMapData`, `cameraYaw`
 
 ## 生成管线（v0.51.0 新增）
 
@@ -163,18 +179,18 @@ legGroup (Y旋转=水平摆角)
 - **加特林枪管簇动画(v0.56.1)**：`_hexaCollectRefs`中为每侧加特林创建`_barrelCluster`子Group，将4根枪管移入簇后`cluster.rotation.x`绕中央轴公转。模型工厂23动画均可见。`_updateGatlingSpin(dt)`在`_hexaUpdateFrame`末尾调用
 - **六足贴地(v0.56.1)**：`createHexapod()`存储`_hexapodTemplateBaseY`到`userData._baseY`，游戏循环`position.y=groundHeight+_baseY`
 
-### 六足敌人 IK 系统（v0.58.0 重构，`js/hexapod_core.js` + `js/hexapod_enemy.js`）
+### 六足敌人 AI 系统（v0.59.0 绕圈+武器策略）
 
-统一 CCD IK 核心，模型工厂和游戏通过薄适配器共享。
+六足 AI 使用独立于普通车辆的 `updateHexapodEngage` (enemyAI.js:645-800)。
 
-- **核心模块** `HexapodCore`：纯计算层 — CCD解算(3关节: thigh.X→shin.X→hip.{Y|Z}) + 三角步态 + 踉跄/死亡状态机
-- **髋轴参数化**：`opts.hipAxis='y'|'z'` — 工厂用Y(legGroup.rotation.y), 游戏用Z(skeletonGroup旋转后等效)
-- **身体控制解耦**：`opts.bodyWriter=true`(工厂写body) / `false`(游戏读body)，核心只输出 `bodyDelta`
-- **homeOffset 相对定位**：休息姿态足端在身体本地空间的偏移，CCD目标基于此保证永远可达
-- **数据打通**：`ANIM_TABLE`(23项参数)存 `hexapod_config.js`，工厂调参→游戏自动生效
-- **支撑相反打滑**：bodyWriter=false时 stance target 锁定为世界固定点，CCD自动补偿身体位移
-- **MG不触发踉跄**：`onEnemyDamaged` 增加 `skipStagger` 参数
-- **已知问题**：AI绕圈逻辑待完善(六足进入ENGAGE后移动不明显)；复活后腿部偶有异常
+- **绕圈移动**：切向+径向分解。`rightX/rightZ * tangentW * sd` 侧移绕圈，`fwdX/fwdZ * radialW` 径向距离修正。身体始终面朝玩家，绕圈靠侧移
+- **武器优先级**：`resolveWeaponAction` — 加特林(近) > 导弹+后退(过热有弹) > 纯后退(过热无弹) > 导弹(中距离) > 无
+- **CHASE导弹**：远距离追击时 `dist > 5 && dist < missileRange` 发射导弹
+- **过热后退**：`weaponAction='missile_retreat'` 时 `radialW=-0.5` 后退+发射导弹拉开距离冷却
+- **步频自适应** (`hexapod_core.js`)：游戏模式 `gaitPeriod = clamp(2*stride/bodySpeed, 0.22, 0.8)`，腿摆快而非跨大步
+- **身体位移同步**：AI存 `_desiredVelX/Z`，`stepGait` 的 `desiredMove` 参数在步态内部移动身体，腿驱动而非追赶
+- **碰撞检测**：玩家 vs 敌人（半径 0.6 推离），炮弹 vs 敌人（扫掠球-圆柱），敌我均互斥
+- **已知问题**：复活后腿部偶有异常；武器俯仰旋转轴不正确
 
 ## 游戏模式
 

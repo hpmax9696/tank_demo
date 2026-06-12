@@ -303,7 +303,8 @@ var HexapodCore = (function() {
 
   // ═══════════════════════════════════════════
   //  stepGait: 三角步态更新
-  //  params = { animIndex, bodySpeed, turnRate, spinRPS }
+  //  params = { animIndex, bodySpeed, turnRate, spinRPS, desiredMove: {dx, dz} }
+  //  desiredMove: 游戏模式下外部期望的身体位移（在步态目标计算后、CCD前应用）
   // ═══════════════════════════════════════════
   function stepGait(ctx, dt, params) {
     params = params || {};
@@ -334,6 +335,10 @@ var HexapodCore = (function() {
       gaitPeriod = clamp(1.05 / Math.abs(turnRate), 0.4, 0.8);
     } else if (Math.abs(turnRate) > 0.05) {
       gaitPeriod = 0.72;
+    } else if (!ctx.bodyWriter && bodySpeedNow > 0.3) {
+      // 游戏模式: 步频自适应 bodySpeed, 保持动态步幅≈设计步幅
+      // 公式: period = 2*stride/bodySpeed, 使每周期移动距离=2*stride
+      gaitPeriod = clamp(2.0 * Math.max(stride, 0.10) / Math.max(bodySpeedNow, 0.1), 0.22, 0.8);
     } else if (bodySpeedNow > 1.5) {
       gaitPeriod = clamp(2.0 / bodySpeedNow, 0.3, 0.7);
     } else {
@@ -387,7 +392,7 @@ var HexapodCore = (function() {
     var hw = new (T()).Vector3(); root.getWorldPosition(hw);
     fwdBody.sub(hw).normalize();
 
-    // ── 身体平移 (bodyWriter=true 时写) ──
+    // ── 身体平移 ──
     var totalDist = gaitCycles * dynamicStride * 2;
     var deltaDist = totalDist - (ctx._prevTotalDist || 0);
     ctx._prevTotalDist = totalDist;
@@ -399,6 +404,12 @@ var HexapodCore = (function() {
       }
       ctx.bodyDelta.dx = fwdBody.x * deltaDist;
       ctx.bodyDelta.dz = fwdBody.z * deltaDist;
+    } else if (params.desiredMove) {
+      // 游戏模式: AI驱动位移, 在此处应用使步态目标计算时身体已在新位置
+      root.position.x += params.desiredMove.dx || 0;
+      root.position.z += params.desiredMove.dz || 0;
+      ctx.bodyDelta.dx = params.desiredMove.dx || 0;
+      ctx.bodyDelta.dz = params.desiredMove.dz || 0;
     }
 
     // ── 地形适应 / 身体高度 ──

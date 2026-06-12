@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.58.0</title>
+    <title>坦克运动demo v0.59.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -562,6 +562,13 @@
             height: 2px; width: 100%;
             top: 50%; transform: translateY(-50%);
         }
+        #reload-ring {
+            position: fixed;
+            width: 48px; height: 48px;
+            transform: translate(-50%, -50%);
+            z-index: 54; pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -569,7 +576,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.58.0</div>
+        <div class="menu-version">v0.59.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -613,11 +620,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🎯 v0.59.0 摄像机鼠标驱动+WoT稳定器+六足绕圈AI+敌我碰撞 — 视角跟随鼠标(PointerLock), 炮塔即时补偿车体转向, 六足AI切向绕圈+武器优先级, 装填环+手柄震动</div>
             <div class="cl-title">🦗 v0.58.0 六足动画重构 — hexapod_core.js统一CCD IK+步态+踉跄/死亡, 模型工厂+游戏共享, ANIM_TABLE数据打通, homeOffset防漂移, 3文件→2600行</div>
             <div class="cl-title">🦗 v0.57.0 训练场六足CCD IK动画 — 新建hexapod_enemy.js(~890行), 从模型工厂移植CCD IK+三角步态+踉跄+死亡, homeOffset相对定位防下陷, 髋Z轴修正, 加特林/导弹武器系统独立运行, MG不触发踉跄防定身</div>
             <div class="cl-title">🎯 v0.56.1 训练场六足敌人+枪管动画 — 训练场可选择六足敌方(模型/AI/死亡重生)+六足底部贴地+模型工厂加特林枪管簇公转+玩家被火焰/丧尸击杀复活修复+丧尸重生姿势修复</div>
             <div class="cl-title">🦗 v0.55.1 武器校准修复+城市迷彩+死亡垂下+地形适应 — world→local坐标修复+俯仰限位+加特林/导弹机械限位+CCD shin夹紧+plantPos同步+装甲突击车侧倾+灰色城市迷彩纹理</div>
-            <div class="cl-title">🦗 v0.55.0 23动画+踉跄+死亡+武器校准 — 步态周期由turnRate推导, stride/stepH数组驱动, _initFootDist防漂移, 动画循环无缝衔接, 引擎拆分index→engine.js</div>
         </div>
     </div>
 
@@ -651,7 +658,7 @@
         <!-- 调试信息 -->
         <div id="debug-info" style="position:fixed;top:4px;right:4px;z-index:200;color:#0f0;font-size:12px;font-family:monospace;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:pre;line-height:1.4;"></div>
         <div id="hud">
-            <button id="btn-back">← 返回菜单 (ESC)</button>
+            <span id="btn-back" style="padding:8px 18px;font-size:0.9rem;background:rgba(0,0,0,0.55);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:6px;backdrop-filter:blur(6px);pointer-events:none;user-select:none;">按 ESC 返回</span>
         </div>
         <div id="controls-hint"></div>
         <!-- 双人对战结束覆盖 -->
@@ -667,6 +674,7 @@
         <div id="arrow-p1" class="arrow-ui" style="display:none;"></div>
         <div id="arrow-p2" class="arrow-ui" style="display:none;"></div>
         <div id="crosshair"></div>
+        <canvas id="reload-ring" width="48" height="48"></canvas>
     </div>
 
     <!-- ========== 模型预览 ========== -->

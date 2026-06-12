@@ -10,8 +10,6 @@ var HexapodEnemy = (function() {
   var CORE = window.HexapodCore;
   var CFG = window.HexapodConfig;
 
-  var LEG_CONFIG = CFG.LEG_CONFIG;
-
   // ═══════════════════════════════════════════
   //  init: getObjectByName → legRefs → core.initContext
   // ═══════════════════════════════════════════
@@ -30,6 +28,8 @@ var HexapodEnemy = (function() {
     }
     root.updateMatrixWorld(true);
 
+    var LEG_CONFIG = CFG.LEG_CONFIG;
+    if (!LEG_CONFIG) { console.error('HexapodEnemy.init: HexapodConfig.LEG_CONFIG not found'); return null; }
     var prefixes = LEG_CONFIG.prefixes;
     var tripodA = LEG_CONFIG.tripodA;
 
@@ -108,23 +108,16 @@ var HexapodEnemy = (function() {
       case 'move_backward':  return 3;
       case 'strafe_left':    return 5;
       case 'strafe_right':   return 6;
+      case 'strafe_run_left':  return 19;
+      case 'strafe_run_right': return 20;
       case 'turn_left':
         return (ai && ai.state === 'engage') ? 9 : 7;  // Walk Turn L vs Static Turn L
       case 'turn_right':
         return (ai && ai.state === 'engage') ? 10 : 8;
       case 'attack':
-        // 攻击时若身体在移动/旋转但动画是Idle, 自动选择合适动画
-        if (ctx._curAnimIndex === 0 && ctx._prevBodyPos) {
-          var bd2 = new THREE.Vector3().subVectors(ctx.root.position, ctx._prevBodyPos);
-          bd2.y = 0;
-          var turning = Math.abs(CORE.angleDiff(ctx._prevBodyYaw, ctx.root.rotation.y)) > 0.01;
-          if (bd2.length() > 0.05 && turning) {
-            ctx._curAnimIndex = 9; return 9; // Walk Turn L (绕圈)
-          } else if (bd2.length() > 0.05) {
-            ctx._curAnimIndex = 1; return 1; // Walk
-          }
-        }
-        return ctx._curAnimIndex;
+        // 开火通过 ai.gatlingRequest/ai.missileRequest 标志驱动，不再设置 attack 动画
+        // AI 始终设置移动动画，此 case 仅作兜底
+        return ctx._curAnimIndex || 0;
       default:
         return 0;
     }
@@ -174,7 +167,7 @@ var HexapodEnemy = (function() {
     } else {
       ctx._slowFrames = 0;
     }
-    var movingReqs = ['move_forward', 'move_backward', 'strafe_left', 'strafe_right', 'turn_left', 'turn_right'];
+    var movingReqs = ['move_forward', 'move_backward', 'strafe_left', 'strafe_right', 'strafe_run_left', 'strafe_run_right', 'turn_left', 'turn_right'];
     if (ctx._slowFrames >= 6 && movingReqs.indexOf(animRequest) >= 0) {
       animRequest = 'idle';
     }
@@ -210,7 +203,12 @@ var HexapodEnemy = (function() {
 
     if (!isIdle) {
       if (!ctx._gaitInit) CORE._initGait(ctx);
-      CORE.stepGait(ctx, dt, { animIndex: animIndex, bodySpeed: bodySpeed });
+      // 游戏模式: AI 期望速度 → stepGait 内部应用, 保证步态与位移同步
+      var dm = null;
+      if (ai && (ai._desiredVelX !== undefined || ai._desiredVelZ !== undefined)) {
+        dm = { dx: (ai._desiredVelX || 0) * dt, dz: (ai._desiredVelZ || 0) * dt };
+      }
+      CORE.stepGait(ctx, dt, { animIndex: animIndex, bodySpeed: bodySpeed, desiredMove: dm });
     } else {
       CORE.stepIdle(ctx, dt);
     }

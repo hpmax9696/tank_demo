@@ -54,19 +54,24 @@ function togglePlayerBars(p, visible) {
 function updateBarsForCamera(p, cam) {
     const bo=0.8;
     const by=getGroundHeight(p.state.x,p.state.z)+0.7;
-    if(p.reloadBarGroup){const rx=Math.cos(p.state.yaw+Math.PI/2),rz=Math.sin(p.state.yaw+Math.PI/2);
-        p.reloadBarGroup.position.set(p.state.x+rx*bo,by,p.state.z+rz*bo);p.reloadBarGroup.lookAt(cam.position);
+    // 根据摄像机方向计算左右向量（而非车身朝向），确保UI条始终在视野两侧
+    const toCamX=cam.position.x-p.state.x, toCamZ=cam.position.z-p.state.z;
+    const toCamLen=Math.sqrt(toCamX*toCamX+toCamZ*toCamZ)||1;
+    const cfx=toCamX/toCamLen, cfz=toCamZ/toCamLen;
+    const rx=-cfz, rz=cfx;  // 摄像机右侧 (= 车体左侧, 因为toCam是从坦克指向摄像机)
+    const lx=cfz, lz=-cfx;  // 摄像机左侧 (= 车体右侧)
+    if(p.reloadBarGroup){
+        p.reloadBarGroup.position.set(p.state.x+lx*bo,by,p.state.z+lz*bo);p.reloadBarGroup.lookAt(cam.position);
         const pg=Math.max(.01,1-p.reloadTimer/RELOAD_TIME);
         p.reloadBarFill.scale.y=pg;p.reloadBarFill.position.y=-.36+.33*pg;
         p.reloadBarFill.material.color.setRGB(1,pg>=1?1:0,0);}
-    if(p.hpBarGroup){const lx=Math.cos(p.state.yaw-Math.PI/2),lz=Math.sin(p.state.yaw-Math.PI/2);
-        p.hpBarGroup.position.set(p.state.x+lx*bo,by,p.state.z+lz*bo);p.hpBarGroup.lookAt(cam.position);
+    if(p.hpBarGroup){
+        p.hpBarGroup.position.set(p.state.x+rx*bo,by,p.state.z+rz*bo);p.hpBarGroup.lookAt(cam.position);
         const hr=Math.max(.01,p.hp/p.maxHp);
         p.hpBarFill.scale.y=hr;p.hpBarFill.position.y=-.36+.33*hr;
         p.hpBarFill.material.color.setRGB(hr<.5?1:2-hr*2, hr<.5?hr*2:1, 0);}
     if(p.shellLabel){
-        const rx=Math.cos(p.state.yaw+Math.PI/2),rz=Math.sin(p.state.yaw+Math.PI/2);
-        p.shellLabel.position.set(p.state.x+rx*bo, by-0.48, p.state.z+rz*bo);
+        p.shellLabel.position.set(p.state.x+lx*bo, by-0.48, p.state.z+lz*bo);
         p.shellLabel.lookAt(cam.position);
         const ud=p.shellLabel.userData, cv=ud.canvas, ctx=cv.getContext('2d');
         ctx.clearRect(0,0,cv.width,cv.height);

@@ -5,9 +5,9 @@
 // --- 敌人默认配置 ---
 function defaultEnemyCfg(etype) {
     if (etype === 'zombie') return { hp:40, speed:2.5, viewDist:35, attackDamage:10, attackCooldown:1.5, dropRate:0.3, dropHeal:20, reactive:true, aggressive:false, score:50 };
-    if (etype === 'hexapod') return { hp:100, speed:4.0, viewDist:60, attackDamage:15, attackCooldown:0.15, dropRate:0.35, dropHeal:40, reactive:true, aggressive:true, score:200,
-        engageDist:20, gatlingRange:25, missileRange:35, missileCooldown:4.0, fireRate:10, turnRate:1.5,
-        spinUpTime:0.8, overheatMax:100, heatPerSec:25, coolPerSec:15, spreadCone:3 };
+    if (etype === 'hexapod') return { hp:100, speed:4.5, viewDist:60, attackDamage:15, attackCooldown:0.15, dropRate:0.35, dropHeal:40, reactive:true, aggressive:true, score:200,
+        engageDist:22, gatlingRange:25, missileRange:35, missileCooldown:4.0, fireRate:10, turnRate:2.0,
+        spinUpTime:0.8, overheatMax:100, heatPerSec:25, coolPerSec:18, spreadCone:3 };
     return { hp:60, speed:5.0, viewDist:50, attackDamage:15, attackCooldown:3.0, dropRate:0.25, dropHeal:30, reactive:true, aggressive:false, score:100 };
 }
 

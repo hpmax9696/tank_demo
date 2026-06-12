@@ -524,6 +524,7 @@ window.addEventListener('keydown', (e) => {
     keys[e.code] = true;
     // H键：切换阴影开/关（对照实验，测量阴影对渲染耗时的影响）
     if (e.code === 'F3') { e.preventDefault(); debugToggleColliders(); return; }
+    if (e.code === 'F6') { e.preventDefault(); window._showHexColliders = !window._showHexColliders; return; }
     if (e.code === 'KeyH' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         shadowEnabled = !shadowEnabled;
         if (sunLight) sunLight.castShadow = shadowEnabled;
@@ -559,15 +560,36 @@ window.addEventListener('mouseup', (e) => {
 });
 window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = false; });
 
+// ── Pointer Lock: 鼠标锁定, X→视角旋转, Y→虚拟准星位置(射线投射瞄准) ──
+let _pointerLocked = false;
+let _virtualMouseY = window.innerHeight / 2; // 虚拟Y, 由movementY累积
+document.addEventListener('pointerlockchange', () => {
+    _pointerLocked = (document.pointerLockElement === gameContainer);
+    if (_pointerLocked) _virtualMouseY = window.innerHeight / 2; // 锁定瞬间重置到中心
+});
 window.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX; mouseY = e.clientY;
-    if (gameMode !== 'menu') {
-        crosshairEl.style.left = mouseX + 'px';
-        crosshairEl.style.top = mouseY + 'px';
-        const dmx = Math.abs(mouseX - prevMouseX), dmy = Math.abs(mouseY - prevMouseY);
-        if (dmx > 3 || dmy > 3) useGamepad = false;
+    if (_pointerLocked) {
+        // X: 转视角, Y: 累积虚拟准星位置
+        cameraYaw += e.movementX * CAMERA_MOUSE_SENSITIVITY;
+        _virtualMouseY += e.movementY;
+        _virtualMouseY = Math.max(60, Math.min(window.innerHeight - 60, _virtualMouseY));
+        useGamepad = false;
+    } else {
+        mouseX = e.clientX; mouseY = e.clientY;
+        if (gameMode !== 'menu') {
+            crosshairEl.style.left = mouseX + 'px';
+            crosshairEl.style.top = mouseY + 'px';
+            const dmx = Math.abs(mouseX - prevMouseX), dmy = Math.abs(mouseY - prevMouseY);
+            if (dmx > 3 || dmy > 3) useGamepad = false;
+        }
+        prevMouseX = mouseX; prevMouseY = mouseY;
     }
-    prevMouseX = mouseX; prevMouseY = mouseY;
+});
+// 点击游戏画布重新锁定鼠标
+gameContainer.addEventListener('click', () => {
+    if (gameMode !== 'menu' && !_pointerLocked && !useGamepad) {
+        gameContainer.requestPointerLock();
+    }
 });
 
 // ==================== 玩家工厂 ====================
@@ -633,7 +655,7 @@ let totalDistance = 0;   // 坦克行驶总里程（单位）
 // 游戏参数
 const TRACK_SPACING = 3.2;
 const MAX_SPEED = 8.0;
-const TRACK_ACCEL = 10.0, TRACK_DECEL = 16.0, TRACK_COAST = 7.0;
+const TRACK_ACCEL = 10.0, TRACK_DECEL = 16.0, TRACK_COAST = 20.0;
 let prevTargetLeft = 0, prevTargetRight = 0; // 上一帧目标：检测摇杆穿中换向
 const PITCH_GAIN = 0.015, PITCH_MAX = 0.09, PITCH_SMOOTH = 8.0;
 // RECOIL_PITCH 等火炮物理常量 → shells.js
@@ -1549,6 +1571,15 @@ function getBarrelWorldDir(player) {
 function updateAiming(player, dt) {
     if (!player || player.dead || !player.turretPivot || !player.barrelPivot) return;
 
+    // ── 车体转向即时补偿 (WoT式稳定器): 车体转多少, 炮塔反向转多少, 维持世界朝向 ──
+    const hullYaw = player.state.yaw;
+    if (player._prevHullYaw !== undefined) {
+        const hullDyaw = hullYaw - player._prevHullYaw;
+        // 处理 ±π 跳变
+        player.turretYaw += hullDyaw;
+    }
+    player._prevHullYaw = hullYaw;
+
     const maxDown = 25 * Math.PI / 180;
     const maxUp = -10 * Math.PI / 180;
 
@@ -1586,7 +1617,14 @@ function updateAiming(player, dt) {
         const screenPos = new THREE.Vector2(ndcX, ndcY);
         aimRaycaster.setFromCamera(screenPos, camera);
         const groundHits = aimRaycaster.intersectObject(groundMesh);
-        const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
+        const aimTargets = obstacleMeshes.slice();
+        for (let ei = 0; ei < enemies.length; ei++) {
+            const en = enemies[ei]; if (!en || !en.visible) continue;
+            if (en.cfg && en.cfg.type === 'hexapod') {
+                en.traverse(function(c) { if (c.isMesh) { const pn = (c.parent && c.parent.name) || ''; if (pn.indexOf('腿') < 0 && pn.indexOf('脚踝') < 0) aimTargets.push(c); } });
+            } else { aimTargets.push(en); }
+        }
+        const obsHits = aimRaycaster.intersectObjects(aimTargets, true);
 
         let targetAim = null;
         let hitObs = false;
@@ -1628,7 +1666,7 @@ function updateAiming(player, dt) {
                 const obsRc = new THREE.Raycaster();
                 obsRc.set(barrelPos, obsDir);
                 obsRc.far = dist + 1.0;
-                const obsInt = obsRc.intersectObjects(obstacleMeshes, true);
+                const obsInt = obsRc.intersectObjects(aimTargets, true);
 
                 if (obsInt.length === 0) {
                     aimValid = true;
@@ -1688,7 +1726,7 @@ function updateAiming(player, dt) {
 
     player.barrelElevation = Math.max(maxUp, Math.min(maxDown, player.barrelElevation));
     if (useGamepad) {
-        crosshairEl.style.display = 'none';
+        crosshairEl.style.display='none';var rr=document.getElementById('reload-ring');if(rr)rr.style.display='none';
         document.body.style.cursor = '';
     } else {
         crosshairEl.style.display = 'block';
@@ -1708,7 +1746,7 @@ function updateTrajectoryLine(player) {
     }
     if (!trajDot || !trajDot.parent) {
         if (trajDot) { trajDot.geometry.dispose(); trajDot.material.dispose(); trajDot = null; }
-        trajDot = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.7, depthTest: true }));
+        trajDot = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.7, depthTest: false }));
         trajDot.visible = false;
         scene.add(trajDot);
     }
@@ -1742,10 +1780,12 @@ function updateTrajectoryLine(player) {
         for (const en of enemies) {
             if (!en || !en.visible) continue;
             if (en.ai && en.ai.state === 'dead') continue;
-            hitTargets.push(en);
+            // 六足用包围柱检测(避免腿mesh截断射线), 其他敌人用完整mesh
+            const isHex = (en.cfg && en.cfg.type === 'hexapod');
+            if (!isHex) hitTargets.push(en);
             const isZombie = (en.cfg && en.cfg.type === 'zombie');
-            const eR = isZombie ? 0.4 : 1.0;
-            const eH = isZombie ? 1.8 : 0.8;
+            const eR = isZombie ? 0.4 : (isHex ? 1.0 : 1.0);
+            const eH = isZombie ? 1.8 : (isHex ? 2.0 : 0.8);
             enemyDefs.push({ x: en.position.x, z: en.position.z, y: en.position.y, radius: eR, height: eH, groupRef: en });
         }
     }
@@ -1867,6 +1907,18 @@ function gameLoop() {
     camera.updateProjectionMatrix();
 
     const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
+    // ── 首次进入游戏时请求指针锁定 ──
+    if (!_pointerLocked && gameMode !== 'menu' && !useGamepad) {
+        gameContainer.requestPointerLock();
+    }
+    // 锁定模式: X固定正中, Y由movementY累积驱动(虚拟准星)
+    if (_pointerLocked) {
+        mouseX = window.innerWidth / 2;
+        mouseY = _virtualMouseY;
+        crosshairEl.style.left = mouseX + 'px';
+        crosshairEl.style.top = mouseY + 'px';
+    }
+    updateReloadRing(reloadTimer, RELOAD_TIME);
     visibilityTimer += dt;
     // ── 训练场重生处理 ──
     if (isTrainingMode) _processTrainingRespawn(dt);
@@ -1876,27 +1928,6 @@ function gameLoop() {
     let { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = (isGameOver || playerDead) ? { left: 0, right: 0, forward: 0, strafe: 0 } : getDriveInput();
     if (playerDead) { currentLeftSpeed = 0; currentRightSpeed = 0; }
 
-    // ── 转向增量递增: 转向归零后重新输入时, 0.5秒内从0.5倍递增到最大 ──
-    var turnDiff = Math.abs(targetLeft - targetRight);
-    if (!window._turnRamp) window._turnRamp = { timer: 0, active: false };
-    if (turnDiff < 0.02) {
-        window._turnRamp.idleTimer = (window._turnRamp.idleTimer || 0) + dt;
-        if (window._turnRamp.idleTimer > 0.3) { window._turnRamp.active = true; window._turnRamp.timer = 0; }
-    } else {
-        window._turnRamp.idleTimer = 0;
-        if (window._turnRamp.active) {
-            window._turnRamp.timer = Math.min(0.5, window._turnRamp.timer + dt); // 0.5秒递增到满
-            var rampFactor = 0.5 + window._turnRamp.timer / 0.5 * 0.5; // 0.5→1.0 over 0.5s
-            if (rampFactor < 1.0) {
-                var fwdPart = (targetLeft + targetRight) / 2;
-                var turnPart = (targetLeft - targetRight) / 2;
-                turnPart *= rampFactor;
-                targetLeft = fwdPart + turnPart;
-                targetRight = fwdPart - turnPart;
-            }
-            if (window._turnRamp.timer >= 0.5) window._turnRamp.active = false;
-        }
-    }
 
     // ── 倒车转向反转（基于实际速度而非摇杆输入）──
     const actualFwd = (currentLeftSpeed + currentRightSpeed) / 2;
@@ -1970,6 +2001,21 @@ function gameLoop() {
     for (let iter = 0; iter < 3; iter++) {
         const result = checkCollision(newX, newZ);
         if (result.hit) { newX += result.pushX; newZ += result.pushZ; } else break;
+    }
+    // ── 与敌人碰撞 ──
+    const pRad = TANK_HALF_W;
+    for (let ei = 0; ei < enemies.length; ei++) {
+        const en = enemies[ei];
+        if (!en || !en.visible || en.dead) continue;
+        const eRad = (en.cfg && en.cfg.type === 'zombie') ? 0.4 : (en.cfg && en.cfg.type === 'hexapod') ? 0.6 : ENEMY_HALF_W;
+        const dx = newX - en.position.x, dz = newZ - en.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const minDist = pRad + eRad;
+        if (dist < minDist && dist > 0.001) {
+            const overlap = minDist - dist;
+            newX += (dx / dist) * overlap;
+            newZ += (dz / dist) * overlap;
+        }
     }
     // 空气墙（矩形世界边界，X/Z分别钳制）
     const wallMargin = TANK_HALF_W;
@@ -2092,6 +2138,7 @@ function gameLoop() {
                 player1.mgGroup.rotation.y = player1.mgYaw;
                 player1.mgGroup.rotation.x = player1.mgElev;
             }
+            tankGroup.updateMatrixWorld(); // 刷新炮塔/炮管子节点世界矩阵
         }
     }
 
@@ -2229,6 +2276,39 @@ function gameLoop() {
                     window._obstacleGrid.remove(od);
                 }
                 hit = true; break;
+            }
+        }
+
+        // ── 炮弹 vs 敌人碰撞 (扫掠球-圆柱) ──
+        if (!hit) {
+            const prevY2 = prevPos.y, currY2 = s.mesh.position.y;
+            for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                const en = enemies[ei];
+                if (!en || !en.visible || en.dead) continue;
+                const eR = (en.cfg && en.cfg.type === 'zombie') ? 0.4 : (en.cfg && en.cfg.type === 'hexapod') ? 1.0 : ENEMY_HALF_W;
+                const eH = (en.cfg && en.cfg.type === 'zombie') ? 1.8 : (en.cfg && en.cfg.type === 'hexapod') ? 2.0 : 0.8;
+                const ey = en.position.y, cr = shellR + eR;
+                if (currY2 > ey + eH + 0.3 && prevY2 > ey + eH + 0.3) continue;
+                if (currY2 < ey - 0.3 && prevY2 < ey - 0.3) continue;
+                const ox = en.position.x, oz = en.position.z;
+                const px = prevPos.x, pz = prevPos.z;
+                const vx = s.mesh.position.x - px, vz = s.mesh.position.z - pz;
+                if (vx * vx + vz * vz < 0.0001) continue;
+                const dx0 = px - ox, dz0 = pz - oz;
+                const a2 = vx * vx + vz * vz, b2 = 2 * (dx0 * vx + dz0 * vz), c2 = dx0 * dx0 + dz0 * dz0 - cr * cr;
+                const d2 = b2 * b2 - 4 * a2 * c2;
+                if (d2 >= 0) {
+                    const sq2 = Math.sqrt(d2), t1 = (-b2 - sq2) / (2 * a2), t2 = (-b2 + sq2) / (2 * a2);
+                    if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1)) {
+                        const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
+                        const hitY = prevY2 + (currY2 - prevY2) * tHit;
+                        if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
+                            en.hp -= s.damage || SHELL_DAMAGE; if (en.hp < 0) en.hp = 0; hit = true;
+                            spawnHitSparks(new THREE.Vector3(ox + (px + vx * tHit - ox) * 0.5, hitY, oz + (pz + vz * tHit - oz) * 0.5)); playHitSound();
+                            if (en.hp <= 0) { en.dead = true; spawnFragments(new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z), '#4a5c2e'); playExplosionSound(); en.visible = false; }
+                        }
+                    }
+                }
             }
         }
 
@@ -2549,7 +2629,16 @@ function gameLoop() {
     // ── 装填计时器 + 进度条 ──
     if (player1 && player1.reloadTimer > 0) {
         player1.reloadTimer -= dt;
-        if (player1.reloadTimer < 0) player1.reloadTimer = 0;
+        if (player1.reloadTimer <= 0) {
+            player1.reloadTimer = 0;
+            // 手柄装填完成短震
+            if (useGamepad) {
+                const gp = getGamepad();
+                if (gp && gp.vibrationActuator) {
+                    try { gp.vibrationActuator.playEffect('dual-rumble', { duration: 150, strongMagnitude: 0.6, weakMagnitude: 0.3 }); } catch(e) {}
+                }
+            }
+        }
     }
     // 同步全局引用（向后兼容）
     reloadTimer = player1 ? player1.reloadTimer : 0;
@@ -2635,6 +2724,7 @@ function gameLoop() {
                 player1.hp -= hb.damage || 3;
                 if (player1.hp < 0) player1.hp = 0;
                 player1.ai = player1.ai || {}; player1.ai.hitFlash = 0.1;
+                if (typeof playHitSound === 'function') playHitSound();
                 if (player1.hp <= 0) {
                     if (isTrainingMode) { _killPlayerInTraining(); }
                     else { player1.dead = true; player1.group.visible = false; togglePlayerBars(player1, false); }
@@ -2693,6 +2783,8 @@ function gameLoop() {
         }
         // 爆炸条件: 命中/超时3.5s/撞地
         if (hitPlayer || hm.age > 3.5 || hm.pos.y < getGroundHeight(hm.pos.x, hm.pos.z) + 0.3) {
+            if (hitPlayer && typeof playHeExplosionSound === 'function') playHeExplosionSound();
+            else if (typeof playExplosionSound === 'function') playExplosionSound();
             // 爆炸光
             var expLight = new THREE.PointLight('#ff8822', 15, hm.blastRadius * 3, 2);
             expLight.position.copy(hm.pos); expLight.position.y += 0.5; scene.add(expLight);
@@ -3210,6 +3302,22 @@ function gameLoop() {
                     else hai._missileAmmoR = _sideAmmo - 1;
                     spawnHexapodMissile(enemy, player1, hai);
                 }
+                // ── 碰撞包围柱可视化 (F4切换) ──
+                if (window._showHexColliders) {
+                    var dc = enemy.userData._dbgCollider;
+                    if (!dc) {
+                        var dGeo = new THREE.CylinderGeometry(1.0, 1.0, 2.0, 16, 1, true);
+                        var dMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true, depthTest: false });
+                        dc = new THREE.Mesh(dGeo, dMat);
+                        dc.renderOrder = 9999;
+                        scene.add(dc);
+                        enemy.userData._dbgCollider = dc;
+                    }
+                    dc.position.copy(enemy.position); dc.position.y += 1.0;
+                    dc.visible = true;
+                } else if (enemy.userData._dbgCollider) {
+                    enemy.userData._dbgCollider.visible = false;
+                }
             }
         }
 
@@ -3328,7 +3436,7 @@ function gameLoop() {
 }
 
 // ==================== 摄像机 ====================
-// 摄像机始终锁定在坦克正后方（前进方向即视角正前方）
+// 摄像机跟随鼠标横轴（独立于车身/炮塔），避免车身转向导致视角剧烈变化
 // 摄像机参数（单人模式×0.5，双人模式×0.7）
 const CAMERA_BEHIND = 14.625;  // 后方距离（距坦克够远）
 const CAMERA_ABOVE = 10.0;    // 上方高度（俯角~31°，平衡视野开阔与不看到天空）
@@ -3336,25 +3444,63 @@ const CAMERA_BEHIND_VS = 14.4; // 双人模式后方距离
 const CAMERA_ABOVE_VS = 9.5;  // 双人模式上方高度
 const CAMERA_LOOK_Y = 2.5;     // lookAt 高度-单人模式（抬高视线，坦克下移到下1/3处）
 const CAMERA_LOOK_Y_VS = 2.8;   // lookAt 高度-双人模式
+const CAMERA_MOUSE_SENSITIVITY = 0.004; // 鼠标灵敏度 (rad/px)
+let cameraYaw = 0; // 摄像机偏航角，由鼠标横轴累积驱动
+
+// ── 装填环: 准星周围小圆点顺时针走满一圈 ──
+function updateReloadRing(timer, total) {
+    const ring = document.getElementById('reload-ring');
+    if (!ring) return;
+    if (timer <= 0 || total <= 0) { ring.style.display = 'none'; return; }
+    ring.style.display = 'block';
+    ring.style.left = mouseX + 'px';
+    ring.style.top = mouseY + 'px';
+    const ctx = ring.getContext('2d');
+    const cx = 24, cy = 24, r = 18, dotR = 2.5;
+    ctx.clearRect(0, 0, 48, 48);
+    const progress = 1 - timer / total;
+    const totalDots = 12;
+    for (let i = 0; i < totalDots; i++) {
+        // 12点方向开始, 顺时针
+        const angle = -Math.PI / 2 + (i / totalDots) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        const dotProgress = i / totalDots;
+        ctx.beginPath();
+        ctx.arc(x, y, dotR, 0, Math.PI * 2);
+        if (dotProgress < progress) {
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        }
+        ctx.fill();
+    }
+}
 
 function placeCamera() {
     if (window._godMode) return;
-    const fx = Math.cos(tankState.yaw);
-    const fz = Math.sin(tankState.yaw);
+    // 摄像机方向由 cameraYaw 决定（鼠标横轴驱动，与车身/炮塔解耦）
+    const cfx = Math.cos(cameraYaw);
+    const cfz = Math.sin(cameraYaw);
+
     const groundY = getGroundHeight(tankGroup.position.x, tankGroup.position.z);
     let shakeX = 0, shakeY = 0, shakeZ = 0;
     if (combatShakeTimer > 0) {
-        const shakeMag = combatShakeTimer * 0.5;  // 最大震动幅度 0.5×0.12=0.06
+        const shakeMag = combatShakeTimer * 0.5;
         shakeX = (Math.random() - 0.5) * shakeMag * 2;
         shakeY = (Math.random() - 0.5) * shakeMag * 2;
         shakeZ = (Math.random() - 0.5) * shakeMag * 2;
     }
     camera.position.set(
-        tankGroup.position.x - fx * CAMERA_BEHIND + shakeX,
+        tankGroup.position.x - cfx * CAMERA_BEHIND + shakeX,
         groundY + CAMERA_ABOVE + shakeY,
-        tankGroup.position.z - fz * CAMERA_BEHIND + shakeZ
+        tankGroup.position.z - cfz * CAMERA_BEHIND + shakeZ
     );
-    camera.lookAt(tankGroup.position.x, groundY + CAMERA_LOOK_Y, tankGroup.position.z);
+    camera.lookAt(
+        tankGroup.position.x + cfx * 8,
+        groundY + CAMERA_LOOK_Y,
+        tankGroup.position.z + cfz * 8
+    );
 }
 
 // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
@@ -3386,6 +3532,14 @@ function getInputForPlayer(pNum) {
 
 function updateAimingForVs(p, dt) {
     if (!p || p.dead || !p.turretPivot || !p.barrelPivot) return;
+
+    // ── 车体转向即时补偿 ──
+    const hullYaw = p.state.yaw;
+    if (p._prevHullYaw !== undefined) {
+        const hullDyaw = hullYaw - p._prevHullYaw;
+        p.turretYaw += hullDyaw;
+    }
+    p._prevHullYaw = hullYaw;
 
     const maxDown = 25 * Math.PI / 180;
     const maxUp = -10 * Math.PI / 180;
@@ -3427,7 +3581,7 @@ function updateAimingForVs(p, dt) {
         );
         aimRaycaster.setFromCamera(mouseNDC, cam);
         const groundHits = aimRaycaster.intersectObject(groundMesh);
-        const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
+        const aimTgts = obstacleMeshes.slice(); for(let ei=0;ei<enemies.length;ei++){const en=enemies[ei];if(!en||!en.visible)continue;if(en.cfg&&en.cfg.type==='hexapod'){en.traverse(function(c){if(c.isMesh){const pn=(c.parent&&c.parent.name)||'';if(pn.indexOf('腿')<0&&pn.indexOf('脚踝')<0)aimTgts.push(c);}})}else{aimTgts.push(en);}}const obsHits=aimRaycaster.intersectObjects(aimTgts,true);
 
         let targetAim = null;
         let hitObsVs = false;
@@ -3561,7 +3715,7 @@ function updatePlayerPhysics(p, dt, tL, tR) {
     p.leftWheelAngle+=p.currentLeftSpeed*dt/WR;p.rightWheelAngle+=p.currentRightSpeed*dt/WR;
     p.leftWheels.forEach(w=>w.rotation.x=p.leftWheelAngle);
     p.rightWheels.forEach(w=>w.rotation.x=p.rightWheelAngle);
-    if(p.reloadTimer>0){p.reloadTimer-=dt;if(p.reloadTimer<0)p.reloadTimer=0;}
+    if(p.reloadTimer>0){p.reloadTimer-=dt;if(p.reloadTimer<=0){p.reloadTimer=0;const gp2=getGamepad();if(gp2&&gp2.vibrationActuator)try{gp2.vibrationActuator.playEffect('dual-rumble',{duration:150,strongMagnitude:0.6,weakMagnitude:0.3})}catch(e){}}}
 }
 
 // togglePlayerBars / updateBarsForCamera → bars.js
@@ -4020,6 +4174,8 @@ function spawnHexapodGatlingBullet(enemy, player1, ai) {
         startPos: startPos, damage: ai.gatlingDamage || 3, enemy: enemy };
     hexapodBullets = hexapodBullets || [];
     hexapodBullets.push(bulletData);
+    // 加特林开火音效
+    if (typeof playMGShotSound === 'function') playMGShotSound();
 }
 
 // ─── 六足战车导弹发射 (追踪型: 先沿纵轴上仰→有限转向率追踪玩家) ───
@@ -4075,6 +4231,8 @@ function spawnHexapodMissile(enemy, player1, ai) {
     };
     hexapodMissiles = hexapodMissiles || [];
     hexapodMissiles.push(missileData);
+    // 导弹发射音效 (嗖——)
+    if (typeof playMissileLaunchSound === 'function') playMissileLaunchSound();
 }
 
 // ─── 训练场坦克敌人炮击（完整视效+音效）───
@@ -4545,7 +4703,7 @@ function versusGameLoop() {
         );
         aimRaycaster.setFromCamera(mouseNDC, camera);
         const groundHits = aimRaycaster.intersectObject(groundMesh);
-        const obsHits = aimRaycaster.intersectObjects(obstacleMeshes, true);
+        const aimTgts = obstacleMeshes.slice(); for(let ei=0;ei<enemies.length;ei++){const en=enemies[ei];if(!en||!en.visible)continue;if(en.cfg&&en.cfg.type==='hexapod'){en.traverse(function(c){if(c.isMesh){const pn=(c.parent&&c.parent.name)||'';if(pn.indexOf('腿')<0&&pn.indexOf('脚踝')<0)aimTgts.push(c);}})}else{aimTgts.push(en);}}const obsHits=aimRaycaster.intersectObjects(aimTgts,true);
         
         let targetAim = null;
         if (groundHits.length > 0) targetAim = groundHits[0].point.clone();
@@ -4560,13 +4718,14 @@ function versusGameLoop() {
                 const obsDir = diff.clone().normalize();
                 const obsRc = new THREE.Raycaster();
                 obsRc.set(barrelPos, obsDir);
-                const obsInt = obsRc.intersectObjects(obstacleMeshes, true);
+                const obsInt = obsRc.intersectObjects(aimTgts, true);
                 const blockers = obsInt.filter(h => h.distance < dist - 1.5);
                 if (blockers.length === 0) p1AimValid = true;
             }
         }
     }
     crosshairEl.style.color = p1AimValid ? '#00ff00' : '#ff3333';
+    if (player1) updateReloadRing(player1.reloadTimer || 0, RELOAD_TIME);
     updateTrajectoryLine(player2);
     updateShellsFragsMuzzle(dt);
     if(visibilityTimer>.3){updateObstacleVisibility([player2.state]);updateGrassVisibility([player2.state]);visibilityTimer=0;}
@@ -4653,7 +4812,19 @@ function versusGameLoop() {
     animationId=requestAnimationFrame(versusGameLoop);
 }
 
-function placeCameraFor(p,cam){if(window._godMode)return;const fx=Math.cos(p.state.yaw),fz=Math.sin(p.state.yaw);const gy=getGroundHeight(p.state.x,p.state.z);cam.position.set(p.state.x-fx*CAMERA_BEHIND_VS,gy+CAMERA_ABOVE_VS,p.state.z-fz*CAMERA_BEHIND_VS);cam.lookAt(p.state.x,gy+CAMERA_LOOK_Y_VS,p.state.z);}
+function placeCameraFor(p, cam) {
+    if (window._godMode) return;
+    // P1 用鼠标横轴 (cameraYaw), P2 用车身朝向
+    let cfx, cfz;
+    if (p === player1 && gameMode === 'versus') {
+        cfx = Math.cos(cameraYaw); cfz = Math.sin(cameraYaw);
+    } else {
+        cfx = Math.cos(p.state.yaw); cfz = Math.sin(p.state.yaw);
+    }
+    const gy = getGroundHeight(p.state.x, p.state.z);
+    cam.position.set(p.state.x - cfx * CAMERA_BEHIND_VS, gy + CAMERA_ABOVE_VS, p.state.z - cfz * CAMERA_BEHIND_VS);
+    cam.lookAt(p.state.x + cfx * 8, gy + CAMERA_LOOK_Y_VS, p.state.z + cfz * 8);
+}
 
 function updateShellsFragsMuzzle(dt) {
     for(let i=shells.length-1;i>=0;i--){const s=shells[i];
@@ -4699,6 +4870,31 @@ function updateShellsFragsMuzzle(dt) {
                     window._obstacleGrid.remove(od);
                 }
                 hit=true;break;}}
+        // ── 炮弹 vs 敌人碰撞 (扫掠球-圆柱, 防高速跳过) ──
+        if(!hit){for(let ei2=enemies.length-1;ei2>=0;ei2--){const en=enemies[ei2];
+            if(!en||!en.visible||en.dead)continue;
+            const eR=(en.cfg&&en.cfg.type==='zombie')?.4:(en.cfg&&en.cfg.type==='hexapod')?1.0:ENEMY_HALF_W;
+            const eH=(en.cfg&&en.cfg.type==='zombie')?1.8:(en.cfg&&en.cfg.type==='hexapod')?2.0:.8;
+            const ey=en.position.y, cR=sR+eR, oTL=ey+eH+.3;
+            const prevY=prevPos.y, currY=s.mesh.position.y;
+            if(currY>oTL&&prevY>oTL)continue;
+            if(currY<ey-.3&&prevY<ey-.3)continue;
+            const ox=en.position.x, oz=en.position.z;
+            const px=prevPos.x, pz=prevPos.z;
+            const vx=s.mesh.position.x-px, vz=s.mesh.position.z-pz; if(vx*vx+vz*vz<.0001)continue;
+            const dx0=px-ox, dz0=pz-oz;
+            const a=vx*vx+vz*vz, b=2*(dx0*vx+dz0*vz), c=dx0*dx0+dz0*dz0-cR*cR;
+            const disc=b*b-4*a*c;
+            if(disc>=0){const sq=Math.sqrt(disc), t1=(-b-sq)/(2*a), t2=(-b+sq)/(2*a);
+                if((t1>=0&&t1<=1)||(t2>=0&&t2<=1)||(t1<0&&t2>1)){
+                    const tHit=Math.max(0,Math.min(1,t1>=0&&t1<=1?t1:t2));
+                    const hitY=prevY+(currY-prevY)*tHit;
+                    if(hitY>ey-.3&&hitY<ey+eH+.3){
+                        en.hp-=s.damage||SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
+                        spawnHitSparks(new THREE.Vector3(ox+(px+vx*tHit-ox)*.5,hitY,oz+(pz+vz*tHit-oz)*.5));playHitSound();
+                        if(en.hp<=0){en.dead=true;
+                            spawnFragments(new THREE.Vector3(en.position.x,en.position.y+1,en.position.z),'#4a5c2e');
+                            playExplosionSound();en.visible=false;}}}}}}
         if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
             if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
                 if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.8){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
@@ -4895,6 +5091,7 @@ async function enterGame() {
         return;
     }
     gameMode='single';isVersusMap=false;currentShellType='ap';
+    cameraYaw = player1 ? player1.state.yaw : 0;
     menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
     splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
     crosshairEl.style.display = 'block';
@@ -5062,6 +5259,7 @@ function updateDebugInfo() {
 }
 
 function returnToMenu() {
+    if (document.pointerLockElement) document.exitPointerLock();
     if (window._godMode) {
         window._godMode = false;
         scene.fog = window._godSavedFog;
@@ -5076,7 +5274,7 @@ function returnToMenu() {
     gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
     splitLine.style.display='none';versusResult.style.display='none';
     arrowP1.style.display='none';arrowP2.style.display='none';
-    crosshairEl.style.display = 'none';
+    crosshairEl.style.display='none';var rr=document.getElementById('reload-ring');if(rr)rr.style.display='none';
     document.body.style.cursor = '';
     mouseDown = false;
     useGamepad = false;
@@ -5153,6 +5351,7 @@ async function enterTrainingMode() {
         return;
     }
     gameMode = 'training'; isTrainingMode = true; isVersusMap = false; currentShellType = 'ap';
+    cameraYaw = player1 ? player1.state.yaw : 0;
     const playerSpawnX = -50, playerSpawnZ = 0;
     const enemySpawnX = 50, enemySpawnZ = 0;
     trainingPlayerSpawn = { x: playerSpawnX, z: playerSpawnZ };
@@ -5262,7 +5461,7 @@ async function enterTrainingMode() {
         type: realEnemyType,
         id: 'training_enemy',
         hp: enemyHP || 60,
-        speed: isTankEnemy ? 3.5 : (enemySpeed || 5.0),
+        speed: isTankEnemy ? 3.5 : (isHexEnemy ? 4.5 : (enemySpeed || 5.0)),
         viewDist: 80,
         attackDamage: 15,
         attackCooldown: realEnemyType === 'zombie' ? 1.5 : isHexEnemy ? 0.1 : 3.0,
@@ -5275,11 +5474,11 @@ async function enterTrainingMode() {
         flameRange: (isTankEnemy || isHexEnemy) ? 55 : 12,
         canFlee: false,
         // 六足专属参数（非六足敌人忽略）
-        turnRate: isHexEnemy ? 1.5 : undefined,
+        turnRate: isHexEnemy ? 2.0 : undefined,
         spinUpTime: isHexEnemy ? 0.8 : undefined,
         overheatMax: isHexEnemy ? 100 : undefined,
         heatPerSec: isHexEnemy ? 25 : undefined,
-        coolPerSec: isHexEnemy ? 15 : undefined,
+        coolPerSec: isHexEnemy ? 18 : undefined,
         spreadCone: isHexEnemy ? 3 : undefined,
         gatlingRange: isHexEnemy ? 30 : undefined,
         missileRange: isHexEnemy ? 40 : undefined,
@@ -5677,7 +5876,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.58.0 | 六足动画重构: hexapod_core统一CCD IK, 模型工厂+游戏共享, ANIM_TABLE数据打通');
+console.log('⚡ 坦克运动demo v0.59.0 | 摄像机鼠标驱动+WoT稳定器+六足绕圈AI+敌我碰撞+装填环');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
