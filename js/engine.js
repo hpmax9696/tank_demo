@@ -4652,6 +4652,11 @@ function showGameOverScreen() {
     
     goOverlay.classList.add('active');
     hintBar.textContent = '';
+    // 释放指针锁+显示光标, 允许点击按钮
+    if (document.pointerLockElement) document.exitPointerLock();
+    document.body.style.cursor = '';
+    crosshairEl.style.display = 'none';
+    var rr = document.getElementById('reload-ring'); if (rr) rr.style.display = 'none';
 }
 
 function hideGameOverScreen() {
