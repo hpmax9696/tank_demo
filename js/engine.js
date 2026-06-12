@@ -1571,14 +1571,12 @@ function getBarrelWorldDir(player) {
 function updateAiming(player, dt) {
     if (!player || player.dead || !player.turretPivot || !player.barrelPivot) return;
 
-    // ── 车体转向即时补偿 (WoT式稳定器): 车体转多少, 炮塔反向转多少, 维持世界朝向 ──
+    // ── 车体转向即时补偿 (WoT式稳定器): 车体转多少, 炮塔反向补偿 ──
     const hullYaw = player.state.yaw;
-    if (player._prevHullYaw !== undefined) {
-        const hullDyaw = hullYaw - player._prevHullYaw;
-        // 处理 ±π 跳变
-        player.turretYaw += hullDyaw;
-    }
+    const hullDyaw = (player._prevHullYaw !== undefined) ? (hullYaw - player._prevHullYaw) : 0;
     player._prevHullYaw = hullYaw;
+    // 稳定器先统一应用, 手柄右摇杆在下方叠加
+    player.turretYaw += hullDyaw;
 
     const maxDown = 25 * Math.PI / 180;
     const maxUp = -10 * Math.PI / 180;
@@ -1604,10 +1602,16 @@ function updateAiming(player, dt) {
         const gpyA = gp.axes[3] || 0;
         const gpyB = gp.axes[5] || 0;
         const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
-        const turretSpeed = stickToTarget(-gpx) * turretAngVel;
-        player.turretYaw += turretSpeed * dt;
+        // 右摇杆X叠加在稳定器之上: turretYaw += hullDyaw(稳定器) + stick(右摇杆)
+        player.turretYaw += stickToTarget(-gpx) * turretAngVel * dt;
+        // 右摇杆激活时: 视角始终跟随炮管世界朝向
+        if (Math.abs(gpx) > 0.08) {
+            const barrelDir = getBarrelWorldDir(player);
+            cameraYaw = Math.atan2(barrelDir.z, barrelDir.x);
+        }
         if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
         if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+        // 右摇杆Y: 炮管俯仰
         const barrelSpeed = stickToTarget(-gpy) * barrelAngVel;
         const newElev = player.barrelElevation + barrelSpeed * dt;
         player.barrelElevation = Math.max(maxUp, Math.min(maxDown, newElev));
@@ -3254,6 +3258,8 @@ function gameLoop() {
             // ── 六足战车武器与视觉系统（独立于动画引擎，始终运行）──
             if (enemy.cfg && enemy.cfg.type === 'hexapod') {
                 const hai = enemy.ai;
+                // 已死亡: 停止一切武器发射（防止虚空加特林/导弹）
+                if (enemy.dead || hai.state === 'dead') continue;
                 const skel = enemy.userData._skeletonGroup;
                 const cyl = enemy.userData._lodCylinder;
                 // LOD
@@ -4251,8 +4257,8 @@ function fireEnemyTrainingShell(enemy) {
         muzzlePos = enemy.position.clone(); muzzlePos.y += 1.5;
         barrelDir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
     }
-    // 微小散布 ±2°
-    var spread = 0.035;
+    // 敌方散布 ±4° (模拟AI瞄准误差, 玩家无散布)
+    var spread = 0.07;
     barrelDir.x += (Math.random() - 0.5) * spread;
     barrelDir.z += (Math.random() - 0.5) * spread;
     barrelDir.normalize();
@@ -5881,7 +5887,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.59.0 | 摄像机鼠标驱动+WoT稳定器+六足绕圈AI+敌我碰撞+装填环');
+console.log('⚡ 坦克运动demo v0.59.1 | 手柄视角同步+稳定器叠加修复+六足武器死亡清理+敌方平衡');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

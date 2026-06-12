@@ -130,7 +130,7 @@
 
         const curAngle = tp.rotation.y;
         const ad = angleDiff(curAngle, localTargetAngle);
-        const step = Math.min(Math.abs(ad), (turnSpeed || 3.0) * dt) * Math.sign(ad);
+        const step = Math.min(Math.abs(ad), (turnSpeed || 1.0) * dt) * Math.sign(ad);
         tp.rotation.y += step;
         return Math.abs(ad) < 0.1; // 是否已瞄准
     }
@@ -179,7 +179,7 @@
         // 追击用全速（速度×1.3，比巡逻/绕圈更快）
         moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
         // 追击过程中炮塔跟踪玩家, 接近后即可开火
-        ai._turretAimed = aimTurretAt(enemy, pp, dt, 3.0);
+        ai._turretAimed = aimTurretAt(enemy, pp, dt, 1.5); // 炮塔转速对齐玩家体验(≈86°/s, 玩家30°/s)
         ai.lastSeenPlayerPos = pp.clone();
     }
 
@@ -239,7 +239,7 @@
         if (ai.strafeTimer > 2.5) { ai.strafeDir *= -1; ai.strafeTimer = 0; }
 
         // 3. 炮塔独立瞄准玩家
-        const aimed = aimTurretAt(enemy, pp, dt, 4.0);
+        const aimed = aimTurretAt(enemy, pp, dt, 1.5); // 炮塔转速对齐玩家体验
         ai._turretAimed = aimed; // 训练场用: 炮塔是否已对准
 
         // 喷火器开火

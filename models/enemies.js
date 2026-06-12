@@ -1307,6 +1307,15 @@
             }
         });
         root.userData._legJoints = legJoints;
+        // ── 武器原始父引用 (修复多次复活后_death_wp_*累积嵌套) ──
+        var weaponParents = {};
+        ['左加特林','右加特林','左导弹巢','右导弹巢'].forEach(function(name) {
+            var wg = root.getObjectByName(name);
+            if (wg && wg.parent) {
+                weaponParents[name] = { parent: wg.parent, localPos: wg.position.clone(), localQuat: wg.quaternion.clone(), localScale: wg.scale.clone() };
+            }
+        });
+        root.userData._weaponParents = weaponParents;
         return root;
     }
 

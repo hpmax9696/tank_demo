@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.1
 
 ## 运行
 
@@ -65,6 +65,25 @@ python -m http.server 8080 --bind 127.0.0.1
 - `tankGroup.rotation.y = π/2 - state.yaw`，世界炮塔 = `tankGroup.rotation.y + turretYaw`
 - 车体 yaw 增加 → tankGroup Y 减小 → turretYaw 需增加等量补偿
 - 补偿不计入 `turretAngVel` 限速，瞬间完成
+
+## 手柄视角+炮塔 (v0.59.1)
+
+- **右摇杆X叠加模型**: `turretYaw += hullDyaw(稳定器) + stickToTarget(-gpx)*rate*dt(右摇杆)` — 两者叠加不互搏
+  - 例: 左摇杆右转30°/s, 右摇杆右推50°/s → 炮塔相对车体右转20°/s, 世界右转50°/s
+- **视角同步**: 右摇杆激活时 `cameraYaw = atan2(barrelDir.z, barrelDir.x)` 每帧跟踪炮管世界朝向, 瞄准线始终居中
+- **右摇杆方向**: `stickToTarget(gpx)` 驱动cameraYaw (右推→视角右转). 炮塔turretYaw使用`stickToTarget(-gpx)`取反 (Three.js右手定则)
+- **稳定器互搏已解决**: 初版尝试过世界空间转换/反馈纠偏等方案, 最终回归简单叠加模型
+
+## 敌方坦克平衡 (v0.59.1)
+
+- **炮塔转速**: `aimTurretAt()` 的 turnSpeed 从 3.0/4.0 rad/s (172~229°/s) 降为 1.5 rad/s (86°/s), 默认值 3.0→1.0
+- **炮弹散布**: `fireEnemyTrainingShell` 散布从 spread=0.035(≈2°) 扩大为 0.07(≈4°)
+
+## 六足死亡武器清理 (v0.59.1)
+
+- **死亡护栏**: 六足武器代码入口(`engine.js:3268`)增加 `if (enemy.dead || hai.state==='dead') continue`
+- **复活枢轴清理**: `HexapodEnemy.init()` 开头: ①调用`_deathEnd(oldCtx)`清理旧context的武器垂下枢轴 ②利用`_weaponParents`递归清除所有残留`_death_wp_*`节点
+- **createHexapod保存父引用**: `root.userData._weaponParents` 记录武器原始parent+localTransform
 
 ## 核心全局变量
 

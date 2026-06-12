@@ -15,6 +15,42 @@ var HexapodEnemy = (function() {
   // ═══════════════════════════════════════════
   function init(enemyGroup) {
     var root = enemyGroup;
+    // ── 清理旧死亡动画残留的武器枢轴 (修复多次复活后 _death_wp_* 累积嵌套) ──
+    // 根因: 死亡动画1.52s > 重生延迟1.0s, init()先于_deathEnd执行,
+    //       旧context被丢弃, _death_wp_*枢轴永不被清理, 每轮嵌套累积
+    var oldCtx = root.userData._hexAnimState;
+    if (oldCtx && oldCtx.deathState && oldCtx.deathState.weaponPivots) {
+      CORE._deathEnd(oldCtx);
+    }
+    // 兜底: 利用 createHexapod 保存的原始父引用, 递归清除所有残留 _death_wp_* 节点
+    var weaponParents = root.userData._weaponParents;
+    if (weaponParents) {
+      Object.keys(weaponParents).forEach(function(name) {
+        var info = weaponParents[name];
+        var wg = root.getObjectByName(name);
+        if (!wg) return;
+        // 沿父链向上清除所有 _death_wp_* 枢轴
+        while (wg.parent && wg.parent.name && wg.parent.name.indexOf('_death_wp_') === 0) {
+          var pivot = wg.parent;
+          var grandParent = pivot.parent;
+          // pivot 下所有子节点移回 grandParent
+          while (pivot.children.length > 0) {
+            var child = pivot.children[0];
+            pivot.remove(child);
+            if (grandParent) grandParent.add(child);
+          }
+          if (grandParent) grandParent.remove(pivot);
+        }
+        // 确保武器在正确的原始父节点下
+        if (wg.parent !== info.parent && info.parent) {
+          if (wg.parent) wg.parent.remove(wg);
+          info.parent.add(wg);
+          wg.position.copy(info.localPos);
+          wg.quaternion.copy(info.localQuat);
+          wg.scale.copy(info.localScale);
+        }
+      });
+    }
     // 复活时关节可能处于死亡瘫倒姿态, 先用 createHexapod 保存的 rest 值复位
     var savedLegs = root.userData._legJoints;
     if (savedLegs) {
