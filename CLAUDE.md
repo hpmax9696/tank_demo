@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.2
 
 ## 运行
 
@@ -15,7 +15,7 @@ python -m http.server 8080 --bind 127.0.0.1
 
 ```
 ├── index.html         # 核心游戏引擎 (~630行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~5450行)：状态机/场景/物理/瞄准/摄像机/AI/训练场
+├── js/engine.js        # 游戏引擎 (~5950行)：状态机/场景/物理/瞄准/摄像机/AI/训练场
 ├── js/                # 游戏模块（13个）
 │   ├── waters.js      # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -48,6 +48,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── combat/            # AI状态机 + 积分系统
 ├── docs/              # 协作文档
 └── CODEBUDDY.md       # 详细架构/参数/已知问题/待办 → 查阅细节时读它
+├── AGENTS.md           # Codex 专属文档（本次新增）
 ```
 
 ## 摄像机系统 (v0.59.0)
@@ -66,7 +67,7 @@ python -m http.server 8080 --bind 127.0.0.1
 - 车体 yaw 增加 → tankGroup Y 减小 → turretYaw 需增加等量补偿
 - 补偿不计入 `turretAngVel` 限速，瞬间完成
 
-## 手柄视角+炮塔 (v0.59.1)
+## 手柄视角+炮塔 (v0.59.2)
 
 - **右摇杆X叠加模型**: `turretYaw += hullDyaw(稳定器) + stickToTarget(-gpx)*rate*dt(右摇杆)` — 两者叠加不互搏
   - 例: 左摇杆右转30°/s, 右摇杆右推50°/s → 炮塔相对车体右转20°/s, 世界右转50°/s
@@ -74,12 +75,12 @@ python -m http.server 8080 --bind 127.0.0.1
 - **右摇杆方向**: `stickToTarget(gpx)` 驱动cameraYaw (右推→视角右转). 炮塔turretYaw使用`stickToTarget(-gpx)`取反 (Three.js右手定则)
 - **稳定器互搏已解决**: 初版尝试过世界空间转换/反馈纠偏等方案, 最终回归简单叠加模型
 
-## 敌方坦克平衡 (v0.59.1)
+## 敌方坦克平衡 (v0.59.2)
 
 - **炮塔转速**: `aimTurretAt()` 的 turnSpeed 从 3.0/4.0 rad/s (172~229°/s) 降为 1.5 rad/s (86°/s), 默认值 3.0→1.0
 - **炮弹散布**: `fireEnemyTrainingShell` 散布从 spread=0.035(≈2°) 扩大为 0.07(≈4°)
 
-## 六足死亡武器清理 (v0.59.1)
+## 六足死亡武器清理 (v0.59.2)
 
 - **死亡护栏**: 六足武器代码入口(`engine.js:3268`)增加 `if (enemy.dead || hai.state==='dead') continue`
 - **复活枢轴清理**: `HexapodEnemy.init()` 开头: ①调用`_deathEnd(oldCtx)`清理旧context的武器垂下枢轴 ②利用`_weaponParents`递归清除所有残留`_death_wp_*`节点
@@ -224,15 +225,57 @@ legGroup (Y旋转=水平摆角)
 |--------|--------|
 | 我方 | 坦克、六足(灰色不可选) |
 | 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
 - **无限重生**：敌我死亡1s后在出生点重生，玩家被火焰/丧尸击杀也复活。ESC退出训练
 - **敌方AI**：`engageDist:30`(六足)/`50`(坦克)，`gatlingRange:30`，CHASE阶段追击，ENGAGE阶段绕圈攻击
 - 相关变量：`isTrainingMode`, `trainingPlayerSpawn`, `trainingEnemySpawn`, `trainingRespawnQueued`
-- **已知问题(v0.57.0)**：动画切换后偶有腿部绷直(CCD过渡未完成)；卡障碍物时步态仍会尝试推进；六足武器俯仰旋转轴不正确
+- **已知问题(v0.59.2)**：敌人上坡后偶发不复活；复活后偶发不追击；坡地地形适配不完美(翘头/陷地)；对山丘目标弹道偏低；上坡悬浮
 
 ## 详细文档
 
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
+
+---
+
+## v0.59.2 本次会话变更 (2026-06-13)
+
+### AI 系统
+- **地形遮挡检测**：`canSeeTarget` 采样 12 点路径地形，高度超过视线+0.5m 判定遮挡
+- **迂回包抄**：`updateChase` 视线受阻时侧向迂回，每 4 秒交替左右方向
+- **倒车逻辑**：`moveEnemyToward` 目标在后方半平面时直接倒车不甩头
+- **炮塔重力补偿**：`aimTurretAt` 垂直俯仰含弹道下坠补偿 `0.5*g*t²/hDist`
+- **炮塔转速**：1.0 rad/s（原 1.5）
+
+### 重生系统
+- 无敌保护：`_invincibleUntil` 防止复活瞬间被击杀
+- 六足死亡训练场重生队列修复
+- MG 击杀训练场敌人走重生流程不死移除
+
+### 参数调整
+- 炮弹初速 33→50 m/s（`shells.js`）
+- 训练场敌人坦克速度 3.5→6.0
+- 阴影贴图 1024→512（性能优化）
+- TRACK_ACCEL/DECEL/COAST → 40.0
+
+### 建筑摧毁
+- `disposeBuildingInstance`：InstancedMesh 建筑缩放至零销毁
+
+### 遮挡系统移除
+- 删除 `occluderRaycaster`、`transparentTreeGroups`、`transparentMatPool`
+- 移除所有 `handleObstacleOcclusion()` 调用
+
+### 地形适应
+- 采样距离 1.0→2.0（俯仰）、1.0→1.5（侧倾）
+- 平滑过渡 `_smoothPitch`/`_smoothRoll`，SM=12.0
+- 训练场敌人 `rotation.order = 'YXZ'`
+
+### 已知问题
+1. 敌人上坡后偶发不复活（间歇性）
+2. 敌人复活后偶发不追击
+3. 坡地一头翘起一头陷地
+4. 对山丘目标弹道偏低
+5. 上坡悬浮/俯仰侧倾不平滑
+6. 只会对山丘开炮不会绕路

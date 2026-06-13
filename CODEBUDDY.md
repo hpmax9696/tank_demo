@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.59.1
+# CODEBUDDY.md — v0.59.2
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -15,6 +15,19 @@ This file provides guidance to CodeBuddy when working with code in this reposito
 4. **使用 127.0.0.1**: preview_url 用 `http://127.0.0.1:8080`，禁止用 localhost
 5. **先启动再预览**: 确认服务就绪后才调用 `preview_url`
 
+
+## 🤖 多 AI 协作（v0.59.2 新增）
+
+本仓库同时由 4 个 AI 工具协作开发，各有专属文档：
+
+| AI 工具 | 专属文档 | 职责偏重 |
+|---------|---------|---------|
+| Claude Code | CLAUDE.md | 架构级重构、复杂新功能 |
+| CodeBuddy | CODEBUDDY.md | 详细参数表、已知问题清单 |
+| Trae | .trae/rules/project_rules.md | 跨会话规则、文件行数 |
+| Codex | AGENTS.md | 即时修复、调试排查 |
+
+⚠️ 修改任意一个专属文档后，应同步更新其他 3 个的相关部分。
 ## 开发环境
 
 **启动本地服务器**（必须，GLB 模型需要 HTTP 协议）:
@@ -229,7 +242,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 分段水面剖面 | 每段水面 = min(前段, 本地形-strength×0.3)，单调不增 | `segWaterLevels[]` + `waterLevels` 记录 |
 | 网格单元水面 | 河流+湖泊统一用高度图网格四边形构建平坦水面 | `createWaterLayer()` cellSet → 每个单元格独立 surfaceLevel |
 | 端点削波 | 路径起点/终点 hw 范围内深度线性归零 | `taper = min(startTaper, endTaper)` |
-| 桥梁引道 | 桥两端 5m 范围地形渐变到桥面高度（挖方/填方） | `carveApproach()` 在 `addBridge()` 中 |
+| 炮弹速度 | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50) | shells.js |
 | 斜坡桥面 → 水平桥面 | 改回水平 BoxGeometry，引道用 BufferGeometry 斜坡面板 | `createBridgeMesh()` |
 | 加载画面 | 黑色底+渐变色进度条+状态文字，全地图覆盖 | `showLoading()`/`updateLoadingProgress()`/`hideLoading()` |
 | 编辑器地图对接 | splatMap纹理+waterLevel水位+riverColliders空气墙+巡逻分散 | `convertBlueprintToMapConfig()` + `createRiverWater()` |
@@ -470,7 +483,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | # | 修复内容 | 版本 |
 |---|------|------|
 | 1 | 地图数据从index.html拆分到maps/目录动态加载（_index.json manifest） | v0.44.0 |
-| 2 | 桥梁引道重写：平整区+内陆斜坡+_carvedCells可撤销，修复重复生成凹坑 | v0.44.0 |
+| 2 | 炮弹速度 | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50) | shells.js重写：平整区+内陆斜坡+_carvedCells可撤销，修复重复生成凹坑 | v0.44.0 |
 | 3 | 蓝色纹理修复：桥梁雕琢不移入editedVerticesPaint，避免vertexColors水体蓝染 | v0.44.0 |
 | 4 | 河流生成重构：水面=河岸最低-3m，河床=地图最低-10m，自动计算 | v0.44.0 |
 | 5 | 编辑器蓝图加载尺寸变量同步（worldHalfW/D, playHalfW/D等） | v0.44.0 |
@@ -501,7 +514,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | # | 任务 | 优先级 | 计划版本 | 详情 |
 |---|------|:------:|----------|------|
-| 1 | **六足战车动画系统** | 🟢 基本完成 | v0.55.1 | 23动画可用, 踉跄+死亡就绪, 武器校准/反曲/贴地修复 |
+| 1 | **敌人重生稳定性** | 🔴 进行中 | v0.60.0 | 上坡/多次复活后偶发失败，根因待定位 | 23动画可用, 踉跄+死亡就绪, 武器校准/反曲/贴地修复 |
 | 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
 | 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
 | 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG_*参数 |
@@ -536,6 +549,17 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 
 **03a地图**：装甲突击车×2 | **04a地图**：程序化丧尸×30（5×6网格集群）
 
+
+### v0.59.2 新增已知问题
+
+| # | 问题 | 严重度 | 位置 |
+|---|------|:------:|------|
+| 1 | 敌人大角度上坡后偶发不复活 | 🔴 | engine.js _checkTrainingRespawns |
+| 2 | 敌人复活后偶发不追击，需受击才激活 | 🟡 | enemyAI.js |
+| 3 | 敌人坡地翘头/陷地（地形俯仰采样不准） | 🟡 | engine.js gameLoop enemy section |
+| 4 | 敌人对我方山顶开炮弹道偏低 | 🟡 | enemyAI.js aimTurretAt |
+| 5 | 敌人上坡悬浮，俯仰侧倾不平滑 | 🟡 | engine.js terrain adaptation |
+| 6 | 山丘遮挡时敌人不主动绕路找角度 | 🟡 | enemyAI.js updateChase |
 ---
 
 ## ✅ 地图编辑器 `map_editor.html`（7 阶段 ✅ 全部完成）

@@ -1,16 +1,22 @@
-# CodeGraph data files
-# These are local to each machine and should not be committed
+# OS
+.DS_Store
+Thumbs.db
 
-# Database
-*.db
-*.db-wal
-*.db-shm
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Cache
-cache/
-
-# Logs
+# Other
 *.log
 
-# Hook markers
-.dirty
+# Playwright / Debug
+.playwright-cli/
+game-*.png
+_*.js
+_*.mjs
+
+# Dependencies
+node_modules/

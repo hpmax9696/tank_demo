@@ -17,3 +17,6 @@ Thumbs.db
 game-*.png
 _*.js
 _*.mjs
+
+# Dependencies
+node_modules/

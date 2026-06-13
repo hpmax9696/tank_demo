@@ -147,6 +147,11 @@ function updateMGAutoTarget(player, dt) {
                                 playExplosionSound();
                                 if (combatData) combatData.score += (en.cfg.score || 100);
                                 spawnPickup(en);
+                                // 训练场: 走重生流程, 不从数组中移除
+                                if (typeof isTrainingMode !== 'undefined' && isTrainingMode) {
+                                    en.dead = true;
+                                    if (typeof _killEnemyInTraining === 'function') _killEnemyInTraining(en);
+                                } else {
                                 const deadEnemy = en;
                                 setTimeout(() => {
                                     if (deadEnemy.parent) deadEnemy.parent.remove(deadEnemy);
@@ -155,6 +160,7 @@ function updateMGAutoTarget(player, dt) {
                                     const idx = enemies.indexOf(deadEnemy);
                                     if (idx >= 0) enemies.splice(idx, 1);
                                 }, 300);
+                                }
                                 if (enemies.every(e => e.ai && e.ai.state === 'dead')) {
                                     setTimeout(() => {
                                         if (combatData) {

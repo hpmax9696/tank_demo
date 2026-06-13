@@ -113,6 +113,7 @@ function updateObstacleVisibility(extraPositions) {
     }
 }
 
+
 function disposeTreeInstance(od, isOcclusion = false) {
     if (!od.type || od.type === 'building' || od.imIndex == null) return;
     const imTrunk = od.imTrunk, imCrown = od.imCrown, idx = od.imIndex;
@@ -147,36 +148,6 @@ function updateGrassVisibility(extraPositions) {
     }
 }
 
-function createTransparentTreeGhost(od) {
-    const tm = window.TreeModels && window.TreeModels[od.type];
-    if (!tm) return null;
-    const s = od.height / tm.baseHeight;
-    const obsY = isVersusMap ? 0 : getTerrainHeight(od.x, od.z);
-    const targetScene = scene;
-    const group = new THREE.Group();
-
-    const trunkGeo = tm.trunkGeo;
-    const trunkMat = new THREE.MeshStandardMaterial({ color: '#8B5E3C', roughness: 0.9, transparent: true, opacity: 0.3, depthWrite: false });
-    const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-    trunkMesh.position.set(od.x, obsY + tm.trunkOffsetY * s, od.z);
-    trunkMesh.scale.setScalar(s);
-    trunkMesh.castShadow = false;
-    trunkMesh.receiveShadow = false;
-    group.add(trunkMesh);
-
-    const crownGeo = tm.crownGeo;
-    const crownColor = od.color || tm.color || '#3B7A3B';
-    const crownMat = new THREE.MeshStandardMaterial({ color: crownColor, roughness: 0.8, transparent: true, opacity: 0.3, depthWrite: false });
-    const crownMesh = new THREE.Mesh(crownGeo, crownMat);
-    crownMesh.position.set(od.x, obsY + tm.crownOffsetY * s, od.z);
-    crownMesh.scale.setScalar(s);
-    crownMesh.castShadow = false;
-    crownMesh.receiveShadow = false;
-    group.add(crownMesh);
-
-    targetScene.add(group);
-    return group;
-}
 
 let _roadMat = null;
 
@@ -382,17 +353,6 @@ function createObstacles(targetScene = scene) {
     });
     obstacleMeshes = [];
     obstacleData = [];
-    occludedObstacles = [];
-    hiddenTreeInstances = [];
-    transparentTreeGroups.forEach(g => {
-        if (g.parent) g.parent.remove(g);
-        g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-    });
-    transparentTreeGroups = [];
-    for (const transpMat of transparentMatPool.values()) {
-        transpMat.dispose();
-    }
-    transparentMatPool.clear();
 
     cleanupRoadMeshes();
     _villageSystem = null;
@@ -602,6 +562,7 @@ function createObstacles(targetScene = scene) {
 
     if (effectiveBlds.length > 0) {
         const bldBoundary = (cfgBuildings.length > 0) ? Math.max(worldHalfW, worldHalfD) : Math.min(_shW, _shD) * 0.92;
+        const tempBldGroups = [];
         for (const bld of effectiveBlds) {
             if (Math.abs(bld.x) > bldBoundary || Math.abs(bld.z) > bldBoundary) continue;
             if (!isVersusMap) {
@@ -632,13 +593,75 @@ function createObstacles(targetScene = scene) {
             group.rotation.y = (bld.angle || 0) + (Math.random() - 0.5) * 0.2;
             group.visible = false;
             group.name = `bld-${bldIdx++}`;
-            targetScene.add(group);
-            obstacleMeshes.push(group);
-            obstacleData.push({
-                x: bld.x, z: bld.z, radius: ud.radius * s, height: ud.height * s,
-                color: ud.color, blades: ud.blades || null,
-                type: 'building', groupRef: group
-            });
+            tempBldGroups.push({ group, bld, ud, s, obsY });
+        }
+        // ── 按建筑类型分组，InstancedMesh 批量渲染 ──
+        if (tempBldGroups.length > 0) {
+            const typeKey = (g) => g.ud.targetHeightMinM + '|' + g.ud.targetHeightMaxM;
+            const typeMap = new Map();
+            for (const item of tempBldGroups) {
+                const key = typeKey(item);
+                if (!typeMap.has(key)) typeMap.set(key, []);
+                typeMap.get(key).push(item);
+            }
+            for (const [_, items] of typeMap) {
+                const template = items[0].group;
+                const matTemplates = [];
+                template.traverse(c => {
+                    if (!c.isMesh || !c.geometry) return;
+                    c.updateMatrix();
+                    matTemplates.push({ material: c.material, localMatrix: c.matrix.clone(), geometry: c.geometry });
+                });
+                // 每种材质：合并模板几何 → InstancedMesh
+                const ims = [];
+                for (const mt of matTemplates) {
+                    const templateGeosMerged = [];
+                    // 合并该材质在模板中的所有子mesh几何体（应用局部矩阵）
+                    for (const mt2 of matTemplates) {
+                        if (mt2.material !== mt.material) continue;
+                        const g = mt2.geometry.clone();
+                        g.applyMatrix4(mt2.localMatrix);
+                        templateGeosMerged.push(g);
+                    }
+                    if (templateGeosMerged.length === 0) continue;
+                    const mergedTemplateGeo = THREE.BufferGeometryUtils.mergeBufferGeometries(templateGeosMerged, false);
+                    if (!mergedTemplateGeo) continue;
+                    const im = new THREE.InstancedMesh(mergedTemplateGeo, mt.material, items.length);
+                    im.castShadow = true;
+                    im.receiveShadow = true;
+                    im.name = 'bld-im';
+                    targetScene.add(im);
+                    obstacleMeshes.push(im);
+                    ims.push(im);
+                }
+                // 填充实例矩阵
+                const dummy = new THREE.Object3D();
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const g = item.group;
+                    g.updateMatrix();
+                    // 复合矩阵：buildingWorld × templateLocal（已在合并几何体中烘焙）
+                    dummy.position.set(0, 0, 0);
+                    dummy.rotation.set(0, 0, 0);
+                    dummy.scale.set(1, 1, 1);
+                    dummy.applyMatrix4(g.matrix);
+                    for (const im of ims) {
+                        im.setMatrixAt(i, dummy.matrix);
+                    }
+                    obstacleData.push({
+                        x: item.bld.x, z: item.bld.z, radius: item.ud.radius * item.s, height: item.ud.height * item.s,
+                        color: item.ud.color, blades: item.ud.blades || null,
+                        type: 'building', groupRef: null, imBuilding: ims, imIndex: i
+                    });
+                }
+                for (const im of ims) {
+                    im.instanceMatrix.needsUpdate = true;
+                }
+                // 清理临时 Group
+                for (const item of items) {
+                    item.group.traverse(c => { if (c.isMesh) { c.geometry = null; c.material = null; } });
+                }
+            }
         }
     }
 
@@ -653,142 +676,4 @@ function createObstacles(targetScene = scene) {
 
     updateObstacleVisibility();
     updateGrassVisibility();
-}
-
-function handleObstacleOcclusion() {
-    for (const ttg of transparentTreeGroups) {
-        if (ttg.parent) ttg.parent.remove(ttg);
-        ttg.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-    }
-    transparentTreeGroups = [];
-
-    for (const hti of hiddenTreeInstances) {
-        hti.imTrunk.setMatrixAt(hti.index, hti.matrixTrunk);
-        hti.imCrown.setMatrixAt(hti.index, hti.matrixCrown);
-        hti.imTrunk.instanceMatrix.needsUpdate = true;
-        hti.imCrown.instanceMatrix.needsUpdate = true;
-        for (const od of obstacleData) {
-            if (od.imTrunk === hti.imTrunk && od.imIndex === hti.index) {
-                od.occluded = false;
-                break;
-            }
-        }
-    }
-    hiddenTreeInstances = [];
-
-    for (const obs of occludedObstacles) {
-        obs.traverse(child => {
-            if (child.isMesh && child.userData._origMat) {
-                child.material = child.userData._origMat;
-                child.userData._origMat = null;
-            }
-        });
-    }
-    occludedObstacles = [];
-
-    const camPos = camera.position;
-    const tankPos = tankGroup.position;
-    const cam2x = camPos.x, cam2z = camPos.z;
-    const tank2x = tankPos.x, tank2z = tankPos.z;
-    const dx = tank2x - cam2x, dz = tank2z - cam2z;
-    const lineLen = Math.sqrt(dx * dx + dz * dz);
-    if (lineLen < 0.01) return;
-    const lx = dx / lineLen, lz = dz / lineLen;
-
-    const nearObstacles = [];
-    for (let i = 0; i < obstacleMeshes.length; i++) {
-        const obs = obstacleMeshes[i];
-        if (!obs.visible) continue;
-        const ox = obs.position.x - cam2x;
-        const oz = obs.position.z - cam2z;
-        const proj = ox * lx + oz * lz;
-        if (proj < -2 || proj > lineLen + 2) continue;
-        const perp = Math.abs(ox * lz - oz * lx);
-        if (perp > 8) continue;
-        nearObstacles.push(obs);
-    }
-
-    const treeIMSet = new Set();
-    if (window._treeIMs && window._treeIMs.length > 0) {
-        for (const od of obstacleData) {
-            if (od.type === 'building') continue;
-            const ox = od.x - cam2x;
-            const oz = od.z - cam2z;
-            const proj = ox * lx + oz * lz;
-            if (proj < -2 || proj > lineLen + 2) continue;
-            const perp = Math.abs(ox * lz - oz * lx);
-            if (perp > 3) continue;
-            if (od.imTrunk) treeIMSet.add(od.imTrunk);
-            if (od.imCrown) treeIMSet.add(od.imCrown);
-        }
-        for (const im of treeIMSet) {
-            nearObstacles.push(im);
-        }
-    }
-
-    if (nearObstacles.length === 0) return;
-
-    const dir3 = new THREE.Vector3().subVectors(tankPos, camPos).normalize();
-    occluderRaycaster.set(camPos, dir3);
-    occluderRaycaster.far = lineLen + 2;
-    const intersects = occluderRaycaster.intersectObjects(nearObstacles, true);
-
-    const hitRoots = new Set();
-    const hitTreeIds = new Set();
-    for (const hit of intersects) {
-        const hitObj = hit.object;
-        if (hitObj.isInstancedMesh) {
-            const iid = hit.instanceId;
-            hitTreeIds.add(JSON.stringify([iid, hitObj.uuid]));
-        } else {
-            let obj = hitObj;
-            while (obj && !obstacleMeshes.includes(obj)) {
-                obj = obj.parent;
-            }
-            if (obj) hitRoots.add(obj);
-        }
-    }
-
-    for (const obs of hitRoots) {
-        occludedObstacles.push(obs);
-        obs.traverse(child => {
-            if (child.isMesh && child.material && !child.userData._origMat) {
-                child.userData._origMat = child.material;
-                const origMat = child.material;
-                let transpMat = transparentMatPool.get(origMat);
-                if (!transpMat) {
-                    transpMat = origMat.clone();
-                    transpMat.transparent = true;
-                    transpMat.opacity = 0.3;
-                    transpMat.needsUpdate = true;
-                    transparentMatPool.set(origMat, transpMat);
-                }
-                child.material = transpMat;
-            }
-        });
-    }
-
-    if (hitTreeIds.size > 0) {
-        for (const od of obstacleData) {
-            if (od.type === 'building') continue;
-            if (!od.imTrunk || !od.imCrown || od.imIndex == null) continue;
-            const key = JSON.stringify([od.imIndex, od.imTrunk.uuid]);
-            const key2 = JSON.stringify([od.imIndex, od.imCrown.uuid]);
-            if (hitTreeIds.has(key) || hitTreeIds.has(key2)) {
-                const mT = new THREE.Matrix4();
-                const mC = new THREE.Matrix4();
-                od.imTrunk.getMatrixAt(od.imIndex, mT);
-                od.imCrown.getMatrixAt(od.imIndex, mC);
-                hiddenTreeInstances.push({
-                    imTrunk: od.imTrunk, imCrown: od.imCrown,
-                    index: od.imIndex,
-                    matrixTrunk: mT.clone(),
-                    matrixCrown: mC.clone()
-                });
-                disposeTreeInstance(od, true);
-                const ghost = createTransparentTreeGhost(od);
-                if (ghost) transparentTreeGroups.push(ghost);
-            }
-        }
-    }
 }

@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.59.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.59.2** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -78,6 +78,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── fbx-test.html          # FBX 模型测试页
 ├── glb-test.html          # GLB 模型测试页
 ├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
+├── AGENTS.md           # 🤖 Codex 专属协作文档 (v0.59.2)
 ├── README.md              # 本文件
 ├── docs/                  # 📄 协作文档（T-34/85 v1.6 看图AI交互记录）
 │   ├── t34-85-v1.6-spec-for-vision-ai.md    # 识图AI规范文档
@@ -1091,6 +1092,20 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | AnimationSystem | 6 动作 (Idle/Hit/Attack/Walk/Run/Die) | 手动插值动画，不依赖 Mixer |
 
 
+
+
+### v0.59.2 参数变更
+
+| 参数 | 旧值 | 新值 | 说明 |
+|------|------|------|------|
+| 炮弹初速 | 33.0 m/s | 50.0 m/s | shells.js |
+| 训练场敌方坦克速度 | 3.5 | 6.0 | engine.js |
+| 敌方炮塔转速 | 1.5 rad/s | 1.0 rad/s | enemyAI.js |
+| TRACK_ACCEL | 10.0 | 40.0 | 更灵敏的加速 |
+| TRACK_DECEL | 16.0 | 40.0 | 更快的制动 |
+| TRACK_COAST | 20.0 | 40.0 | 更快的滑行减速 |
+| 阴影贴图 | 1024 | 512 | 性能优化 |
+| 碰撞迭代 | 3 | 1 | 性能优化 |
 
 ---
 

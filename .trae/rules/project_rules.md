@@ -49,6 +49,8 @@ python -m http.server 8080 --bind 127.0.0.1
 | `combat/enemyAI.js` | ~560 | AI 状态机 + 六足ENGAGE武器平衡 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统 |
 
+| AGENTS.md | ~110 | Codex 专属协作文档（v0.59.2 新增） |
+
 ### model_factory.html 关键行
 
 | 行号 | 内容 |
@@ -210,7 +212,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.54.0 — 六足腿结构简化+尖刺足+待机/步行/奔跑三角步态）
+## 当前版本（v0.59.2 — AI地形遮挡+迂回包抄+重生修复+炮弹提速+地形适配）
 
 ### 关键参数
 | 参数 | 值 |
@@ -219,9 +221,9 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~5460 行 |
-| engine.js 行数 | ~5770 行（v0.57.0含CCD IK动画集成+武器系统独立） |
+| engine.js 行数 | ~5950 行（v0.59.2）（v0.57.0含CCD IK动画集成+武器系统独立） |
 | hexapod_anim.js 行数 | ~1630 行（模型工厂用） |
-| hexapod_enemy.js 行数 | ~890 行（v0.57.0新增，训练场六足CCD IK动画） |
+| hexapod_enemy.js 行数 | ~890 行（v0.57.0）（v0.57.0新增，训练场六足CCD IK动画） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
@@ -238,23 +240,29 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题
+### 已知问题 (v0.59.2)
+
 | # | 问题 | 位置 |
 |---|------|------|
-| 1 | 模型工厂撤销一键回到初始状态 | model_factory.html |
-| 2 | 桥梁两端地形高低差（addBridge引道雕刻不完善） | map_editor.html |
-| 3 | 河岸空气墙红环调试残留 | index.html |
-| 4 | ✅ v0.49.0 池塘碰撞体对敌人失效修复 | index.html |
-| 5 | 六足单腿IK测试(3模式×3腿型)已通过，待机/步行/奔跑已通过 | js/hexapod_anim.js |
+| 1 | 敌人上坡后偶发不复活（间歇性） | engine.js |
+| 2 | 敌人复活后偶发不追击 | enemyAI.js |
+| 3 | 敌人坡地一头翘起一头陷地 | engine.js 地形适配 |
+| 4 | 敌人对山丘目标弹道偏低 | enemyAI.js aimTurretAt |
+| 5 | 敌人上坡悬浮/俯仰侧倾不平滑 | engine.js |
+| 6 | 山丘遮挡时敌人不主动绕路找角度 | enemyAI.js updateChase |
 
-### 待完成任务
+### 待完成任务 (v0.59.2)
+
 | # | 任务 | 优先级 |
 |---|------|:------:|
-| 1 | 六足Idle IK扩展到6腿 | 🟡 进行中 |
-| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 |
-| 2 | 同轴机枪功能 | 🟡 中期 |
-| 3 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
-| 4 | 树木 InstancedMesh 重构 | 🔵 远期 |
+| 1 | 修复敌人重生间歇性失败 | 🔴 紧急 |
+| 2 | 修复敌人复活后不追击 | 🔴 紧急 |
+| 3 | 完善地形适配（翘头/陷地） | 🟡 |
+| 4 | 敌人绕路找射击角度 | 🟡 |
+| 5 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🟡 近期 |
+| 6 | 同轴机枪功能 | 🟡 中期 |
+| 7 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
+| 8 | 树木 InstancedMesh 重构 | 🔵 远期 |
 
 ---
 

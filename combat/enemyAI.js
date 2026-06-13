@@ -47,10 +47,31 @@
 
         // 前端朝 -X，rotation.y=θ 时前向量 = (-cosθ, 0, sinθ)
         const forward = new THREE.Vector3(-Math.cos(enemy.rotation.y), 0, Math.sin(enemy.rotation.y));
-        const toTarget = tPos.sub(ePos).normalize();
-        const dot = forward.dot(toTarget);
-        return dot >= Math.cos(coneAngle);
-        // Raycaster 遮挡检测留空，后期可接入 obstacles 数组
+        const dirX = tPos.x - ePos.x;
+        const dirZ = tPos.z - ePos.z;
+        const hDist2 = dirX * dirX + dirZ * dirZ;
+        if (hDist2 < 0.01) return true;
+        const invDist = 1 / Math.sqrt(hDist2);
+        const toTargetX = dirX * invDist;
+        const toTargetZ = dirZ * invDist;
+        const dot = forward.x * toTargetX + forward.z * toTargetZ;
+        if (dot < Math.cos(coneAngle)) return false;
+        // 地形遮挡检测: 采样路径上最高地形, 若超过两端较低点+2m且高于视线, 判定遮挡
+        const steps = 12;
+        let maxTerrainH = 0;
+        const minEndH = Math.min(ePos.y, tPos.y);
+        for (let s = 1; s <= steps; s++) {
+            const frac = s / (steps + 1);
+            const sx = ePos.x + dirX * frac;
+            const sz = ePos.z + dirZ * frac;
+            const gh = getTerrainHeight(sx, sz);
+            if (gh > maxTerrainH) maxTerrainH = gh;
+            const lh = ePos.y + (tPos.y - ePos.y) * frac;
+            if (gh > lh + 0.5) return false;
+        }
+        // 地形显著高于两端: 即使直线视线勉强通过, 弹道也会被挡
+        if (maxTerrainH > minEndH + 2.0) return false;
+        return true;
     }
 
     // ─── 获取离敌人最近的存活玩家 ───
@@ -82,32 +103,50 @@
         // 2. 计算目标方向角（使 -X 指向目标）
         const targetYaw = Math.atan2(dz, -dx);
 
-        // 3. 先转向（差速驱动：原地转向目标）
-        const rotSpeed = 3.0; // rad/s
-        let ad = angleDiff(curYaw, targetYaw);
-        const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
-        enemy.rotation.y += rotStep;
-
-        // 4. 边转边前进（v0.26.4fix: 门槛从>0放宽到>-0.8，允许偏差<143°时同
-        //    时移动+转向，避免大角度掉头时原地旋转超过0.8秒不前进）
+        // 3. 判断前进还是倒车（目标在前方→前进，目标在后方→倒车不甩头）
         const facingDot = forwardX * (dx / dist) + forwardZ * (dz / dist);
-        if (facingDot > -0.8) {
-            // 步长按朝向对齐度缩放：正对时全速，90°偏角时半速，极限143°时微速
-            const alignment = Math.max(0.15, (facingDot + 0.8) / 1.8);
-            let moveStep = speed * dt * alignment;
-            // 坡度速度限制（复用单例避免频繁创建 Vector3）
-            const newFwdX = -Math.cos(enemy.rotation.y);
-            const newFwdZ =  Math.sin(enemy.rotation.y);
-            const slopeFront = getTerrainHeight(enemy.position.x + newFwdX * 1.0, enemy.position.z + newFwdZ * 1.0);
-            const slopeBack  = getTerrainHeight(enemy.position.x - newFwdX * 1.0, enemy.position.z - newFwdZ * 1.0);
-            const slopeAngle = Math.atan2(slopeFront - slopeBack, 2.0);
-            if (Math.abs(slopeAngle) > MAX_SLOPE) {
-                moveStep *= MAX_SLOPE / Math.abs(slopeAngle);
+        const shouldReverse = facingDot < 0.0; // 目标在后方半平面即倒车（避免掉头失准）
+        if (shouldReverse) {
+            // 倒车：不转向，直接后退
+            let moveStep = speed * 0.6 * dt;
+            enemy.position.x -= forwardX * moveStep;
+            enemy.position.z -= forwardZ * moveStep;
+        } else {
+            // 转向目标方向
+            const rotSpeed = 1.0; // rad/s (减半)
+            let ad = angleDiff(curYaw, targetYaw);
+            const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
+            enemy.rotation.y += rotStep;
+            // 前进驱动
+            if (facingDot > -0.8) {
+                const alignment = Math.max(0.15, (facingDot + 0.8) / 1.8);
+                let moveStep = speed * dt * alignment;
+                const newFwdX = -Math.cos(enemy.rotation.y);
+                const newFwdZ =  Math.sin(enemy.rotation.y);
+                const slopeFront = getTerrainHeight(enemy.position.x + newFwdX * 1.0, enemy.position.z + newFwdZ * 1.0);
+                const slopeBack  = getTerrainHeight(enemy.position.x - newFwdX * 1.0, enemy.position.z - newFwdZ * 1.0);
+                const slopeAngle = Math.atan2(slopeFront - slopeBack, 2.0);
+                if (Math.abs(slopeAngle) > MAX_SLOPE) {
+                    // 陡坡阻挡: 左右采样寻找可通行方向
+                    const rightX = -Math.cos(enemy.rotation.y + Math.PI/2);
+                    const rightZ = Math.sin(enemy.rotation.y + Math.PI/2);
+                    const sampleD = 2.0;
+                    const rSlope = Math.atan2(
+                        getTerrainHeight(enemy.position.x + rightX * sampleD, enemy.position.z + rightZ * sampleD) -
+                        getTerrainHeight(enemy.position.x - rightX * sampleD, enemy.position.z - rightZ * sampleD),
+                        sampleD * 2);
+                    const lSlope = Math.atan2(
+                        getTerrainHeight(enemy.position.x - rightX * sampleD, enemy.position.z - rightZ * sampleD) -
+                        getTerrainHeight(enemy.position.x + rightX * sampleD, enemy.position.z + rightZ * sampleD),
+                        sampleD * 2);
+                    // 选择坡度较缓的一侧绕行
+                    const avoidDir = Math.abs(rSlope) < Math.abs(lSlope) ? 1 : -1;
+                    enemy.rotation.y += avoidDir * rotSpeed * dt * 1.5;
+                    moveStep *= 0.3;
+                }
+                enemy.position.x += newFwdX * Math.min(moveStep, dist);
+                enemy.position.z += newFwdZ * Math.min(moveStep, dist);
             }
-            const step = Math.min(moveStep, dist);
-            // 沿车身前方移动（转向后的新朝向）
-            enemy.position.x += newFwdX * step;
-            enemy.position.z += newFwdZ * step;
         }
 
         return false; // 未到达
@@ -117,22 +156,35 @@
     function aimTurretAt(enemy, targetWorldPos, dt, turnSpeed) {
         const tp = enemy.userData && enemy.userData.turretPivot;
         if (!tp) return;
-        // 计算从炮塔中心指向目标的方向（世界坐标系）
         const turretWorldPos = new THREE.Vector3();
         tp.getWorldPosition(turretWorldPos);
+        // 水平瞄准 (Y轴旋转)
         const dx = targetWorldPos.x - turretWorldPos.x;
         const dz = targetWorldPos.z - turretWorldPos.z;
-        // 世界空间中，使 -X 对准目标所需的角度
         const worldTargetAngle = Math.atan2(dz, -dx);
-        // 炮塔是 enemy 的子节点，其世界旋转 = enemy.rotation.y + tp.rotation.y
-        // 所以 tp.rotation.y = worldTargetAngle - enemy.rotation.y
         const localTargetAngle = worldTargetAngle - enemy.rotation.y;
-
         const curAngle = tp.rotation.y;
         const ad = angleDiff(curAngle, localTargetAngle);
         const step = Math.min(Math.abs(ad), (turnSpeed || 1.0) * dt) * Math.sign(ad);
         tp.rotation.y += step;
-        return Math.abs(ad) < 0.1; // 是否已瞄准
+        // 垂直瞄准 (炮管俯仰, 含重力补偿) - 通过 barrelPivot 控制
+        const bp = enemy.userData && enemy.userData.barrelPivot;
+        if (bp) {
+            const barrelWorldPos = new THREE.Vector3();
+            bp.getWorldPosition(barrelWorldPos);
+            const dy = targetWorldPos.y - barrelWorldPos.y;
+            const hDist = Math.sqrt(dx * dx + dz * dz);
+            // 直瞄角度 + 重力补偿: 飞行时间 t=hDist/SHELL_SPEED, 下坠补偿 ≈ 0.5*g*t^2/hDist
+            const directPitch = Math.atan2(dy, hDist);
+            const flightTime = hDist / (typeof SHELL_SPEED !== 'undefined' ? SHELL_SPEED : 50);
+            const gravComp = 0.5 * (typeof SHELL_GRAVITY !== 'undefined' ? SHELL_GRAVITY : 1.0) * flightTime / (typeof SHELL_SPEED !== 'undefined' ? SHELL_SPEED : 50);
+            const targetPitch = -(directPitch + gravComp);
+            const curPitch = bp.rotation.x;
+            const pitchDiff = targetPitch - curPitch;
+            const pitchStep = Math.min(Math.abs(pitchDiff), (turnSpeed || 1.0) * dt) * Math.sign(pitchDiff);
+            bp.rotation.x += pitchStep;
+        }
+        return Math.abs(ad) < 0.1;
     }
 
     // ==================== 状态处理函数 ====================
@@ -176,10 +228,27 @@
     function updateChase(enemy, ai, cfg, dt, nearestPlayer) {
         if (!nearestPlayer) { ai.state = AI_STATE.PATROL; return; }
         const pp = nearestPlayer.group.position;
-        // 追击用全速（速度×1.3，比巡逻/绕圈更快）
-        moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
-        // 追击过程中炮塔跟踪玩家, 接近后即可开火
-        ai._turretAimed = aimTurretAt(enemy, pp, dt, 1.5); // 炮塔转速对齐玩家体验(≈86°/s, 玩家30°/s)
+        // 检查视线是否被地形遮挡
+        if (!canSeeTarget(enemy, nearestPlayer, Math.PI, cfg.viewDist || 100, scene)) {
+            // 视线受阻: 侧向迂回, 交替左右包抄
+            if (typeof ai._flankDir === 'undefined') ai._flankDir = (Math.random() > 0.5 ? 1 : -1);
+            if (typeof ai._flankTimer === 'undefined') ai._flankTimer = 0;
+            ai._flankTimer += dt;
+            if (ai._flankTimer > 4.0) { ai._flankTimer = 0; ai._flankDir *= -1; }
+            const dx = pp.x - enemy.position.x;
+            const dz = pp.z - enemy.position.z;
+            const nd = Math.sqrt(dx * dx + dz * dz) || 1;
+            const flankX = -dz / nd * ai._flankDir;
+            const flankZ = dx / nd * ai._flankDir;
+            // 沿侧向持续移动直到找到可射击角度
+            const targetX = enemy.position.x + flankX * 30;
+            const targetZ = enemy.position.z + flankZ * 30;
+            moveEnemyToward(enemy, targetX, targetZ, (cfg.speed || 5.0) * 1.2, dt);
+        } else {
+            // 视线畅通: 直追
+            moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
+        }
+        ai._turretAimed = aimTurretAt(enemy, pp, dt, 1.0);
         ai.lastSeenPlayerPos = pp.clone();
     }
 
@@ -219,19 +288,32 @@
         const moveZ = tanZ * tangentW + radZ * radialW;
         const mn = Math.sqrt(moveX * moveX + moveZ * moveZ) || 1;
 
-        // 1. 车体转向：朝向移动方向（履带车辆物理约束）
-        const targetYaw = Math.atan2(moveZ / mn, -(moveX / mn));
-        const rotSpeed = 3.0;
-        const ad = angleDiff(enemy.rotation.y, targetYaw);
-        const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
-        enemy.rotation.y += rotStep;
-
-        // 2. 沿车体前方驱动（不侧滑）
-        const facingDot = -Math.cos(enemy.rotation.y) * (moveX / mn) + Math.sin(enemy.rotation.y) * (moveZ / mn);
-        if (facingDot > 0.2) {
-            const step = speed * dt * Math.min(1.0, Math.abs(facingDot));
-            enemy.position.x += -Math.cos(enemy.rotation.y) * step;
-            enemy.position.z +=  Math.sin(enemy.rotation.y) * step;
+        // 视线检测: 被地形遮挡时增大绕圈半径寻射击角度
+        if (!canSeeTarget(enemy, nearestPlayer, Math.PI, cfg.viewDist || 100, scene)) {
+            radialW = -1.0; tangentW = 0.0;  // 被遮挡: 先逼近拉近距离
+        }
+        // 1. 车体移动（侧滑约束履带物理）
+        const facingX = -Math.cos(enemy.rotation.y);
+        const facingZ =  Math.sin(enemy.rotation.y);
+        const retreating = radialW > 0.3; // 需要远离玩家时倒车而非掉头
+        if (retreating) {
+            // 倒车：车身不转向，直接后退
+            enemy.position.x -= facingX * speed * 0.7 * dt;
+            enemy.position.z -= facingZ * speed * 0.7 * dt;
+        } else {
+            // 转向朝移动方向
+            const targetYaw = Math.atan2(moveZ / mn, -(moveX / mn));
+            const rotSpeed = 1.0; // (减半)
+            const ad = angleDiff(enemy.rotation.y, targetYaw);
+            const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
+            enemy.rotation.y += rotStep;
+            // 前进驱动力（只有朝向大致匹配才驱动）
+            const facingDot = facingX * (moveX / mn) + facingZ * (moveZ / mn);
+            if (facingDot > 0.2) {
+                const step = speed * dt * Math.min(1.0, Math.abs(facingDot));
+                enemy.position.x += facingX * step;
+                enemy.position.z += facingZ * step;
+            }
         }
 
         // 周期性换向（~2.5秒变换绕圈方向）
@@ -239,7 +321,7 @@
         if (ai.strafeTimer > 2.5) { ai.strafeDir *= -1; ai.strafeTimer = 0; }
 
         // 3. 炮塔独立瞄准玩家
-        const aimed = aimTurretAt(enemy, pp, dt, 1.5); // 炮塔转速对齐玩家体验
+        const aimed = aimTurretAt(enemy, pp, dt, 1.0); // 炮塔转速
         ai._turretAimed = aimed; // 训练场用: 炮塔是否已对准
 
         // 喷火器开火
@@ -618,7 +700,7 @@
                     updateChase(enemy, ai, cfg, dt, nearestPlayer);
                     {
                         const wr = cfg.flameRange || 12;
-                        if (nearestPlayer && nearestDist < wr * 0.85) {
+                        if (nearestPlayer && nearestDist < wr * 0.85 && canSeeTarget(enemy, nearestPlayer, Math.PI/4, cfg.viewDist || 60, scene)) {
                             ai.state = AI_STATE.ENGAGE;
                         }
                     }
@@ -637,6 +719,10 @@
                     {
                         const wr = cfg.flameRange || 12;
                         if (!nearestPlayer || nearestDist > wr * 1.3) {
+                            ai.state = AI_STATE.CHASE;
+                        }
+                        // 视线被地形遮挡: 退回CHASE迂回包抄
+                        if (nearestPlayer && !canSeeTarget(enemy, nearestPlayer, Math.PI, cfg.viewDist || 100, scene)) {
                             ai.state = AI_STATE.CHASE;
                         }
                     }

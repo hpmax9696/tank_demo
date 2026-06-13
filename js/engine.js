@@ -588,7 +588,7 @@ window.addEventListener('mousemove', (e) => {
 // 点击游戏画布重新锁定鼠标
 gameContainer.addEventListener('click', () => {
     if (gameMode !== 'menu' && !_pointerLocked && !useGamepad) {
-        gameContainer.requestPointerLock();
+        try { var _pl = gameContainer.requestPointerLock(); if (_pl && _pl.catch) _pl.catch(function(){}); } catch(e) {}
     }
 });
 
@@ -628,11 +628,6 @@ const METERS_PER_UNIT = 8 / 1.70;
 let obstacleMeshes = [], obstacleData = [];
 let _roadMeshes = [];  // 道路可视化网格
 let _villageSystem = null;  // 当前地图的道路+村落生成数据
-let occluderRaycaster = new THREE.Raycaster();  // 障碍物遮挡检测射线
-let occludedObstacles = [];  // 当前被半透明的障碍物列表
-let hiddenTreeInstances = [];  // 树木遮挡隐藏列表：[{imTrunk,imCrown,index,matrixTrunk,matrixCrown}]
-let transparentTreeGroups = [];  // 树木遮挡半透明替身 Group 列表
-let transparentMatPool = new Map();  // 透明材质池：原始材质→半透明clone（避免每帧clone/dispose）
 let sunLight = null;  // 主方向光引用（用于H键切换阴影）
 let shadowEnabled = true;  // 阴影开关状态
 let groundPlane;
@@ -655,7 +650,7 @@ let totalDistance = 0;   // 坦克行驶总里程（单位）
 // 游戏参数
 const TRACK_SPACING = 3.2;
 const MAX_SPEED = 8.0;
-const TRACK_ACCEL = 10.0, TRACK_DECEL = 16.0, TRACK_COAST = 20.0;
+const TRACK_ACCEL = 40.0, TRACK_DECEL = 40.0, TRACK_COAST = 40.0;
 let prevTargetLeft = 0, prevTargetRight = 0; // 上一帧目标：检测摇杆穿中换向
 const PITCH_GAIN = 0.015, PITCH_MAX = 0.09, PITCH_SMOOTH = 8.0;
 // RECOIL_PITCH 等火炮物理常量 → shells.js
@@ -686,6 +681,18 @@ function _t(key, fallback) {
 }
 function _getHill() { return _t('hill', null); }
 function _getBasin() { return _t('basin', null); }
+
+
+function disposeBuildingInstance(od) {
+    if (!od.imBuilding || od.imIndex == null) return;
+    const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
+    hideMat.setPosition(0, -999, 0);
+    for (const im of od.imBuilding) {
+        im.setMatrixAt(od.imIndex, hideMat);
+        im.instanceMatrix.needsUpdate = true;
+    }
+    od.destroyed = true;
+}
 
 function getGroundHeight(x, z) {
     if (isVersusMap) return 0;
@@ -802,8 +809,8 @@ function initScene() {
         const sun = new THREE.DirectionalLight('#fffef0', 2.5);
         sun.position.set(30, 40, 20);
         sun.castShadow = true;
-        sun.shadow.mapSize.width = 1024;  // v0.25.5: 512→1024，配合72m范围保持密度
-        sun.shadow.mapSize.height = 1024;
+        sun.shadow.mapSize.width = 512;  // v0.25.5: 512→1024，配合72m范围保持密度
+        sun.shadow.mapSize.height = 512;
         sun.shadow.camera.near = 0.5;
         sun.shadow.camera.far = 120;
         sun.shadow.camera.left = -36;     // v0.25.5: ±18→±36(72m范围)，覆盖更远距离
@@ -846,7 +853,6 @@ function initScene() {
     // --- 摄像机 ---
     camera = new THREE.PerspectiveCamera(45, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
     placeCamera();
-    handleObstacleOcclusion();
     debugRefreshColliders();
 }
 
@@ -872,11 +878,6 @@ function rebuildMap() {
         g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
     });
     obstacleMeshes = []; obstacleData = [];
-    transparentTreeGroups.forEach(g => {
-        if (g.parent) g.parent.remove(g);
-        g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-    });
-    transparentTreeGroups = [];
     // 清除草丛
     clearGrass();
     // 重建地面
@@ -1391,7 +1392,7 @@ function createTank() {
 }
 
 // poissonDiskSampling, updateObstacleVisibility, updateGrassVisibility,
-// createTransparentTreeGhost, isOnRoad, createRoadMeshes,
+// isOnRoad, createRoadMeshes,
 // cleanupRoadMeshes, createObstacles → obstacles.js
 
 // ==================== 运动状态 ====================
@@ -1536,7 +1537,6 @@ const clock = new THREE.Clock();
 let fpsFrames = 0, fpsTime = 0, fpsCurrent = 0;
 let grassTriCount = 0; // 草丛三角面统计
 let visibilityTimer = 0;
-let occlusionTimer = 0;  // 障碍物遮挡检测降频计时器
 
 // ==================== 性能探针 ====================
 // 四阶段累加：physics(物理), combat(战斗), updates(杂项更新), render(渲染)
@@ -1913,7 +1913,7 @@ function gameLoop() {
     const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
     // ── 首次进入游戏时请求指针锁定 ──
     if (!_pointerLocked && gameMode !== 'menu' && !useGamepad) {
-        gameContainer.requestPointerLock();
+        try { var _pl = gameContainer.requestPointerLock(); if (_pl && _pl.catch) _pl.catch(function(){}); } catch(e) {}
     }
     // 锁定模式: X固定正中, Y由movementY累积驱动(虚拟准星)
     if (_pointerLocked) {
@@ -2002,7 +2002,7 @@ function gameLoop() {
     let newX = tankState.x + forwardX * limitedV * dt;
     let newZ = tankState.z + forwardZ * limitedV * dt;
 
-    for (let iter = 0; iter < 3; iter++) {
+    for (let iter = 0; iter < 1; iter++) {
         const result = checkCollision(newX, newZ);
         if (result.hit) { newX += result.pushX; newZ += result.pushZ; } else break;
     }
@@ -2261,12 +2261,16 @@ function gameLoop() {
                 const obsWorldPos = new THREE.Vector3(obsX, obsY + obsTop/2, obsZ);
                 spawnFragments(obsWorldPos, od.color);
                 playExplosionSound();
-                if (od.type === 'building' && od.groupRef) {
-                    const obs = od.groupRef;
-                    obs.parent.remove(obs);
-                    obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
-                    const meshIdx = obstacleMeshes.indexOf(obs);
-                    if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                if (od.type === 'building') {
+                    if (od.groupRef) {
+                        const obs = od.groupRef;
+                        obs.parent.remove(obs);
+                        obs.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
+                        const meshIdx = obstacleMeshes.indexOf(obs);
+                        if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                    } else if (od.imBuilding) {
+                        disposeBuildingInstance(od);
+                    }
                 } else if (od.type && od.type !== 'building') {
                     disposeTreeInstance(od);
                 }
@@ -2307,9 +2311,9 @@ function gameLoop() {
                         const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
                         const hitY = prevY2 + (currY2 - prevY2) * tHit;
                         if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
-                            en.hp -= s.damage || SHELL_DAMAGE; if (en.hp < 0) en.hp = 0; hit = true;
+                            if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) { en.hp -= s.damage || SHELL_DAMAGE; if (en.hp < 0) en.hp = 0; } hit = true;
                             spawnHitSparks(new THREE.Vector3(ox + (px + vx * tHit - ox) * 0.5, hitY, oz + (pz + vz * tHit - oz) * 0.5)); playHitSound();
-                            if (en.hp <= 0) { en.dead = true; spawnFragments(new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z), '#4a5c2e'); playExplosionSound(); en.visible = false; }
+                            if (en.hp <= 0) { en.dead = true; spawnFragments(new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z), '#4a5c2e'); playExplosionSound(); en.visible = false; if(isTrainingMode)_killEnemyInTraining(en); }
                         }
                     }
                 }
@@ -2368,6 +2372,8 @@ function gameLoop() {
                             // 丧尸/六足：不立即隐藏/爆炸，走死亡动画流程
                             enemy.ai.state = 'dead';
                             enemy.ai.animRequest = 'death';
+                            // 训练场：标记死亡并触发重生队列
+                            if (isTrainingMode && isHex) { enemy.dead = true; _killEnemyInTraining(enemy); }
                             // 加分和掉落由 gameLoop 死亡动画处理，此处不重复执行
                         } else {
                             // 敌人死亡：立即播放爆炸 + 隐藏模型 + 清理
@@ -2448,17 +2454,19 @@ function gameLoop() {
                 if (dx * dx + dz * dz < combinedR * combinedR && Math.abs(dy) < (od.height || 1.5) + 1.0) {
                     const op = new THREE.Vector3(ox, ((od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z))) + (od.height || 1.5) / 2, oz);
                     spawnFragments(op, od.color);
-                    if (od.type === 'building' && od.groupRef) {
+                if (od.type === 'building') {
+                    if (od.groupRef) {
                         const obs = od.groupRef;
                         obs.parent.remove(obs);
                         obs.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
                         const mi = obstacleMeshes.indexOf(obs);
                         if (mi >= 0) obstacleMeshes.splice(mi, 1);
-                    } else if (od.type === 'building') {
+                    } else if (od.imBuilding) {
                         disposeBuildingInstance(od);
-                    } else if (od.type) {
-                        disposeTreeInstance(od);
                     }
+                } else if (od.type) {
+                    disposeTreeInstance(od);
+                }
                     // 找到 od 在 obstacleData 中的真实索引并移除
                     const realIdx = obstacleData.indexOf(od);
                     if (realIdx >= 0) {
@@ -2508,6 +2516,8 @@ function gameLoop() {
                             }
                             if (isHexKilled) {
                                 en.ai.animRequest = 'death';
+                                // 训练场：标记死亡并触发重生队列
+                                if (isTrainingMode) { en.dead = true; _killEnemyInTraining(en); }
                             }
                         }
                     }
@@ -2667,11 +2677,6 @@ function gameLoop() {
 
     // 摄像机
     placeCamera();
-    occlusionTimer += dt;
-    if (occlusionTimer > 0.3) {
-        handleObstacleOcclusion();
-        occlusionTimer = 0;
-    }
 
     // 影子
     const shadow = tankGroup.getObjectByName('shadow');
@@ -2885,7 +2890,7 @@ function gameLoop() {
                 if (hst) {
                     HexapodEnemy.update(enemy, dt);
                     // 死亡动画完成后标记完成 → 训练场重生
-                    if (hst._deathDone && !enemy.ai.deathAnimDone) {
+                    if (hst._deathDone && !enemy.ai.deathAnimDone && enemy.dead) {
                         enemy.ai.deathAnimDone = true;
                         enemy.dead = true; // 标记为死亡，供训练场重生检测
                         enemy.visible = false; // 隐藏死亡模型
@@ -2982,22 +2987,25 @@ function gameLoop() {
             }
             if (!enemy.userData._noTerrainPitch && !isHexapod) {
                 if (!enemy.rotation.order || enemy.rotation.order !== 'YXZ') enemy.rotation.order = 'YXZ';
-                const sampleDist = 1.0;
+                const sampleDist = 2.0;
                 const eFwdX = -Math.cos(enemy.rotation.y);
                 const eFwdZ = Math.sin(enemy.rotation.y);
-                // 俯仰: 前后采样
                 const fh = getGroundHeight(enemy.position.x + eFwdX * sampleDist, enemy.position.z + eFwdZ * sampleDist);
                 const bh = getGroundHeight(enemy.position.x - eFwdX * sampleDist, enemy.position.z - eFwdZ * sampleDist);
                 const eTerrainPitch = Math.atan2(fh - bh, sampleDist * 2);
-                enemy.rotation.x = -eTerrainPitch;
-                // 侧倾: 左右采样
-                const sideDist = 1.0;
+                const sideDist = 1.5;
                 const eRightX = -Math.cos(enemy.rotation.y + Math.PI / 2);
                 const eRightZ = Math.sin(enemy.rotation.y + Math.PI / 2);
                 const lh = getGroundHeight(enemy.position.x - eRightX * sideDist, enemy.position.z - eRightZ * sideDist);
                 const rh = getGroundHeight(enemy.position.x + eRightX * sideDist, enemy.position.z + eRightZ * sideDist);
                 const eTerrainRoll = Math.atan2(rh - lh, sideDist * 2);
-                enemy.rotation.z = -eTerrainRoll;
+                const SM = 12.0;
+                if (typeof enemy.userData._smoothPitch === 'undefined') enemy.userData._smoothPitch = 0;
+                if (typeof enemy.userData._smoothRoll === 'undefined') enemy.userData._smoothRoll = 0;
+                enemy.userData._smoothPitch += (eTerrainPitch - enemy.userData._smoothPitch) * Math.min(1, SM * dt);
+                enemy.userData._smoothRoll += (eTerrainRoll - enemy.userData._smoothRoll) * Math.min(1, SM * dt);
+                enemy.rotation.x = -enemy.userData._smoothPitch;
+                enemy.rotation.z = -enemy.userData._smoothRoll;
             }
             // 🚜 坦克 vs 丧尸碰撞（碾压 或 推开）
             if (isZombie && player1 && !player1.dead) {
@@ -3511,7 +3519,6 @@ function placeCamera() {
 
 // 障碍物遮挡视线检测（降频+距离预过滤，每0.3s执行一次）
 // ⚡ v0.24.9 优化：用透明材质池替代每帧 clone/dispose，消除 GPU 材质编译开销
-// handleObstacleOcclusion → obstacles.js
 
 // ==================== 菜单与状态切换 ====================
 // ==================== 双人对战系统 ====================
@@ -3647,7 +3654,7 @@ function updatePlayerPhysics(p, dt, tL, tR) {
     const sa=Math.atan2(sf-sb,2.0);
     const sv=Math.abs(sa)>MAX_SLOPE?MAX_SLOPE/Math.abs(sa):1.0;
     let nx=p.state.x+fx*v*sv*dt,nz=p.state.z+fz*v*sv*dt;
-    for(let it=0;it<3;it++){const cr=checkCollision(nx,nz);if(cr.hit){nx+=cr.pushX;nz+=cr.pushZ;}else break;}
+    for(let it=0;it<1;it++){const cr=checkCollision(nx,nz);if(cr.hit){nx+=cr.pushX;nz+=cr.pushZ;}else break;}
     if(gameMode==='versus'){const o=p===player1?player2:player1;
         if(o&&!o.dead){const tdx=nx-o.state.x,tdz=nz-o.state.z,td=Math.sqrt(tdx*tdx+tdz*tdz);
             if(td<TANK_HALF_W*2){const pu=(TANK_HALF_W*2-td)/Math.max(td,.001);nx+=tdx*pu*.5;nz+=tdz*pu*.5;}}}
@@ -3964,7 +3971,6 @@ async function enterCombatMode() {
     await raf(); updateLoadingProgress(96, '初始化...');
     visibilityTimer = 0;
     updateObstacleVisibility();
-    handleObstacleOcclusion();
     placeCamera();
     initAudio(); startEngineSound();
     if (audioCtx && audioCtx.state === 'suspended') {
@@ -4262,12 +4268,8 @@ function fireEnemyTrainingShell(enemy) {
     barrelDir.x += (Math.random() - 0.5) * spread;
     barrelDir.z += (Math.random() - 0.5) * spread;
     barrelDir.normalize();
-    // 重力补偿
-    var dist = muzzlePos.distanceTo(player1.group.position);
-    var flightTime = dist / SHELL_SPEED;
+    // 重力补偿已由 aimTurretAt 在炮管俯仰中处理, 此处不再叠加
     var aimDir = barrelDir.clone();
-    aimDir.y += 0.5 * SHELL_GRAVITY * flightTime / SHELL_SPEED;
-    aimDir.normalize();
     // 炮口闪光
     var flash = new THREE.PointLight('#ffcc44', 10, 6, 2);
     flash.position.copy(muzzlePos); scene.add(flash);
@@ -4361,73 +4363,72 @@ window._killEnemyInTraining = _killEnemyInTraining; // mg.js需要
 // ─── 训练场重生执行 ──
 function _processTrainingRespawn(dt) {
     if (!isTrainingMode) return;
-    // 自动检测训练场敌人死亡(兜底, 覆盖所有死亡路径)
-    // 六足: 死亡动画由 HexapodEnemy 管理, 不在此自动隐藏
-    if (!trainingRespawnQueued) {
-        for (var ei = 0; ei < enemies.length; ei++) {
-            var en = enemies[ei];
-            var isHexAuto = (en.cfg && en.cfg.type === 'hexapod');
-            if (en.dead || (en.hp <= 0 && !isHexAuto) || (!en.visible && !isHexAuto)) {
-                if (!en.dead) { en.dead = true; en.visible = false; en.ai.state = 'dead'; if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = false; }
-                trainingRespawnQueued = { player: false, delay: 1.0 };
-                break;
-            }
-        }
-    }
-    if (!trainingRespawnQueued) return;
-    trainingRespawnQueued.delay -= dt;
-    if (trainingRespawnQueued.delay > 0) return;
-    var q = trainingRespawnQueued;
-    trainingRespawnQueued = null;
-    if (q.player) {
-        // 重生玩家
-        var gy = getGroundHeight(trainingPlayerSpawn.x, trainingPlayerSpawn.z);
-        player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
-        player1.group.visible = true;
-        player1.hp = 100; player1.dead = false;
-        player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
-        player1.state.yaw = Math.PI;
-        player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
-        player1.reloadTimer = 0;
-        player1.group.rotation.set(0, 0, 0); // 游戏循环自动修正
-        player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
-        player1.reloadTimer = 0;
-        if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
-        togglePlayerBars(player1, true);
-        hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
-    } else {
-        // 重生敌人
-        for (var ei = enemies.length - 1; ei >= 0; ei--) {
-            var en = enemies[ei];
-            if (en.dead) {
-                var isHex = (en.cfg && en.cfg.type === 'hexapod');
-                var egy = getGroundHeight(trainingEnemySpawn.x, trainingEnemySpawn.z);
-                en.position.set(trainingEnemySpawn.x, egy, trainingEnemySpawn.z); // 六足由HexapodEnemy.init()自动抬升
-                en.rotation.set(0, 0, 0);
-                en.visible = true;
-                en.hp = en.userData.maxHp || 60;
-                en.dead = false;
-                en.ai.state = 'patrol';
-                en.ai.target = null;
-                en.ai.alertTimer = 0;
-                en.ai._tankFireTimer = 0;
-                // 重置六足AI字段
-                if (isHex) {
-                    en.ai.spinUp = 0; en.ai.heat = 0; en.ai.bodyYaw = 0; en.ai.strafeTimer = 0; en.ai.gatlingSpread = 0; en.ai._missileAmmoL = 4; en.ai._missileAmmoR = 4; en.ai._overheated = false;
-                    en.ai.animRequest = 'idle';
-                    en.ai.deathAnimStarted = false;
-                    en.ai.deathAnimDone = false;
-                    // 重新初始化 CCD IK 动画状态
-                    if (window.HexapodEnemy && en.userData._hexAnimState) {
-                        HexapodEnemy.init(en);
+    if (player1 && player1.hp <= 0) {
+        player1._respawnTimer = (player1._respawnTimer || 0) + dt;
+        if (player1._respawnTimer >= 1.0) {
+            var gy = getGroundHeight(trainingPlayerSpawn.x, trainingPlayerSpawn.z);
+            player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
+            player1.group.visible = true; player1.hp = 100; player1.dead = false;
+            player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
+            player1.state.yaw = Math.PI;
+            player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+            player1.reloadTimer = 0; player1.group.rotation.set(0, 0, 0);
+            if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+            togglePlayerBars(player1, true);
+            hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
+            player1._respawnTimer = 0;
+            // 玩家复活后, 重置所有存活敌人的AI使其重新锁定玩家
+            for (var ri = 0; ri < enemies.length; ri++) {
+                var re = enemies[ri];
+                if (re.hp > 0 && re.ai && re.ai.state !== 'dead') {
+                    if (typeof trainingBehavior !== 'undefined' && trainingBehavior === 'active') {
+                        re.ai.state = 'chase';
+                        re.ai.target = player1;
+                        re.ai.lastSeenPlayerPos = player1.group.position.clone();
+                    } else if (re.ai.state === 'patrol') {
+                        // 非主动模式: 保持在patrol, 让AI自行检测
+                        re.ai.target = null;
                     }
                 }
-                // 丧尸重生: 需要重置AnimationSystem避免保持死亡卧倒姿势
-                var isZomb = (en.cfg && en.cfg.type === 'zombie');
-                if (isZomb && en.userData._animSystem) { en.userData._animSystem.play('Idle', true); }
-                if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = true;
-                break;
             }
+        }
+    } else if (player1) {
+        player1._respawnTimer = 0;
+    }
+    for (var ei = 0; ei < enemies.length; ei++) {
+        var en = enemies[ei];
+        var hpVal = Number(en.hp);
+        if (isNaN(hpVal)) { hpVal = 0; en.hp = 0; }
+        if (hpVal <= 0) {
+            en._respawnTimer = (en._respawnTimer || 0) + dt;
+            if (en._respawnTimer >= 1.0) {
+                en.visible = true;
+                en.hp = (en.userData && en.userData.maxHp) || 100;
+                en.dead = false;
+                en._invincibleUntil = performance.now() + 2000;
+                if (!en.ai) en.ai = {};
+                // 主动攻击模式: 复活后直接追击玩家
+                if (typeof trainingBehavior !== 'undefined' && trainingBehavior === 'active') {
+                    en.ai.state = 'chase';
+                    en.ai.target = player1;
+                    if (player1 && player1.group) en.ai.lastSeenPlayerPos = player1.group.position.clone();
+                } else {
+                    en.ai.state = 'patrol';
+                    en.ai.target = null;
+                    en.ai.lastSeenPlayerPos = null;
+                }
+                en.ai.alertTimer = 0;
+                en.ai._tankFireTimer = 0;
+                en.currentLeftSpeed = 0;
+                en.currentRightSpeed = 0;
+                var egy = getGroundHeight(trainingEnemySpawn.x, trainingEnemySpawn.z);
+                en.position.set(trainingEnemySpawn.x, egy, trainingEnemySpawn.z);
+                en.rotation.set(0, 0, 0);
+                if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = true;
+                en._respawnTimer = 0;
+            }
+        } else {
+            en._respawnTimer = 0;
         }
     }
 }
@@ -4867,9 +4868,11 @@ function updateShellsFragsMuzzle(dt) {
                 const disc=b*b-4*a*c;if(disc>=0){const sq=Math.sqrt(disc),t1=(-b-sq)/(2*a),t2=(-b+sq)/(2*a);
                     if((t1>=0&&t1<=1)||(t2>=0&&t2<=1)||(t1<0&&t2>1))hh=true;}}
             if(hh){const op=new THREE.Vector3(oX,oY+oT/2,oZ);spawnFragments(op,od.color);playExplosionSound();
-                if(od.type==='building'&&od.groupRef){const obs=od.groupRef;
+                if(od.type==='building'){
+                    if(od.groupRef){const obs=od.groupRef;
                     obs.parent.remove(obs);obs.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
                     const mIdx=obstacleMeshes.indexOf(obs);if(mIdx>=0)obstacleMeshes.splice(mIdx,1);}
+                    else if(od.imBuilding){disposeBuildingInstance(od);}}
                 else if(od.type&&od.type!=='building'){disposeTreeInstance(od);}
                 // 找到 od 在 obstacleData 中的真实索引并移除
                 const realIdx = obstacleData.indexOf(od);
@@ -4901,11 +4904,11 @@ function updateShellsFragsMuzzle(dt) {
                     const tHit=Math.max(0,Math.min(1,t1>=0&&t1<=1?t1:t2));
                     const hitY=prevY+(currY-prevY)*tHit;
                     if(hitY>ey-.3&&hitY<ey+eH+.3){
-                        en.hp-=s.damage||SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
+                        if(!en._invincibleUntil||performance.now()>=en._invincibleUntil){en.hp-=s.damage||SHELL_DAMAGE;if(en.hp<0)en.hp=0;}hit=true;
                         spawnHitSparks(new THREE.Vector3(ox+(px+vx*tHit-ox)*.5,hitY,oz+(pz+vz*tHit-oz)*.5));playHitSound();
                         if(en.hp<=0){en.dead=true;
                             spawnFragments(new THREE.Vector3(en.position.x,en.position.y+1,en.position.z),'#4a5c2e');
-                            playExplosionSound();en.visible=false;}}}}}}
+                            playExplosionSound();en.visible=false;if(isTrainingMode)_killEnemyInTraining(en);}}}}}}
         if(!hit&&gameMode==='versus'&&s.owner){const en=s.owner===player1?player2:player1;
             if(en&&!en.dead){const edx=s.mesh.position.x-en.state.x,edz=s.mesh.position.z-en.state.z;
                 if(Math.sqrt(edx*edx+edz*edz)<TANK_HALF_W+.2&&s.mesh.position.y<1.8){en.hp-=SHELL_DAMAGE;if(en.hp<0)en.hp=0;hit=true;
@@ -4934,16 +4937,18 @@ function updateShellsFragsMuzzle(dt) {
                     const opy = (od.type === 'building' && od.groupRef) ? od.groupRef.position.y : (isVersusMap ? 0 : getTerrainHeight(od.x, od.z));
                     const op = new THREE.Vector3(ox, opy + (od.height || 1.5) / 2, oz);
                     spawnFragments(op, od.color);
-                    if (od.type === 'building' && od.groupRef) {
+                if (od.type === 'building') {
+                    if (od.groupRef) {
                         od.groupRef.parent.remove(od.groupRef);
                         od.groupRef.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
                         const mi = obstacleMeshes.indexOf(od.groupRef);
                         if (mi >= 0) obstacleMeshes.splice(mi, 1);
-                    } else if (od.type === 'building') {
+                    } else if (od.imBuilding) {
                         disposeBuildingInstance(od);
-                    } else if (od.type) {
-                        disposeTreeInstance(od);
                     }
+                } else if (od.type) {
+                    disposeTreeInstance(od);
+                }
                     obstacleData.splice(j, 1);
                 }
             }
@@ -5146,7 +5151,6 @@ async function enterGame() {
     if(player1&&player1.hpBarGroup)player1.hpBarGroup.visible=false;
     if(player1&&player1.shellLabel)player1.shellLabel.visible=true;
     placeCamera();
-    handleObstacleOcclusion();
     initAudio();startEngineSound();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -5195,11 +5199,6 @@ async function rebuildMapAsync() {
         g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
     });
     obstacleMeshes = []; obstacleData = [];
-    transparentTreeGroups.forEach(g => {
-        if (g.parent) g.parent.remove(g);
-        g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-    });
-    transparentTreeGroups = [];
     clearGrass();
 
     // 地基
@@ -5419,7 +5418,7 @@ async function enterTrainingMode() {
     const enemyGy = getGroundHeight(enemySpawnX, enemySpawnZ);
     const realEnemyType = trainingEnemyType;
     const enemyHP = realEnemyType === 'tank' ? 100 : realEnemyType === 'assault-vehicle' ? 60 : realEnemyType === 'zombie' ? 40 : realEnemyType === 'hexapod' ? 250 : 60;
-    const enemySpeed = realEnemyType === 'tank' ? MAX_SPEED : realEnemyType === 'assault-vehicle' ? 5.0 : realEnemyType === 'zombie' ? 2.5 : realEnemyType === 'hexapod' ? 2.5 : 5.0;
+    const enemySpeed = realEnemyType === 'tank' ? 6.0 : realEnemyType === 'assault-vehicle' ? 5.0 : realEnemyType === 'zombie' ? 2.5 : realEnemyType === 'hexapod' ? 2.5 : 5.0;
 
     let enemyModel;
     if (realEnemyType === 'tank') {
@@ -5466,13 +5465,14 @@ async function enterTrainingMode() {
     }
     enemyModel.position.set(enemySpawnX, enemyGy, enemySpawnZ); // 六足由HexapodEnemy.init()自动抬升
     enemyModel.rotation.set(0, 0, 0); // rotation.y=0 → fwd=-X → 面朝玩家
+    enemyModel.rotation.order = 'YXZ'; // 确保地形俯仰/侧倾正确
     var isTankEnemy = (realEnemyType === 'tank');
     var isHexEnemy = (realEnemyType === 'hexapod');
     enemyModel.cfg = {
         type: realEnemyType,
         id: 'training_enemy',
         hp: enemyHP || 60,
-        speed: isTankEnemy ? 3.5 : (isHexEnemy ? 4.5 : (enemySpeed || 5.0)),
+        speed: isTankEnemy ? 6.0 : (isHexEnemy ? 4.5 : (enemySpeed || 5.0)),
         viewDist: 80,
         attackDamage: 15,
         attackCooldown: realEnemyType === 'zombie' ? 1.5 : isHexEnemy ? 0.1 : 3.0,
@@ -5558,7 +5558,6 @@ async function enterTrainingMode() {
     if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = true;
     if (player1 && player1.shellLabel) player1.shellLabel.visible = true;
     placeCamera();
-    handleObstacleOcclusion();
     initAudio(); startEngineSound();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -5637,8 +5636,8 @@ function enterPreviewMode() {
     const sun = new THREE.DirectionalLight('#fffef0', 2.5);
     sun.position.set(5, 8, 5);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
+    sun.shadow.mapSize.width = 512;
+    sun.shadow.mapSize.height = 512;
     sun.shadow.camera.near = 0.5;
     sun.shadow.camera.far = 50;
     sun.shadow.camera.left = -10;
@@ -5920,4 +5919,3 @@ window.addEventListener('keydown', function(e) {
     }
     console.log('🔭 上帝视角:', window._godMode ? '开' : '关');
 });
-
