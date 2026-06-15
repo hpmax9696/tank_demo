@@ -295,7 +295,7 @@
         // 1. 车体移动（侧滑约束履带物理）
         const facingX = -Math.cos(enemy.rotation.y);
         const facingZ =  Math.sin(enemy.rotation.y);
-        const retreating = radialW > 0.3; // 需要远离玩家时倒车而非掉头
+        const retreating = radialW < -0.3; // 太近时(<optimalDist)远离玩家，倒车而非掉头
         if (retreating) {
             // 倒车：车身不转向，直接后退
             enemy.position.x -= facingX * speed * 0.7 * dt;
@@ -778,21 +778,23 @@
         if (ai.strafeTimer > 3.0 + Math.random() * 2) { ai.strafeDir = (ai.strafeDir || 1) * -1; ai.strafeTimer = 0; }
         const sd = ai.strafeDir || 1;
 
-        // ── 4. 武器决策优先级: 加特林 > 导弹+后退 > 导弹 > 纯后退 > 无 ──
+        // ── 4. 武器决策优先级: 加特林(近距离) > 导弹(中远距离) > 后退 > 无 ──
         const missileAmmo = (ai._missileAmmoL || 0) + (ai._missileAmmoR || 0);
         const canGatling = !ai._overheated && ai.spinUp > 0.7 && isAligned && dist < gatlingRange;
-        const canMissile = missileAmmo > 0 && dist > 5 && dist < missileRange && isAligned;
+        const canMissile = missileAmmo > 0 && dist > 3 && dist < missileRange && isAligned;
         let weaponAction = 'none';
-        if (canGatling) {
-            weaponAction = 'gatling';
-        } else if (ai._overheated && dist <= 5 && canMissile) {
-            weaponAction = 'missile_retreat';  // 过热+太近有弹: 后退+导弹
-        } else if (ai._overheated && dist <= 5) {
-            weaponAction = 'retreat';          // 过热+太近没弹: 纯后退
+        if (canGatling && !canMissile) {
+            weaponAction = 'gatling';                       // 近距离优先加特林
+        } else if (canGatling && canMissile && dist < 12) {
+            weaponAction = 'gatling';                       // 极近距: 加特林
+        } else if (canMissile && dist >= 15) {
+            weaponAction = 'missile';                       // 中远距: 导弹(15~40m)
+        } else if (canGatling) {
+            weaponAction = 'gatling';                       // 兜底加特林
         } else if (ai._overheated && canMissile) {
-            weaponAction = 'missile_retreat';  // 过热+有弹: 后退+导弹
-        } else if (canMissile && (dist >= gatlingRange || !isAligned)) {
-            weaponAction = 'missile';          // 未过热+中距离: 纯导弹
+            weaponAction = 'missile_retreat';               // 过热有弹: 后退+导弹
+        } else if (ai._overheated) {
+            weaponAction = 'retreat';                       // 过热没弹: 纯后退
         }
 
         // ── 5. 切向绕圈 + 径向距离修正 ──

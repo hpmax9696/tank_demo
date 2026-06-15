@@ -4590,6 +4590,8 @@ function _processTrainingRespawn(dt) {
                     en.ai.deathAnimDone = false;
                     en.ai.spinUp = 0;
                     en.ai.heat = 0;
+                    en.ai._missileAmmoL = 4;
+                    en.ai._missileAmmoR = 4;
                     if (typeof HexapodEnemy !== 'undefined') {
                         HexapodEnemy.init(en);
                     }
