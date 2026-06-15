@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.60.3
+# CODEBUDDY.md — v0.60.4
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -521,7 +521,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 6 | 状态面板在CDP生成时显示 | ✅ v0.51.0 删除硬编码重复panel+setProperty('important') | editor_genStatus.js + map_editor.html |
 | 7 | CDP标签页回收 | ✅ v0.51.0 cdp_verify.py进程级清理替代/json/close，100%可靠 | cdp_verify.py |
 | 8 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
-| 9 | 树木 InstancedMesh 重构 | 🔵 远期 | 未分配 | draw calls 预计减少 60% |
+| 9 | 草丛 InstancedMesh 合并 + 材质优化 | ✅ v0.60.4 | draw calls 48~192→3, Lambert+FrontSide |
 | 10 | 村落间距检查放宽 | ✅ v0.51.0 自适应间距min(80,maxDim*0.1)+多轮选址 | editor_terrainGen.js |
 
 ---
@@ -626,12 +626,26 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 |------|----|
 | 穹顶半径 | maxSide * 1.7 |
 | 云球半径 | maxSide * 1.65 |
-| fog near | maxSide * 0.8 |
+| fog near | maxSide * 0.4 (v0.60.4: 从0.8降低) |
 | fog far | maxSide * 1.6 |
 | camera far | maxSide * 2.2 |
 | 太阳方位/仰角 | 120° / 35° |
 | fog颜色 | #c8d8e0 |
 | 云噪声 | 2层FBM值噪声, smoothstep软边缘 |
+| 天空球分段 | 96×48 (v0.60.4: 从64×32提升) |
+| GLSL precision | highp float (v0.60.4: 新增) |
+| outputColorSpace | THREE.SRGBColorSpace (v0.60.4: 新增) |
+| sunLight对齐 | getSunDir() API → DirectionalLight位置/阴影方向同步 |
+
+### 性能优化 (v0.60.4)
+
+| 优化 | 说明 |
+|------|------|
+| 草丛InstancedMesh合并 | 按单元格分块→按类型合并, draw call从~48-192降至固定3 |
+| 草材质降级 | MeshStandardMaterial(PBR)→MeshLambertMaterial(漫反射), GPU着色器开销降~30% |
+| 草片面剔除 | DoubleSide→FrontSide, 片段着色器调用减半 |
+| 河流碰撞网格化 | 新建_riverGrid(SpatialGrid, cellSize=10), checkCollision/isInRiver/多轮推离全部queryByDistance O(1) |
+| 调试面板 | 新增renderer.info.render.points显示 |
 
 ### 六足AI修复 (v0.60.1~v0.60.3)
 

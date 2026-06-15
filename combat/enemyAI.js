@@ -652,10 +652,10 @@
                         ai.alertTimer = (ai.alertTimer || 0) + dt;
                         if (ai.alertTimer > 8) { ai.state = AI_STATE.PATROL; ai.alertTimer = 0; ai.target = null; }
                     } else { ai.alertTimer = 0; }
-                    // 远距离追击时发射导弹 (CHASE阶段: 距离 > 5 且在导弹射程内, 弹舱有弹)
+                    // 远距离追击时发射导弹 (CHASE阶段: 距离>25m且在导弹射程内, 太近打不中)
                     ai.gatlingRequest = false;
                     ai.missileRequest = false;
-                    if (nearestPlayer && nearestDist > 5 && nearestDist < (cfg.missileRange || 35)) {
+                    if (nearestPlayer && nearestDist > 25 && nearestDist < (cfg.missileRange || 35)) {
                         const _ma = (ai._missileAmmoL || 0) + (ai._missileAmmoR || 0);
                         if (_ma > 0) {
                             ai.missileTimer = (ai.missileTimer || 0) - dt;
@@ -778,10 +778,10 @@
         if (ai.strafeTimer > 3.0 + Math.random() * 2) { ai.strafeDir = (ai.strafeDir || 1) * -1; ai.strafeTimer = 0; }
         const sd = ai.strafeDir || 1;
 
-        // ── 4. 武器决策: 加特林(<15m) > 导弹(15~50m) > 过热后退+导弹 > 后退 ──
+        // ── 4. 武器决策: 加特林(<15m) > 导弹(25~50m) > 过热后退+导弹 > 后退 ──
         const missileAmmo = (ai._missileAmmoL || 0) + (ai._missileAmmoR || 0);
         const canGatling = !ai._overheated && ai.spinUp > 0.7 && isAligned && dist < gatlingRange;
-        const canMissile = missileAmmo > 0 && dist > 15 && dist < missileRange && isAligned;
+        const canMissile = missileAmmo > 0 && dist > 25 && dist < missileRange && isAligned;
         let weaponAction = 'none';
         if (ai._overheated && canMissile) {
             weaponAction = 'missile_retreat';               // 过热有弹: 后退拉开距离+发射导弹

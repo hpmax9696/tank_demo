@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.60.3
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.60.4
 
 ## 运行
 
@@ -262,6 +262,10 @@ legGroup (Y旋转=水平摆角)
 - **地图自适应**：穹顶半径/fog距离/camera far基于`maxSide`按比例计算，`SkySystem.resize()`适配地图切换
 - **接管**：`scene.background=null` + `scene.fog` 由sky.js管理；围墙移除（天空穹顶替代）
 - **太阳**：上午10点方位角120°仰角35°，`uSunDir` 统一天空着色器和场景方向光
+- **GLSL precision**：两个片段着色器均已添加 `precision highp float;`（防移动端编译失败）
+- **shader优化**：移除冗余 `normalize(uSunDir)`，JS端已保证归一化
+- **sunLight对齐**：`getSunDir()` API → engine.js用其对齐DirectionalLight位置和阴影方向
+- **雾优化**：`fogNear = maxSide*0.4`（从0.8降低，大气透视更早生效）
 
 ### 六足AI修复（v0.60.1~v0.60.3）
 - **复活腿部冻结**：`_processTrainingRespawn` 补回 `HexapodEnemy.init(en)` 重建CCD IK上下文
@@ -273,10 +277,19 @@ legGroup (Y旋转=水平摆角)
 ### 参数变更
 - 围墙高度：80→移除
 - 围墙颜色：`#8899aa`→移除
-- `scene.fog` 颜色：`#8899aa`→`#c8d8e0`；near/far：`minSide*0.35/0.55`→`maxSide*0.8/1.6`
+- `scene.fog` 颜色：`#8899aa`→`#c8d8e0`；near/far：`maxSide*0.8/1.6`→`maxSide*0.4/1.6`
 - `camera.far`：300→`maxSide*2.2`
 - 六足导弹最远距离：40→50
 - 六足导弹最近距离：3→15
+- `renderer.outputColorSpace`：新增 `THREE.SRGBColorSpace`
+- 天空穹顶分段：`64×32`→`96×48`
+
+### 性能优化（v0.60.4）
+- **草丛InstancedMesh合并**：按单元格分块(每类型8×8=64DC)→按类型合并(每类型1DC)，草丛draw call从~48-192降至固定3
+- **草材质降级**：`MeshStandardMaterial`→`MeshLambertMaterial`（PBR→漫反射，GPU着色器开销降~30%）
+- **草片面剔除**：`DoubleSide`→`FrontSide`（片段着色器调用减半）
+- **河流碰撞空间网格化**：`waters.js`创建时同步构建`_riverGrid`(SpatialGrid, cellSize=10)，`checkCollision`/`isInRiver`/多轮推离全部改用`queryByDistance`，O(n)→O(1)
+- **调试面板**：新增 `renderer.info.render.points` 显示（点粒子数）
 
 ### 已知问题
 1. 坡地一头翘起一头陷地（地形适应不平滑）

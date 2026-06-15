@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.60.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.60.4** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -78,7 +78,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── fbx-test.html          # FBX 模型测试页
 ├── glb-test.html          # GLB 模型测试页
 ├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
-├── AGENTS.md           # 🤖 Codex 专属协作文档 (v0.60.0)
+├── AGENTS.md           # 🤖 Codex 专属协作文档 (v0.60.4)
 ├── README.md              # 本文件
 ├── docs/                  # 📄 协作文档（T-34/85 v1.6 看图AI交互记录）
 │   ├── t34-85-v1.6-spec-for-vision-ai.md    # 识图AI规范文档
@@ -249,6 +249,19 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.60.4 — 性能优化+天空修复（2026-06-15）
+
+- **草丛合并**: InstancedMesh按单元格分块(每类型~64DC)→按类型合并(固定3DC), draw call降90%+
+- **草材质优化**: MeshStandardMaterial→MeshLambertMaterial(PBR→漫反射, GPU开销降~30%)
+- **草片面剔除**: DoubleSide→FrontSide, 片段着色器调用减半
+- **河流碰撞网格化**: 新建_riverGrid(SpatialGrid), checkCollision/isInRiver/多轮推离全部O(1)查询
+- **天空GLSL修复**: 两个片段着色器添加precision highp float, 移除冗余normalize(uSunDir)
+- **sunLight对齐**: getSunDir()API→engine.js用其对齐DirectionalLight位置和阴影方向
+- **渲染器**: 新增renderer.outputColorSpace=SRGBColorSpace
+- **雾优化**: fogNear=maxSide*0.8→0.4, 大气透视更早生效
+- **穹顶分段**: 64×32→96×48, 天空球体更平滑
+- **调试面板**: 新增renderer.info.render.points显示
 
 ### v0.60.1~v0.60.3 — 六足复活修复+武器平衡（2026-06-15）
 

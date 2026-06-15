@@ -49,7 +49,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `combat/enemyAI.js` | ~560 | AI 状态机 + 六足ENGAGE武器平衡 |
 | `fireSmokeParticles.js` | ~390 | 粒子系统 |
 
-| AGENTS.md | ~110 | Codex 专属协作文档（v0.60.3 新增） |
+| AGENTS.md | ~110 | Codex 专属协作文档（v0.60.4） |
 
 ### model_factory.html 关键行
 
@@ -212,7 +212,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.60.3 — AI地形遮挡+迂回包抄+重生修复+炮弹提速+地形适配）
+## 当前版本（v0.60.4 — 性能优化+天空修复+草丛合并+河流网格化）
 
 ### 关键参数
 | 参数 | 值 |
@@ -220,8 +220,9 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 世界尺寸 | worldWidth×worldDepth（可配置，默认300×300） |
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
-| index.html 行数 | ~5460 行 |
-| engine.js 行数 | ~5950 行（v0.60.3）（v0.57.0含CCD IK动画集成+武器系统独立） |
+| index.html 行数 | ~763 行 |
+| engine.js 行数 | ~5358 行（v0.60.4 性能优化合并草丛InstancedMesh） |
+| sky.js 行数 | ~271 行（v0.60.4 新增precision+sunLight对齐） |
 | hexapod_anim.js 行数 | ~1630 行（模型工厂用） |
 | hexapod_enemy.js 行数 | ~890 行（v0.57.0）（v0.57.0新增，训练场六足CCD IK动画） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
@@ -240,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.60.3)
+### 已知问题 (v0.60.4)
 
 | # | 问题 | 位置 |
 |---|------|------|
@@ -251,7 +252,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 5 | 敌人上坡悬浮/俯仰侧倾不平滑 | engine.js |
 | 6 | 山丘遮挡时敌人不主动绕路找角度 | enemyAI.js updateChase |
 
-### 待完成任务 (v0.60.3)
+### 待完成任务 (v0.60.4)
 
 | # | 任务 | 优先级 |
 |---|------|:------:|
@@ -260,9 +261,10 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 3 | 完善地形适配（翘头/陷地） | 🟡 |
 | 4 | 敌人绕路找射击角度 | 🟡 |
 | 5 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🟡 近期 |
-| 6 | 同轴机枪功能 | 🟡 中期 |
-| 7 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
-| 8 | 树木 InstancedMesh 重构 | 🔵 远期 |
+| 6 | 炮弹/碎片/爆炸对象池（减少GC） | 🟡 中期 |
+| 7 | 同轴机枪功能 | 🟡 中期 |
+| 8 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 |
+| 9 | 树木/建筑LOD系统 | 🔵 远期 |
 
 ---
 

@@ -11,6 +11,7 @@ var SkySystem = (function() {
     var _cloudDome = null;
     var _cloudMat = null;
     var _inited = false;
+    var _sunDir = new THREE.Vector3(0.5, 0.6, 0.4); // 太阳方向缓存，供外部对齐光照
 
     // ── 天空穹顶着色器 ──
     var skyVertSrc = [
@@ -28,6 +29,7 @@ var SkySystem = (function() {
         'varying vec3 vWorldPos;',
         'varying float vHeight;',
         'uniform vec3 uSunDir;',
+        'precision highp float;',
         'void main() {',
         '  float h = clamp(vHeight, 0.0, 1.0);',
         '  // 天顶深蓝 → 地平线淡蓝白',
@@ -40,7 +42,7 @@ var SkySystem = (function() {
         '  sky = mix(sky, zenith, t2);',
         '  // 太阳光晕',
         '  vec3 wNorm = normalize(vWorldPos);',
-        '  float sunDot = dot(wNorm, normalize(uSunDir));',
+        '  float sunDot = dot(wNorm, uSunDir);',
         '  float sunGlow = smoothstep(0.0, 0.25, sunDot) * 0.45;',
         '  float sunDisc = smoothstep(0.995, 0.998, sunDot) * 2.5;',
         '  sky += vec3(1.0, 0.95, 0.7) * (sunGlow + sunDisc);',
@@ -68,6 +70,8 @@ var SkySystem = (function() {
         'varying float vHeight;',
         'uniform float uTime;',
         'uniform vec3 uSunDir;',
+        '',
+        'precision highp float;',
         '',
         'float hash(vec2 p) {',
         '  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);',
@@ -123,7 +127,7 @@ var SkySystem = (function() {
         '  // ── 合并 + 太阳照亮 ──',
         '  float cld = cld1 * 0.55 + cld2 * 0.8;',
         '  cld = clamp(cld, 0.0, 1.0);',
-        '  float sunFac = dot(wNorm, normalize(uSunDir)) * 0.5 + 0.5;',
+        '  float sunFac = dot(wNorm, uSunDir) * 0.5 + 0.5;',
         '  vec3 cldCol = mix(vec3(0.85, 0.85, 0.85), vec3(1.0, 0.98, 0.9), sunFac * 0.4);',
         '  // 地平线附近云染淡蓝',
         '  cldCol = mix(cldCol, vec3(0.7, 0.78, 0.85), smoothstep(0.01, 0.12, upDot) * (1.0 - upDot) * 2.0);',
@@ -134,7 +138,7 @@ var SkySystem = (function() {
 
     // ── 构建球体 + ShaderMaterial ──
     function _buildDome(radius, vertSrc, fragSrc, uniforms, transparent) {
-        var geo = new THREE.SphereGeometry(radius, 64, 32);
+        var geo = new THREE.SphereGeometry(radius, 96, 48);
         var mat = new THREE.ShaderMaterial({
             vertexShader: vertSrc,
             fragmentShader: fragSrc,
@@ -170,7 +174,7 @@ var SkySystem = (function() {
 
         var domeR = maxSide * 1.7;
         var cloudR = maxSide * 1.65;
-        var fogNear = maxSide * 0.8;
+        var fogNear = maxSide * 0.4;
         var fogFar = maxSide * 1.6;
         var camFar = maxSide * 2.2;
 
@@ -194,6 +198,7 @@ var SkySystem = (function() {
             Math.sin(sunElev),
             -Math.cos(sunAzim) * Math.cos(sunElev)
         ).normalize();
+        _sunDir.copy(sunDir);
 
         // 注入穹顶半径到着色器
         var sVert = skyVertSrc.join('\n').replace('vHeight = worldPos.y / ', 'vHeight = worldPos.y / ' + domeR.toFixed(1) + ';');
@@ -260,6 +265,7 @@ var SkySystem = (function() {
         init: init,
         update: update,
         resize: _resize,
-        dispose: dispose
+        dispose: dispose,
+        getSunDir: function() { return _sunDir; }
     };
 })();

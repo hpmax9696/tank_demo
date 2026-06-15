@@ -30,9 +30,12 @@ function isInPond(x, z) {
 }
 
 function isInRiver(x, z) {
-    // 快路径：查 riverColliders（所有河统一生成）
-    const margin = TANK_HALF_W + 0.3;
-    for (const rc of riverColliders) {
+    // 快路径：通过空间网格查 riverColliders
+    const margin = TANK_HALF_W + 0.3, maxRcR = 8;
+    const nearby = window._riverGrid
+        ? window._riverGrid.queryByDistance(x, z, maxRcR + margin)
+        : riverColliders;
+    for (const rc of nearby) {
         if (Math.hypot(x - rc.x, z - rc.z) < rc.radius + margin) return true;
     }
     // 兜底：对所有归一化河流做路径距离判定
@@ -271,6 +274,11 @@ function createRiverWater() {
             }
         }
     }
+    // 构建河流空间网格（加速碰撞查询）
+    if (typeof SpatialGrid !== 'undefined' && riverColliders.length > 0) {
+        window._riverGrid = new SpatialGrid(10);
+        window._riverGrid.insertAll(riverColliders);
+    }
 }
 
 // ==================== 动画 ====================
@@ -314,4 +322,5 @@ function cleanupWater() {
         riverWater = null;
     }
     riverColliders = [];
+    if (window._riverGrid) { window._riverGrid.clear(); window._riverGrid = null; }
 }
