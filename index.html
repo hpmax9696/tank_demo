@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.59.1</title>
+    <title>坦克运动demo v0.60.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -604,7 +604,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.59.1</div>
+        <div class="menu-version">v0.60.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -648,11 +648,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">☁️ v0.60.0 狙击模式+动态天空 — 右键第一人称精瞄(FOV25°+自由观察), sky.js蓝天白云穹顶+FBM噪声云层飘移, 俯视小地图(车体+视野), 围墙移除, 狙击灵敏度0.0015</div>
             <div class="cl-title">🔧 v0.59.1 手柄视角+稳定器修复+敌方平衡 — 右摇杆X同步驱动视角与炮塔(叠加不互搏), 六足死亡/复活武器枢轴清理(导弹发射修复), 敌方炮塔转速降为1.5rad/s+散布4°</div>
             <div class="cl-title">🎯 v0.59.0 摄像机鼠标驱动+WoT稳定器+六足绕圈AI+敌我碰撞 — 视角跟随鼠标(PointerLock), 炮塔即时补偿车体转向, 六足AI切向绕圈+武器优先级, 装填环+手柄震动</div>
             <div class="cl-title">🦗 v0.58.0 六足动画重构 — hexapod_core.js统一CCD IK+步态+踉跄/死亡, 模型工厂+游戏共享, ANIM_TABLE数据打通, homeOffset防漂移, 3文件→2600行</div>
             <div class="cl-title">🦗 v0.57.0 训练场六足CCD IK动画 — 新建hexapod_enemy.js(~890行), 从模型工厂移植CCD IK+三角步态+踉跄+死亡, homeOffset相对定位防下陷, 髋Z轴修正, 加特林/导弹武器系统独立运行, MG不触发踉跄防定身</div>
-            <div class="cl-title">🎯 v0.56.1 训练场六足敌人+枪管动画 — 训练场可选择六足敌方(模型/AI/死亡重生)+六足底部贴地+模型工厂加特林枪管簇公转+玩家被火焰/丧尸击杀复活修复+丧尸重生姿势修复</div>
         </div>
     </div>
 
