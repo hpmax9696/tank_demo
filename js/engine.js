@@ -554,6 +554,24 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('mousedown', (e) => {
     if (e.button === 0 && gameMode !== 'menu') { mouseDown = true; mouseFireRequested = true; }
+    // 右键切换狙击模式（仅键鼠，非菜单，非对战）
+    if (e.button === 2 && gameMode !== 'menu' && gameMode !== 'versus') {
+        _sniperMode = !_sniperMode;
+        if (_sniperMode) {
+            _sniperPitch = 0; // 进入时俯仰归零
+        } else {
+            // 退出时: cameraYaw 对齐到炮管世界朝向，第三人称无缝切到炮口后方
+            if (player1 && player1.barrelPivot) {
+                var _bd = getBarrelWorldDir(player1);
+                cameraYaw = Math.atan2(_bd.z, _bd.x);
+            }
+            // 恢复3D UI条（被狙击模式隐藏的）
+            if (reloadBarGroup && typeof reloadTimer !== 'undefined' && reloadTimer > 0) reloadBarGroup.visible = true;
+            if (player1 && player1.hpBarGroup && player1.hp > 0) player1.hpBarGroup.visible = true;
+            if (player1 && player1.shellLabel && player1.hp > 0) player1.shellLabel.visible = true;
+        }
+        e.preventDefault();
+    }
 });
 window.addEventListener('mouseup', (e) => {
     if (e.button === 0) mouseDown = false;
@@ -569,10 +587,17 @@ document.addEventListener('pointerlockchange', () => {
 });
 window.addEventListener('mousemove', (e) => {
     if (_pointerLocked) {
-        // X: 转视角, Y: 累积虚拟准星位置
-        cameraYaw += e.movementX * CAMERA_MOUSE_SENSITIVITY;
-        _virtualMouseY += e.movementY;
-        _virtualMouseY = Math.max(60, Math.min(window.innerHeight - 60, _virtualMouseY));
+        if (_sniperMode) {
+            // 狙击模式：X驱动水平旋转，Y驱动俯仰（上推鼠标=仰头，下推=低头）
+            cameraYaw += e.movementX * SNIPER_MOUSE_SENSITIVITY;
+            _sniperPitch -= e.movementY * SNIPER_MOUSE_SENSITIVITY; // movementY正值=鼠标下移 → pitch减小=低头
+            _sniperPitch = Math.max(-Math.PI/4, Math.min(Math.PI/3, _sniperPitch)); // -45°~+60°
+        } else {
+            // X: 转视角, Y: 累积虚拟准星位置
+            cameraYaw += e.movementX * CAMERA_MOUSE_SENSITIVITY;
+            _virtualMouseY += e.movementY;
+            _virtualMouseY = Math.max(60, Math.min(window.innerHeight - 60, _virtualMouseY));
+        }
         useGamepad = false;
     } else {
         mouseX = e.clientX; mouseY = e.clientY;
@@ -591,6 +616,8 @@ gameContainer.addEventListener('click', () => {
         try { var _pl = gameContainer.requestPointerLock(); if (_pl && _pl.catch) _pl.catch(function(){}); } catch(e) {}
     }
 });
+// 阻止右键菜单（狙击模式使用右键切换）
+gameContainer.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
 // ==================== 玩家工厂 ====================
 function createPlayer(camoColor, startX, startZ, startYaw, isP1) {
@@ -801,9 +828,7 @@ function initScene() {
 
     // --- 共享光照添加到场景 ---
     function addLightingTo(trg) {
-        trg.background = new THREE.Color('#8899aa');  // 匹配雾色，无天空球时远景连贯
-        const _minSide = Math.min(worldHalfW, worldHalfD) * 2;
-        trg.fog = new THREE.Fog('#8899aa', _minSide * 0.35, _minSide * 0.55);  // 配合陡视角，远处自然消失在雾中
+        // background + fog 由 sky.js SkySystem.init() 接管
         trg.add(new THREE.AmbientLight('#ffffff', 0.6));
         trg.add(new THREE.HemisphereLight('#ffeeb1', '#446633', 0.5));
         const sun = new THREE.DirectionalLight('#fffef0', 2.5);
@@ -853,6 +878,8 @@ function initScene() {
     // --- 摄像机 ---
     camera = new THREE.PerspectiveCamera(45, renderer.domElement.width / renderer.domElement.height, 0.5, 300);
     placeCamera();
+    // --- 天空系统 ---
+    if (typeof SkySystem !== 'undefined') SkySystem.init(scene, camera);
     debugRefreshColliders();
 }
 
@@ -888,6 +915,8 @@ function rebuildMap() {
     if (!isVersusMap) { createWaterSurface(); createRiverWater(); createBridge(); }
     // 重建障碍物
     createObstacles();
+    // 天空系统适配新地图尺寸
+    if (typeof SkySystem !== 'undefined') SkySystem.resize();
     debugRefreshColliders();
 }
 
@@ -977,31 +1006,8 @@ function createGround(targetScene = scene) {
     targetScene.add(groundPlane);
     groundMesh = groundPlane;
 
-    // 四面围挡墙（天空色，截断地图边缘溢出的河面/路面）
-    if (window._boundaryWalls) {
-        window._boundaryWalls.forEach(w => { targetScene.remove(w); if(w.geometry)w.geometry.dispose(); if(w.material)w.material.dispose(); });
-    }
+    // 围墙已移除 — 天空穹顶+雾已替代其功能
     window._boundaryWalls = [];
-    const wallMat = new THREE.MeshBasicMaterial({ color: '#8899aa', side: THREE.DoubleSide });
-    const wallV = 80, wallBase = -60; // 墙高80m，底部-60m
-    const hw = worldHalfW, hd = worldHalfD;
-    const wallDefs = [
-        { gw: 2*hd, gh: wallV, px: -hw, pz: 0, ry: Math.PI/2 },
-        { gw: 2*hd, gh: wallV, px: hw, pz: 0, ry: Math.PI/2 },
-        { gw: 2*hw, gh: wallV, px: 0, pz: -hd, ry: 0 },
-        { gw: 2*hw, gh: wallV, px: 0, pz: hd, ry: 0 },
-    ];
-    for (const d of wallDefs) {
-        const g = new THREE.PlaneGeometry(d.gw, d.gh);
-        const m = new THREE.Mesh(g, wallMat);
-        m.position.set(d.px, wallBase + d.gh/2, d.pz);
-        m.rotation.y = d.ry;
-        m.receiveShadow = false; m.castShadow = false;
-        m.renderOrder = 999; m.material.depthTest = true; m.material.depthWrite = true;
-        m.name = 'boundaryWall';
-        targetScene.add(m);
-        window._boundaryWalls.push(m);
-    }
 
     // 环形雾盖已移除（v0.24.4：摄像机陡视角+Camera near/far限制，天然看不到边缘）
 }
@@ -1637,6 +1643,12 @@ function updateAiming(player, dt) {
             targetAim = obsHits[0].point.clone();
             hitObs = true;
         }
+        // 狙击模式天空瞄准兜底: 射线打不到地面时，用相机前向200m做虚拟瞄准点
+        if (!targetAim && _sniperMode) {
+            var _camDir2 = new THREE.Vector3();
+            camera.getWorldDirection(_camDir2);
+            targetAim = camera.position.clone().add(_camDir2.multiplyScalar(200));
+        }
 
         aimValid = false;
         if (targetAim) {
@@ -1732,7 +1744,7 @@ function updateAiming(player, dt) {
     if (useGamepad) {
         crosshairEl.style.display='none';var rr=document.getElementById('reload-ring');if(rr)rr.style.display='none';
         document.body.style.cursor = '';
-    } else {
+    } else if (!_sniperMode) {
         crosshairEl.style.display = 'block';
         document.body.style.cursor = 'none';
         crosshairEl.style.color = aimValid ? '#00ff00' : '#ff3333';
@@ -1740,6 +1752,7 @@ function updateAiming(player, dt) {
 }
 
 function updateTrajectoryLine(player) {
+    if (_sniperMode) { if (trajLine) trajLine.visible = false; if (trajDot) trajDot.visible = false; return; }
     if (!trajLine || !trajLine.parent) {
         if (trajLine) { trajLine.geometry.dispose(); trajLine = null; }
         const lineGeo = new THREE.BufferGeometry();
@@ -1911,16 +1924,37 @@ function gameLoop() {
     camera.updateProjectionMatrix();
 
     const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
+    // ── 天空系统更新 ──
+    if (typeof SkySystem !== 'undefined') SkySystem.update(dt);
     // ── 首次进入游戏时请求指针锁定 ──
     if (!_pointerLocked && gameMode !== 'menu' && !useGamepad) {
         try { var _pl = gameContainer.requestPointerLock(); if (_pl && _pl.catch) _pl.catch(function(){}); } catch(e) {}
     }
     // 锁定模式: X固定正中, Y由movementY累积驱动(虚拟准星)
+    // 狙击模式: 准星固定在屏幕中心，射线从相机中心发出 → 炮塔跟随视线
     if (_pointerLocked) {
-        mouseX = window.innerWidth / 2;
-        mouseY = _virtualMouseY;
-        crosshairEl.style.left = mouseX + 'px';
-        crosshairEl.style.top = mouseY + 'px';
+        if (_sniperMode) {
+            mouseX = window.innerWidth / 2;
+            mouseY = window.innerHeight / 2;
+            crosshairEl.style.display = 'none';
+            var _ss = document.getElementById('sniper-scope'); if (_ss) _ss.style.display = 'block';
+            var _sm = document.getElementById('sniper-minimap'); if (_sm) _sm.style.display = 'block';
+            drawSniperMinimap();
+        } else {
+            mouseX = window.innerWidth / 2;
+            mouseY = _virtualMouseY;
+            crosshairEl.style.left = mouseX + 'px';
+            crosshairEl.style.top = mouseY + 'px';
+        }
+    }
+    // 狙击模式: 隐藏3D血条/装填条、显示scope+小地图
+    if (_sniperMode) {
+        if (reloadBarGroup) reloadBarGroup.visible = false;
+        if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = false;
+        if (player1 && player1.shellLabel) player1.shellLabel.visible = false;
+    } else {
+        var _ss2 = document.getElementById('sniper-scope'); if (_ss2 && _ss2.style.display !== 'none') _ss2.style.display = 'none';
+        var _sm2 = document.getElementById('sniper-minimap'); if (_sm2 && _sm2.style.display !== 'none') _sm2.style.display = 'none';
     }
     updateReloadRing(reloadTimer, RELOAD_TIME);
     visibilityTimer += dt;
@@ -3461,6 +3495,13 @@ const CAMERA_LOOK_Y_VS = 2.8;   // lookAt 高度-双人模式
 const CAMERA_MOUSE_SENSITIVITY = 0.004; // 鼠标灵敏度 (rad/px)
 let cameraYaw = 0; // 摄像机偏航角，由鼠标横轴累积驱动
 
+// ── 狙击模式（第一人称）──
+let _sniperMode = false;           // 右键切换第一人称瞄准镜
+let _sniperPitch = 0;              // 第一人称俯仰角 (rad, 0=水平, 正=向上)
+const SNIPER_FOV = 25;             // 狙击模式FOV（窄视角模拟瞄准镜，约1.8x变焦）
+const SNIPER_EYE_Y_OFFSET = 0.45;  // 从turretPivot到指挥塔眼睛的高度偏移(世界单位)
+const SNIPER_MOUSE_SENSITIVITY = 0.0015; // 狙击模式鼠标灵敏度（低于第三人称0.004，模拟精瞄）
+
 // ── 装填环: 准星周围小圆点顺时针走满一圈 ──
 function updateReloadRing(timer, total) {
     const ring = document.getElementById('reload-ring');
@@ -3491,8 +3532,124 @@ function updateReloadRing(timer, total) {
     }
 }
 
+// ── 狙击模式俯视小地图：线框车体+炮塔+视野方向，上方=摄像机朝向，HP从红到绿 ──
+function drawSniperMinimap() {
+    var canvas = document.getElementById('sniper-minimap');
+    if (!canvas || !player1) return;
+    var ctx = canvas.getContext('2d');
+    var cx = canvas.width / 2, cy = canvas.height / 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // HP颜色: 0=红 → 100=绿
+    var hpRatio = Math.max(0, Math.min(1, player1.hp / 100));
+    var rc = Math.round(255 * (1 - hpRatio));
+    var gc = Math.round(255 * hpRatio);
+    var hpColor = 'rgb(' + rc + ',' + gc + ',0)';
+
+    var SC = 18; // 像素/世界单位
+    var hy = player1.state.yaw;
+
+    // ── 旋转画布：摄像机朝向 = 上方 ──
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-(cameraYaw - Math.PI/2)); // world+X→minimap右, world+Z→minimap上
+
+    // ── 车体矩形 (世界 2.4×3.4) ──
+    var hw = 1.2, hh = 1.7;
+    var hCos = Math.cos(hy), hSin = Math.sin(hy);
+    var fwx = -hCos, fwz = hSin;
+    var rwx = hSin, rwz = hCos;
+    var pts = [
+        [ fwx*hh + rwx*hw,  fwz*hh + rwz*hw],
+        [ fwx*hh - rwx*hw,  fwz*hh - rwz*hw],
+        [-fwx*hh - rwx*hw, -fwz*hh - rwz*hw],
+        [-fwx*hh + rwx*hw, -fwz*hh + rwz*hw],
+    ];
+    ctx.beginPath();
+    for (var i = 0; i < 4; i++) {
+        var sx = pts[i][0] * SC, sy = -pts[i][1] * SC; // world X→right, world Z→up(-Y)
+        (i === 0) ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = hpColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // ── 车首三角箭头（填充，指示前方）──
+    var arrowLen = 0.45, arrowW = 0.35;
+    var fx = fwx * (hh + arrowLen), fz = fwz * (hh + arrowLen); // 箭头尖端
+    var lx = fwx * hh - rwx * arrowW, lz = fwz * hh - rwz * arrowW; // 左翼
+    var rx = fwx * hh + rwx * arrowW, rz = fwz * hh + rwz * arrowW; // 右翼
+    ctx.beginPath();
+    ctx.moveTo(fx * SC, -fz * SC);
+    ctx.lineTo(lx * SC, -lz * SC);
+    ctx.lineTo(rx * SC, -rz * SC);
+    ctx.closePath();
+    ctx.fillStyle = hpColor;
+    ctx.fill();
+
+    // ── 摄像机视野扇形 (始终朝上，±20°) ──
+    var fovHalf = 0.35, cr = 2.5;
+    for (var s = -1; s <= 1; s += 2) {
+        var a = s * fovHalf;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.sin(a) * cr * SC, -Math.cos(a) * cr * SC); // 上方=cos, 侧方=sin
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // ── 中心点 (HP颜色) ──
+    ctx.fillStyle = hpColor;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+}
+
 function placeCamera() {
     if (window._godMode) return;
+
+    // ── 第一人称狙击模式：摄像机在指挥塔位置，方向由 cameraYaw + _sniperPitch 决定 ──
+    if (_sniperMode && player1 && player1.turretPivot) {
+        var _eyeWorld = new THREE.Vector3();
+        player1.turretPivot.getWorldPosition(_eyeWorld);
+        _eyeWorld.y += SNIPER_EYE_Y_OFFSET;
+        // 前移清出炮盾: 沿炮塔前方偏移，摄像机前置避免炮盾遮挡
+        var _turretFwd = new THREE.Vector3();
+        player1.turretPivot.getWorldDirection(_turretFwd);
+        _eyeWorld.x += _turretFwd.x * 0.8;
+        _eyeWorld.z += _turretFwd.z * 0.8;
+
+        // 计算视线方向（水平+垂直，自由观察）
+        var _cosPitch = Math.cos(_sniperPitch);
+        var _dirX = Math.cos(cameraYaw) * _cosPitch;
+        var _dirY = Math.sin(_sniperPitch);
+        var _dirZ = Math.sin(cameraYaw) * _cosPitch;
+
+        camera.position.copy(_eyeWorld);
+        camera.lookAt(
+            _eyeWorld.x + _dirX * 10,
+            _eyeWorld.y + _dirY * 10,
+            _eyeWorld.z + _dirZ * 10
+        );
+
+        // 切换FOV
+        if (camera.fov !== SNIPER_FOV) {
+            camera.fov = SNIPER_FOV;
+            camera.updateProjectionMatrix();
+        }
+        return;
+    }
+
+    // 退出狙击模式时恢复FOV
+    if (camera.fov !== 45 && gameMode !== 'versus') {
+        camera.fov = 45;
+        camera.updateProjectionMatrix();
+    }
+
     // 摄像机方向由 cameraYaw 决定（鼠标横轴驱动，与车身/炮塔解耦）
     const cfx = Math.cos(cameraYaw);
     const cfz = Math.sin(cameraYaw);
@@ -5107,6 +5264,7 @@ async function enterGame() {
         return;
     }
     gameMode='single';isVersusMap=false;currentShellType='ap';
+    _sniperMode = false; _sniperPitch = 0; // 重置狙击模式
     cameraYaw = player1 ? player1.state.yaw : 0;
     menuOverlay.classList.add('hidden');gameContainer.classList.add('active');
     splitLine.style.display='none';arrowP1.style.display='none';arrowP2.style.display='none';
@@ -5218,6 +5376,8 @@ async function rebuildMapAsync() {
     // 障碍物（最重的步骤）
     await raf(); updateLoadingProgress(65, '生成障碍物...');
     createObstacles();
+    // 天空系统适配新地图尺寸
+    if (typeof SkySystem !== 'undefined') SkySystem.resize();
     debugRefreshColliders();
 
     await raf(); updateLoadingProgress(80, '完成场景构建');
@@ -5284,6 +5444,10 @@ function returnToMenu() {
     gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
     splitLine.style.display='none';versusResult.style.display='none';
     arrowP1.style.display='none';arrowP2.style.display='none';
+    _sniperMode = false; _sniperPitch = 0;
+    var _ssc = document.getElementById('sniper-scope'); if (_ssc) _ssc.style.display = 'none';
+    var _smc = document.getElementById('sniper-minimap'); if (_smc) _smc.style.display = 'none';
+    if (camera.fov !== 45) { camera.fov = 45; camera.updateProjectionMatrix(); }
     crosshairEl.style.display='none';var rr=document.getElementById('reload-ring');if(rr)rr.style.display='none';
     document.body.style.cursor = '';
     mouseDown = false;
@@ -5361,6 +5525,7 @@ async function enterTrainingMode() {
         return;
     }
     gameMode = 'training'; isTrainingMode = true; isVersusMap = false; currentShellType = 'ap';
+    _sniperMode = false; _sniperPitch = 0; // 重置狙击模式
     cameraYaw = player1 ? player1.state.yaw : 0;
     const playerSpawnX = -50, playerSpawnZ = 0;
     const enemySpawnX = 50, enemySpawnZ = 0;
