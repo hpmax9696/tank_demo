@@ -4582,6 +4582,18 @@ function _processTrainingRespawn(dt) {
                 en.position.set(trainingEnemySpawn.x, egy, trainingEnemySpawn.z);
                 en.rotation.set(0, 0, 0);
                 if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = true;
+                // 六足复活: 重新初始化CCD IK上下文+腿部关节, 重置死亡/动画状态
+                var isHex = (en.cfg && en.cfg.type === 'hexapod');
+                if (isHex) {
+                    en.ai.animRequest = 'idle';
+                    en.ai.deathAnimStarted = false;
+                    en.ai.deathAnimDone = false;
+                    en.ai.spinUp = 0;
+                    en.ai.heat = 0;
+                    if (typeof HexapodEnemy !== 'undefined') {
+                        HexapodEnemy.init(en);
+                    }
+                }
                 en._respawnTimer = 0;
             }
         } else {
