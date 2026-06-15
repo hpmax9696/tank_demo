@@ -778,23 +778,21 @@
         if (ai.strafeTimer > 3.0 + Math.random() * 2) { ai.strafeDir = (ai.strafeDir || 1) * -1; ai.strafeTimer = 0; }
         const sd = ai.strafeDir || 1;
 
-        // ── 4. 武器决策优先级: 加特林(近距离) > 导弹(中远距离) > 后退 > 无 ──
+        // ── 4. 武器决策: 加特林(<15m) > 导弹(15~50m) > 过热后退+导弹 > 后退 ──
         const missileAmmo = (ai._missileAmmoL || 0) + (ai._missileAmmoR || 0);
         const canGatling = !ai._overheated && ai.spinUp > 0.7 && isAligned && dist < gatlingRange;
-        const canMissile = missileAmmo > 0 && dist > 3 && dist < missileRange && isAligned;
+        const canMissile = missileAmmo > 0 && dist > 15 && dist < missileRange && isAligned;
         let weaponAction = 'none';
-        if (canGatling && !canMissile) {
-            weaponAction = 'gatling';                       // 近距离优先加特林
-        } else if (canGatling && canMissile && dist < 12) {
-            weaponAction = 'gatling';                       // 极近距: 加特林
-        } else if (canMissile && dist >= 15) {
-            weaponAction = 'missile';                       // 中远距: 导弹(15~40m)
+        if (ai._overheated && canMissile) {
+            weaponAction = 'missile_retreat';               // 过热有弹: 后退拉开距离+发射导弹
+        } else if (ai._overheated) {
+            weaponAction = 'retreat';                       // 过热没弹: 纯后退冷却
+        } else if (canGatling && dist < 15) {
+            weaponAction = 'gatling';                       // 极近距: 加特林扫射
+        } else if (canMissile) {
+            weaponAction = 'missile';                       // 中远距: 导弹(15~50m)
         } else if (canGatling) {
             weaponAction = 'gatling';                       // 兜底加特林
-        } else if (ai._overheated && canMissile) {
-            weaponAction = 'missile_retreat';               // 过热有弹: 后退+导弹
-        } else if (ai._overheated) {
-            weaponAction = 'retreat';                       // 过热没弹: 纯后退
         }
 
         // ── 5. 切向绕圈 + 径向距离修正 ──

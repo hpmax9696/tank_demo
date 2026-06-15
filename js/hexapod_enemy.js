@@ -211,9 +211,9 @@ var HexapodEnemy = (function() {
     // 踉跄进行中
     if (ctx._staggerActive) {
       CORE._staggerUpdate(ctx, dt);
-      // 加特林 spin 跟随 AI
-      var spinRPS2 = 3;
-      if (ai && ai.spinUp !== undefined) spinRPS2 = 3 + ai.spinUp * 27;
+      // 加特林 spin 跟随 AI（过热停转）
+      var spinRPS2 = (ai && ai._overheated) ? 0 : 3;
+      if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS2 = 3 + ai.spinUp * 27;
       CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS2);
       return;
     }
@@ -249,9 +249,9 @@ var HexapodEnemy = (function() {
       CORE.stepIdle(ctx, dt);
     }
 
-    // 加特林
-    var spinRPS = 3;
-    if (ai && ai.spinUp !== undefined) spinRPS = 3 + ai.spinUp * 27;
+    // 加特林（过热停转）
+    var spinRPS = (ai && ai._overheated) ? 0 : 3;
+    if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS = 3 + ai.spinUp * 27;
     CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS);
   }
 

@@ -5671,7 +5671,7 @@ async function enterTrainingMode() {
         coolPerSec: isHexEnemy ? 18 : undefined,
         spreadCone: isHexEnemy ? 3 : undefined,
         gatlingRange: isHexEnemy ? 30 : undefined,
-        missileRange: isHexEnemy ? 40 : undefined,
+        missileRange: isHexEnemy ? 50 : undefined,
         missileCooldown: isHexEnemy ? 4.0 : undefined,
         fireRate: isHexEnemy ? 10 : undefined,
     };
