@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.59.2
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.60.3
 
 ## 运行
 
@@ -14,9 +14,9 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏引擎 (~630行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~5950行)：状态机/场景/物理/瞄准/摄像机/AI/训练场
-├── js/                # 游戏模块（13个）
+├── index.html         # 核心游戏引擎 (~780行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~6100行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── js/                # 游戏模块（14个）
 │   ├── waters.js      # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
 │   ├── debugcolliders.js  # 碰撞可视化 (~122行)：F3切换(默认关)，从运行时数据反向生成
@@ -28,6 +28,7 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── bars.js        # UI 血条/装填条 (~80行)
 │   ├── input.js       # 输入处理 (~70行)：WASD+手柄5段力度
 │   ├── spatialGrid.js # 空间网格 (~110行)
+│   ├── sky.js         # 动态天空系统 (~200行)：渐变穹顶+噪声云层+太阳光晕
 │   ├── three.min.js   # Three.js r160 压缩库
 │   └── BufferGeometryUtils.js  # Three.js 工具函数
 ├── models/hexapod_config.js # 六足战车共享模型配置+动画参数表：3节腿(大腿+小腿+尖刺足)+4DOF+ANIM_TABLE(23项)+腿配置
@@ -240,42 +241,45 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
-## v0.59.2 本次会话变更 (2026-06-13)
+## v0.60.x 本次会话变更 (2026-06-15)
 
-### AI 系统
-- **地形遮挡检测**：`canSeeTarget` 采样 12 点路径地形，高度超过视线+0.5m 判定遮挡
-- **迂回包抄**：`updateChase` 视线受阻时侧向迂回，每 4 秒交替左右方向
-- **倒车逻辑**：`moveEnemyToward` 目标在后方半平面时直接倒车不甩头
-- **炮塔重力补偿**：`aimTurretAt` 垂直俯仰含弹道下坠补偿 `0.5*g*t²/hDist`
-- **炮塔转速**：1.0 rad/s（原 1.5）
+### 狙击模式（第一人称）
+- **右键切换**：`mousedown button=2` 切换 `_sniperMode`，FOV 25°（约1.8x变焦），指挥塔视角
+- **自由观察**：`cameraYaw` + `_sniperPitch` 驱动，水平复用第三人称yaw，垂直独立（movementY驱动）
+- **俯仰限位**：±60°仰角 / -45°俯角（`Math.max(-PI/4, Math.min(PI/3, ...))`）
+- **精瞄灵敏度**：`SNIPER_MOUSE_SENSITIVITY=0.0015`（第三人称0.004的37.5%）
+- **炮口跟随**：`mouseX/Y` 固定屏幕中心 → `updateAiming` 射线投射驱动炮塔追踪视线
+- **天空瞄准fallback**：射线打不到地面时，用相机前向200m虚拟瞄准点兜底
+- **退出同步**：`cameraYaw = atan2(bd.z, bd.x)` 对齐炮管世界朝向，第三人称无缝切到炮口后方
+- **摄像机前置**：沿炮塔前方偏移0.8单位，清出炮盾避免遮挡
+- **UI管理**：狙击时隐藏十字线/弹道线/3D血条装填条，退出时一次性恢复
+- **俯视小地图**：左下角140px圆形canvas，线框车体+三角车首指示前方，上方=摄像机朝向，HP红→绿
 
-### 重生系统
-- 无敌保护：`_invincibleUntil` 防止复活瞬间被击杀
-- 六足死亡训练场重生队列修复
-- MG 击杀训练场敌人走重生流程不死移除
+### 动态天空系统（`js/sky.js`）
+- **天空穹顶**：倒置球体（半径`maxSide*1.7`），顶点着色器渐变（天顶深蓝→地平线淡蓝白），太阳光晕
+- **云层**：两层FBM值噪声（`fract(sin(dot(...)))` 哈希），smoothstep软边缘，不同scale/speed飘移
+- **零纹理**：纯着色器算法，~80 ALU ops/pixel，0 纹理采样，<0.5ms/帧
+- **地图自适应**：穹顶半径/fog距离/camera far基于`maxSide`按比例计算，`SkySystem.resize()`适配地图切换
+- **接管**：`scene.background=null` + `scene.fog` 由sky.js管理；围墙移除（天空穹顶替代）
+- **太阳**：上午10点方位角120°仰角35°，`uSunDir` 统一天空着色器和场景方向光
 
-### 参数调整
-- 炮弹初速 33→50 m/s（`shells.js`）
-- 训练场敌人坦克速度 3.5→6.0
-- 阴影贴图 1024→512（性能优化）
-- TRACK_ACCEL/DECEL/COAST → 40.0
+### 六足AI修复（v0.60.1~v0.60.3）
+- **复活腿部冻结**：`_processTrainingRespawn` 补回 `HexapodEnemy.init(en)` 重建CCD IK上下文
+- **复活后退**：`retreating` 条件 `radialW > 0.3`→`radialW < -0.3`（太近才后退，太远应前进）
+- **复活导弹弹药**：重置 `_missileAmmoL/R=4`，防止打光后永久无弹
+- **武器优先级重构**：过热优先`missile_retreat`（后退+导弹），非过热导弹窗口15~50m，极近距(≤15m)加特林
+- **加特林过热停转**：`ai._overheated` 时 `spinRPS=0`，两处update已修复
 
-### 建筑摧毁
-- `disposeBuildingInstance`：InstancedMesh 建筑缩放至零销毁
-
-### 遮挡系统移除
-- 删除 `occluderRaycaster`、`transparentTreeGroups`、`transparentMatPool`
-- 移除所有 `handleObstacleOcclusion()` 调用
-
-### 地形适应
-- 采样距离 1.0→2.0（俯仰）、1.0→1.5（侧倾）
-- 平滑过渡 `_smoothPitch`/`_smoothRoll`，SM=12.0
-- 训练场敌人 `rotation.order = 'YXZ'`
+### 参数变更
+- 围墙高度：80→移除
+- 围墙颜色：`#8899aa`→移除
+- `scene.fog` 颜色：`#8899aa`→`#c8d8e0`；near/far：`minSide*0.35/0.55`→`maxSide*0.8/1.6`
+- `camera.far`：300→`maxSide*2.2`
+- 六足导弹最远距离：40→50
+- 六足导弹最近距离：3→15
 
 ### 已知问题
-1. 敌人上坡后偶发不复活（间歇性）
-2. 敌人复活后偶发不追击
-3. 坡地一头翘起一头陷地
-4. 对山丘目标弹道偏低
-5. 上坡悬浮/俯仰侧倾不平滑
-6. 只会对山丘开炮不会绕路
+1. 坡地一头翘起一头陷地（地形适应不平滑）
+2. 对山丘目标弹道偏低
+3. 只会对山丘开炮不会绕路
+4. 六足武器俯仰旋转轴不正确（待校准）

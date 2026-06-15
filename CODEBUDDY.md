@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.59.2
+# CODEBUDDY.md — v0.60.3
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -604,6 +604,45 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 - 固化前确保模型工厂 GUI 中的配置已调优完毕
 - 固化后需 `Ctrl+F5` 强制刷新验证
 - 固化.ps1 同时更新 `model_factory.html` 和 `models/tank_procedural.js`（如已建立映射）
+
+---
+
+## ☁️ v0.60.x 新增 (2026-06-15)
+
+### 狙击模式
+
+| 属性 | 值 | 位置 |
+|------|----|------|
+| 切换 | 右键 button=2 | engine.js mousedown |
+| FOV | 25° | SNIPER_FOV |
+| 灵敏度 | 0.0015 | SNIPER_MOUSE_SENSITIVITY |
+| 俯仰 | -45°~+60° | _sniperPitch |
+| 摄像机偏移 | turretPivot + Y 0.45 + 前 0.8 | placeCamera() |
+| 退出同步 | cameraYaw=atan2(bd.z,bd.x) | mousedown |
+
+### 动态天空 (js/sky.js)
+
+| 属性 | 值 |
+|------|----|
+| 穹顶半径 | maxSide * 1.7 |
+| 云球半径 | maxSide * 1.65 |
+| fog near | maxSide * 0.8 |
+| fog far | maxSide * 1.6 |
+| camera far | maxSide * 2.2 |
+| 太阳方位/仰角 | 120° / 35° |
+| fog颜色 | #c8d8e0 |
+| 云噪声 | 2层FBM值噪声, smoothstep软边缘 |
+
+### 六足AI修复 (v0.60.1~v0.60.3)
+
+| 修复 | 位置 |
+|------|------|
+| 复活腿部冻结 | _processTrainingRespawn → HexapodEnemy.init(en) |
+| 复活后退修复 | retreating: radialW< -0.3 (原>0.3反了) |
+| 复活弹药重置 | _missileAmmoL/R = 4 |
+| 导弹最短距离 | 15m (太近打不中) |
+| 导弹最远距离 | 50m |
+| 加特林过热停转 | ai._overheated → spinRPS=0 |
 
 
 
