@@ -1,22 +1,16 @@
-# OS
-.DS_Store
-Thumbs.db
+# CodeGraph data files
+# These are local to each machine and should not be committed
 
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Database
+*.db
+*.db-wal
+*.db-shm
 
-# Other
+# Cache
+cache/
+
+# Logs
 *.log
 
-# Playwright / Debug
-.playwright-cli/
-game-*.png
-_*.js
-_*.mjs
-
-# Dependencies
-node_modules/
+# Hook markers
+.dirty
