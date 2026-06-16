@@ -18,5 +18,10 @@ game-*.png
 _*.js
 _*.mjs
 
+# Codegraph runtime artifacts (don't track WAL/PID)
+.codegraph/codegraph.db-shm
+.codegraph/codegraph.db-wal
+.codegraph/daemon.pid
+
 # Dependencies
 node_modules/
