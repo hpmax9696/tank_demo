@@ -212,7 +212,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.61.0 — 六足步态姿态对齐+模块化玩家控制器+探针测量工具）
+## 当前版本（v0.61.1 — 六足玩家步进式转向架构）
 
 ### 关键参数
 | 参数 | 值 |
@@ -221,13 +221,13 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~767 行 |
-| engine.js 行数 | ~5420 行（v0.61.0 新增PCM分发+六足玩家分支+训练场重建） |
+| engine.js 行数 | ~5434 行（v0.61.1 placeCamera视角跟cameraYaw+六足getPose位置） |
 | sky.js 行数 | ~271 行 |
-| hexapod_core.js 行数 | ~530 行（v0.61.0 新增_isPlayer支撑相plantPos+fwdBody真实方向） |
-| hexapod_enemy.js 行数 | ~235 行（v0.61.0 bodySpeed用desiredVel, 卡住检测isPlayer跳过） |
-| hexapod_probe.js 行数 | ~190 行（v0.61.0 新增：步态采样+Stats/Compare+F7F8快捷键+localStorage） |
-| playerControllers/manager.js | ~85 行（v0.61.0 新增：注册表+能力探测+透传调度） |
-| playerControllers/hexapodPlayer.js | ~160 行（v0.61.0 新增：WASD八方向+鼠标转向+PCM六足角色） |
+| hexapod_core.js 行数 | ~1055 行（v0.61.1 步进式转向：离散turnRate+身体步态驱动+圆弧预伸+玩家始终分支） |
+| hexapod_enemy.js 行数 | ~289 行（v0.61.1 透传targetYaw+玩家跳过resetPose+玩家始终stepGait） |
+| hexapod_probe.js 行数 | ~208 行（v0.61.0 新增：步态采样+Stats/Compare+F7F8快捷键+localStorage） |
+| playerControllers/manager.js | ~106 行（v0.61.0 新增：注册表+能力探测+透传调度） |
+| playerControllers/hexapodPlayer.js | ~200 行（v0.61.1 targetYaw+移动按视角+getPose身体实际+静止turn步态） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
@@ -244,7 +244,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.61.0)
+### 已知问题 (v0.61.1)
 
 | # | 问题 | 位置 |
 |---|------|------|
@@ -254,8 +254,8 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 4 | 敌人对山丘目标弹道偏低 | enemyAI.js aimTurretAt |
 | 5 | 敌人上坡悬浮/俯仰侧倾不平滑 | engine.js |
 | 6 | 山丘遮挡时敌人不主动绕路找角度 | enemyAI.js updateChase |
-| 7 | **六足玩家鼠标转向+移动叠加腿飞** | stepGait turnRate=0段 |
-| 8 | **长时间按WASD步态误差积累** | stepGait ctx._isPlayer段 |
+| 7 | ~~六足玩家转向腿飞~~ **v0.61.1已修** | stepGait 步进式转向(STEP_PERIOD=0.32/MAX_STEP=0.5/IDLE_THR=0.02) |
+| 8 | ~~长时间WASD步态漂移~~ **v0.61.1已修** | stepGait 摆动闭环homeW+前瞻 |
 
 ### 待完成任务 (v0.61.0)
 

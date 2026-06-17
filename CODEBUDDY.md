@@ -368,8 +368,8 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 11 | **装甲突击车遇障平移** | 障碍物碰撞仅位移推出不改朝向，车辆侧滑 | `engine.js:checkCollision` → AI通用 |
 | 12 | **六足动画切换偶有腿部绷直** | idle↔walk切换时CCD从未收敛位姿过渡，个别腿暂时翘起 | `js/hexapod_enemy.js:_updateGait` |
 | 13 | **六足卡障碍物时步态推进** | 碰撞阻止位移但AI仍设移动指令，步态继续循环导致原地踏步 | `js/hexapod_enemy.js:update` |
-| 14 | **六足玩家鼠标转向+移动叠加腿飞** | turnRate=0不走转向步态，髋±0.45无法补偿大角度身体旋转 | `js/hexapod_core.js`:stepGait turnRate=0段 |
-| 15 | **长时间按WASD步态误差积累** | plantPos绝对钉世界位置 vs 身体相对位置的长期漂移 | `js/hexapod_core.js`:stepGait ctx._isPlayer段 |
+| 14 | ~~六足玩家转向腿飞~~ **v0.61.1已修** | 步进式转向: 身体由stepGait步态驱动(腿蹬地+圆弧预伸), 髋限位玩家×1.35(0.45→0.61) | `js/hexapod_core.js`:stepGait 玩家分支(STEP_PERIOD=0.32/MAX_STEP=0.5/IDLE_THR=0.02) |
+| 15 | ~~长时间WASD步态漂移~~ **v0.61.1已修** | 摆动闭环homeW+速度前瞻, 每周期重置无累积 | `js/hexapod_core.js`:stepGait 摆动玩家分支 |
 | 1 | 模型工厂撤销一键回到初始状态 | Ctrl+Z一次性回到初始而非逐步回退 | model_factory.html |
 | 2 | 桥梁两端地形高低差 | 编辑器addBridge引道雕刻不完善，坦克上桥有阻 | map_editor.html→addBridge |
 | 3 | 编辑器虚空拖拽偶发贴边河段/路段 | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段 | map_editor.html→mousemove钳制逻辑 |

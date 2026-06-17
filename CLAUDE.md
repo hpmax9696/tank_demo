@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.1
 
 ## 运行
 
@@ -322,10 +322,25 @@ legGroup (Y旋转=水平摆角)
 - **Playwright 自动化验证**：`npx playwright 1.60`（Node.js，chromium headless）用于真实复现 gameLoop 的运行时行为（raf 正常触发，不像旧 CDP headless 不触发 raf）。位于 `pw_test.js`（诊断用，用后清理）。后续步态调试可继续用此工具
 - **状态栏**：`~/.claude/settings.json` 已配置 `statusLine`（python 脚本解析 Claude Code JSON stdin），显示模型·输出风格·会话·上下文%·PR
 
+---
+
+## v0.61.1 本次会话变更 (2026-06-17)
+
+### 六足玩家步进式转向架构（根治 #5 转向腿飞 + #6 长期漂移）
+- **根因**：原架构 `_root.rotation.y = π-_yaw` 身体每帧紧跟视角，腿被动追 → 转向时髋关节顶 ±0.45 限位 → 腿飞；摆动落点 swingFrom+估算步距与身体实际位移失配 → 漂移累积
+- **步进式转向**（用户方案）：turnRate 离散化，每步态周期(0.32s)采样目标转向量→单步转角(clamp≤0.5rad)→整周期恒定执行。身体由 stepGait 步态驱动转向(腿蹬地+预伸)，非每帧跟视角
+- **视角/机体解耦**：视角即时跟鼠标(cameraYaw)，身体步进慢追(笨重延迟, 平移补精细瞄准)；移动按视角(W=鼠标看的方向)
+- **摆动闭环**：swingTo=homeW+速度前瞻(根治#6漂移, 每周期重置无累积) + 圆弧预伸(摆动腿往转向反向伸, 蹬地准备)
+- **持续追视角**：玩家始终走 stepGait(不受 animRequest idle 打断, 鼠标停后身体继续转到位)；玩家跳过动画切换 resetPose(步进状态连续)
+- **髋限位**：玩家 ×1.35(0.45→0.61/0.7→0.95)，容纳转向髋补偿
+- **onRespawn**：重建 ctx 后重设 `_isPlayer`(既存bug)
+- **改动文件**：`js/hexapod_core.js` stepGait(步进turnRate+身体驱动+圆弧+玩家始终分支) / `js/playerControllers/hexapodPlayer.js`(targetYaw+移动按视角+getPose身体实际) / `js/hexapod_enemy.js`(透传targetYaw+玩家跳过resetPose+玩家始终stepGait) / `js/engine.js` placeCamera(视角跟cameraYaw)
+- **关键参数**：`STEP_PERIOD=0.32` `MAX_STEP=0.5` `IDLE_THR=0.02`（均在 stepGait 玩家分支，可调）
+
 ### 已知问题
 1. 坡地一头翘起一头陷地（地形适应不平滑）
 2. 对山丘目标弹道偏低
 3. 只会对山丘开炮不会绕路
 4. 六足武器俯仰旋转轴不正确（待校准）
-5. **六足玩家鼠标转向+移动叠加时腿飞**（当前 turnRate=0 不走转向步态，髋关节 ±0.45 无法补偿大角度旋转-后续需精细化限幅 turnRate 或加 rotation 补偿）
-6. **长时间按 WASD 步态误差积累**（plantPos 绝对位置与身体相对位置的长期漂移）
+5. ~~六足玩家转向腿飞~~ **v0.61.1 已修复**（步进式转向架构：身体由步态驱动转向+腿圆弧预伸，髋限位放宽容纳）
+6. ~~长时间 WASD 步态漂移~~ **v0.61.1 已修复**（摆动闭环 homeW+速度前瞻，每周期重置无累积）

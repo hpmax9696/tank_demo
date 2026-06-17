@@ -57,7 +57,7 @@ var HexapodPlayerController = (function () {
         //    注意: 不能加 userData._baseY (那是模板负偏移), init 内部会自动抬升并算 ctx._baseY
         var gy = _gh(_pos.x, _pos.z);
         _root.position.set(_pos.x, gy, _pos.z);
-        _root.rotation.y = _yaw;
+        _root.rotation.y = Math.PI - _yaw;   // 车头朝 _yaw(视线); 后续由 stepGait 步态驱动转向
 
         // 3. 建 CCD context (init 内部自动抬升 root.position.y + 算 ctx._baseY, bodyWriter=false)
         _ctx = window.HexapodEnemy.init(_root);
@@ -108,16 +108,23 @@ var HexapodPlayerController = (function () {
         else if (strKey < -0.1) req = 'strafe_left';
         _ai.animRequest = req;
 
-        // ── 2. 转向 + 期望速度 ──
-        //    cameraYaw 由 gameLoop 经 input 传入 (engine.js 顶层 let, 不挂 window)
+        // ── 2. 转向 + 期望速度 (步进式转向, 视角自由跟鼠标) ──
+        //    视角=鼠标(cameraYaw)即时自由; 身体朝向由 stepGait 步进慢追(笨重, 腿蹬地转)。
+        //    移动按视角(W=鼠标看的方向); 转向中身体朝向滞后视角, 腿先迈向新方向引导转身。
+        var _prevYaw = _yaw;
         if (input.cameraYaw !== undefined && !isNaN(input.cameraYaw)) _yaw = input.cameraYaw;
-        // 朝向: π-cameraYaw 使 stepGait 的 fwdBody = 视线方向 (车尾朝摄像机, 看到车尾, 与坦克一致)
-        _root.rotation.y = Math.PI - _yaw;
-        // 期望速度 (世界系, 摄像机视线坐标系): W=视线前(屏幕里), D=视线右
-        var fX = Math.cos(_yaw), fZ = Math.sin(_yaw);     // 视线前
-        var rX = -Math.sin(_yaw), rZ = Math.cos(_yaw);    // 视线右
+        var _dyaw = window.HexapodCore.angleDiff(_prevYaw, _yaw);
+        var _turnSign = (_dyaw > 0.0005) ? 1 : (_dyaw < -0.0005 ? -1 : 0);
+        _ai._targetYaw = Math.PI - _yaw;  // 身体步进追此目标(腿蹬地转向)
+        // 移动按视角(鼠标看的方向): W=视线前, D=视线右
+        var fX = Math.cos(_yaw), fZ = Math.sin(_yaw);
+        var rX = -Math.sin(_yaw), rZ = Math.cos(_yaw);
         _ai._desiredVelX = (fX * fwdKey + rX * strKey) * WALK_SPEED;
         _ai._desiredVelZ = (fZ * fwdKey + rZ * strKey) * WALK_SPEED;
+        // 静止转向: 无WASD但鼠标在转 → turn步态(腿蹬地原地转)
+        if (Math.abs(fwdKey) < 0.1 && Math.abs(strKey) < 0.1 && _turnSign !== 0) {
+          _ai.animRequest = (_turnSign > 0) ? 'turn_right' : 'turn_left';
+        }
 
         // ── 4. 复用 HexapodEnemy.update: 步态/CCD/地形/加特林spin ──
         //    内部 stepGait 的 desiredMove 会驱动 _root.position
@@ -137,14 +144,15 @@ var HexapodPlayerController = (function () {
         _root.position.z = nz;
         _pos.x = nx; _pos.z = nz;
 
-        // ── 7. 同步血条壳 ──
+        // ── 7. 同步血条壳 (yaw = 身体实际车头, 非视角目标) ──
         if (_p1) {
-          _p1.state.x = nx; _p1.state.z = nz; _p1.state.yaw = _yaw;
+          _p1.state.x = nx; _p1.state.z = nz; _p1.state.yaw = _root ? (Math.PI - _root.rotation.y) : _yaw;
         }
       },
 
       getPose: function () {
-        return { x: _pos.x, z: _pos.z, yaw: _yaw };
+        // yaw = 身体实际车头朝向(stepGait 步态步进式驱动, 慢追 _yaw 视角目标)
+        return { x: _pos.x, z: _pos.z, yaw: _root ? (Math.PI - _root.rotation.y) : _yaw };
       },
 
       getGroup: function () { return _root; },
@@ -158,6 +166,7 @@ var HexapodPlayerController = (function () {
         // 重建 CCD IK context (与 _processTrainingRespawn 对六足敌人一致)
         if (_root && window.HexapodEnemy) {
           _ctx = window.HexapodEnemy.init(_root);
+          _ctx._isPlayer = true;   // 修复: init 返回新 ctx, 必须重设, 否则玩家步态分支失效
           _root.ai = _ai;
         }
         _ai.animRequest = 'idle';

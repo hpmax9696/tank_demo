@@ -117,6 +117,7 @@ var HexapodCore = (function() {
       }
       // 髋限位: 相对rest最多±yLimit rad
       var yLimit = leg._yLimit || 0.7;
+      if (ctx._isPlayer) yLimit *= 1.35;  // 玩家放宽(0.45→0.61/0.7→0.95): 容纳转向髋补偿, 防#5腿飞
       var diff = hipGetRot() - (leg._hipRestRot || 0);
       while (diff > Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -319,19 +320,38 @@ var HexapodCore = (function() {
     // ── 身体速度检测 (bodyWriter=false 时从root位置读取) ──
     var bodySpeedNow = params.bodySpeed || 0;
     var actualTurnRate = 0;
-    if (!ctx.bodyWriter && params.bodySpeed === undefined) {
+    if (ctx._isPlayer) {
+      // 步进式转向(用户方案): 每步态周期采样目标转向量→单步转角→整周期恒定执行。
+      // 身体由步态驱动转向(腿蹬地+预伸), 非每帧跟视角。鼠标停/反向: 当前步走完下步才响应。
+      var STEP_PERIOD = 0.32;   // 转向步态周期(s)
+      var MAX_STEP = 0.5;       // 单步最大转角(rad, ~28°)
+      var IDLE_THR = 0.02;      // 剩余角差<此值不转(防抖); 减小让转向更接近视角精确到位
+      if (ctx._stepTimer === undefined) { ctx._stepTimer = 0; ctx._stepTurn = 0; }
+      ctx._stepTimer += dt;
+      if (ctx._stepTimer >= STEP_PERIOD) {
+        ctx._stepTimer -= STEP_PERIOD;
+        var _remain = (params.targetYaw !== undefined && !isNaN(params.targetYaw))
+          ? angleDiff(root.rotation.y, params.targetYaw) : 0;
+        ctx._stepTurn = (Math.abs(_remain) > IDLE_THR) ? clamp(_remain, -MAX_STEP, MAX_STEP) : 0;
+      }
+      actualTurnRate = (ctx._stepTurn || 0) / STEP_PERIOD;  // 本步恒定角速度
+    } else if (!ctx.bodyWriter && params.bodySpeed === undefined) {
       var bdv = new (T()).Vector3().subVectors(root.position, ctx._prevBodyPos);
       bdv.y = 0;
       bodySpeedNow = bdv.length() / Math.max(dt, 0.001);
       actualTurnRate = angleDiff(ctx._prevBodyYaw, root.rotation.y) / Math.max(dt, 0.001);
     }
-    // 玩家模式: turnRate 强制0 (转向由 rotation.y 变化+脚钉地自然处理, 不走圆弧摆动)
-    var turnRate = ctx._isPlayer ? 0 : ((cfgTurnRate !== 0) ? cfgTurnRate
-      : (Math.abs(actualTurnRate) > 0.05 ? actualTurnRate : 0));
+    var turnRate = ctx._isPlayer
+      ? actualTurnRate
+      : ((cfgTurnRate !== 0) ? cfgTurnRate
+        : (Math.abs(actualTurnRate) > 0.05 ? actualTurnRate : 0));
 
     // ── 步态周期 ──
     var gaitPeriod;
-    if (Math.abs(turnRate) > 1.0) {
+    if (ctx._isPlayer && Math.abs(turnRate) > 0.05) {
+      // 玩家转向: 固定步态周期0.32(步进式), 单步转角已clamp≤0.5, 半周期髋补偿≤0.25<限位0.61
+      gaitPeriod = 0.32;
+    } else if (Math.abs(turnRate) > 1.0) {
       gaitPeriod = clamp(1.05 / Math.abs(turnRate), 0.4, 0.8);
     } else if (Math.abs(turnRate) > 0.05) {
       gaitPeriod = 0.72;
@@ -375,10 +395,10 @@ var HexapodCore = (function() {
     ctx._totalDist = (ctx._totalDist || 0) + bodySpeedNow * dt + Math.abs(turnRate) * dt * 0.7;
     var bodyBob = Math.sin(gaitCycles * Math.PI * 2) * 0.03;
 
-    // ── 身体旋转 (bodyWriter=true 时写) ──
+    // ── 身体旋转 (bodyWriter 或 玩家步进式 都由步态驱动写) ──
     var isStaticTurn = (animIndex === 7 || animIndex === 8);
-    if (ctx.bodyWriter) {
-      root.rotation.y += turnRate * dt;
+    if (ctx.bodyWriter || ctx._isPlayer) {
+      root.rotation.y += turnRate * dt;   // 玩家: 步进式驱动身体转向(腿蹬地转, 非每帧跟视角)
     }
 
     // 前进方向
@@ -470,7 +490,27 @@ var HexapodCore = (function() {
         // 摆动相: 从 plantPos/stanceTarget 摆向新的落地位置
         if (leg._wasStance) {
           leg.swingFrom = ctx.bodyWriter ? leg.plantPos.clone() : (leg._stanceTarget ? leg._stanceTarget.clone() : _legHomePos(ctx, leg));
-          if (turnRate !== 0) {
+          if (ctx._isPlayer) {
+            // 玩家摆动闭环: 身体标准立足 + 速度前瞻 + 步进转向圆弧预伸
+            // (#6: homeW闭环每周期重置无漂移; 步进turnRate整周期恒定, 圆弧让腿往转向反向预伸准备蹬地)
+            var phomeW = _legHomePos(ctx, leg);
+            var phalfP = gaitPeriod * 0.5;
+            var pvx = params.desiredMove ? (params.desiredMove.dx || 0) / Math.max(dt, 0.001) : 0;
+            var pvz = params.desiredMove ? (params.desiredMove.dz || 0) / Math.max(dt, 0.001) : 0;
+            leg.swingTo = phomeW.clone();
+            leg.swingTo.x += pvx * phalfP;
+            leg.swingTo.z += pvz * phalfP;
+            if (Math.abs(turnRate) > 0.05) {
+              // 圆弧预伸: 摆动腿往转向反向伸(蹬地准备), 步进turnRate整周期恒定
+              var pbc = new (T()).Vector3(); root.getWorldPosition(pbc);
+              var ptf = leg.swingTo.clone().sub(pbc); ptf.y = 0;
+              var pna = Math.atan2(ptf.z, ptf.x) - turnRate * gaitPeriod;
+              var pfd = leg._initFootDist || ptf.length() || 1;
+              leg.swingTo.x = pbc.x + Math.cos(pna) * pfd + pvx * phalfP;
+              leg.swingTo.z = pbc.z + Math.sin(pna) * pfd + pvz * phalfP;
+            }
+            leg.swingTo.y = ctx.groundHeightFn ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z) : leg._groundY;
+          } else if (turnRate !== 0) {
             var bodyC = new (T()).Vector3(); root.getWorldPosition(bodyC);
             var toFoot = leg.swingFrom.clone().sub(bodyC); toFoot.y = 0;
             var footAngle = Math.atan2(toFoot.z, toFoot.x);
@@ -497,7 +537,25 @@ var HexapodCore = (function() {
           root.updateMatrixWorld(true);
           leg.plantPos = leg.tipLocal.clone().applyMatrix4(leg.anklePivot.matrixWorld);
           leg.swingFrom = leg.plantPos.clone();
-          if (turnRate !== 0) {
+          if (ctx._isPlayer) {
+            // 玩家首次入摆动防护: 闭环 (homeW+速度前瞻+步进圆弧)
+            var fhomeW = _legHomePos(ctx, leg);
+            var fhalfP = gaitPeriod * 0.5;
+            var fvx = params.desiredMove ? (params.desiredMove.dx || 0) / Math.max(dt, 0.001) : 0;
+            var fvz = params.desiredMove ? (params.desiredMove.dz || 0) / Math.max(dt, 0.001) : 0;
+            leg.swingTo = fhomeW.clone();
+            leg.swingTo.x += fvx * fhalfP;
+            leg.swingTo.z += fvz * fhalfP;
+            if (Math.abs(turnRate) > 0.05) {
+              var fbc = new (T()).Vector3(); root.getWorldPosition(fbc);
+              var ftf = leg.swingTo.clone().sub(fbc); ftf.y = 0;
+              var fna = Math.atan2(ftf.z, ftf.x) - turnRate * gaitPeriod;
+              var ffd = leg._initFootDist || ftf.length() || 1;
+              leg.swingTo.x = fbc.x + Math.cos(fna) * ffd + fvx * fhalfP;
+              leg.swingTo.z = fbc.z + Math.sin(fna) * ffd + fvz * fhalfP;
+            }
+            leg.swingTo.y = ctx.groundHeightFn ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z) : leg._groundY;
+          } else if (turnRate !== 0) {
             var bodyC2 = new (T()).Vector3(); root.getWorldPosition(bodyC2);
             var tf2 = leg.plantPos.clone().sub(bodyC2); tf2.y = 0;
             var fa2 = Math.atan2(tf2.z, tf2.x);
@@ -598,6 +656,7 @@ var HexapodCore = (function() {
     }
     ctx._staggerDone = false;
     ctx._deathDone = false;
+    ctx._stepTimer = 0; ctx._stepTurn = 0;   // 玩家步进转向状态重置(切动画/复活)
     ctx.root.updateMatrixWorld(true);
   }
 

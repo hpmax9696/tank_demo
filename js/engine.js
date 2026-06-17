@@ -3176,13 +3176,12 @@ function placeCamera() {
         camera.updateProjectionMatrix();
     }
 
-    // 摄像机方向由 cameraYaw 决定（鼠标横轴驱动，与车身/炮塔解耦）
-    const cfx = Math.cos(cameraYaw);
-    const cfz = Math.sin(cameraYaw);
-
     // 位置来源: 模块化角色用控制器 getPose, 否则用 tankGroup (坦克)
     var _camPose = (window.PlayerControllerManager && window.PlayerControllerManager.isActive())
         ? window.PlayerControllerManager.getPose() : null;
+    // 视角跟鼠标(cameraYaw 自由, 与机体朝向解耦); 机体朝向由控制器步进慢追(笨重转向)
+    const cfx = Math.cos(cameraYaw);
+    const cfz = Math.sin(cameraYaw);
     var _camX = _camPose ? _camPose.x : tankGroup.position.x;
     var _camZ = _camPose ? _camPose.z : tankGroup.position.z;
 
@@ -4994,7 +4993,7 @@ function updateDebugInfo() {
     }
 
     el.textContent =
-        'v0.60.4  ' + mapName + '  FPS:' + fpsCurrent +
+        'v0.61.1  ' + mapName + '  FPS:' + fpsCurrent +
         (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
         perfLine + renderStats + shadowHint;
 }
@@ -5401,7 +5400,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('🎮 坦克运动demo v0.61.0 | 模块化玩家控制器+六足步态姿势对齐+探针测量');
+console.log('🎮 坦克运动demo v0.61.1 | 六足玩家步进式转向架构(步态驱动转向+视角机体解耦)');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

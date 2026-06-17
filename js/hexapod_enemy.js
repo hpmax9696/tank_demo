@@ -236,10 +236,11 @@ var HexapodEnemy = (function() {
     var animIndex = _animRequestToIndex(animRequest, ctx, ai);
     var dir = CFG.animField(animIndex, 2);
     var cfgTurnRate = CFG.animField(animIndex, 3);
-    var isIdle = (dir === 0 && cfgTurnRate === 0);
+    var isIdle = !ctx._isPlayer && (dir === 0 && cfgTurnRate === 0);  // 玩家始终stepGait: 步进转向需持续追视角, 鼠标停后身体仍要转到位(不受idle打断)
 
-    // 动画切换检测
-    if (ctx._lastAnimIndex !== undefined && ctx._lastAnimIndex !== animIndex) {
+    // 动画切换检测 (玩家模式跳过: 步进转向腿状态自主连续, 来回转鼠标时 turn_l↔turn_r
+    // 频繁切换, 若每次 resetPose 会清步进计时器+腿姿态, 致静止转向永远启动不了)
+    if (ctx._lastAnimIndex !== undefined && ctx._lastAnimIndex !== animIndex && !ctx._isPlayer) {
       CORE.resetPose(ctx);
     }
     ctx._lastAnimIndex = animIndex;
@@ -252,7 +253,7 @@ var HexapodEnemy = (function() {
       if (ai && (ai._desiredVelX !== undefined || ai._desiredVelZ !== undefined)) {
         dm = { dx: (ai._desiredVelX || 0) * dt, dz: (ai._desiredVelZ || 0) * dt };
       }
-      CORE.stepGait(ctx, dt, { animIndex: animIndex, bodySpeed: bodySpeed, desiredMove: dm });
+      CORE.stepGait(ctx, dt, { animIndex: animIndex, bodySpeed: bodySpeed, desiredMove: dm, targetYaw: (ai && ai._targetYaw !== undefined) ? ai._targetYaw : undefined });
     } else {
       CORE.stepIdle(ctx, dt);
     }
