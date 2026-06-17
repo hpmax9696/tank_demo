@@ -68,8 +68,9 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('mousedown', (e) => {
     if (e.button === 0 && gameMode !== 'menu') { mouseDown = true; mouseFireRequested = true; }
-    // 右键切换狙击模式（仅键鼠，非菜单，非对战）
-    if (e.button === 2 && gameMode !== 'menu' && gameMode !== 'versus') {
+    // 右键切换狙击模式（仅键鼠，非菜单，非对战，模块化角色不支持狙击则跳过）
+    if (e.button === 2 && gameMode !== 'menu' && gameMode !== 'versus'
+        && !(window.PlayerControllerManager && window.PlayerControllerManager.isActive() && !window.PlayerControllerManager.canSniper())) {
         _sniperMode = !_sniperMode;
         if (_sniperMode) {
             _sniperPitch = 0; // 进入时俯仰归零
@@ -1252,6 +1253,10 @@ function updateAiming(player, dt) {
 }
 
 function updateTrajectoryLine(player) {
+    // 模块化角色(六足等)无炮塔/弹道, 隐藏弹道线
+    if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
+        if (trajLine) trajLine.visible = false; if (trajDot) trajDot.visible = false; return;
+    }
     if (_sniperMode) { if (trajLine) trajLine.visible = false; if (trajDot) trajDot.visible = false; return; }
     if (!trajLine || !trajLine.parent) {
         if (trajLine) { trajLine.geometry.dispose(); trajLine = null; }
@@ -1416,6 +1421,7 @@ function updateTrajectoryLine(player) {
 function gameLoop() {
     try {
     const _t0 = performance.now();
+    let _t1 = _t0;  // perf: 物理阶段结束 (函数级, 供后续 _t2-_t1 链; 控制器/坦克分支都会赋值)
     // 强制全屏渲染（防止之前双人模式残留 viewport/scissor 状态）
     renderer.setScissorTest(false);
     const cssW = window.innerWidth, cssH = window.innerHeight;
@@ -1466,7 +1472,13 @@ function gameLoop() {
     let { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr } = (isGameOver || playerDead) ? { left: 0, right: 0, forward: 0, strafe: 0 } : getDriveInput();
     if (playerDead) { currentLeftSpeed = 0; currentRightSpeed = 0; }
 
-
+    // ── 模块化玩家角色控制器分发 (六足等注册角色; 坦克走下面原物理) ──
+    if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
+        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw });
+        _t1 = performance.now();  // perf: 控制器物理阶段结束
+        perfAcc.physics += _t1 - _t0;
+        // 跳过坦克专属段(物理/开炮/弹种), 直接进 updateTrajectoryLine 之后的角色无关逻辑
+    } else {
     // ── 倒车转向反转（基于实际速度而非摇杆输入）──
     const actualFwd = (currentLeftSpeed + currentRightSpeed) / 2;
     if (actualFwd < -0.3) { const t = targetLeft; targetLeft = targetRight; targetRight = t; }
@@ -1690,7 +1702,7 @@ function gameLoop() {
     rightWheelAngle += currentRightSpeed * dt / WHEEL_R;
     leftWheels.forEach(w => { w.rotation.x = leftWheelAngle; });
     rightWheels.forEach(w => { w.rotation.x = rightWheelAngle; });
-    const _t1 = performance.now();  // perf: 物理阶段结束
+    _t1 = performance.now();  // perf: 物理阶段结束
     perfAcc.physics += _t1 - _t0;
 
     // ── 开炮（鼠标左键 / 手柄RT扳机） ──
@@ -1721,6 +1733,7 @@ function gameLoop() {
     } else {
         _gpRbPressed = false;
     }
+    } // ── end 坦克专属玩家段 (else of PlayerControllerManager) ──
 
     updateTrajectoryLine(player1);
 
@@ -3167,7 +3180,13 @@ function placeCamera() {
     const cfx = Math.cos(cameraYaw);
     const cfz = Math.sin(cameraYaw);
 
-    const groundY = getGroundHeight(tankGroup.position.x, tankGroup.position.z);
+    // 位置来源: 模块化角色用控制器 getPose, 否则用 tankGroup (坦克)
+    var _camPose = (window.PlayerControllerManager && window.PlayerControllerManager.isActive())
+        ? window.PlayerControllerManager.getPose() : null;
+    var _camX = _camPose ? _camPose.x : tankGroup.position.x;
+    var _camZ = _camPose ? _camPose.z : tankGroup.position.z;
+
+    const groundY = getGroundHeight(_camX, _camZ);
     let shakeX = 0, shakeY = 0, shakeZ = 0;
     if (combatShakeTimer > 0) {
         const shakeMag = combatShakeTimer * 0.5;
@@ -3176,14 +3195,14 @@ function placeCamera() {
         shakeZ = (Math.random() - 0.5) * shakeMag * 2;
     }
     camera.position.set(
-        tankGroup.position.x - cfx * CAMERA_BEHIND + shakeX,
+        _camX - cfx * CAMERA_BEHIND + shakeX,
         groundY + CAMERA_ABOVE + shakeY,
-        tankGroup.position.z - cfz * CAMERA_BEHIND + shakeZ
+        _camZ - cfz * CAMERA_BEHIND + shakeZ
     );
     camera.lookAt(
-        tankGroup.position.x + cfx * 8,
+        _camX + cfx * 8,
         groundY + CAMERA_LOOK_Y,
-        tankGroup.position.z + cfz * 8
+        _camZ + cfz * 8
     );
 }
 
@@ -4043,15 +4062,32 @@ function _processTrainingRespawn(dt) {
         player1._respawnTimer = (player1._respawnTimer || 0) + dt;
         if (player1._respawnTimer >= 1.0) {
             var gy = getGroundHeight(trainingPlayerSpawn.x, trainingPlayerSpawn.z);
-            player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
-            player1.group.visible = true; player1.hp = 100; player1.dead = false;
-            player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
-            player1.state.yaw = Math.PI;
-            player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
-            player1.reloadTimer = 0; player1.group.rotation.set(0, 0, 0);
-            if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
-            togglePlayerBars(player1, true);
-            hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
+            if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
+                // ── 模块化角色复活: 先定位到地面, 再 onRespawn(init 内部抬升) ──
+                var _ctrl = window.PlayerControllerManager.getActive();
+                var _grp = _ctrl && _ctrl.getGroup ? _ctrl.getGroup() : player1.group;
+                if (_grp) {
+                    _grp.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
+                    _grp.rotation.y = Math.PI;
+                    _grp.visible = true;
+                }
+                if (_ctrl && _ctrl.onRespawn) _ctrl.onRespawn();
+                cameraYaw = Math.PI;
+                player1.hp = 100; player1.dead = false;
+                player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z; player1.state.yaw = Math.PI;
+                hintBar.textContent = 'WASD 移动 | 鼠标转向 | ESC 退出训练';
+            } else {
+                // ── 坦克复活 ──
+                player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
+                player1.group.visible = true; player1.hp = 100; player1.dead = false;
+                player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
+                player1.state.yaw = Math.PI;
+                player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+                player1.reloadTimer = 0; player1.group.rotation.set(0, 0, 0);
+                if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
+                togglePlayerBars(player1, true);
+                hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
+            }
             player1._respawnTimer = 0;
             // 玩家复活后, 重置所有存活敌人的AI使其重新锁定玩家
             for (var ri = 0; ri < enemies.length; ri++) {
@@ -4975,6 +5011,7 @@ function returnToMenu() {
         });
     }
     hideMapSelector(); hideGameOverScreen();
+    if (window.PlayerControllerManager) window.PlayerControllerManager.deactivate(); // 销毁模块化角色模型/资源
     isTrainingMode = false; trainingRespawnQueued = null;
     gameMode='menu';menuOverlay.classList.remove('hidden');gameContainer.classList.remove('active');
     splitLine.style.display='none';versusResult.style.display='none';
@@ -5095,7 +5132,40 @@ async function enterTrainingMode() {
 
     await raf(); updateLoadingProgress(85, '初始化训练场...');
     // 玩家出生点: playerSpawnX/Z 已在函数顶部定义
-    if (player1) {
+    if (window.PlayerControllerManager && window.PlayerControllerManager.isRegistered(trainingPlayerType)) {
+        // ── 模块化角色 (六足等): 建 player1 血条壳 + 激活控制器 ──
+        if (player1 && player1.group && player1.group.parent) player1.group.parent.remove(player1.group);
+        if (!player1) player1 = createPlayer('green', playerSpawnX, playerSpawnZ, Math.PI, true);
+        player1.state = player1.state || {};
+        player1.state.x = playerSpawnX; player1.state.z = playerSpawnZ; player1.state.yaw = Math.PI;
+        player1.hp = 100; player1.maxHp = 100; player1.dead = false; player1._respawnTimer = 0;
+        player1.userData = player1.userData || {}; player1.userData.maxHp = 100;
+        window.PlayerControllerManager.activate(trainingPlayerType, {
+            scene: scene, getGroundHeight: getGroundHeight,
+            position: { x: playerSpawnX, z: playerSpawnZ }, yaw: Math.PI,
+            player1: player1   // 传 player1 引用 (顶层 let, 控制器无法用 window.player1 读)
+        });
+        cameraYaw = Math.PI;   // 鼠标初始朝向 = 六足朝向 (关键)
+        hintBar.textContent = 'WASD 移动 | 鼠标转向 | ESC 返回菜单';
+    } else if (player1) {
+        // ── 坦克 (默认角色) ──
+        // 清理六足模式残留的 PCM 状态 (ESC退出六足时可能未deactivate, 导致gameLoop仍走六足分支)
+        if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
+            window.PlayerControllerManager.deactivate();
+        }
+        // 若 player1 被六足模式污染(group变六足root/turretPivot被清空), 重建坦克模型+全局引用
+        var _polluted = !player1.turretPivot || (player1.group && player1.group.userData && player1.group.userData.enemyType === 'hexapod');
+        if (_polluted) {
+            if (player1.group && player1.group.parent) player1.group.parent.remove(player1.group);
+            player1 = createPlayer('green', playerSpawnX, playerSpawnZ, Math.PI, true);
+            player1.userData = player1.userData || {}; player1.userData.maxHp = 100;
+            createPlayerTank(player1);
+            createBarsForPlayer(player1);
+            tankGroup = player1.group;
+            leftWheels = player1.leftWheels; rightWheels = player1.rightWheels;
+            reloadBarGroup = player1.reloadBarGroup; reloadBarFill = player1.reloadBarFill; reloadTimer = 0;
+            if (player1.group && player1.group.parent !== scene) scene.add(player1.group);  // 保险: 确保在场景
+        }
         player1.state.x = playerSpawnX; player1.state.z = playerSpawnZ; player1.state.yaw = Math.PI;
         player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
         player1.prevForwardSpeed = 0; player1.pitch = 0; player1.recoilPitch = 0;
@@ -5262,9 +5332,16 @@ async function enterTrainingMode() {
     if (realEnemyType === 'zombie' || isHexEnemy) createEnemyHitFlashOverlay(enemyModel);
     updateObstacleVisibility();
 
-    if (reloadBarGroup) reloadBarGroup.visible = true;
-    if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = true;
-    if (player1 && player1.shellLabel) player1.shellLabel.visible = true;
+    // 模块化角色(六足等)无武器, 不显示装填条/血条/弹种 (坦克才显示)
+    if (!window.PlayerControllerManager || !window.PlayerControllerManager.isActive()) {
+        if (reloadBarGroup) reloadBarGroup.visible = true;
+        if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = true;
+        if (player1 && player1.shellLabel) player1.shellLabel.visible = true;
+    } else {
+        if (reloadBarGroup) reloadBarGroup.visible = false;
+        if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = false;
+        if (player1 && player1.shellLabel) player1.shellLabel.visible = false;
+    }
     placeCamera();
     initAudio(); startEngineSound();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -5324,7 +5401,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('⚡ 坦克运动demo v0.60.4 | 性能优化+天空修复+草丛合并+河流网格化');
+console.log('🎮 坦克运动demo v0.61.0 | 模块化玩家控制器+六足步态姿势对齐+探针测量');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

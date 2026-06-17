@@ -320,14 +320,14 @@ var HexapodCore = (function() {
     var bodySpeedNow = params.bodySpeed || 0;
     var actualTurnRate = 0;
     if (!ctx.bodyWriter && params.bodySpeed === undefined) {
-      // 从位置变化估算
       var bdv = new (T()).Vector3().subVectors(root.position, ctx._prevBodyPos);
       bdv.y = 0;
       bodySpeedNow = bdv.length() / Math.max(dt, 0.001);
       actualTurnRate = angleDiff(ctx._prevBodyYaw, root.rotation.y) / Math.max(dt, 0.001);
     }
-    var turnRate = (cfgTurnRate !== 0) ? cfgTurnRate
-      : (Math.abs(actualTurnRate) > 0.05 ? actualTurnRate : 0);
+    // 玩家模式: turnRate 强制0 (转向由 rotation.y 变化+脚钉地自然处理, 不走圆弧摆动)
+    var turnRate = ctx._isPlayer ? 0 : ((cfgTurnRate !== 0) ? cfgTurnRate
+      : (Math.abs(actualTurnRate) > 0.05 ? actualTurnRate : 0));
 
     // ── 步态周期 ──
     var gaitPeriod;
@@ -391,6 +391,11 @@ var HexapodCore = (function() {
     root.localToWorld(fwdBody);
     var hw = new (T()).Vector3(); root.getWorldPosition(hw);
     fwdBody.sub(hw).normalize();
+    // 玩家模式: fwdBody 改用真实移动方向(连续, 支持8方位/斜向/手柄360°), 不用 animIndex 离散dir
+    if (ctx._isPlayer && params.desiredMove) {
+      var _dmn = Math.sqrt(params.desiredMove.dx * params.desiredMove.dx + params.desiredMove.dz * params.desiredMove.dz);
+      if (_dmn > 0.001) fwdBody.set(params.desiredMove.dx / _dmn, 0, params.desiredMove.dz / _dmn);
+    }
 
     // ── 身体平移 ──
     var totalDist = gaitCycles * dynamicStride * 2;
@@ -450,8 +455,12 @@ var HexapodCore = (function() {
             // 模型工厂模式: plantPos 世界绝对锁定
             root.updateMatrixWorld(true);
             leg.plantPos = leg.tipLocal.clone().applyMatrix4(leg.anklePivot.matrixWorld);
+          } else if (ctx._isPlayer) {
+            // 玩家模式: 钉脚实际落地位置 (对齐工厂 plantPos; 配合 bodySpeed修复, dynamicStride对称不失同步)
+            root.updateMatrixWorld(true);
+            leg._stanceTarget = leg.tipLocal.clone().applyMatrix4(leg.anklePivot.matrixWorld);
           } else {
-            // 游戏模式: homeOffset 相对定位
+            // 敌人模式: homeOffset 相对定位 (绕圈变速需要此补偿防失同步)
             leg._stanceTarget = _legHomePos(ctx, leg);
           }
         }
@@ -515,6 +524,15 @@ var HexapodCore = (function() {
         _ccdLeg(ctx, leg, target, ccdIters, damp);
       }
       leg._wasStance = inStance;
+
+      // ── 测量探针 (仅左前腿, 只读) ──
+      if (leg.prefix === '左前' && typeof window.__hexProbeSample === 'function') {
+        window.__hexProbeSample(ctx, {
+          totalTime: totalT, animIndex: animIndex, gaitT: gaitT, inStance: inStance,
+          gaitPeriod: gaitPeriod, dynamicStride: dynamicStride,
+          bodySpeedNow: bodySpeedNow, turnRate: turnRate
+        });
+      }
     }
 
     // 保存位置用于下一帧速度估算

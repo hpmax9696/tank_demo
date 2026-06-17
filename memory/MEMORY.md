@@ -1,0 +1,2 @@
+- [model-switching-setup](model-switching-setup.md) — DeepSeek/GLM 切换脚本用法 + 系统环境变量优先级陷阱
+- [model-switching-trigger](model-switching-trigger.md) — 口语触发词"切换到deepseek/智谱/glm"时自动执行切换脚本

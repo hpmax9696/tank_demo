@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.60.4** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.61.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -78,7 +78,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── fbx-test.html          # FBX 模型测试页
 ├── glb-test.html          # GLB 模型测试页
 ├── zombie_prototype.html  # 程序化丧尸模型原型（独立运行）
-├── AGENTS.md           # 🤖 Codex 专属协作文档 (v0.60.4)
+├── AGENTS.md           # 🤖 Codex 专属协作文档 (v0.61.0)
 ├── README.md              # 本文件
 ├── docs/                  # 📄 协作文档（T-34/85 v1.6 看图AI交互记录）
 │   ├── t34-85-v1.6-spec-for-vision-ai.md    # 识图AI规范文档
@@ -249,6 +249,15 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.61.0 — 六足步态姿势对齐+玩家控制器+探针工具（2026-06-17）
+
+- **模块化玩家角色控制器**: `js/playerControllers/` 可插拔架构，`PlayerControllerManager` 注册表+能力探测，六足玩家(WASD八方向+鼠标转向)，坦克零回归
+- **六足步态姿势对齐**: bodySpeed时序bug修复(用desiredVel)，玩家支撑相钉plantPos(对齐工厂)，fwdBody跟随真实移动方向(8方位连续)，hip 0.45→0.15, shin 0.96→0.29, fx 0.43→0.09, hipPeriodJump 0
+- **探针测量工具**: `js/hexapod_probe.js`，F7/F8快捷键，localStorage持久化，`__hexProbeStats/Compare` 精简统计
+- **Playwright自动化**: npx playwright 1.60用于真实复现gameLoop运行时行为
+- **状态栏**: statusLine显示模型·输出风格·会话·上下文%·PR
+- **已知问题**: 六足玩家鼠标转向+移动叠加仍会飞(turnRate=0); 长时间WASD误差积累
 
 ### v0.60.4 — 性能优化+天空修复（2026-06-15）
 

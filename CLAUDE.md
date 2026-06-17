@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.60.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.0
 
 ## 运行
 
@@ -34,7 +34,11 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── models/hexapod_config.js # 六足战车共享模型配置+动画参数表：3节腿(大腿+小腿+尖刺足)+4DOF+ANIM_TABLE(23项)+腿配置
 ├── js/hexapod_core.js        # 六足CCD IK核心模块 (~920行)：纯计算层，模型工厂+游戏共享，hipAxis/bodyWriter参数化
 ├── js/hexapod_factory.js     # 六足工厂适配器 (~600行)：nodeMap→legRefs+IK测试+转弯验证+武器校准
-├── js/hexapod_enemy.js       # 六足游戏适配器 (~220行)：getObjectByName→legRefs, bodyWriter=false, homeOffset相对定位
+├── js/hexapod_enemy.js       # 六足游戏适配器 (~230行)：getObjectByName→legRefs, bodyWriter=false; 卡住检测(敌人); bodySpeed用desiredVel
+├── js/hexapod_probe.js       # 六足步态测量探针 (~190行)：stepGait末尾采样左前腿; F7/F8快捷键; __hexProbeStart/Stop/Stats/Compare; localStorage持久化
+├── js/playerControllers/     # 模块化玩家角色控制器 (可插拔)
+│   ├── manager.js            # PlayerControllerManager (~80行)：注册表+当前角色+update分发+能力探测
+│   └── hexapodPlayer.js      # 六足玩家控制器 (~160行)：WASD+鼠标转向; 复用HexapodEnemy管线; _isPlayer支撑相plantPos
 ├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
 ├── js/editor_*.js     # 编辑器模块（6个）
 │   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
@@ -291,8 +295,37 @@ legGroup (Y旋转=水平摆角)
 - **河流碰撞空间网格化**：`waters.js`创建时同步构建`_riverGrid`(SpatialGrid, cellSize=10)，`checkCollision`/`isInRiver`/多轮推离全部改用`queryByDistance`，O(n)→O(1)
 - **调试面板**：新增 `renderer.info.render.points` 显示（点粒子数）
 
+---
+
+## v0.61.0 本次会话变更 (2026-06-17)
+
+### 模块化玩家角色控制器（可插拔架构）
+- **`js/playerControllers/manager.js`**：`window.PlayerControllerManager` 调度层，注册表+当前角色+update分发。采用"默认透传"模式——`isActive()=false`（坦克）时 gameLoop 走原代码（零回归）；`=true`（六足等注册角色）时跳过坦克物理块
+- **接口契约**：核心4方法（`type/onSpawn/update/getPose/dispose`）+ 可选能力钩子（`getGroup/canSniper/handleWeapons/onRespawn/onHit`，typeof 探测）。武器/炮塔进可选钩子（六足无武器，避免接口污染）
+- **`js/playerControllers/hexapodPlayer.js`**：第一个新角色，WASD 八方向+鼠标转向，复用 `HexapodEnemy.init/update` 的 CCD IK 步态管线
+- **扩展性**：未来新增角色（丧尸/突击车）只需 1 文件 + 1 script + 1 按钮，不改 engine.js
+- **⚠️ 关键坑：`engine.js` 顶层 `let` 不挂 `window`**（player1/cameraYaw/scene/gameMode 等）。控制器是独立模块，**绝不能用 `window.cameraYaw` 读取**——会得到 undefined → `Object3D.rotation=NaN` → 所有子 mesh 投影到 NaN 位置（屏幕外）。正确做法：经 `input.cameraYaw` 参数传入（gameLoop 分发时传），或经 `spawnCtx.player1`。其他角色实现时严格遵守这个参数通道。
+- **engine.js 6处PCM守卫**：gameLoop(1466)/enterTrainingMode(5135)/placeCamera(3170)/_processTrainingRespawn(4065)/returnToMenu(5011)/updateTrajectoryLine(1254)
+- **六足→坦克切换修复**：六足退出后重选坦克时检测 `_polluted`（player1被壳化），自动重建坦克模型+全局引用(tankGroup/leftWheels/reloadBarGroup)，并 deactivate PCM
+- **UI适配**：六足模式隐藏血条/装填条/弹道线（无武器），禁止狙击（无炮塔）
+
+### 六足步态姿势对齐（经探针数据量化定位+修复）
+- **探针工具 `js/hexapod_probe.js`**：`__hexProbeStart/Stop/Stats/Compare` + `F7/F8` 快捷键 + localStorage 持久化（同源页面共享），输出精简统计（关节角 min/max/range + hipPeriodJump）。量化对比模型工厂(bodyWriter=true) vs 游戏(bodyWriter=false)的步态差异
+- **Bug1：bodySpeed 时序bug**（`hexapod_enemy.js:178`）：`ctx._prevBodyPos` 在 stepGait 末尾更新成当前位置，下一帧位置差恒=0 → `spd` 恒=0 → `gaitPeriod` 固定0.7（本应自适应）+ `dynamicStride` 与身体失同步。**修复**：bodySpeed 改用 `|ai._desiredVel|` 直接算（精确），位置差仅作 fallback
+- **Bug2：支撑相锁定策略**（`hexapod_core.js` stepGait）：工厂用 `plantPos`（脚实际落地世界位置，钉前方）；游戏端用 `_legHomePos`（身体下方 home）→ CCD 把脚从前方硬拉回下方 → 髋限位卡 0.45 + 膝弯 0.96 + 周期跳变 0.259。**修复**：玩家六足（`ctx._isPlayer`）支撑相用 `tipLocal.applyMatrix4(anklePivot.matrixWorld)` 钉实际位置（对齐 factory），敌人保持 `_legHomePos`（绕圈补偿）
+- **Bug3：fwdBody 离散方向**：`fwdBody`（腿摆动方向）用 `animIndex` 离散 `dir`（仅X/Z轴），但实际 `desiredMove` 可斜向 → 腿摆向与身体移动方向不一致→飞。**修复**：玩家模式 `fwdBody` 用 `desiredMove` 真实方向（连续单位向量），自动支持八方位/斜向/手柄 360°
+- **Bug4：turnRate 被 bodySpeed 传递屏蔽**：`params.bodySpeed` 已传 → `actualTurnRate` 不估算 → turnRate=0 → 未知实际转向。暂用 `ctx._isPlayer?0`（TurnRate=0 不走圆弧摆动），但鼠标转向叠加仍需单独处理
+- **修复后效果**（`__hexProbeStats` 对比）：hip range 0.45→0.154(工厂0.131)、shin range 0.96→0.29(工厂0.32)、fx range 0.43→0.09(工厂0.13)、hipPeriodJump 0.26→0、spd 0→2.5、period 0.7→0.22（自适应）
+- **频率差异**：玩家 period 0.22（快步频，走速2.5）vs 工厂 0.7（展台Walk慢）——这是速度差异，姿势已对齐
+
+### 技术支持
+- **Playwright 自动化验证**：`npx playwright 1.60`（Node.js，chromium headless）用于真实复现 gameLoop 的运行时行为（raf 正常触发，不像旧 CDP headless 不触发 raf）。位于 `pw_test.js`（诊断用，用后清理）。后续步态调试可继续用此工具
+- **状态栏**：`~/.claude/settings.json` 已配置 `statusLine`（python 脚本解析 Claude Code JSON stdin），显示模型·输出风格·会话·上下文%·PR
+
 ### 已知问题
 1. 坡地一头翘起一头陷地（地形适应不平滑）
 2. 对山丘目标弹道偏低
 3. 只会对山丘开炮不会绕路
 4. 六足武器俯仰旋转轴不正确（待校准）
+5. **六足玩家鼠标转向+移动叠加时腿飞**（当前 turnRate=0 不走转向步态，髋关节 ±0.45 无法补偿大角度旋转-后续需精细化限幅 turnRate 或加 rotation 补偿）
+6. **长时间按 WASD 步态误差积累**（plantPos 绝对位置与身体相对位置的长期漂移）

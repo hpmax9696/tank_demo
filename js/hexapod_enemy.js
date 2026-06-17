@@ -175,15 +175,21 @@ var HexapodEnemy = (function() {
     var ai = enemy.ai;
     var animRequest = (ai && ai.animRequest) ? ai.animRequest : 'idle';
 
-    // 身体速度估算 (从 enemy.position 读取)
+    // 身体速度: 优先用 ai 期望速度 (精确, 避免 _prevBodyPos 时序bug导致恒0)
     var bodySpeed = 0;
     var bodyTurnSpeed = 0;
+    if (ai && (ai._desiredVelX !== undefined || ai._desiredVelZ !== undefined)) {
+      bodySpeed = Math.sqrt((ai._desiredVelX || 0) * (ai._desiredVelX || 0) + (ai._desiredVelZ || 0) * (ai._desiredVelZ || 0));
+    }
     if (ctx._prevBodyPos) {
-      var bd = new THREE.Vector3().subVectors(enemy.position, ctx._prevBodyPos);
-      bd.y = 0;
-      bodySpeed = bd.length() / Math.max(dt, 0.001);
+      if (bodySpeed === 0) {
+        // fallback: 位置差估算 (无 desiredVel 时, 如老式敌人)
+        var bd = new THREE.Vector3().subVectors(enemy.position, ctx._prevBodyPos);
+        bd.y = 0;
+        bodySpeed = bd.length() / Math.max(dt, 0.001);
+      }
       bodyTurnSpeed = Math.abs(CORE.angleDiff(ctx._prevBodyYaw, enemy.rotation.y)) / Math.max(dt, 0.001);
-      ctx._totalDist = (ctx._totalDist || 0) + bd.length() + Math.abs(bodyTurnSpeed) * dt * 0.7;
+      ctx._totalDist = (ctx._totalDist || 0) + bodySpeed * dt + Math.abs(bodyTurnSpeed) * dt * 0.7;
     }
 
     // 死亡触发（一次性）
@@ -197,15 +203,17 @@ var HexapodEnemy = (function() {
       CORE.triggerStagger(ctx, staggerDir, ai && ai._lastHitForce ? ai._lastHitForce : 0.5);
     }
 
-    // 空闲/卡住检测
-    if (bodySpeed < 0.03 && bodyTurnSpeed < 0.05) {
-      ctx._slowFrames = (ctx._slowFrames || 0) + 1;
-    } else {
-      ctx._slowFrames = 0;
-    }
-    var movingReqs = ['move_forward', 'move_backward', 'strafe_left', 'strafe_right', 'strafe_run_left', 'strafe_run_right', 'turn_left', 'turn_right'];
-    if (ctx._slowFrames >= 6 && movingReqs.indexOf(animRequest) >= 0) {
-      animRequest = 'idle';
+    // 空闲/卡住检测 (玩家操控跳过: 玩家明确按WASD就是要走, 不该被卡住检测强制idle)
+    if (!ai.isPlayer) {
+      if (bodySpeed < 0.03 && bodyTurnSpeed < 0.05) {
+        ctx._slowFrames = (ctx._slowFrames || 0) + 1;
+      } else {
+        ctx._slowFrames = 0;
+      }
+      var movingReqs = ['move_forward', 'move_backward', 'strafe_left', 'strafe_right', 'strafe_run_left', 'strafe_run_right', 'turn_left', 'turn_right'];
+      if (ctx._slowFrames >= 6 && movingReqs.indexOf(animRequest) >= 0) {
+        animRequest = 'idle';
+      }
     }
 
     // 踉跄进行中
