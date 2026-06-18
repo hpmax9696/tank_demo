@@ -44,7 +44,7 @@
 
 ### 待确认
 
-- [ ] 智谱用量：用同一个 `sk-93e2...` key 还是独立 key？
+- [ ] 智谱用量：用同一个 key 还是独立 key？
 - [ ] 智谱 API 基地址：`open.bigmodel.cn`（直连智谱）还是 `api.z.ai`（Z.AI 平台）？
 
 ---
@@ -122,11 +122,11 @@ C:\Users\hpmax\tools\api_monitor\
 ```json
 {
   "deepseek": {
-    "api_key": "sk-93e24087487748f58bc8475ed5f12c13",
+    "api_key": "<你的DeepSeek API Key>",
     "base_url": "https://api.deepseek.com"
   },
   "zhipu": {
-    "api_key": "sk-93e24087487748f58bc8475ed5f12c13",
+    "api_key": "<你的智谱/ZAI API Key>",
     "base_url": "https://open.bigmodel.cn"
   },
   "refresh_interval_sec": 60,
