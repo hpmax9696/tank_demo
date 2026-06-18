@@ -141,7 +141,9 @@ var HexapodEnemy = (function() {
     switch (animRequest) {
       case 'idle':           return 0;
       case 'move_forward':   return 1;
+      case 'move_forward_run':  return 2;
       case 'move_backward':  return 3;
+      case 'move_backward_run': return 4;
       case 'strafe_left':    return 5;
       case 'strafe_right':   return 6;
       case 'strafe_run_left':  return 19;
@@ -168,7 +170,7 @@ var HexapodEnemy = (function() {
 
     // 死亡动画已播完 → 冻结
     if (ctx._deathDone) {
-      CORE.updateGatlingSpin(ctx._barrelClusters, dt, 3);
+      CORE.updateGatlingSpin(ctx._barrelClusters, dt, 0);
       return;
     }
 
@@ -220,8 +222,8 @@ var HexapodEnemy = (function() {
     if (ctx._staggerActive) {
       CORE._staggerUpdate(ctx, dt);
       // 加特林 spin 跟随 AI（过热停转）
-      var spinRPS2 = (ai && ai._overheated) ? 0 : 3;
-      if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS2 = 3 + ai.spinUp * 27;
+      var spinRPS2 = 0;
+      if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS2 = (ai.spinUp || 0) * 30;
       CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS2);
       return;
     }
@@ -229,7 +231,7 @@ var HexapodEnemy = (function() {
     // 死亡进行中
     if (ctx._deathActive) {
       CORE._deathUpdate(ctx, dt);
-      CORE.updateGatlingSpin(ctx._barrelClusters, dt, 3);
+      CORE.updateGatlingSpin(ctx._barrelClusters, dt, 0);
       return;
     }
 
@@ -259,8 +261,8 @@ var HexapodEnemy = (function() {
     }
 
     // 加特林（过热停转）
-    var spinRPS = (ai && ai._overheated) ? 0 : 3;
-    if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS = 3 + ai.spinUp * 27;
+    var spinRPS = 0;
+    if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS = (ai.spinUp || 0) * 30;   // spinUp 0→停, 1→30RPS(满)
     CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS);
   }
 

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.2
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.3
 
 ## 运行
 
@@ -364,3 +364,21 @@ legGroup (Y旋转=水平摆角)
 2. 对山丘目标弹道偏低
 3. 只会对山丘开炮不会绕路
 4. 六足武器俯仰旋转轴不正确（待校准）
+
+---
+
+## v0.61.3 本次会话变更 (2026-06-18)
+
+### 加特林枪管旋转状态机修复（3 根因）
+- **根因1**（`hexapod_core.js` updateGatlingSpin）：`spinRPS = spinRPS || 3`，0 被 `||` 当 3 → 枪管恒转 3 RPS（"总在转"直接根因）。**修复**：`|| 0`
+- **根因2**（`hexapod_enemy.js`）：调用方默认 `spinRPS=3`（spinUp=0 不攻击也转），死亡中/完成传 3。**修复**：`spinRPS = (spinUp||0)*30`（0 停/30 满），死亡传 0
+- **根因3**（`enemyAI.js`）：过热恢复 `heat<20` 解除。**修复**：`heat<=0`（强制散热必须降到 0 才能再旋转→达标→射击）
+- **完整状态机**：不攻击/不在射程→spinUp衰减停转；攻击→spinUp渐增加速旋转；spinUp>0.7达标→射击+枪管发热变红（barrelMats emissive）；heat≥80过热停射停转；heat降到0才解除。玩家六足无武器→枪管永静
+
+### 六足玩家跑/走恢复
+- **键盘 WASD（满力度1）→ 跑**：Run 步态（animIndex 2/4），`RUN_SPEED=5.0`
+- **手柄摇杆低力度（<0.7）→ 走**：Walk 步态（1/3），`WALK_SPEED=2.5`；手柄高力度（0.75/1）→ 跑
+- **判定**：`_isRun = max(|forward|,|strafe|) ≥ 0.7`；strafe_run_left/right = 19/20
+- 原 v0.61.0 调试期为统一走（降低步态调试难度），现恢复正常
+- **改动**：hexapodPlayer.js（RUN_SPEED + _isRun 判定 + desiredVel 用 _spd）+ hexapod_enemy.js `_animRequestToIndex` 加 `move_forward_run→2`、`move_backward_run→4`
+- **验证**：Playwright 键盘W→animIndex2/vel5，低力度0.5→animIndex1/vel1.25；CDP 0 错误

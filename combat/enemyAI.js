@@ -837,7 +837,7 @@
         }
 
         if (ai.heat >= 80) { ai._overheated = true; }
-        if (ai._overheated && ai.heat < 20) { ai._overheated = false; }
+        if (ai._overheated && ai.heat <= 0) { ai._overheated = false; }   // 强制散热: heat 必须降到 0 才能再旋转→达标→射击
 
         if (weaponAction === 'gatling' && ai.spinUp > 0.7) {
             ai.heat += heatPerSec * dt;

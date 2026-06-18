@@ -16,7 +16,8 @@
 var HexapodPlayerController = (function () {
 'use strict';
 
-  var WALK_SPEED = 2.5;   // 玩家六足行走速度 (测量用, 与敌人 cfg.speed 量级一致)
+  var WALK_SPEED = 2.5;   // 走速 (手柄低力度 <0.7)
+  var RUN_SPEED = 5.0;    // 跑速 (键盘满力度 / 手柄高力度 ≥0.7)
 
   function create(spawnCtx) {
     // spawnCtx: { scene, getGroundHeight, position:{x,z}, yaw }
@@ -98,14 +99,17 @@ var HexapodPlayerController = (function () {
         if (!_root || !_ai) return;
         var frozen = (_p1 && _p1.dead);
 
-        // ── 1. WASD → animRequest (主轴法, 前/后优先, 只要走步态 1/3/5/6) ──
+        // ── 1. WASD/摇杆 → animRequest (主轴法, 前/后优先) ──
+        //    键盘满力度(=1)或手柄高力度(≥0.7)→ 跑(run步态); 手柄低力度(<0.7)→ 走(walk步态)
         var fwdKey = frozen ? 0 : (input.forward || 0);
         var strKey = frozen ? 0 : (input.strafe || 0);
+        var _maxAbs = Math.max(Math.abs(fwdKey), Math.abs(strKey));
+        var _isRun = _maxAbs >= 0.7;
         var req = 'idle';
-        if (fwdKey > 0.1) req = 'move_forward';
-        else if (fwdKey < -0.1) req = 'move_backward';
-        else if (strKey > 0.1) req = 'strafe_right';
-        else if (strKey < -0.1) req = 'strafe_left';
+        if (fwdKey > 0.1) req = _isRun ? 'move_forward_run' : 'move_forward';
+        else if (fwdKey < -0.1) req = _isRun ? 'move_backward_run' : 'move_backward';
+        else if (strKey > 0.1) req = _isRun ? 'strafe_run_right' : 'strafe_right';
+        else if (strKey < -0.1) req = _isRun ? 'strafe_run_left' : 'strafe_left';
         _ai.animRequest = req;
 
         // ── 2. 转向 + 期望速度 (步进式转向, 视角自由跟鼠标) ──
@@ -119,8 +123,9 @@ var HexapodPlayerController = (function () {
         // 移动按视角(鼠标看的方向): W=视线前, D=视线右
         var fX = Math.cos(_yaw), fZ = Math.sin(_yaw);
         var rX = -Math.sin(_yaw), rZ = Math.cos(_yaw);
-        _ai._desiredVelX = (fX * fwdKey + rX * strKey) * WALK_SPEED;
-        _ai._desiredVelZ = (fZ * fwdKey + rZ * strKey) * WALK_SPEED;
+        var _spd = _isRun ? RUN_SPEED : WALK_SPEED;
+        _ai._desiredVelX = (fX * fwdKey + rX * strKey) * _spd;
+        _ai._desiredVelZ = (fZ * fwdKey + rZ * strKey) * _spd;
         // 静止转向: 无WASD但鼠标在转 → turn步态(腿蹬地原地转)
         if (Math.abs(fwdKey) < 0.1 && Math.abs(strKey) < 0.1 && _turnSign !== 0) {
           _ai.animRequest = (_turnSign > 0) ? 'turn_right' : 'turn_left';

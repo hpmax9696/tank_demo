@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.61.2** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.61.3** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -249,6 +249,14 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.61.3 — 加特林旋转状态机 + 六足玩家跑/走（2026-06-18）
+
+- **加特林枪管旋转修复（3根因）**：① `updateGatlingSpin` 内 `spinRPS||3`→`||0`（0 被 `||` 当 3，**枪管恒转的直接根因**）；② `hexapod_enemy.js` 调用方默认 3 → 基于 spinUp（`spinUp*30`，0停/30满），死亡传 0；③ `enemyAI.js` 过热恢复 `heat<20`→`heat<=0`（强制散热必须降到 0 才能再旋转→达标→射击）
+- **状态机**：不攻击/不在射程→spinUp 衰减停转；攻击→spinUp 渐增加速旋转；spinUp>0.7 达标射击+发热变红；heat≥80 过热停射停转；heat 降到 0 才解除；玩家六足无武器→枪管永静
+- **六足玩家跑/走恢复**：键盘 WASD（满力度1）→ 跑（Run 步态 2/4，5.0 m/s）；手柄摇杆低力度（<0.7）→ 走（Walk 1/3，2.5）；strafe_run 19/20。原调试期统一走
+- **验证**：Playwright 实测键盘 W→animIndex2/vel5，低力度 0.5→animIndex1/vel1.25，玩家六足枪管静止；CDP 0 错误
+- **改动**：hexapod_core.js updateGatlingSpin / hexapod_enemy.js spinRPS+动画映射 / enemyAI.js 过热阈值 / hexapodPlayer.js 跑走判定+RUN_SPEED
 
 ### v0.61.2 — 六足玩家坡地地形适应修复（2026-06-18）
 
@@ -1095,7 +1103,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.61.2）
+### 代码规模（截至 v0.61.3）
 - `index.html`：约 5377 行（主游戏引擎）
 - `map_editor.html`：约 1800 行（核心框架，新增状态面板+模型参数控件）
 - 编辑器模块：6个共~2930行（terrainGen 750 + genStatus 120 + waterBridge 659 + entities 645 + data 503 + terrainPaint 335）

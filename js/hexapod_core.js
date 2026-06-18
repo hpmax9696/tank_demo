@@ -1029,7 +1029,7 @@ var HexapodCore = (function() {
   // ═══════════════════════════════════════════
   function updateGatlingSpin(barrelClusters, dt, spinRPS) {
     if (!barrelClusters || barrelClusters.length === 0) return;
-    spinRPS = spinRPS || 3;
+    spinRPS = spinRPS || 0;   // 0=停转 (原||3: 0被当3, 枪管永转 — 加特林"总在转"直接根因)
     var delta = spinRPS * Math.PI * 2 * dt;
     for (var ci = 0; ci < barrelClusters.length; ci++) {
       var cluster = barrelClusters[ci];

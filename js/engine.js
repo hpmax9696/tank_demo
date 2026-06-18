@@ -4998,7 +4998,7 @@ function updateDebugInfo() {
     }
 
     el.textContent =
-        'v0.61.2  ' + mapName + '  FPS:' + fpsCurrent +
+        'v0.61.3  ' + mapName + '  FPS:' + fpsCurrent +
         (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
         perfLine + renderStats + shadowHint;
 }
@@ -5405,7 +5405,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('🎮 坦克运动demo v0.61.2 | 六足玩家坡地地形适应修复(getGroundHeight接通+sD2.0落水过滤+hRgt方向+pitch/roll轴)');
+console.log('🎮 坦克运动demo v0.61.3 | 加特林枪管旋转修复(攻击才转/过热停/散热到0)+六足玩家键盘跑手柄低力度走');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
