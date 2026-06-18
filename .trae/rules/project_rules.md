@@ -212,7 +212,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.61.1 — 六足玩家步进式转向架构）
+## 当前版本（v0.61.2 — 六足玩家坡地地形适应修复）
 
 ### 关键参数
 | 参数 | 值 |
@@ -244,7 +244,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.61.1)
+### 已知问题 (v0.61.2)
 
 | # | 问题 | 位置 |
 |---|------|------|
@@ -256,6 +256,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 6 | 山丘遮挡时敌人不主动绕路找角度 | enemyAI.js updateChase |
 | 7 | ~~六足玩家转向腿飞~~ **v0.61.1已修** | stepGait 步进式转向(STEP_PERIOD=0.32/MAX_STEP=0.5/IDLE_THR=0.02) |
 | 8 | ~~长时间WASD步态漂移~~ **v0.61.1已修** | stepGait 摆动闭环homeW+前瞻 |
+| 9 | ~~六足玩家坡地车身不跟随地形~~ **v0.61.2已修** | 4根因: getGroundHeight挂window接通+sD2.0落水过滤+hRgt方向(hFwd×up)+pitch/roll轴(车头-X: rotation.x=侧倾/z=俯仰) |
 
 ### 待完成任务 (v0.61.0)
 

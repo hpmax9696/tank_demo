@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.2
 
 ## 运行
 
@@ -344,3 +344,23 @@ legGroup (Y旋转=水平摆角)
 4. 六足武器俯仰旋转轴不正确（待校准）
 5. ~~六足玩家转向腿飞~~ **v0.61.1 已修复**（步进式转向架构：身体由步态驱动转向+腿圆弧预伸，髋限位放宽容纳）
 6. ~~长时间 WASD 步态漂移~~ **v0.61.1 已修复**（摆动闭环 homeW+速度前瞻，每周期重置无累积）
+
+---
+
+## v0.61.2 本次会话变更 (2026-06-18)
+
+### 六足玩家坡地地形适应修复（4 项根因，逐层定位）
+
+- **根因1 接通地形适应**（`engine.js`）：`getGroundHeight` 是脚本作用域局部函数，从未挂 window；`HexapodEnemy.init`（`hexapod_enemy.js:123`）取 `window.getGroundHeight` 得 null → `ctx.groundHeightFn=null` → stepGait 第441行 `if(ctx.groundHeightFn)` 永不成立 → 车身 pitch/roll 代码从不执行、position.y 也不跟随地形（车身完全水平）。**修复**：`window.getGroundHeight = getGroundHeight;`
+- **根因2 防过度倾斜**（`hexapod_core.js` stepGait）：采样 `sD=1.2` 太小（六足前后腿跨~1m，1.2m 没覆盖车身），对 FBM 高频+河岸落水过敏，实测局部采样坡度(48°)远大于宏观(16°)。**修复**：sD 1.2→2.0 + 落水/陡崖过滤（采样点 `< h_center-1.2` 用 center 替代）+ 平滑（HEX_SMOOTH=12）
+- **根因3 hRgt 方向反**：原照搬坦克公式 `(-cos(yaw+π/2), sin(yaw+π/2))`，但六足车头朝向不同 → 左右反（绿箭头指左）。**修复**：hRgt = `hFwd×up = (-sin yaw, -cos yaw)`（右侧）
+- **根因4 pitch/roll 轴互换（最隐蔽）**：六足车头本地 **−X**（坦克是 −Z），YXZ 下 `rotation.x`=侧倾、`rotation.z`=俯仰，与坦克**相反**；原代码照坦克赋值（rotation.x←pitch, rotation.z←roll）→ 正对坡顶（前后落差）错误地变成侧倾。**修复**：`_rollT` 去负号 + 交换赋值（`rotation.x`←侧倾 _smRoll，`rotation.z`←俯仰 _smPitch）
+- **可视化排查法**：临时在六足加红(hFwd)/绿(hRgt)箭头+黄球(采样点)，用户肉眼对比模型车头，定位根因3/4（纯数据测 hFwd/hRgt 都正确但 roll 仍错）。用后已还原
+- **验证**：Playwright 实测连续缓坡 pitch=9.6° roll=0.3°（俯仰主导）、陡岸不暴涨、0 console 错误
+- **顺带修复**：六足敌人地形适应（同一 HexapodEnemy.init 路径，原同样 groundHeightFn=null）
+
+### 已知问题（更新）
+1. 坡地一头翘起一头陷地（**六足玩家已修**，坦克/敌人仍偶发）
+2. 对山丘目标弹道偏低
+3. 只会对山丘开炮不会绕路
+4. 六足武器俯仰旋转轴不正确（待校准）

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.61.1</title>
+    <title>坦克运动demo v0.61.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -604,7 +604,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.61.1</div>
+        <div class="menu-version">v0.61.2</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -648,11 +648,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🏔️ v0.61.2 六足玩家坡地地形适应修复 — 接通getGroundHeight(原失效致车身水平)+sD2.0+落水过滤(防河岸过度)+hRgt方向修正(左右)+pitch/roll轴修正(车头-X致rotation.x侧倾/z俯仰, 正对坡顶只俯仰不侧倾)</div>
             <div class="cl-title">🦗 v0.61.1 六足玩家步进式转向 — 身体由步态驱动转向(腿蹬地+圆弧预伸), 视角跟鼠标机体慢追, 根治转向腿飞+长期漂移, 关键词：步进turnRate/STEP_PERIOD/homeW闭环</div>
             <div class="cl-title">🛠️ v0.61.0 六足步态修复+玩家控制器+探针工具 — 模块化可插拔玩家角色, 六足步态姿势对齐工厂(hip 0.45→0.15,shin 0.96→0.29), fwdBody连续方向8方位, bodySpeed用desiredVel, F7/F8采样快键, 关键词：PCM/Playwright</div>
             <div class="cl-title">⚡ v0.60.4 性能优化+天空修复 — 草丛合并(48DC→3DC)+材质降级(Lambert+FrontSide), 河流碰撞空间网格化O(n)→O(1), sunLight对齐太阳方向, GLSL precision声明+outputColorSpace, fogNear提前</div>
             <div class="cl-title">☁️ v0.60.0 狙击模式+动态天空 — 右键第一人称精瞄(FOV25°+自由观察), sky.js蓝天白云穹顶+FBM噪声云层飘移, 俯视小地图(车体+视野), 围墙移除, 狙击灵敏度0.0015</div>
-            <div class="cl-title">🔧 v0.59.1 手柄视角+稳定器修复+敌方平衡 — 右摇杆X同步驱动视角与炮塔(叠加不互搏), 六足死亡/复活武器枢轴清理(导弹发射修复), 敌方炮塔转速降为1.5rad/s+散布4°</div>
         </div>
     </div>
 

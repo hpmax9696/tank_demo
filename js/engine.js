@@ -322,6 +322,11 @@ function getTerrainHeight(x, z) {
     return y;
 }
 
+// 暴露给六足模块: HexapodEnemy.init 经 window.getGroundHeight 取用, 用于六足地形适应
+// (车身 pitch/roll) 与贴地 (position.y)。未挂载时 ctx.groundHeightFn=null,
+// 六足车身将完全水平、不跟随地形坡度 (训练场玩家六足坡地问题根因)。
+window.getGroundHeight = getGroundHeight;
+
 // isInPond / isInRiver → waters.js
 
 // 天空系统已移除（v0.24.5：陡视角看不到天空，节省性能开销）
@@ -4993,7 +4998,7 @@ function updateDebugInfo() {
     }
 
     el.textContent =
-        'v0.61.1  ' + mapName + '  FPS:' + fpsCurrent +
+        'v0.61.2  ' + mapName + '  FPS:' + fpsCurrent +
         (gameMode === 'combat' ? combatLine : '\n草丛实例:' + grassInstances.reduce((s, im) => s + im.count, 0) + '簇' + grassInfo) +
         perfLine + renderStats + shadowHint;
 }
@@ -5400,7 +5405,7 @@ window.addEventListener('resize',()=>{
 loadMapConfig('test_map_01a'); // 默认加载单人地图
 // 程序化丧尸模型已在 enemies.js 中注册（无需预加载）
 initScene();placeCamera();renderer.render(scene,camera);
-console.log('🎮 坦克运动demo v0.61.1 | 六足玩家步进式转向架构(步态驱动转向+视角机体解耦)');
+console.log('🎮 坦克运动demo v0.61.2 | 六足玩家坡地地形适应修复(getGroundHeight接通+sD2.0落水过滤+hRgt方向+pitch/roll轴)');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

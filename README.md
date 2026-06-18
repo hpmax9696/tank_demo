@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.61.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.61.2** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 - **GLB T-34/85 坦克模型**：双纹理（1P 绿色 + 2P 黄色），GLTFLoader 异步加载，程序化模型仅作回退
@@ -249,6 +249,15 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.61.2 — 六足玩家坡地地形适应修复（2026-06-18）
+
+- **接通地形适应**: `getGroundHeight` 挂 window（原为 engine.js 局部函数，`HexapodEnemy.init` 取 `window.getGroundHeight` 得 null → `ctx.groundHeightFn=null` → stepGait 地形 pitch/roll 代码从不执行，车身完全水平）
+- **防过度倾斜**: stepGait 采样 sD 1.2→2.0（车身尺度）+ 落水/陡崖过滤（采样点 `< h_center-1.2` 用 center 替代，防河岸采样暴涨到 40-65°）+ 平滑（HEX_SMOOTH=12）
+- **hRgt 方向修正**: 原照搬坦克公式 `(-cos(yaw+π/2), sin(yaw+π/2))`，但六足车头朝向不同致左右反；改为 `hFwd×up = (-sin yaw, -cos yaw)`（右侧）
+- **pitch/roll 轴修正（最隐蔽）**: 六足车头本地 **−X**（坦克是 −Z），YXZ 下 `rotation.x`=侧倾、`rotation.z`=俯仰，与坦克相反；原代码照坦克赋值致前后落差错误地变成侧倾；修正 `_rollT` 去负号 + 交换赋值（`rotation.x`←侧倾，`rotation.z`←俯仰），正对坡顶只俯仰不侧倾
+- **效果**: Playwright 实测连续缓坡 pitch=9.6° roll=0.3°（俯仰主导），陡岸不暴涨，0 console 错误
+- **改动**: engine.js（挂 window.getGroundHeight）/ hexapod_core.js stepGait 地形段；顺带修复六足敌人地形适应（同一 init 路径）
 
 ### v0.61.1 — 六足玩家步进式转向架构（2026-06-17）
 
@@ -1086,7 +1095,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.61.1）
+### 代码规模（截至 v0.61.2）
 - `index.html`：约 5377 行（主游戏引擎）
 - `map_editor.html`：约 1800 行（核心框架，新增状态面板+模型参数控件）
 - 编辑器模块：6个共~2930行（terrainGen 750 + genStatus 120 + waterBridge 659 + entities 645 + data 503 + terrainPaint 335）

@@ -440,21 +440,38 @@ var HexapodCore = (function() {
     // ── 地形适应 / 身体高度 ──
     if (ctx.groundHeightFn) {
       var hwPos = new (T()).Vector3(); root.getWorldPosition(hwPos);
-      root.position.y = ctx.groundHeightFn(hwPos.x, hwPos.z) + (ctx._baseY || 0);
+      var _ghC = ctx.groundHeightFn(hwPos.x, hwPos.z);   // 身体正下方地面高 (采样基准)
+      root.position.y = _ghC + (ctx._baseY || 0);
       // 地形俯仰侧倾
       if (!root.rotation.order || root.rotation.order !== 'YXZ') {
         root.rotation.order = 'YXZ';
       }
       var hYaw = root.rotation.y;
       var hFwdX = -Math.cos(hYaw), hFwdZ = Math.sin(hYaw);
-      var hRgtX = -Math.cos(hYaw + Math.PI/2), hRgtZ = Math.sin(hYaw + Math.PI/2);
-      var sD = 1.2;
-      var fhT = ctx.groundHeightFn(hwPos.x + hFwdX * sD, hwPos.z + hFwdZ * sD);
-      var bhT = ctx.groundHeightFn(hwPos.x - hFwdX * sD, hwPos.z - hFwdZ * sD);
-      root.rotation.x = -Math.atan2(fhT - bhT, sD * 2);
-      var lhT = ctx.groundHeightFn(hwPos.x - hRgtX * sD, hwPos.z - hRgtZ * sD);
-      var rhT = ctx.groundHeightFn(hwPos.x + hRgtX * sD, hwPos.z + hRgtZ * sD);
-      root.rotation.z = -Math.atan2(rhT - lhT, sD * 2);
+      var hRgtX = -Math.sin(hYaw), hRgtZ = -Math.cos(hYaw);   // 右侧 = hFwd×up (原照搬坦克公式 -cos(yaw+π/2),sin(yaw+π/2), 但六足车头朝向不同→左右反, 致 roll 侧倾方向错)
+      var sD = 2.0;   // 车身尺度采样 (原1.2太小: 六足前后腿跨~1m, 1.2m 没覆盖车身, 对 FBM 高频+河岸陡变过敏, 局部采样坡度远大于宏观 → 车身过度倾斜)
+      // 落水/陡崖过滤: 采样点远低于脚下(<基准-1.2m, 即落在河水/陡崖)→ 视为不可达, 用基准替代, 防止河岸采样暴涨到40-65°
+      var _sampH = function(dx, dz) {
+        var h = ctx.groundHeightFn(hwPos.x + dx, hwPos.z + dz);
+        return (h < _ghC - 1.2) ? _ghC : h;
+      };
+      var fhT = _sampH(hFwdX * sD, hFwdZ * sD);
+      var bhT = _sampH(-hFwdX * sD, -hFwdZ * sD);
+      var _pitchT = -Math.atan2(fhT - bhT, sD * 2);
+      var lhT = _sampH(-hRgtX * sD, -hRgtZ * sD);
+      var rhT = _sampH(hRgtX * sD, hRgtZ * sD);
+      var _rollT = Math.atan2(rhT - lhT, sD * 2);      // 左右落差: 右高→正 (六足 rotation.x=侧倾, 正=右倾)
+      // 平滑 (对齐坦克 P_SMOOTH=15 / 敌人 SM=12): 防止 FBM 粗糙地形每帧高度噪声致车身抖动
+      var _HEX_SMOOTH = 12.0;
+      if (ctx._smPitch === undefined) ctx._smPitch = _pitchT;
+      if (ctx._smRoll === undefined) ctx._smRoll = _rollT;
+      var _smK = Math.min(1, _HEX_SMOOTH * dt);
+      ctx._smPitch += (_pitchT - ctx._smPitch) * _smK;
+      ctx._smRoll += (_rollT - ctx._smRoll) * _smK;
+      // ⚠️ 六足车头本地-X(非飞机-Z): YXZ下 rotation.x=侧倾(roll)、rotation.z=俯仰(pitch), 与坦克相反!
+      //   前后落差(_smPitch)→rotation.z(俯仰), 左右落差(_smRoll)→rotation.x(侧倾)
+      root.rotation.x = ctx._smRoll;
+      root.rotation.z = ctx._smPitch;
     } else if (ctx.bodyWriter) {
       root.position.y = ctx.restPosY - (isStaticTurn ? 0 : bodyBob);
     }
