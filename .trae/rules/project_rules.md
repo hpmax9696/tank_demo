@@ -212,7 +212,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.61.3 — 加特林旋转状态机+六足玩家跑/走）
+## 当前版本（v0.61.4 — 六足加特林双瞄准线）
 
 ### 关键参数
 | 参数 | 值 |
@@ -221,13 +221,14 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸 | playWidth×playDepth（空气墙，默认200×200） |
 | 地图编辑器行数 | ~1762 行（v0.49.0 拆分为5模块，-66%） |
 | index.html 行数 | ~767 行 |
-| engine.js 行数 | ~5434 行（v0.61.1 placeCamera视角跟cameraYaw+六足getPose位置） |
+| engine.js 行数 | ~5446 行（v0.61.4 PCM传aimTarget+HexapodAimLine.update调用+望天fallback） |
 | sky.js 行数 | ~271 行 |
 | hexapod_core.js 行数 | ~1055 行（v0.61.1 步进式转向：离散turnRate+身体步态驱动+圆弧预伸+玩家始终分支） |
 | hexapod_enemy.js 行数 | ~289 行（v0.61.1 透传targetYaw+玩家跳过resetPose+玩家始终stepGait） |
 | hexapod_probe.js 行数 | ~208 行（v0.61.0 新增：步态采样+Stats/Compare+F7F8快捷键+localStorage） |
-| playerControllers/manager.js | ~106 行（v0.61.0 新增：注册表+能力探测+透传调度） |
-| playerControllers/hexapodPlayer.js | ~200 行（v0.61.1 targetYaw+移动按视角+getPose身体实际+静止turn步态） |
+| hexapod_aimLine.js 行数 | ~260 行（v0.61.4 新增：连续射线双段着色+5层碰撞+颜色状态机） |
+| playerControllers/manager.js | ~112 行（v0.61.4 新增hasAimLine探测） |
+| playerControllers/hexapodPlayer.js | ~255 行（v0.61.4 加特林俯仰追踪aimTarget+getWeaponAimData+方向取反+matrixWorld时序） |
 | 编辑器模块 | 6个：terrainGen(750)+genStatus(120)+entities(645)+waterBridge(659)+data(503)+terrainPaint(335) |
 | 地图加载 | maps/_index.json manifest + maps/*.map.json 动态fetch + maploader.js |
 | 坦克速度 | MAX_SPEED=8.0 m/s（v0.45.0翻倍） |
@@ -244,7 +245,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.61.3)
+### 已知问题 (v0.61.4)
 
 | # | 问题 | 位置 |
 |---|------|------|

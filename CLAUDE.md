@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.3
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.4
 
 ## 运行
 
@@ -382,3 +382,20 @@ legGroup (Y旋转=水平摆角)
 - 原 v0.61.0 调试期为统一走（降低步态调试难度），现恢复正常
 - **改动**：hexapodPlayer.js（RUN_SPEED + _isRun 判定 + desiredVel 用 _spd）+ hexapod_enemy.js `_animRequestToIndex` 加 `move_forward_run→2`、`move_backward_run→4`
 - **验证**：Playwright 键盘W→animIndex2/vel5，低力度0.5→animIndex1/vel1.25；CDP 0 错误
+
+---
+
+## v0.61.4 本次会话变更 (2026-06-18)
+
+### 六足玩家加特林双瞄准线
+- **连续射线 + 双段着色**（`js/hexapod_aimLine.js` v0.3）：左右加特林各一条连续直线（无重力），从枪口沿枪管指向延伸到被截断为止（射向虚空延伸到 MAX_LEN=80m 自然终止）。**绿段**枪口→25m(子弹射程)，**红段**25m→截断点(命中点或MAX_LEN)；命中<25m时仅绿段。24段采样，5层碰撞（地面/水体/桥面/障碍物Mesh/敌人圆柱扫掠）。球形标志仅命中物体时显示
+- **俯仰追踪光标**（对标坦克 updateAiming）：engine.js 用 `aimRaycaster` 真实 raycast（`intersectObject(groundMesh)` + 障碍物Mesh），NDC Y 取反（`-(_virtualMouseY/h)*2+1`，与坦克一致）→ 命中点 `aimTarget` 经 PCM input 传入控制器 → hexapodPlayer 反算俯仰角（pivot局部空间 `atan2(localDir.y, -localDir.x)`，左右平均）→ clamp(-0.7俯~+1.05仰) → 平滑跟随(15/dt)
+- **⚠️ 关键坑（方向反）**：pitch 约定"负=俯/正=仰"，但绕 pivot 局部 Z 轴物理旋转"正=俯/负=仰"，故应用时必须**取反**：`setFromAxisAngle(_Z_AXIS, -_gatlingPitch)`。取反前下拉鼠标枪口朝天（dirY=+0.644），取反后正确下俯（dirY=-0.644）
+- **望天 fallback**：射线打不到地面/障碍（望天）时，用 `aimRaycaster.ray.direction`（已反映鼠标Y）×100m 构造高空 aimTarget → 加特林仰起追踪光标（非保持上次）
+- **矩阵时序**：设 pivot.quaternion 后立即 `updateMatrixWorld()`，否则 getWeaponAimData 的 localToWorld 读到上一帧旧枪口方向
+- **颜色状态机**：正常绿近/红远；过热全红；冷却中全橙
+- **射程对齐**：25m = 子弹实际 maxDist（spawnHexapodGatlingBullet）
+- **PCM扩展**：manager.js 新增 `hasAimLine()`；input 新增 `aimTarget` 字段
+- **生命周期**：onSpawn激活 / dispose清理 / 死亡隐藏 / 复活恢复
+- **改动文件**：hexapodPlayer.js(+55行) / hexapod_aimLine.js(新建~260行) / manager.js(+8行) / engine.js(+12行) / index.html(+1行)
+- **验证**：CDP 0 错误；Playwright 实测俯仰（下拉dirY=-0.644俯/上推dirY=+0.122仰）+ 瞄准线（水平2绿14.6m/望天2绿25+2红55球隐/下拉2绿1.3m球显）

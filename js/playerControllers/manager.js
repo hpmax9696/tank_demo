@@ -85,6 +85,10 @@ var PlayerControllerManager = (function () {
     return !!( _active && typeof _active.handleWeapons === 'function');
   }
 
+  function hasAimLine() {
+    return !!(_active && typeof _active.getWeaponAimData === 'function');
+  }
+
   function canSniper() {
     return !!(_active && typeof _active.canSniper === 'function' && _active.canSniper());
   }
@@ -100,6 +104,7 @@ var PlayerControllerManager = (function () {
     getPose: getPose,
     getGroup: getGroup,
     hasWeapons: hasWeapons,
+    hasAimLine: hasAimLine,
     canSniper: canSniper
   };
 })();

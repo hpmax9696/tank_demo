@@ -96,6 +96,7 @@ window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = 
 // ── Pointer Lock: 鼠标锁定, X→视角旋转, Y→虚拟准星位置(射线投射瞄准) ──
 let _pointerLocked = false;
 let _virtualMouseY = window.innerHeight / 2; // 虚拟Y, 由movementY累积
+let _hexMouseDeltaY = 0; // 六足加特林俯仰: 鼠标Y增量 (每帧传PCM后清零)
 document.addEventListener('pointerlockchange', () => {
     _pointerLocked = (document.pointerLockElement === gameContainer);
     if (_pointerLocked) _virtualMouseY = window.innerHeight / 2; // 锁定瞬间重置到中心
@@ -1479,7 +1480,24 @@ function gameLoop() {
 
     // ── 模块化玩家角色控制器分发 (六足等注册角色; 坦克走下面原物理) ──
     if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
-        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw });
+        // ── 加特林瞄准目标点 (对齐坦克 updateAiming 射线: NDC Y 取反 + 真实 raycast 地形/障碍物) ──
+        var _hexAimTarget = null;
+        if (groundMesh) {
+            var _ndcY = -(_virtualMouseY / window.innerHeight) * 2 + 1;
+            aimRaycaster.setFromCamera(new THREE.Vector2(0, _ndcY), camera);
+            var _gHit = aimRaycaster.intersectObject(groundMesh);
+            if (_gHit.length > 0) _hexAimTarget = _gHit[0].point.clone();
+            var _oHit = aimRaycaster.intersectObjects(obstacleMeshes, true);
+            if (_oHit.length > 0 && (!_hexAimTarget || _oHit[0].distance < _hexAimTarget.distanceTo(camera.position))) {
+                _hexAimTarget = _oHit[0].point.clone();
+            }
+            if (!_hexAimTarget) {
+                // 望天: 射线打不到地面/障碍 → 用射线方向(已反映鼠标Y)构造目标, 加特林追踪光标
+                var _rd = aimRaycaster.ray.direction.clone();
+                _hexAimTarget = camera.position.clone().add(_rd.multiplyScalar(100));
+            }
+        }
+        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw, aimTarget: _hexAimTarget });
         _t1 = performance.now();  // perf: 控制器物理阶段结束
         perfAcc.physics += _t1 - _t0;
         // 跳过坦克专属段(物理/开炮/弹种), 直接进 updateTrajectoryLine 之后的角色无关逻辑
@@ -1740,7 +1758,17 @@ function gameLoop() {
     }
     } // ── end 坦克专属玩家段 (else of PlayerControllerManager) ──
 
-    updateTrajectoryLine(player1);
+    // ── 瞄准线: PCM角色(六足)用自己的瞄准线, 坦克用弹道线 ──
+    if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()
+        && window.PlayerControllerManager.hasAimLine && window.PlayerControllerManager.hasAimLine()) {
+        window.HexapodAimLine && window.HexapodAimLine.update({
+            scene, player1, camera, cameraYaw,
+            obstacleMeshes, enemies, gameMode, isTrainingMode,
+            dt
+        });
+    } else if (!window.PlayerControllerManager || !window.PlayerControllerManager.isActive()) {
+        updateTrajectoryLine(player1);
+    }
 
     // ── 炮弹更新 ──
     for (let i = shells.length - 1; i >= 0; i--) {

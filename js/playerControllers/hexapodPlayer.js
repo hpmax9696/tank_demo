@@ -8,10 +8,11 @@
  * 保证步态可对比。仅 ai 字段改由玩家输入填充 (而非 EnemyAI)。
  *
  * 操控:
- *   W/S 前进/后退 (animIndex 1/3, 走步态)
+ *   W/S 前进/后退 (animIndex 1/3, 走步态; 满力度→跑)
  *   A/D 左右平移 (animIndex 5/6)
- *   鼠标左右 → 六足朝向 (hex.rotation.y = cameraYaw, 与坦克"鼠标转视角"不同)
- *   无武器 (turretPivot 置 null, canSniper=false)
+ *   鼠标左右 → 六足朝向 (cameraYaw步进转向, 身体慢追)
+ *   鼠标上下 → 加特林俯仰 (engine真实raycast命中点→反算俯仰, 下俯/上仰, -40°俯~+60°仰)
+ *   加特林双瞄准线 (绿色射程内/红色射程外/过热全红)
  */
 var HexapodPlayerController = (function () {
 'use strict';
@@ -31,6 +32,15 @@ var HexapodPlayerController = (function () {
     var _gh = spawnCtx.getGroundHeight;
     var _scene = spawnCtx.scene;
     var _p1 = spawnCtx.player1 || null;   // player1 引用 (engine.js 经 spawnCtx 传入, 非 window)
+    // 加特林俯仰 (追踪光标指向的世界目标, engine.js 真实 raycast 提供 aimTarget)
+    var GATLING_PITCH_MIN = -0.7;         // -40° 俯角
+    var GATLING_PITCH_MAX = 1.05;         // +60° 仰角
+    var GATLING_RANGE = 25;               // 加特林子弹最大射程 (对齐 spawnHexapodGatlingBullet maxDist)
+    var _gatlingPitchTarget = 0;          // 目标俯仰 (从世界目标反算)
+    var _gatlingPitch = 0;                // 当前俯仰 (平滑跟随)
+    var _tmpQuat = new THREE.Quaternion();
+    var _tmpVec3 = new THREE.Vector3();
+    var _Z_AXIS = new THREE.Vector3(0, 0, 1);  // pivot 俯仰轴 (枪管沿-X, 绕Z=上下俯仰)
 
     function _clampToWorld(x, z) {
       var p1 = window.player1;
@@ -120,6 +130,32 @@ var HexapodPlayerController = (function () {
         var _dyaw = window.HexapodCore.angleDiff(_prevYaw, _yaw);
         var _turnSign = (_dyaw > 0.0005) ? 1 : (_dyaw < -0.0005 ? -1 : 0);
         _ai._targetYaw = Math.PI - _yaw;  // 身体步进追此目标(腿蹬地转向)
+        // ── 加特林俯仰: 追踪光标指向的世界目标 ──
+        //   aimTarget 由 engine.js 真实 raycast 提供 (平地下拉鼠标→射线打地面→aimTarget→俯仰变化)
+        //   望天时 aimTarget=null → 不更新目标, 加特林保持当前俯仰
+        if (input.aimTarget) {
+          var pitches = [];
+          ['左加特林_pivot', '右加特林_pivot'].forEach(function(pvn) {
+            var pv = _root.getObjectByName(pvn);
+            if (!pv || !pv.parent) return;
+            var pivWorld = _tmpVec3.set(0,0,0);
+            pv.getWorldPosition(pivWorld);
+            var toTarget = input.aimTarget.clone().sub(pivWorld);
+            if (toTarget.length() < 0.01) return;
+            toTarget.normalize();
+            // 转到 pivot 父节点局部空间 → 提取俯仰角
+            pv.parent.getWorldQuaternion(_tmpQuat);
+            var localDir = toTarget.applyQuaternion(_tmpQuat.clone().invert());
+            // pivot 局部: 枪管 -X, 俯仰绕 Z; pitch = atan2(localY, -localX)
+            var pitch = Math.atan2(localDir.y, -localDir.x);
+            pitches.push(pitch);
+          });
+          if (pitches.length > 0) {
+            _gatlingPitchTarget = pitches.reduce(function(a,b){return a+b;}, 0) / pitches.length;
+            _gatlingPitchTarget = Math.max(GATLING_PITCH_MIN, Math.min(GATLING_PITCH_MAX, _gatlingPitchTarget));
+          }
+        }
+        _gatlingPitch += (_gatlingPitchTarget - _gatlingPitch) * Math.min(1, 15 * dt);
         // 移动按视角(鼠标看的方向): W=视线前, D=视线右
         var fX = Math.cos(_yaw), fZ = Math.sin(_yaw);
         var rX = -Math.sin(_yaw), rZ = Math.cos(_yaw);
@@ -134,6 +170,15 @@ var HexapodPlayerController = (function () {
         // ── 4. 复用 HexapodEnemy.update: 步态/CCD/地形/加特林spin ──
         //    内部 stepGait 的 desiredMove 会驱动 _root.position
         window.HexapodEnemy.update(_root, dt);
+
+        // ── 4.5 加特林俯仰: 绕 pivot 局部Z轴旋转 ──
+        //   pitch 约定: 负=俯(aimTarget低), 正=仰(aimTarget高); 绕Z物理: 正=俯/负=仰 → 应用取反
+        ['左加特林_pivot', '右加特林_pivot'].forEach(function(pvn) {
+          var pv = _root.getObjectByName(pvn);
+          if (!pv) return;
+          pv.quaternion.setFromAxisAngle(_Z_AXIS, -_gatlingPitch);
+          pv.updateMatrixWorld();  // 立即更新, 供 getWeaponAimData 读取最新枪口方向
+        });
 
         // ── 5. 碰撞 + 空气墙 (复用全局 checkCollision) ──
         var nx = _root.position.x, nz = _root.position.z;
@@ -167,6 +212,27 @@ var HexapodPlayerController = (function () {
       // ════════════════════════════════════════
       canSniper: function () { return false; },   // 无炮塔, 不支持狙击
 
+      // 返回加特林瞄准数据: 枪口位置/方向/状态, 供瞄准线模块消费
+      getWeaponAimData: function () {
+        if (!_root || (_p1 && _p1.dead)) return null;
+        var result = { isOverheated: !!(_ai && _ai._overheated), heat: (_ai && _ai.heat) || 0, maxRange: GATLING_RANGE };
+        ['左', '右'].forEach(function(side) {
+          var pv = _root.getObjectByName(side + '加特林_pivot');
+          if (!pv) return;
+          var pivWorld = new THREE.Vector3();
+          pv.getWorldPosition(pivWorld);
+          // 枪口方向: pivot 局部 -X (与子弹生成一致)
+          var pivFwd = new THREE.Vector3(-1, 0, 0);
+          pv.localToWorld(pivFwd);
+          var dir = pivFwd.sub(pivWorld).normalize();
+          // 枪口位置 = pivot位置 + 前向 * 0.75
+          var muzzle = pivWorld.clone().addScaledVector(dir, 0.75);
+          var key = (side === '左') ? 'left' : 'right';
+          result[key] = { pos: muzzle, dir: dir };
+        });
+        return result;
+      },
+
       onRespawn: function () {
         // 重建 CCD IK context (与 _processTrainingRespawn 对六足敌人一致)
         if (_root && window.HexapodEnemy) {
@@ -185,6 +251,7 @@ var HexapodPlayerController = (function () {
       },
 
       dispose: function () {
+        if (window.HexapodAimLine) window.HexapodAimLine.deactivate();
         if (_root && _root.parent) _root.parent.remove(_root);
         _root = null; _ctx = null; _ai = null;
       }
