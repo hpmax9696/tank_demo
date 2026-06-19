@@ -64,12 +64,24 @@ window.addEventListener('keydown', (e) => {
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) {
         e.preventDefault();
     }
+    if (e.code === 'Space') { spaceDown = true; spaceJustPressed = true; }
+});
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') { spaceDown = false; }
 });
 
 window.addEventListener('mousedown', (e) => {
     if (e.button === 0 && gameMode !== 'menu') { mouseDown = true; mouseFireRequested = true; }
-    // 右键切换狙击模式（仅键鼠，非菜单，非对战，模块化角色不支持狙击则跳过）
+    // 右键: 模块化角色(六足)不支持狙击 → 射击右加特林; 坦克等支持狙击的角色 → 原狙击切换逻辑
     if (e.button === 2 && gameMode !== 'menu' && gameMode !== 'versus'
+        && window.PlayerControllerManager && window.PlayerControllerManager.isActive()
+        && !window.PlayerControllerManager.canSniper()) {
+        mouseDownRight = true;
+        mouseFireRequestedRight = true;
+        // 注意: 不调 preventDefault(), 避免干扰同时按下的左键事件
+    }
+    // 右键切换狙击模式（仅键鼠，非菜单，非对战，模块化角色不支持狙击则跳过）
+    else if (e.button === 2 && gameMode !== 'menu' && gameMode !== 'versus'
         && !(window.PlayerControllerManager && window.PlayerControllerManager.isActive() && !window.PlayerControllerManager.canSniper())) {
         _sniperMode = !_sniperMode;
         if (_sniperMode) {
@@ -90,8 +102,9 @@ window.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mouseup', (e) => {
     if (e.button === 0) mouseDown = false;
+    if (e.button === 2) mouseDownRight = false;
 });
-window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = false; });
+window.addEventListener('blur', () => { mouseDown = false; mouseFireRequested = false; mouseDownRight = false; mouseFireRequestedRight = false; });
 
 // ── Pointer Lock: 鼠标锁定, X→视角旋转, Y→虚拟准星位置(射线投射瞄准) ──
 let _pointerLocked = false;
@@ -169,6 +182,8 @@ const ENEMY_HALF_W = 0.85; // 装甲突击车含履带/铲斗实际半宽
 // 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
 const METERS_PER_UNIT = 8 / 1.70;
 let obstacleMeshes = [], obstacleData = [];
+window.obstacleMeshes = obstacleMeshes;  // 供六足加特林子弹碰撞检测
+window.obstacleData = obstacleData;
 let _roadMeshes = [];  // 道路可视化网格
 let _villageSystem = null;  // 当前地图的道路+村落生成数据
 let sunLight = null;  // 主方向光引用（用于H键切换阴影）
@@ -180,6 +195,7 @@ let _tmpQuat = new THREE.Quaternion(); // 训练场 enemy shell 复用
 let scorchMarks = [];  // 地面焦痕（炮弹击中地面时产生，3秒渐消）
 let groundDebris = [];  // 地面命中碎片（土块飞溅，~1秒消失）
 let enemies = [];  // PvE 战斗模式敌人数组
+window.enemies = enemies;  // 供模块化控制器(六足等)访问
 let hexapodBullets = [];  // 六足战车加特林弹丸
 let hexapodMissiles = []; // 六足战车导弹
 let hexapodExplosions = []; // 导弹爆炸效果(独立数组防splice丢失)
@@ -433,7 +449,7 @@ function rebuildMap() {
         if (g.parent) g.parent.remove(g);
         g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
     });
-    obstacleMeshes = []; obstacleData = [];
+    obstacleMeshes = []; obstacleData = []; window.obstacleMeshes = obstacleMeshes; window.obstacleData = obstacleData;
     // 清除草丛
     clearGrass();
     // 重建地面
@@ -1497,7 +1513,8 @@ function gameLoop() {
                 _hexAimTarget = camera.position.clone().add(_rd.multiplyScalar(100));
             }
         }
-        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw, aimTarget: _hexAimTarget });
+        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw, aimTarget: _hexAimTarget, fireLeft: mouseDown, fireRight: mouseDownRight, obstacleMeshes: obstacleMeshes, spaceDown: spaceDown, spaceJustPressed: spaceJustPressed, camera: camera, mouseX: mouseX, mouseY: mouseY });
+        spaceJustPressed = false;  // 一次性标记, 消费后重置
         _t1 = performance.now();  // perf: 控制器物理阶段结束
         perfAcc.physics += _t1 - _t0;
         // 跳过坦克专属段(物理/开炮/弹种), 直接进 updateTrajectoryLine 之后的角色无关逻辑
@@ -4345,7 +4362,7 @@ function cleanupEnemies() {
         if (enemy.parent) enemy.parent.remove(enemy);
         enemy.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
     }
-    enemies = [];
+    enemies = []; window.enemies = enemies;
 
 }
 
@@ -4958,7 +4975,7 @@ async function rebuildMapAsync() {
         if (g.parent) g.parent.remove(g);
         g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
     });
-    obstacleMeshes = []; obstacleData = [];
+    obstacleMeshes = []; obstacleData = []; window.obstacleMeshes = obstacleMeshes; window.obstacleData = obstacleData;
     clearGrass();
 
     // 地基
@@ -5216,7 +5233,7 @@ async function enterTrainingMode() {
 
     // 清除地图自带的敌人, 用训练场配置替换
     enemies.forEach(e => { if (e.parent) e.parent.remove(e); });
-    enemies = [];
+    enemies = []; window.enemies = enemies;
     shells.forEach(s => { scene.remove(s.mesh); if (s.tracerLight) scene.remove(s.tracerLight); if (s.glowTail) { scene.remove(s.glowTail); s.glowTail.geometry.dispose(); s.glowTail.material.dispose(); } s.mesh.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); });
     shells = [];
     hexapodBullets.forEach(hb => { scene.remove(hb.mesh); hb.mesh.geometry.dispose(); hb.mesh.material.dispose(); });

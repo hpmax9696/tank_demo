@@ -270,3 +270,53 @@ function playMissileLaunchSound() {
     osc.connect(og); og.connect(audioCtx.destination);
     osc.start(now); osc.stop(now + 0.6);
 }
+
+// ── 加特林卡壳音效 (短促金属声, 过热时按键触发) ──
+function playGatlingJamSound() {
+	if (!audioCtx) return;
+	var now = audioCtx.currentTime;
+	// 第一声: 高频方波短脉冲, 模拟击针空撞
+	var osc = audioCtx.createOscillator();
+	osc.type = 'square';
+	osc.frequency.setValueAtTime(1200, now);
+	osc.frequency.exponentialRampToValueAtTime(400, now + 0.06);
+	var gain = audioCtx.createGain();
+	gain.gain.setValueAtTime(0.12, now);
+	gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+	osc.connect(gain); gain.connect(audioCtx.destination);
+	osc.start(now); osc.stop(now + 0.08);
+	// 第二声: 三角波弱余响, 模拟机匣回振
+	var osc2 = audioCtx.createOscillator();
+	osc2.type = 'triangle';
+	osc2.frequency.setValueAtTime(600, now + 0.05);
+	var g2 = audioCtx.createGain();
+	g2.gain.setValueAtTime(0.06, now + 0.05);
+	g2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+	osc2.connect(g2); g2.connect(audioCtx.destination);
+	osc2.start(now + 0.05); osc2.stop(now + 0.15);
+}
+
+// ── 导弹锁定成功音效 (短促电子嘀声) ──
+function playLockOnSound() {
+	if (!audioCtx) return;
+	var now = audioCtx.currentTime;
+	var osc = audioCtx.createOscillator();
+	osc.type = 'sine';
+	osc.frequency.setValueAtTime(800, now);
+	osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+	var gain = audioCtx.createGain();
+	gain.gain.setValueAtTime(0.15, now);
+	gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+	osc.connect(gain); gain.connect(audioCtx.destination);
+	osc.start(now); osc.stop(now + 0.15);
+	// 第二声确认音
+	var osc2 = audioCtx.createOscillator();
+	osc2.type = 'sine';
+	osc2.frequency.setValueAtTime(1200, now + 0.15);
+	osc2.frequency.setValueAtTime(1200, now + 0.25);
+	var g2 = audioCtx.createGain();
+	g2.gain.setValueAtTime(0.12, now + 0.15);
+	g2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+	osc2.connect(g2); g2.connect(audioCtx.destination);
+	osc2.start(now + 0.15); osc2.stop(now + 0.3);
+}

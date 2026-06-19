@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.61.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.62.0
 
 ## 运行
 
@@ -399,3 +399,47 @@ legGroup (Y旋转=水平摆角)
 - **生命周期**：onSpawn激活 / dispose清理 / 死亡隐藏 / 复活恢复
 - **改动文件**：hexapodPlayer.js(+55行) / hexapod_aimLine.js(新建~260行) / manager.js(+8行) / engine.js(+12行) / index.html(+1行)
 - **验证**：CDP 0 错误；Playwright 实测俯仰（下拉dirY=-0.644俯/上推dirY=+0.122仰）+ 瞄准线（水平2绿14.6m/望天2绿25+2红55球隐/下拉2绿1.3m球显）
+
+---
+
+## v0.62.0 本次会话变更 (2026-06-19~20)
+
+### 玩家六足加特林实装
+- **左右独立控制**：左键→右加特林(模型名反)，右键→左加特林，各独立状态机
+- **spinUp→射击**：按住0.8s达标→10rps射击→发热25/s→heat≥80过热停转→强制冷却28/s到0恢复
+- **普通冷却**：松手18/s冷却，随时可恢复；过热强制冷却效率更高但锁定到0
+- **枪管红热**：emissive lerp(冷钢0x5a5a64→红热0xff4400)，与热量成正比
+- **过热反馈**：按键触发卡壳音(`playGatlingJamSound`)+头顶"过热"字样闪现1.5s+瞄准线全红
+- **枪口焰+命中火花**：3-5个黄/橙色小球沿枪管飞出+`spawnSilentHitSparks`复用MG效果
+- **全覆盖碰撞**：沿路径Raycaster横扫障碍物Mesh+地面高度+水面+敌人XZ距离，命中即停不穿透
+- **击杀爆炸**：敌人HP归零→`spawnExplosion`+`spawnFragments`+`playExplosionSound`
+- **射程提升**：25m→35m，瞄准线同步
+- **观瞄球体HP发光**：`观瞄球体_mesh`克隆材质，绿(满血)→红(空血)渐变
+
+### 玩家六足导弹系统实装
+- **空格键锁定制导**：锁定框跟随光标(300×200px)，敌在框内按空格→绿圈缩1s→红圈+锁定音→松开发射
+- **锁定状态机**：IDLE→LOCKING(敌出框/松手/死亡→取消)→LOCKED(敌出框不取消，死亡才取消)→松手发射
+- **超出距离/装填中**：超50m或框内无敌→"超出距离"；双巢无弹→"装填中"；按住空格持续显示+按瞬间播一次失败音
+- **交替发射**：左右导弹巢轮流，单侧4发用尽自动跳对侧；双空时锁定框红闪+按空格失败音
+- **装填10s**：弹药归零启动，3D装填条挂六足两侧(仿坦克bars.js，世界坐标定位面朝摄像机)
+- **导弹参数对齐敌方**：speed=20, damage=25, blastRadius=1.5, maxTurnRate=1.2, boost=0.25s, maxFlight=8s
+- **无射程限制**：追踪lastTargetPos(目标死后追最后位置撞地)，仅撞地或8s超时自毁
+- **PCM扩展**：input新增`spaceDown/spaceJustPressed/camera/mouseX/mouseY/obstacleMeshes`
+- **音频新增**：`playLockOnSound`(双频电子嘀声)、`playGatlingJamSound`(金属卡壳)
+- **window桥接**：`enemies`/`obstacleMeshes`/`obstacleData`暴露到window供模块化控制器访问
+
+### Bug修复
+- **MG禁用**：`mg.js:updateMGAutoTarget`增加`!player.mgGroup`判断，六足模式不自动射击
+- **子弹穿模**：改用XZ平面距离+Raycaster横扫障碍物，替代3D距离(避免Y差误判)
+- **敌人不爆**：`onEnemyDamaged`返回值触发`spawnExplosion`+`spawnFragments`
+- **重生朝向**：onRespawn用六足公式`rotation.y = π - cameraYaw`覆盖引擎坦克默认值
+- **观瞄球体劫持**：克隆材质防共享，敌人逻辑不再影响玩家
+- **锁定圈竖线**：移除`rotation.x = -π/2`(LineLoop点已在XZ平面)
+- **装填条飞天**：改`_scene.add`世界坐标(原`_root.add`当本地偏移)
+
+### 关键文件行数变化
+- `hexapodPlayer.js`: ~160→~1050行
+- `audio.js`: ~240→~310行
+- `engine.js`: ~6100→~6250行
+- `index.html`: ~780→~800行
+- `hexapod_aimLine.js`: ~260→~270行

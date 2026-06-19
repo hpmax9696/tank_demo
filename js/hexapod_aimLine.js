@@ -4,9 +4,9 @@
  * 为六足玩家两挺加特林各绘制一条连续射线 (直线, 无重力), 从枪口出发沿枪管指向,
  * 一直延伸到被截断为止 (射向虚空时延伸到 MAX_LEN 自然终止)。
  *
- * 着色: 枪口 → 射程(25m) 为绿色; 超出射程(25m → 截断点) 为红色。
- *   - 命中点 < 25m: 仅绿段 (0 → 命中点), 无红段
- *   - 命中点 ≥ 25m 或射向虚空: 绿段 (0 → 25) + 红段 (25 → 截断点/MAX_LEN)
+ * 着色: 枪口 → 射程(35m) 为绿色; 超出射程(35m → 截断点) 为红色。
+ *   - 命中点 < 35m: 仅绿段 (0 → 命中点), 无红段
+ *   - 命中点 ≥ 35m 或射向虚空: 绿段 (0 → 35) + 红段 (35 → 截断点/MAX_LEN)
  *   - 过热(overheated): 全线红色
  *   - 冷却中(heat>0): 全线橙色
  * 末端球形标志仅在命中物体时显示。
@@ -16,7 +16,7 @@
 var HexapodAimLine = (function () {
 'use strict';
 
-  var GATLING_RANGE = 25;          // 绿/红分界 = 加特林子弹最大射程
+  var GATLING_RANGE = 35;          // 绿/红分界 = 加特林子弹最大射程
   var MAX_LEN = 80;                // 瞄准线最大长度 (射向虚空时终止)
   var SEGMENTS = 24;               // 采样段数 (覆盖 MAX_LEN)
   var WATER_LEVEL = -1.0;
@@ -232,15 +232,15 @@ var HexapodAimLine = (function () {
       return;
     }
 
-    var overheated = aimData.isOverheated;
-    var cooling = (!overheated && aimData.heat > 0);
-    // 颜色: 过热→红, 冷却→橙, 正常→绿近/红远
-    var greenColor = overheated ? COLOR_RED : (cooling ? COLOR_ORANGE : COLOR_GREEN);
-    var redColor = overheated ? COLOR_RED : (cooling ? COLOR_ORANGE : COLOR_RED);
-
     ['left', 'right'].forEach(function(side) {
       var muzzle = aimData[side];
       if (!muzzle || !muzzle.pos || !muzzle.dir) return;
+
+      // 每侧独立颜色: 过热→红, 冷却→橙, 正常→绿近/红远
+      var sideOh = muzzle.isOverheated;
+      var sideCool = (!sideOh && (muzzle.heat || 0) > 0);
+      var greenColor = sideOh ? COLOR_RED : (sideCool ? COLOR_ORANGE : COLOR_GREEN);
+      var redColor = sideOh ? COLOR_RED : (sideCool ? COLOR_ORANGE : COLOR_RED);
 
       var cast = _castRay(muzzle.pos, muzzle.dir, ctx);
       var hasHit = !!cast.hitPoint;

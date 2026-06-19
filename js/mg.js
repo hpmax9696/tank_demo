@@ -33,7 +33,7 @@ function createMGBullet(origin, targetPos, travelDist) {
 }
 
 function updateMGAutoTarget(player, dt) {
-    if (!player || player.dead) {
+    if (!player || player.dead || !player.mgGroup) {
         player.mgLockTarget = null;
         mgHeat = Math.max(0, mgHeat - dt * 2);
         if (mgHeat <= 0) mgOverheated = false;
