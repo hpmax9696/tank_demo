@@ -3290,13 +3290,11 @@ function getInputForPlayer(pNum) {
 function updateAimingForVs(p, dt) {
     if (!p || p.dead || !p.turretPivot || !p.barrelPivot) return;
 
-    // ── 车体转向即时补偿 ──
+    // ── 世界空间炮塔: 首帧惰性初始化 ──
     const hullYaw = p.state.yaw;
-    if (p._prevHullYaw !== undefined) {
-        const hullDyaw = hullYaw - p._prevHullYaw;
-        p.turretYaw += hullDyaw;
+    if (p.worldTurretYaw === undefined) {
+        p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
     }
-    p._prevHullYaw = hullYaw;
 
     const maxDown = 25 * Math.PI / 180;
     const maxUp = -10 * Math.PI / 180;
@@ -3311,9 +3309,7 @@ function updateAimingForVs(p, dt) {
             const gpyB = gp.axes[5] || 0;
             const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
             const turretSpeed = stickToTarget(-gpx) * turretAngVel;
-            p.turretYaw += turretSpeed * dt;
-            if (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
-            if (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+            p.worldTurretYaw += turretSpeed * dt;
             const barrelSpeed = stickToTarget(-gpy) * barrelAngVel;
             const newElev = p.barrelElevation + barrelSpeed * dt;
             p.barrelElevation = Math.max(maxUp, Math.min(maxDown, newElev));
@@ -3323,6 +3319,10 @@ function updateAimingForVs(p, dt) {
         const halfCssW = Math.floor(window.innerWidth / 2);
         const isMouseInP1Area = mouseX < halfCssW;
         if (!isMouseInP1Area) {
+            // 提前返回前必须推导 turretYaw（否则渲染读到过时值）
+            p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
+            while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+            while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
             p.barrelElevation = Math.max(maxUp, Math.min(maxDown, p.barrelElevation));
             return;
         }
@@ -3357,18 +3357,25 @@ function updateAimingForVs(p, dt) {
             const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
             const worldDir = worldTarget.clone().sub(barrelPos).normalize();
 
+            // 世界空间炮塔目标方向
+            const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
+
+            // 炮管俯仰仍用局部空间
             const invQ = p.group.quaternion.clone().invert();
             const localDir = worldDir.clone().applyQuaternion(invQ);
-            const targetYaw = Math.atan2(localDir.x, localDir.z);
             const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
             const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-            p.turretYaw = angleMoveToward(p.turretYaw, targetYaw, turretAngVel * dt);
-            if (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
-            if (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+            // 驱动世界空间炮塔追赶目标
+            p.worldTurretYaw = angleMoveToward(p.worldTurretYaw, worldTargetYaw, turretAngVel * dt);
             p.barrelElevation = angleMoveToward(p.barrelElevation, clampedElev, barrelAngVel * dt);
         }
     }
+
+    // ── 从世界空间反算局部 turretYaw ──
+    p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
+    while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+    while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
 
     p.barrelElevation = Math.max(maxUp, Math.min(maxDown, p.barrelElevation));
 }
