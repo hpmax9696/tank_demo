@@ -1503,6 +1503,34 @@ function gameLoop() {
 
     // ── 模块化玩家角色控制器分发 (六足等注册角色; 坦克走下面原物理) ──
     if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
+        // ── 手柄: 右摇杆 视角+光标, RB 边沿追踪 ──
+        const gp = getGamepad();
+        var _gpFireLeft = false, _gpFireRight = false, _gpSpaceDown = false, _gpSpaceJust = false;
+        if (gp) {
+            // 右摇杆X → 视角旋转 (对标鼠标 movementX)
+            const gpxA = gp.axes[2] || 0;
+            const gpxB = gp.axes[4] || 0;
+            const gpx = Math.abs(gpxA) > Math.abs(gpxB) ? gpxA : gpxB;
+            if (Math.abs(gpx) > 0.08) {
+                cameraYaw += gpx * 0.03;
+            }
+            // 右摇杆Y → 光标上下 (对标鼠标 movementY)
+            const gpyA = gp.axes[3] || 0;
+            const gpyB = gp.axes[5] || 0;
+            const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
+            if (Math.abs(gpy) > 0.08) {
+                _virtualMouseY += gpy * 4.0;
+                _virtualMouseY = Math.max(60, Math.min(window.innerHeight - 60, _virtualMouseY));
+            }
+            // LT/RT → 开火
+            _gpFireLeft = gp.buttons[6].value > 0.3;
+            _gpFireRight = gp.buttons[7].value > 0.3;
+            // RB 边沿 → 导弹锁定
+            const rbPressed = gp.buttons[5].pressed;
+            _gpSpaceDown = rbPressed;
+            if (rbPressed && !gp._prevRBPressed) _gpSpaceJust = true;
+            gp._prevRBPressed = rbPressed;
+        }
         // ── 加特林瞄准目标点 (对齐坦克 updateAiming 射线: NDC Y 取反 + 真实 raycast 地形/障碍物) ──
         var _hexAimTarget = null;
         if (groundMesh) {
@@ -1520,7 +1548,7 @@ function gameLoop() {
                 _hexAimTarget = camera.position.clone().add(_rd.multiplyScalar(100));
             }
         }
-        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw, aimTarget: _hexAimTarget, fireLeft: mouseDown, fireRight: mouseDownRight, obstacleMeshes: obstacleMeshes, spaceDown: spaceDown, spaceJustPressed: spaceJustPressed, camera: camera, mouseX: mouseX, mouseY: mouseY });
+        window.PlayerControllerManager.update(dt, { left: targetLeft, right: targetRight, forward: driveFwd, strafe: driveStr, cameraYaw: cameraYaw, aimTarget: _hexAimTarget, fireLeft: mouseDown || _gpFireLeft, fireRight: mouseDownRight || _gpFireRight, obstacleMeshes: obstacleMeshes, spaceDown: spaceDown || _gpSpaceDown, spaceJustPressed: spaceJustPressed || _gpSpaceJust, camera: camera, mouseX: mouseX, mouseY: mouseY });
         spaceJustPressed = false;  // 一次性标记, 消费后重置
         _t1 = performance.now();  // perf: 控制器物理阶段结束
         perfAcc.physics += _t1 - _t0;
