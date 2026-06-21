@@ -4145,6 +4145,7 @@ function _processTrainingRespawn(dt) {
                 player1.state.x = trainingPlayerSpawn.x; player1.state.z = trainingPlayerSpawn.z;
                 player1.state.yaw = Math.PI;
                 player1.currentLeftSpeed = 0; player1.currentRightSpeed = 0;
+                player1.worldTurretYaw = undefined; // 惰性初始化将对齐重生朝向
                 player1.reloadTimer = 0; player1.group.rotation.set(0, 0, 0);
                 if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
                 togglePlayerBars(player1, true);
