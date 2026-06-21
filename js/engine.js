@@ -2921,6 +2921,26 @@ function gameLoop() {
                         if (barrelMats[bmi]) { barrelMats[bmi].emissive = hotColor; barrelMats[bmi].emissiveIntensity = heatNorm * 2.0; }
                     }
                 }
+                // ── 加特林俯仰瞄准: 从武器pivot计算俯仰角指向玩家 (水平瞄准由车体朝向处理) ──
+                if (player1 && !player1.dead) {
+                    var _aimPv = enemy.getObjectByName('左加特林_pivot') || enemy.getObjectByName('右加特林_pivot');
+                    if (_aimPv) {
+                        var _pvWorld = new THREE.Vector3();
+                        _aimPv.getWorldPosition(_pvWorld);
+                        var _toPlayer = new THREE.Vector3().subVectors(player1.group.position, _pvWorld);
+                        var _lp = _aimPv.worldToLocal(_pvWorld.clone().add(_toPlayer));
+                        // pivot局部-X=枪管方向, atan2(y, -x)得俯仰角
+                        var _enemyGatlingPitch = Math.atan2(_lp.y, -_lp.x);
+                        _enemyGatlingPitch = Math.max(-0.7, Math.min(1.05, _enemyGatlingPitch));
+                        var _Z_AXIS = new THREE.Vector3(0, 0, 1);
+                        ['左加特林_pivot','右加特林_pivot'].forEach(function(_pvn) {
+                            var _ep = enemy.getObjectByName(_pvn);
+                            if (!_ep) return;
+                            _ep.quaternion.setFromAxisAngle(_Z_AXIS, -_enemyGatlingPitch);
+                            _ep.updateMatrixWorld();
+                        });
+                    }
+                }
                 // 加特林发射
                 if (hai.gatlingRequest && player1 && !player1.dead) { hai.gatlingRequest = false; spawnHexapodGatlingBullet(enemy, player1, hai); }
                 // 导弹发射
@@ -3919,7 +3939,8 @@ function spawnHexapodGatlingBullet(enemy, player1, ai) {
     wp.localToWorld(pivFwd);
     const dirFwd = pivFwd.sub(pivWorld).normalize();
     const muzzlePos = pivWorld.clone().addScaledVector(dirFwd, 0.75);
-    const dir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
+    // 子弹沿枪管实际世界方向射出（含散布），不再汇聚到玩家位置
+    const dir = dirFwd.clone();
     dir.x += gx; dir.y += gy; dir.z += (Math.random() - 0.5) * spread;
     dir.normalize();
     const tracerGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.5, 4);
