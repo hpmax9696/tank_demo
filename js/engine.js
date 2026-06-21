@@ -1100,12 +1100,11 @@ function getBarrelWorldDir(player) {
 function updateAiming(player, dt) {
     if (!player || player.dead || !player.turretPivot || !player.barrelPivot) return;
 
-    // ── 车体转向即时补偿 (WoT式稳定器): 车体转多少, 炮塔反向补偿 ──
+    // ── 世界空间炮塔: 首帧从局部 turretYaw 惰性初始化 ──
     const hullYaw = player.state.yaw;
-    const hullDyaw = (player._prevHullYaw !== undefined) ? (hullYaw - player._prevHullYaw) : 0;
-    player._prevHullYaw = hullYaw;
-    // 稳定器先统一应用, 手柄右摇杆在下方叠加
-    player.turretYaw += hullDyaw;
+    if (player.worldTurretYaw === undefined) {
+        player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
+    }
 
     const maxDown = 25 * Math.PI / 180;
     const maxUp = -10 * Math.PI / 180;
@@ -1131,15 +1130,13 @@ function updateAiming(player, dt) {
         const gpyA = gp.axes[3] || 0;
         const gpyB = gp.axes[5] || 0;
         const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
-        // 右摇杆X叠加在稳定器之上: turretYaw += hullDyaw(稳定器) + stick(右摇杆)
-        player.turretYaw += stickToTarget(-gpx) * turretAngVel * dt;
+        // 右摇杆X驱动世界空间炮塔
+        player.worldTurretYaw += stickToTarget(-gpx) * turretAngVel * dt;
         // 右摇杆激活时: 视角始终跟随炮管世界朝向
         if (Math.abs(gpx) > 0.08) {
             const barrelDir = getBarrelWorldDir(player);
             cameraYaw = Math.atan2(barrelDir.z, barrelDir.x);
         }
-        if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
-        if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
         // 右摇杆Y: 炮管俯仰
         const barrelSpeed = stickToTarget(-gpy) * barrelAngVel;
         const newElev = player.barrelElevation + barrelSpeed * dt;
@@ -1185,19 +1182,22 @@ function updateAiming(player, dt) {
             const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
             const worldDir = worldTarget.clone().sub(barrelPos).normalize();
 
+            // 世界空间炮塔目标方向
+            const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
+
+            // 炮管俯仰仍用局部空间（相对车体，逻辑不变）
             const invQ = player.group.quaternion.clone().invert();
             const localDir = worldDir.clone().applyQuaternion(invQ);
-            const targetYaw = Math.atan2(localDir.x, localDir.z);
             const targetElev = -Math.atan2(localDir.y, Math.sqrt(localDir.x * localDir.x + localDir.z * localDir.z));
             const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-            player.turretYaw = angleMoveToward(player.turretYaw, targetYaw, turretAngVel * dt);
-            if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
-            if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+            // 驱动世界空间炮塔追赶目标
+            player.worldTurretYaw = angleMoveToward(player.worldTurretYaw, worldTargetYaw, turretAngVel * dt);
             player.barrelElevation = angleMoveToward(player.barrelElevation, clampedElev, barrelAngVel * dt);
 
             const dist = diff.length();
-            const turretDiff = Math.abs(player.turretYaw - targetYaw);
+            let turretDiff = Math.abs(player.worldTurretYaw - worldTargetYaw);
+            if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;
             const elevDiff = Math.abs(player.barrelElevation - clampedElev);
 
             if (dist <= 150 && turretDiff < 0.05 && elevDiff < 0.04) {
@@ -1262,6 +1262,12 @@ function updateAiming(player, dt) {
             }
         }
     }
+
+    // ── 从世界空间反算局部 turretYaw（用于渲染，替代稳定器）──
+    player.turretYaw = player.worldTurretYaw - (Math.PI / 2 - hullYaw);
+    // 归一化到 [-PI, PI]
+    while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+    while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
 
     player.barrelElevation = Math.max(maxUp, Math.min(maxDown, player.barrelElevation));
     if (useGamepad) {
