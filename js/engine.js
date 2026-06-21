@@ -1197,6 +1197,7 @@ function updateAiming(player, dt) {
 
             const dist = diff.length();
             let turretDiff = Math.abs(player.worldTurretYaw - worldTargetYaw);
+            turretDiff = turretDiff % (Math.PI * 2);
             if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;
             const elevDiff = Math.abs(player.barrelElevation - clampedElev);
 
