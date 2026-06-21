@@ -158,7 +158,7 @@ function createPlayer(camoColor, startX, startZ, startYaw, isP1) {
         leftWheelAngle: 0, rightWheelAngle: 0,
         currentLeftSpeed: 0, currentRightSpeed: 0,
         prevForwardSpeed: 0, pitch: 0, recoilPitch: 0,
-        turretYaw: 0, barrelElevation: 0.05,
+        turretYaw: 0, worldTurretYaw: undefined, barrelElevation: 0.05,
         mgYaw: 0, mgElev: 0, mgLockTarget: null,
         hp: 100, maxHp: 100, dead: false,
         reloadTimer: 0,
