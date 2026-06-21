@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.62.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.63.0
 
 ## 运行
 
@@ -399,6 +399,18 @@ legGroup (Y旋转=水平摆角)
 - **生命周期**：onSpawn激活 / dispose清理 / 死亡隐藏 / 复活恢复
 - **改动文件**：hexapodPlayer.js(+55行) / hexapod_aimLine.js(新建~260行) / manager.js(+8行) / engine.js(+12行) / index.html(+1行)
 - **验证**：CDP 0 错误；Playwright 实测俯仰（下拉dirY=-0.644俯/上推dirY=+0.122仰）+ 瞄准线（水平2绿14.6m/望天2绿25+2红55球隐/下拉2绿1.3m球显）
+
+---
+
+## v0.63.0 本次会话变更 (2026-06-21)
+
+### 坦克炮塔世界空间重构
+
+- **世界空间陀螺仪炮塔**: `worldTurretYaw` 持久存储炮塔绝对世界方向，鼠标/摇杆直接驱动
+- **删除瞬时稳定器**: 移除 `turretYaw += hullDyaw`，公式 `turretYaw = worldTurretYaw - (π/2 - hullYaw)` 替代
+- **同向不再迟钝**: 车体+鼠标同向转时炮塔以满 30°/s 追光标，无稳定器与瞄准互搏
+- **惰性初始化**: `worldTurretYaw: undefined` → 首帧自动对齐，所有模式/spawn/respawn 零改动
+- **改动范围**: 仅 `engine.js` ~40行；敌人/六足/摄像机/俯仰 均不受影响
 
 ---
 

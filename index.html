@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.62.0</title>
+    <title>坦克运动demo v0.63.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -616,7 +616,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
         <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.62.0</div>
+        <div class="menu-version">v0.63.0</div>
         <button class="menu-btn" id="btn-enter">单人模式</button>
         <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
         <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
@@ -660,11 +660,11 @@
         </div>
         <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
         <div class="changelog">
+            <div class="cl-title">🔫 v0.63.0 坦克炮塔世界空间重构 — 删瞬时稳定器 + worldTurretYaw 直驱(陀螺仪炮塔) + 同向不再迟钝 + 鼠标/摇杆直控世界方向</div>
             <div class="cl-title">🚀 v0.62.0 玩家六足武器实装 — 加特林(左右键独立,spinUp/过热/强制冷却/枪管红热/枪口焰/命中火花,射程35m)+导弹(空格锁定制导,锁定框跟随光标,绿圈缩圈锁定,左右巢交替4发,10s装填,3D装填条)+观瞄球体HP发光+全覆盖碰撞</div>
             <div class="cl-title">⚙️ v0.61.3 加特林旋转状态机+六足跑走 — 枪管仅攻击时旋转(updateGatlingSpin||0兜底+spinUp驱动,过热停/散热到0才重启)+键盘=跑/手柄低力度=走(阈值0.7)</div>
             <div class="cl-title">🏔️ v0.61.2 六足玩家坡地地形适应修复 — 接通getGroundHeight(原失效致车身水平)+sD2.0+落水过滤(防河岸过度)+hRgt方向修正(左右)+pitch/roll轴修正(车头-X致rotation.x侧倾/z俯仰, 正对坡顶只俯仰不侧倾)</div>
             <div class="cl-title">🦗 v0.61.1 六足玩家步进式转向 — 身体由步态驱动转向(腿蹬地+圆弧预伸), 视角跟鼠标机体慢追, 根治转向腿飞+长期漂移, 关键词：步进turnRate/STEP_PERIOD/homeW闭环</div>
-            <div class="cl-title">🛠️ v0.61.0 六足步态修复+玩家控制器+探针工具 — 模块化可插拔玩家角色, 六足步态姿势对齐工厂(hip 0.45→0.15,shin 0.96→0.29), fwdBody连续方向8方位, bodySpeed用desiredVel, F7/F8采样快键, 关键词：PCM/Playwright</div>
         </div>
     </div>
 
