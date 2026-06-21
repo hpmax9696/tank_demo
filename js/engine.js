@@ -1079,7 +1079,7 @@ let aimRaycaster = new THREE.Raycaster();
 let groundMesh = null;
 let trajLine = null;
 let trajDot = null;
-let turretAngVel = 0.5236;
+let turretAngVel = 0.7854; // 45°/s
 let barrelAngVel = 0.3491;
 
 function getBarrelWorldPos(player) {
