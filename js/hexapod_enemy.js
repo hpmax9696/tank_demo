@@ -5,7 +5,7 @@
  * 替换旧 hexapod_enemy.js，从 ~890行 缩减到 ~150行。
  */
 
-var HexapodEnemy = (function() {
+var HexapodEnemy = (function () {
   var THREE = window.THREE;
   var CORE = window.HexapodCore;
   var CFG = window.HexapodConfig;
@@ -25,7 +25,7 @@ var HexapodEnemy = (function() {
     // 兜底: 利用 createHexapod 保存的原始父引用, 递归清除所有残留 _death_wp_* 节点
     var weaponParents = root.userData._weaponParents;
     if (weaponParents) {
-      Object.keys(weaponParents).forEach(function(name) {
+      Object.keys(weaponParents).forEach(function (name) {
         var info = weaponParents[name];
         var wg = root.getObjectByName(name);
         if (!wg) return;
@@ -65,7 +65,10 @@ var HexapodEnemy = (function() {
     root.updateMatrixWorld(true);
 
     var LEG_CONFIG = CFG.LEG_CONFIG;
-    if (!LEG_CONFIG) { console.error('HexapodEnemy.init: HexapodConfig.LEG_CONFIG not found'); return null; }
+    if (!LEG_CONFIG) {
+      console.error('HexapodEnemy.init: HexapodConfig.LEG_CONFIG not found');
+      return null;
+    }
     var prefixes = LEG_CONFIG.prefixes;
     var tripodA = LEG_CONFIG.tripodA;
 
@@ -74,7 +77,7 @@ var HexapodEnemy = (function() {
       var prefix = prefixes[li];
       var hipGroup = root.getObjectByName(prefix + '腿');
       var thighPv = root.getObjectByName(prefix + '大腿_pivot');
-      var shinPv  = root.getObjectByName(prefix + '小腿_pivot');
+      var shinPv = root.getObjectByName(prefix + '小腿_pivot');
       var anklePv = root.getObjectByName(prefix + '脚踝_pivot');
       var spikeMesh = root.getObjectByName(prefix + '尖刺足');
 
@@ -83,7 +86,7 @@ var HexapodEnemy = (function() {
         continue;
       }
 
-      var restHip = hipGroup.rotation.z;  // game uses Z-axis hip
+      var restHip = hipGroup.rotation.z; // game uses Z-axis hip
       legRefs.push({
         prefix: prefix,
         tripodA: !!tripodA[prefix],
@@ -97,19 +100,23 @@ var HexapodEnemy = (function() {
         restShin: shinPv.rotation.x,
         restAnkle: anklePv.rotation.x,
         _shinSign: shinPv.rotation.x > 0 ? 1 : -1,
-        _yLimit: (prefix.indexOf('中') >= 0) ? LEG_CONFIG.yLimitMiddle : LEG_CONFIG.yLimitFront
+        _yLimit: prefix.indexOf('中') >= 0 ? LEG_CONFIG.yLimitMiddle : LEG_CONFIG.yLimitFront,
       });
     }
 
     // 收集武器引用（用于死亡垂下）
     var weaponRefs = [];
-    ['左加特林', '右加特林', '左导弹巢', '右导弹巢'].forEach(function(name) {
+    ['左加特林', '右加特林', '左导弹巢', '右导弹巢'].forEach(function (name) {
       var wg = root.getObjectByName(name);
-      var mount = root.getObjectByName(name.replace('加特林', '加特林支架').replace('导弹巢', '导弹支架'));
+      var mount = root.getObjectByName(
+        name.replace('加特林', '加特林支架').replace('导弹巢', '导弹支架')
+      );
       if (wg && mount) {
         weaponRefs.push({
-          name: name, weaponGroup: wg, mount: mount,
-          isGatling: name.indexOf('加特林') >= 0
+          name: name,
+          weaponGroup: wg,
+          mount: mount,
+          isGatling: name.indexOf('加特林') >= 0,
         });
       }
     });
@@ -120,8 +127,8 @@ var HexapodEnemy = (function() {
     // 初始化 core context (game mode: bodyWriter=false, hipAxis='z')
     var ctx = CORE.initContext(legRefs, root, {
       hipAxis: 'z',
-      groundHeightFn: (typeof window.getGroundHeight === 'function') ? window.getGroundHeight : null,
-      bodyWriter: false
+      groundHeightFn: typeof window.getGroundHeight === 'function' ? window.getGroundHeight : null,
+      bodyWriter: false,
     });
 
     ctx._weaponRefs = weaponRefs;
@@ -139,19 +146,28 @@ var HexapodEnemy = (function() {
     if (ctx._staggerActive || animRequest === 'stagger') return 21;
 
     switch (animRequest) {
-      case 'idle':           return 0;
-      case 'move_forward':   return 1;
-      case 'move_forward_run':  return 2;
-      case 'move_backward':  return 3;
-      case 'move_backward_run': return 4;
-      case 'strafe_left':    return 5;
-      case 'strafe_right':   return 6;
-      case 'strafe_run_left':  return 19;
-      case 'strafe_run_right': return 20;
+      case 'idle':
+        return 0;
+      case 'move_forward':
+        return 1;
+      case 'move_forward_run':
+        return 2;
+      case 'move_backward':
+        return 3;
+      case 'move_backward_run':
+        return 4;
+      case 'strafe_left':
+        return 5;
+      case 'strafe_right':
+        return 6;
+      case 'strafe_run_left':
+        return 19;
+      case 'strafe_run_right':
+        return 20;
       case 'turn_left':
-        return (ai && ai.state === 'engage') ? 9 : 7;  // Walk Turn L vs Static Turn L
+        return ai && ai.state === 'engage' ? 9 : 7; // Walk Turn L vs Static Turn L
       case 'turn_right':
-        return (ai && ai.state === 'engage') ? 10 : 8;
+        return ai && ai.state === 'engage' ? 10 : 8;
       case 'attack':
         // 开火通过 ai.gatlingRequest/ai.missileRequest 标志驱动，不再设置 attack 动画
         // AI 始终设置移动动画，此 case 仅作兜底
@@ -175,13 +191,16 @@ var HexapodEnemy = (function() {
     }
 
     var ai = enemy.ai;
-    var animRequest = (ai && ai.animRequest) ? ai.animRequest : 'idle';
+    var animRequest = ai && ai.animRequest ? ai.animRequest : 'idle';
 
     // 身体速度: 优先用 ai 期望速度 (精确, 避免 _prevBodyPos 时序bug导致恒0)
     var bodySpeed = 0;
     var bodyTurnSpeed = 0;
     if (ai && (ai._desiredVelX !== undefined || ai._desiredVelZ !== undefined)) {
-      bodySpeed = Math.sqrt((ai._desiredVelX || 0) * (ai._desiredVelX || 0) + (ai._desiredVelZ || 0) * (ai._desiredVelZ || 0));
+      bodySpeed = Math.sqrt(
+        (ai._desiredVelX || 0) * (ai._desiredVelX || 0) +
+          (ai._desiredVelZ || 0) * (ai._desiredVelZ || 0)
+      );
     }
     if (ctx._prevBodyPos) {
       if (bodySpeed === 0) {
@@ -190,7 +209,8 @@ var HexapodEnemy = (function() {
         bd.y = 0;
         bodySpeed = bd.length() / Math.max(dt, 0.001);
       }
-      bodyTurnSpeed = Math.abs(CORE.angleDiff(ctx._prevBodyYaw, enemy.rotation.y)) / Math.max(dt, 0.001);
+      bodyTurnSpeed =
+        Math.abs(CORE.angleDiff(ctx._prevBodyYaw, enemy.rotation.y)) / Math.max(dt, 0.001);
       ctx._totalDist = (ctx._totalDist || 0) + bodySpeed * dt + Math.abs(bodyTurnSpeed) * dt * 0.7;
     }
 
@@ -212,19 +232,31 @@ var HexapodEnemy = (function() {
       } else {
         ctx._slowFrames = 0;
       }
-      var movingReqs = ['move_forward', 'move_backward', 'strafe_left', 'strafe_right', 'strafe_run_left', 'strafe_run_right', 'turn_left', 'turn_right'];
+      var movingReqs = [
+        'move_forward',
+        'move_backward',
+        'strafe_left',
+        'strafe_right',
+        'strafe_run_left',
+        'strafe_run_right',
+        'turn_left',
+        'turn_right',
+      ];
       if (ctx._slowFrames >= 6 && movingReqs.indexOf(animRequest) >= 0) {
         animRequest = 'idle';
       }
     }
 
-    // 踉跄进行中
+    // 踉跄进行中: 强制停转+停射+散热
     if (ctx._staggerActive) {
       CORE._staggerUpdate(ctx, dt);
-      // 加特林 spin 跟随 AI（过热停转）
-      var spinRPS2 = 0;
-      if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS2 = (ai.spinUp || 0) * 30;
-      CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS2);
+      if (ai) {
+        ai.spinUp = Math.max(0, (ai.spinUp || 0) - dt * 3); // 快速衰减停转
+        ai.gatlingRequest = false;
+        ai.missileRequest = false;
+        ai.heat = Math.max(0, (ai.heat || 0) - 18 * dt); // 强制散热
+      }
+      CORE.updateGatlingSpin(ctx._barrelClusters, dt, 0); // 枪管停转
       return;
     }
 
@@ -238,7 +270,7 @@ var HexapodEnemy = (function() {
     var animIndex = _animRequestToIndex(animRequest, ctx, ai);
     var dir = CFG.animField(animIndex, 2);
     var cfgTurnRate = CFG.animField(animIndex, 3);
-    var isIdle = !ctx._isPlayer && (dir === 0 && cfgTurnRate === 0);  // 玩家始终stepGait: 步进转向需持续追视角, 鼠标停后身体仍要转到位(不受idle打断)
+    var isIdle = !ctx._isPlayer && dir === 0 && cfgTurnRate === 0; // 玩家始终stepGait: 步进转向需持续追视角, 鼠标停后身体仍要转到位(不受idle打断)
 
     // 动画切换检测 (玩家模式跳过: 步进转向腿状态自主连续, 来回转鼠标时 turn_l↔turn_r
     // 频繁切换, 若每次 resetPose 会清步进计时器+腿姿态, 致静止转向永远启动不了)
@@ -255,14 +287,19 @@ var HexapodEnemy = (function() {
       if (ai && (ai._desiredVelX !== undefined || ai._desiredVelZ !== undefined)) {
         dm = { dx: (ai._desiredVelX || 0) * dt, dz: (ai._desiredVelZ || 0) * dt };
       }
-      CORE.stepGait(ctx, dt, { animIndex: animIndex, bodySpeed: bodySpeed, desiredMove: dm, targetYaw: (ai && ai._targetYaw !== undefined) ? ai._targetYaw : undefined });
+      CORE.stepGait(ctx, dt, {
+        animIndex: animIndex,
+        bodySpeed: bodySpeed,
+        desiredMove: dm,
+        targetYaw: ai && ai._targetYaw !== undefined ? ai._targetYaw : undefined,
+      });
     } else {
       CORE.stepIdle(ctx, dt);
     }
 
     // 加特林（过热停转）
     var spinRPS = 0;
-    if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS = (ai.spinUp || 0) * 30;   // spinUp 0→停, 1→30RPS(满)
+    if (ai && !ai._overheated && ai.spinUp !== undefined) spinRPS = (ai.spinUp || 0) * 30; // spinUp 0→停, 1→30RPS(满)
     CORE.updateGatlingSpin(ctx._barrelClusters, dt, spinRPS);
   }
 
@@ -286,6 +323,6 @@ var HexapodEnemy = (function() {
     init: init,
     update: update,
     triggerStagger: triggerStagger,
-    triggerDeath: triggerDeath
+    triggerDeath: triggerDeath,
   };
 })();

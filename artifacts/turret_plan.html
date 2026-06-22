@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>炮塔重构实施计划 — 世界空间 turretYaw</title>
+<style>
+  :root { --bg:#1a1a2e; --panel:#16213e; --accent:#e94560; --accent2:#0f3460; --text:#e0e0e0; --text2:#a0a0b8; --green:#4ecca3; --orange:#f0a500; --blue:#4a9eff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); line-height:1.7; padding:24px; max-width:1050px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin-bottom:4px; background:linear-gradient(135deg,var(--accent),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .subtitle { text-align:center; color:var(--text2); margin-bottom:24px; font-size:14px; }
+  h2 { font-size:19px; margin:28px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--accent2); color:var(--blue); }
+  h3 { font-size:16px; margin:18px 0 8px; color:var(--orange); }
+  .card { background:var(--panel); border-radius:10px; padding:20px; margin:14px 0; border-left:4px solid var(--accent2); }
+  .card.good { border-left-color:var(--green); }
+  .card.warn { border-left-color:var(--orange); }
+  pre { background:#0d0d1a; color:#c8d6e5; padding:16px; border-radius:8px; overflow-x:auto; font-family:'Cascadia Code','Fira Code','Consolas',monospace; font-size:13px; line-height:1.6; margin:10px 0; }
+  pre .add { color:#4ecca3; }
+  pre .del { color:#e94560; }
+  pre .cmt { color:#6a7a8a; }
+  pre .k { color:#4a9eff; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid #2a2a4a; }
+  th { background:var(--accent2); color:var(--text); font-weight:600; }
+  td { color:var(--text2); }
+  .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+  .badge.g { background:rgba(78,204,163,0.2); color:var(--green); }
+  .badge.r { background:rgba(233,69,96,0.2); color:var(--red); }
+  .badge.b { background:rgba(74,158,255,0.2); color:var(--blue); }
+  .badge.o { background:rgba(240,165,0,0.2); color:var(--orange); }
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:12px 0; }
+  .box { padding:16px; border-radius:8px; font-size:14px; }
+  .box.old { background:rgba(233,69,96,0.06); border:1px solid rgba(233,69,96,0.25); }
+  .box.new { background:rgba(78,204,163,0.06); border:1px solid rgba(78,204,163,0.25); }
+  .box h4 { margin-bottom:6px; }
+  .box.old h4 { color:var(--red); }
+  .box.new h4 { color:var(--green); }
+  .checklist { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+  .checklist .item { padding:8px 14px; background:var(--panel); border-radius:6px; font-size:14px; }
+  hr { border:none; border-top:1px solid #2a2a4a; margin:24px 0; }
+  ol { margin-left:20px; color:var(--text2); }
+  ol li { margin:4px 0; }
+  .nop { color:var(--green); font-weight:600; }
+  .formula { background:#0d0d1a; color:#f0a500; padding:6px 14px; border-radius:6px; font-family:'Consolas',monospace; font-size:14px; display:inline-block; margin:6px 0; }
+</style>
+</head>
+<body>
+
+<h1>炮塔重构实施计划</h1>
+<p class="subtitle">世界空间 turretYaw · 仅改 engine.js · 约 40 行改动 · 2026-06-21</p>
+
+<!-- ====== 核心思路 ====== -->
+<h2>一、核心思路</h2>
+
+<div class="card good">
+<p>把炮塔方向从<strong>局部空间</strong>搬到<strong>世界空间</strong>存储。</p>
+
+<div class="formula">worldTurretYaw ⟶ 鼠标/摇杆直接驱动 ⟶ 每帧渲染时反算局部 turretYaw</div>
+
+<div class="compare" style="margin-top:14px;">
+<div class="box old">
+<h4>旧：局部空间 + 瞬时稳定器</h4>
+<pre><span class="cmt">// 车体右转 → 稳定器瞬时补偿</span>
+<span class="del">player.turretYaw += hullDyaw;   // ∞速度</span>
+<span class="cmt">// 鼠标瞄准 → 局部空间追赶</span>
+<span class="del">targetYaw = atan2(localDir.x, localDir.z);</span>
+<span class="del">player.turretYaw = angleMoveToward(..., 30°/s);</span>
+<span class="cmt">// ⚠ 两条路径在同一个变量上互搏</span>
+</pre>
+</div>
+<div class="box new">
+<h4>新：世界空间单一真相源</h4>
+<pre><span class="cmt">// 鼠标直接驱动世界方向</span>
+<span class="add">worldTargetYaw = atan2(worldDir.x, worldDir.z);</span>
+<span class="add">worldTurretYaw = angleMoveToward(..., 30°/s);</span>
+<span class="cmt">// 渲染时自动换算（一条公式同时处理稳定+瞄准）</span>
+<span class="add">turretYaw = worldTurretYaw − (π/2 − hullYaw);</span>
+</pre>
+</div>
+</div>
+</div>
+
+<!-- ====== 六处改动 ====== -->
+<h2>二、具体改动（6 处，仅 engine.js）</h2>
+
+<h3>改动 1：新增状态字段</h3>
+<div class="card">
+<p><span class="code">createPlayer()</span>，约第 161 行</p>
+<pre><span class="del">- turretYaw: 0, barrelElevation: 0.05,</span>
+<span class="add">+ turretYaw: 0, worldTurretYaw: undefined, barrelElevation: 0.05,</span></pre>
+<p style="color:var(--text2); margin-top:8px;"><span class="badge b">惰性初始化</span> undefined → 首帧 updateAiming 自动算出。所有 spawn/respawn 无需手动设置。</p>
+</div>
+
+<h3>改动 2：移除稳定器，加惰性初始化</h3>
+<div class="card">
+<p><span class="code">updateAiming()</span>，第 1103-1108 行</p>
+<pre><span class="del">- // ── 车体转向即时补偿 (WoT式稳定器) ──</span>
+<span class="del">- const hullYaw = player.state.yaw;</span>
+<span class="del">- const hullDyaw = ... ; player._prevHullYaw = hullYaw;</span>
+<span class="del">- player.turretYaw += hullDyaw;</span>
+<span class="add">+ // ── 世界空间炮塔：首帧惰性初始化 ──</span>
+<span class="add">+ const hullYaw = player.state.yaw;</span>
+<span class="add">+ if (player.worldTurretYaw === undefined) {</span>
+<span class="add">+     player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);</span>
+<span class="add">+ }</span></pre>
+</div>
+
+<h3>改动 3：摇杆改为驱动世界空间</h3>
+<div class="card">
+<p><span class="code">updateAiming()</span>，第 1135 行 + 第 1141-1142 行</p>
+<pre><span class="del">- player.turretYaw += stickToTarget(-gpx) * turretAngVel * dt;</span>
+<span class="del">- if (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;</span>
+<span class="del">- if (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;</span>
+<span class="add">+ player.worldTurretYaw += stickToTarget(-gpx) * turretAngVel * dt;</span>
+<span class="cmt">  // 归一化移到末尾推导点统一处理</span></pre>
+</div>
+
+<h3>改动 4：鼠标瞄准改为世界空间</h3>
+<div class="card">
+<p><span class="code">updateAiming()</span>，第 1188-1196 行</p>
+<pre><span class="cmt">// 旧：局部空间 targetYaw</span>
+<span class="del">- const invQ = player.group.quaternion.clone().invert();</span>
+<span class="del">- const localDir = worldDir.clone().applyQuaternion(invQ);</span>
+<span class="del">- const targetYaw = Math.atan2(localDir.x, localDir.z);</span>
+<span class="del">- player.turretYaw = angleMoveToward(player.turretYaw, targetYaw, ...);</span>
+
+<span class="cmt">// 新：世界空间 worldTargetYaw</span>
+<span class="add">+ const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);</span>
+<span class="cmt">  // 俯仰仍用局部空间（炮管相对车体，逻辑不变）</span>
+<span class="add">+ const invQ = player.group.quaternion.clone().invert();</span>
+<span class="add">+ const localDir = worldDir.clone().applyQuaternion(invQ);</span>
+<span class="add">+ const targetElev = -Math.atan2(localDir.y, ...);</span>
+<span class="add">+ player.worldTurretYaw = angleMoveToward(player.worldTurretYaw, worldTargetYaw, ...);</span></pre>
+<p style="color:var(--text2); margin-top:8px;">同时修改 <span class="code">turretDiff</span>（第 1200 行）带环绕处理：</p>
+<pre><span class="del">- const turretDiff = Math.abs(player.turretYaw - targetYaw);</span>
+<span class="add">+ let turretDiff = Math.abs(player.worldTurretYaw - worldTargetYaw);</span>
+<span class="add">+ if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;</span></pre>
+</div>
+
+<h3>改动 5：推导局部 turretYaw（核心公式）</h3>
+<div class="card good">
+<p><span class="code">updateAiming()</span> 末尾，在 <span class="code">player.barrelElevation = Math.max(...)</span> 之前插入：</p>
+<pre><span class="cmt">// ── 从世界空间反算局部 turretYaw（用于渲染，一条公式替代稳定器）──</span>
+<span class="add">+ player.turretYaw = player.worldTurretYaw - (Math.PI / 2 - hullYaw);</span>
+<span class="add">+ while (player.turretYaw > Math.PI)  player.turretYaw -= Math.PI * 2;</span>
+<span class="add">+ while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;</span></pre>
+<p style="color:var(--text2); margin-top:8px;">
+第 1726 行 <span class="code">turretPivot.rotation.y = player1.turretYaw</span> 无需任何修改。
+</p>
+</div>
+
+<h3>改动 6：对战模式同样改造</h3>
+<div class="card">
+<p><span class="code">updateAimingForVs()</span>，第 3287-3368 行</p>
+<table>
+  <tr><th>行</th><th>操作</th><th>说明</th></tr>
+  <tr><td>3287-3293</td><td><span class="badge r">替换</span></td><td>移除稳定器 → 惰性初始化（同改动2）</td></tr>
+  <tr><td>3308</td><td><span class="badge o">修改</span></td><td>P2摇杆：<span class="code">p.turretYaw</span> → <span class="code">p.worldTurretYaw</span></td></tr>
+  <tr><td>3309-3310</td><td><span class="badge r">删除</span></td><td>P2 turretYaw 归一化（移到推导点）</td></tr>
+  <tr><td>3319-3322</td><td><span class="badge o">修改</span></td><td>P1提前返回前插入 turretYaw 推导（防渲染读到过时值）</td></tr>
+  <tr><td>3354-3362</td><td><span class="badge r">替换</span></td><td>P1鼠标改为世界空间（同改动4）</td></tr>
+  <tr><td>3367前</td><td><span class="badge g">插入</span></td><td>P1/P2通用 turretYaw 推导（同改动5）</td></tr>
+</table>
+</div>
+
+<!-- ====== 不变的部分 ====== -->
+<h2>三、不需要改的部分</h2>
+
+<div class="checklist">
+  <div class="item"><span class="nop">✓</span> 敌人 AI（直接用 tp.rotation.y，不碰 turretYaw）</div>
+  <div class="item"><span class="nop">✓</span> 炮管俯仰（全程局部空间，不受影响）</div>
+  <div class="item"><span class="nop">✓</span> turretPivot.rotation.y 渲染赋值行</div>
+  <div class="item"><span class="nop">✓</span> cameraYaw / 摄像机逻辑</div>
+  <div class="item"><span class="nop">✓</span> 开火 / 弹道线（读 Three.js 场景图）</div>
+  <div class="item"><span class="nop">✓</span> 模型建造（层级结构不变）</div>
+  <div class="item"><span class="nop">✓</span> 所有 spawn / respawn 代码（惰性初始化）</div>
+  <div class="item"><span class="nop">✓</span> 狙击模式</div>
+</div>
+
+<!-- ====== 关键设计决策 ====== -->
+<h2>四、关键设计决策</h2>
+
+<div class="card">
+<ol>
+  <li><b>惰性初始化</b> — worldTurretYaw=undefined，首帧自动算。spawn/respawn 零改动</li>
+  <li><b>局部 turretYaw 变为派生量</b> — 每帧从世界值算出，不再是持久状态</li>
+  <li><b>归一化集中一处</b> — 只在推导点归一化 turretYaw 到 [-PI, PI]，worldTurretYaw 允许无界</li>
+  <li><b>只改 engine.js</b> — 敌人/模型/摄像机全部不受影响</li>
+</ol>
+</div>
+
+<!-- ====== 验证 ====== -->
+<h2>五、验证步骤</h2>
+
+<div class="checklist">
+  <div class="item"><b>1.</b> 出生时炮塔指前方，无跳动</div>
+  <div class="item"><b>2.</b> WASD转车体+鼠标不动 → 炮塔世界静止</div>
+  <div class="item"><b>3.</b> A/D转车体+鼠标同向 → 灵敏无迟钝</div>
+  <div class="item"><b>4.</b> 摇杆右推 → 匀速旋转不卡</div>
+  <div class="item"><b>5.</b> 对战模式 P1+P2 → 行为正确</div>
+  <div class="item"><b>6.</b> 训练重生 → 炮塔重新指前方</div>
+  <div class="item"><b>7.</b> 狙击模式 → 无异常</div>
+  <div class="item"><b>8.</b> CDP 验证 0 错误</div>
+</div>
+
+<hr>
+<p style="text-align:center; color:var(--green); font-size:15px;">
+<b>改动规模：~40行 | 仅 engine.js | 不碰敌人/模型/摄像机</b>
+</p>
+
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坦克炮塔世界空间重构 — 设计文档 v0.63.0</title>
+<style>
+  :root { --bg:#1a1a2e; --panel:#16213e; --accent:#e94560; --accent2:#0f3460; --text:#e0e0e0; --text2:#a0a0b8; --green:#4ecca3; --orange:#f0a500; --blue:#4a9eff; --red:#e94560; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); line-height:1.7; padding:24px; max-width:1000px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin-bottom:4px; background:linear-gradient(135deg,var(--accent),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .meta { text-align:center; color:var(--text2); margin-bottom:28px; font-size:13px; display:flex; gap:20px; justify-content:center; }
+  .meta span { background:var(--accent2); padding:3px 12px; border-radius:12px; }
+  h2 { font-size:19px; margin:28px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--accent2); color:var(--blue); }
+  h3 { font-size:16px; margin:18px 0 8px; color:var(--orange); }
+  .card { background:var(--panel); border-radius:10px; padding:20px; margin:14px 0; border-left:4px solid var(--accent2); }
+  .card.prob { border-left-color:var(--red); }
+  .card.sol { border-left-color:var(--green); }
+  .card.scope { border-left-color:var(--blue); }
+  pre { background:#0d0d1a; color:#c8d6e5; padding:16px; border-radius:8px; overflow-x:auto; font-family:'Cascadia Code','Fira Code','Consolas',monospace; font-size:13px; line-height:1.6; margin:10px 0; }
+  pre .add { color:#4ecca3; }
+  pre .del { color:#e94560; }
+  pre .cmt { color:#6a7a8a; }
+  .formula { background:rgba(240,165,0,0.12); color:var(--orange); padding:8px 16px; border-radius:8px; font-family:'Consolas',monospace; font-size:14px; display:inline-block; margin:8px 0; }
+  .formula-block { text-align:center; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid #2a2a4a; }
+  th { background:var(--accent2); color:var(--text); font-weight:600; }
+  td { color:var(--text2); }
+  .flow { display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; margin:14px 0; font-size:14px; }
+  .flow-box { background:var(--panel); border-radius:8px; padding:10px 16px; text-align:center; }
+  .flow-box.del { border:1px dashed rgba(233,69,96,0.4); color:var(--red); text-decoration:line-through; }
+  .flow-box.add { border:1px solid rgba(78,204,163,0.4); color:var(--green); }
+  .flow-arrow { color:var(--text2); font-size:20px; }
+  .flow-arrow.green { color:var(--green); }
+  .pipeline { display:flex; flex-direction:column; gap:6px; margin:10px 0; }
+  .pipe-row { display:flex; align-items:center; gap:12px; }
+  .pipe-row .label { width:80px; text-align:right; font-size:12px; color:var(--text2); flex-shrink:0; }
+  .pipe-row .path { flex:1; background:var(--panel); padding:8px 14px; border-radius:6px; font-size:13px; }
+  .pipe-row .arrow { color:var(--text2); font-size:16px; flex-shrink:0; }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:12px 0; }
+  .box { padding:16px; border-radius:8px; font-size:14px; }
+  .box.old { background:rgba(233,69,96,0.06); border:1px solid rgba(233,69,96,0.25); }
+  .box.new { background:rgba(78,204,163,0.06); border:1px solid rgba(78,204,163,0.25); }
+  .box h4 { margin-bottom:6px; }
+  .box.old h4 { color:var(--red); }
+  .box.new h4 { color:var(--green); }
+  .check { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+  .check-item { padding:8px 14px; background:var(--panel); border-radius:6px; font-size:14px; }
+  .check-item .ok { color:var(--green); }
+  ol { margin-left:20px; color:var(--text2); }
+  ol li { margin:4px 0; }
+  hr { border:none; border-top:1px solid #2a2a4a; margin:24px 0; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+  .badge.r { background:rgba(233,69,96,0.2); color:var(--red); }
+  .badge.g { background:rgba(78,204,163,0.2); color:var(--green); }
+  .badge.b { background:rgba(74,158,255,0.2); color:var(--blue); }
+  .badge.o { background:rgba(240,165,0,0.2); color:var(--orange); }
+  blockquote { border-left:3px solid var(--blue); padding:8px 16px; margin:10px 0; color:var(--text2); background:rgba(74,158,255,0.06); border-radius:0 6px 6px 0; }
+</style>
+</head>
+<body>
+
+<h1>坦克炮塔世界空间重构</h1>
+<div class="meta">
+  <span>v0.63.0</span><span>2026-06-21</span><span>状态：待审阅</span><span>范围：仅 engine.js</span>
+</div>
+
+<!-- ===== 一、概述 ===== -->
+<h2>一、概述</h2>
+
+<h3>要解决的问题</h3>
+<div class="card prob">
+<p>当前炮塔系统在<strong>车体和鼠标同向转动</strong>时感觉迟钝。</p>
+<p style="margin-top:8px;"><b>根因：</b>三条控制路径在同一个局部空间变量 <code>turretYaw</code> 上互搏。</p>
+
+<div class="pipeline" style="margin-top:14px;">
+  <div class="pipe-row">
+    <div class="label"><span class="badge o">稳定器</span></div>
+    <div class="arrow">→</div>
+    <div class="path"><code>turretYaw += hullDyaw</code> &nbsp;⚡瞬时，无限速度</div>
+  </div>
+  <div class="pipe-row">
+    <div class="label"><span class="badge b">鼠标</span></div>
+    <div class="arrow">→</div>
+    <div class="path"><code>angleMoveToward(turretYaw, localTarget, 30°/s)</code> &nbsp;🐢限速</div>
+  </div>
+  <div class="pipe-row">
+    <div class="label"><span class="badge g">摇杆</span></div>
+    <div class="arrow">→</div>
+    <div class="path"><code>turretYaw += stick * speed * dt</code> &nbsp;🎮限速</div>
+  </div>
+</div>
+
+<p style="margin-top:12px; color:var(--text2);">
+车体右转 + 鼠标同向右转时：<b>稳定器瞬时把 turretYaw 往上冲</b>，但鼠标的 localTarget 反而变小（车体迎向目标），<b>angleMoveToward 以 30°/s 慢速往下拉</b> → 两者打架 → 炮塔几乎不动 → 感觉迟钝。
+</p>
+</div>
+
+<h3>解决方案</h3>
+<div class="card sol">
+<blockquote>炮塔像一个陀螺仪平台：车体在它下面自由转动而不影响它；鼠标和摇杆直接在世界空间驱动它。</blockquote>
+
+<div class="two-col" style="margin-top:14px;">
+<div class="box old">
+<h4>旧：局部空间 + 瞬时稳定器</h4>
+<pre><span class="cmt">// 稳定器（瞬时）</span>
+<span class="del">player.turretYaw += hullDyaw;</span>
+<span class="cmt">// 鼠标（局部空间，限速）</span>
+<span class="del">localDir = worldDir * inv(hullQuat);</span>
+<span class="del">targetYaw = atan2(localDir.x, localDir.z);</span>
+<span class="del">turretYaw = angleMoveToward(turretYaw, targetYaw, 30°/s);</span>
+<span class="cmt">// ⚠ 两条路径在同一变量上打架</span>
+</pre>
+</div>
+<div class="box new">
+<h4>新：世界空间单一真相源</h4>
+<pre><span class="cmt">// 鼠标直接驱动世界方向</span>
+<span class="add">worldTargetYaw = atan2(worldDir.x, worldDir.z);</span>
+<span class="add">worldTurretYaw = angleMoveToward(worldTurretYaw, worldTargetYaw, 30°/s);</span>
+<span class="cmt">// 渲染时一条公式自动处理稳定</span>
+<span class="add">turretYaw = worldTurretYaw - (π/2 - hullYaw);</span>
+</pre>
+</div>
+</div>
+</div>
+
+<h3>预期效果</h3>
+<div class="check">
+  <div class="check-item"><span class="ok">✓</span> 车体+鼠标同向 → 满 30°/s 灵敏追光标</div>
+  <div class="check-item"><span class="ok">✓</span> 车体转鼠标不动 → 炮塔世界静止</div>
+  <div class="check-item"><span class="ok">✓</span> 代码更简单（删稳定器 + 删局部转换）</div>
+  <div class="check-item"><span class="ok">✓</span> 不影响敌人/六足/摄像机/俯仰</div>
+</div>
+
+<!-- ===== 二、当前架构 ===== -->
+<h2>二、当前架构</h2>
+
+<table>
+  <tr><th>路径</th><th>行</th><th>操作</th><th>速度</th></tr>
+  <tr><td><span class="badge o">稳定器</span></td><td>1103-1108</td><td><code>turretYaw += hullDyaw</code></td><td>⚡ 瞬时</td></tr>
+  <tr><td><span class="badge b">鼠标</span></td><td>1147-1263</td><td>世界→局部转换 → <code>angleMoveToward</code></td><td>0.5236 rad/s</td></tr>
+  <tr><td><span class="badge g">摇杆</span></td><td>1127-1146</td><td><code>turretYaw += stick * speed * dt</code></td><td>0.5236 rad/s</td></tr>
+</table>
+
+<div style="background:var(--panel); padding:14px; border-radius:8px; margin:12px 0; font-size:14px;">
+<b>渲染层级：</b>
+<pre style="margin-top:8px;">tankGroup.rotation.set(pitch, π/2 - hullYaw, roll)    ← 车身
+  └── turretPivot.rotation.y = player.turretYaw          ← 炮塔（局部空间）</pre>
+</div>
+
+<!-- ===== 三、新设计 ===== -->
+<h2>三、新设计</h2>
+
+<h3>核心状态变量</h3>
+<table>
+  <tr><th>变量</th><th>空间</th><th>性质</th><th>初始化</th></tr>
+  <tr><td><code>worldTurretYaw</code></td><td>世界 XZ 平面</td><td>持久状态，鼠标/摇杆直接修改</td><td><code>undefined</code> → 首帧惰性初始化</td></tr>
+  <tr><td><code>turretYaw</code></td><td>局部（相对车体）</td><td>每帧派生值，仅用于渲染</td><td>每帧从 worldTurretYaw 算出</td></tr>
+</table>
+
+<h3>控制路径（改造后）</h3>
+<table>
+  <tr><th>路径</th><th>操作</th></tr>
+  <tr><td><span class="badge r">稳定器</span></td><td><b>删除</b> — 派生公式已隐含稳定效果</td></tr>
+  <tr><td><span class="badge b">鼠标</span></td><td><code>worldTargetYaw = atan2(worldDir.x, worldDir.z)</code><br><code>worldTurretYaw = angleMoveToward(worldTurretYaw, worldTargetYaw, 30°/s)</code></td></tr>
+  <tr><td><span class="badge g">摇杆</span></td><td><code>worldTurretYaw += stick * speed * dt</code></td></tr>
+</table>
+
+<h3>核心公式（替代稳定器的唯一一行）</h3>
+<div class="formula-block">
+  <div class="formula">turretPivot.rotation.y = worldTurretYaw − (π/2 − hullYaw)</div>
+</div>
+
+<p style="color:var(--text2);">
+车体右转 (hullYaw↑) → (π/2−hullYaw)↓ → turretYaw↑ → 炮塔相对车体多转了一份 → 世界指向不变。<br>
+<strong>稳定效果从"显式补偿代码"变成了"公式的自然结果"。</strong>
+</p>
+
+<h3>惰性初始化</h3>
+<pre><span class="cmt">// updateAiming / updateAimingForVs 开头</span>
+<span class="k">if</span> (player.worldTurretYaw === undefined) {
+    player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
+}</pre>
+<p style="color:var(--text2);"><code>createPlayer()</code> 设 worldTurretYaw: undefined，首帧自动对齐车体方向。所有模式/spawn/respawn 零改动。</p>
+
+<h3>归一化策略</h3>
+<table>
+  <tr><th>变量</th><th>策略</th></tr>
+  <tr><td><code>worldTurretYaw</code></td><td>允许无界增长（摇杆持续累加），无需归一化</td></tr>
+  <tr><td><code>turretYaw</code>（派生值）</td><td>每帧归一化到 [-π, π]，集中在推导点处理</td></tr>
+</table>
+
+<!-- ===== 四、改动范围 ===== -->
+<h2>四、改动范围</h2>
+
+<div class="card scope">
+<h3>修改文件：仅 <code>js/engine.js</code>（约 40 行）</h3>
+</div>
+
+<h3>不改的文件</h3>
+<table>
+  <tr><th>文件</th><th>原因</th></tr>
+  <tr><td><code>combat/enemyAI.js</code></td><td>敌人用 <code>aimTurretAt()</code> 直接操作 <code>tp.rotation.y</code>，不碰 turretYaw</td></tr>
+  <tr><td><code>models/t34_v16_builder.js</code></td><td>模型层级（tankGroup → turretPivot → barrelPivot）不变</td></tr>
+  <tr><td><code>js/playerControllers/hexapodPlayer.js</code></td><td>六足走 PCM 分支，updateAiming 被跳过</td></tr>
+  <tr><td><code>index.html</code></td><td>无新脚本加载</td></tr>
+</table>
+
+<h3>七处具体改动</h3>
+<table>
+  <tr><th>#</th><th>位置</th><th>操作</th><th>说明</th></tr>
+  <tr><td>1</td><td><code>createPlayer()</code></td><td><span class="badge g">新增</span></td><td><code>worldTurretYaw: undefined</code></td></tr>
+  <tr><td>2</td><td><code>updateAiming()</code> 稳定器块</td><td><span class="badge r">替换</span></td><td>删 hullDyaw 稳定器 → 惰性初始化</td></tr>
+  <tr><td>3</td><td><code>updateAiming()</code> 手柄路径</td><td><span class="badge o">修改</span></td><td>turretYaw → worldTurretYaw，删归一化</td></tr>
+  <tr><td>4</td><td><code>updateAiming()</code> 鼠标路径</td><td><span class="badge o">修改</span></td><td>删 invQ 局部转换，直接用 worldDir；turretDiff 加环绕</td></tr>
+  <tr><td>5</td><td><code>updateAiming()</code> 末尾</td><td><span class="badge g">插入</span></td><td><code>turretYaw = worldTurretYaw − (π/2 − hullYaw)</code></td></tr>
+  <tr><td>6</td><td><code>updateAimingForVs()</code></td><td><span class="badge r">替换+</span><span class="badge g">插入</span></td><td>对 P1/P2 重复 2-5，含 P1 提前返回路径</td></tr>
+  <tr><td>7</td><td><code>_processTrainingRespawn()</code></td><td><span class="badge g">插入</span></td><td>坦克重生：<code>worldTurretYaw = undefined</code></td></tr>
+</table>
+
+<!-- ===== 五、边界情况 ===== -->
+<h2>五、边界情况</h2>
+
+<table>
+  <tr><th>场景</th><th>worldTurretYaw 状态</th><th>结果</th></tr>
+  <tr><td>新进单人模式</td><td>undefined → 自动对齐</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>新进对战模式</td><td>undefined → 自动对齐</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>新进训练模式</td><td>undefined → 自动对齐</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>训练坦克死亡重生</td><td>显式设 undefined → 自动对齐</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>六足→坦克切换</td><td>createPlayer 重建 → undefined</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>对战 P1 鼠标在 P2 区</td><td>提前返回前推导 turretYaw</td><td><span class="badge g">✓</span></td></tr>
+  <tr><td>跨 -π/+π 环绕</td><td>angleMoveToward 内部归一化 + turretDiff 环绕</td><td><span class="badge g">✓</span></td></tr>
+</table>
+
+<!-- ===== 六、验证 ===== -->
+<h2>六、验证清单</h2>
+
+<div class="check">
+  <div class="check-item">1. 出生时炮塔指前方，无跳动</div>
+  <div class="check-item">2. WASD转车体+鼠标不动 → 炮塔世界静止</div>
+  <div class="check-item">3. A/D转车体+鼠标同向 → 灵敏追光标</div>
+  <div class="check-item">4. 摇杆右推 → 匀速旋转不卡</div>
+  <div class="check-item">5. 对战 P1+P2 → 各自正确</div>
+  <div class="check-item">6. 训练重生 → 炮塔重新指前方</div>
+  <div class="check-item">7. 狙击模式 → 无异常</div>
+  <div class="check-item">8. CDP 验证 0 错误</div>
+</div>
+
+<hr>
+<p style="text-align:center; color:var(--text2); font-size:13px;">
+  MD 版仅供内部/AI 使用 · 保留在 docs/superpowers/specs/<br>
+  此 HTML 版可直接在 Edge 中查看，无乱码
+</p>
+
+</body>
+</html>

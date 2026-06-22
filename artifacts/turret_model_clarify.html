@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界空间炮塔模型 — 方案澄清</title>
+<style>
+  :root { --bg:#1a1a2e; --panel:#16213e; --accent:#e94560; --accent2:#0f3460; --text:#e0e0e0; --text2:#a0a0b8; --green:#4ecca3; --orange:#f0a500; --red:#e94560; --blue:#4a9eff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); line-height:1.7; padding:24px; max-width:1000px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin-bottom:8px; background:linear-gradient(135deg,var(--accent),var(--orange)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .subtitle { text-align:center; color:var(--text2); margin-bottom:28px; font-size:14px; }
+  h2 { font-size:19px; margin:28px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--accent2); color:var(--blue); }
+  .card { background:var(--panel); border-radius:10px; padding:20px; margin:14px 0; border-left:4px solid var(--accent2); }
+  .card.good { border-left-color:var(--green); }
+  .card.warn { border-left-color:var(--orange); }
+  pre { background:#0d0d1a; color:#c8d6e5; padding:16px; border-radius:8px; overflow-x:auto; font-family:'Cascadia Code','Fira Code','Consolas',monospace; font-size:13px; line-height:1.6; margin:10px 0; }
+  .hl { color:var(--orange); }
+  .hl2 { color:var(--green); }
+  .hl3 { color:var(--accent); }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+  th,td { padding:10px 14px; text-align:left; border-bottom:1px solid #2a2a4a; }
+  th { background:var(--accent2); }
+  td { color:var(--text2); }
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:12px 0; }
+  .box { padding:16px; border-radius:8px; font-size:14px; }
+  .box.old { background:rgba(233,69,96,0.08); border:1px solid rgba(233,69,96,0.3); }
+  .box.new { background:rgba(78,204,163,0.08); border:1px solid rgba(78,204,163,0.3); }
+  .box h4 { margin-bottom:8px; }
+  .box.old h4 { color:var(--red); }
+  .box.new h4 { color:var(--green); }
+  .k { color:var(--blue); }
+  .v { color:var(--green); }
+  .diagram-simple { background:#0d0d1a; border-radius:8px; padding:20px; text-align:center; font-family:'Consolas',monospace; font-size:13px; line-height:2.0; overflow-x:auto; white-space:pre; }
+  hr { border:none; border-top:1px solid #2a2a4a; margin:24px 0; }
+</style>
+</head>
+<body>
+
+<h1>世界空间炮塔模型</h1>
+<p class="subtitle">用户方案 vs 当前实现 vs 方案A/B · 2026-06-21</p>
+
+<h2>一、你的模型，精确表述</h2>
+
+<div class="diagram-simple">
+                          世界北方 (世界参考方向)
+                               ↑
+              ┌────────────────┼────────────────┐
+              │                │                │
+              │   炮塔独立世界 yaw = <span class="hl">worldTurretYaw</span>     │
+              │   (车体怎么转，这个值都不变)            │
+              │                                  │
+              │   车体 yaw = hullYaw              │
+              │   (WASD / 差速转向驱动)            │
+              │                                  │
+              └──────────────────────────────────┘
+
+   每帧渲染: turretPivot.rotation.y = <span class="hl">worldTurretYaw</span> − hullWorldYaw
+   (把世界角度转为炮塔相对车体的局部角度)
+</div>
+
+<div class="card good">
+<h3>核心变量</h3>
+<table>
+  <tr><th>变量</th><th>含义</th><th>谁改</th></tr>
+  <tr><td><span class="hl">worldTurretYaw</span></td><td>炮塔在世界 XZ 平面上的绝对朝向</td><td>鼠标/摇杆（限速30°/s）</td></tr>
+  <tr><td>hullYaw</td><td>车体在世界 XZ 平面上的朝向</td><td>WASD 差速转向</td></tr>
+  <tr><td>turretPivot.rotation.y</td><td>炮塔相对车体的局部 Y 旋转（渲染用）</td><td><b>每帧从上面两个变量算出</b></td></tr>
+</table>
+</div>
+
+<h2>二、和三个方案的关系</h2>
+
+<div class="compare">
+<div class="box old">
+<h4>方案 A（完全解耦·局部空间）</h4>
+<p>删除稳定器。turretYaw 在<b>局部空间</b>，车体转 → 世界炮口跟着转。</p>
+<p style="margin-top:8px; color:var(--red);">❌ 不是你要的 —— 车体转会影响炮塔世界指向</p>
+</div>
+<div class="box new">
+<h4>方案 B（世界空间瞄准）</h4>
+<p>每帧从 worldDir 算 targetYaw → angleMoveToward → 反算 turretYaw。隐含了"世界指向稳定"。</p>
+<p style="margin-top:8px; color:var(--green);">✅ 和你的想法同方向，但不如你的干净</p>
+</div>
+<div class="box new">
+<h4>你的模型（世界空间持久状态）</h4>
+<p><span class="hl">worldTurretYaw</span> 是持久变量。车体转动不碰它。鼠标/摇杆直接驱动它。每帧渲染时转为局部角度。</p>
+<p style="margin-top:8px; color:var(--green);">✅ 最干净：单一真相源，无隐藏补偿，无互搏</p>
+</div>
+<div class="box old">
+<h4>当前实现（局部空间 + 瞬时稳定器）</h4>
+<p>turretYaw 在局部空间。稳定器瞬时补偿车体转动。瞄准走 world→local 转换。两者互搏。</p>
+<p style="margin-top:8px; color:var(--red);">❌ 同向转迟钝的根源</p>
+</div>
+</div>
+
+<h2>三、你的模型有没有问题？</h2>
+
+<div class="card good">
+<h3>✅ 逻辑完全正确，没有内在矛盾</h3>
+<p>
+这是一个 <b>陀螺仪炮塔</b> 模型——炮塔像一个被陀螺仪锁定的平台，保持在绝对世界方向，车体在它下面自由转动。
+</p>
+<p style="margin-top:8px;">
+<b>关键认识：</b>你描述的"解耦"本质上是 <b>完美稳定器</b>（而非取消稳定器）。
+"解耦"指的是控制链路的解耦——鼠标/摇杆直接操作世界方向，中间不被车体转动污染。
+</p>
+</div>
+
+<h2>四、地形倾斜的影响 🔑</h2>
+
+<p>这是你最关心的。分两层回答：</p>
+
+<div class="card warn">
+<h3>场景：坦克驶上 15° 坡地</h3>
+
+<pre>
+层级结构（rotation order = 'YXZ'）：
+
+  <span class="k">tankGroup</span>
+  ├── rotation.<span class="hl">y</span> = π/2 − hullYaw    ← 先绕世界Y转（车身朝向）
+  ├── rotation.<span class="hl">x</span> = −smoothPitch    ← 再绕局部X转（俯仰，≈−15°）
+  ├── rotation.<span class="hl">z</span> = −smoothRoll      ← 最后绕局部Z转（侧倾）
+  │
+  └── <span class="k">turretPivot</span>
+       └── rotation.<span class="hl2">y</span> = worldTurretYaw − (π/2 − hullYaw)
+</pre>
+
+<h3 style="margin-top:16px;">影响分析</h3>
+
+<table>
+  <tr><th>方面</th><th>影响</th><th>严重程度</th></tr>
+  <tr>
+    <td>炮塔旋转平面</td>
+    <td>车体俯仰 15° → turretPivot 的局部 Y 轴也倾斜 15°。<br>炮塔绕<b>倾斜轴</b>转，不再水平扫掠。</td>
+    <td>⚠️ 中等</td>
+  </tr>
+  <tr>
+    <td>水平指向精度</td>
+    <td>炮塔转 90°（侧向）时，炮管会比水平指向略高/略低。<br>坡 15°、炮塔转 90° → 水平偏差 ≈ sin(15°)×sin(90°) ≈ 0.26rad(15°)。<br>也就是说：<b>炮口实际指向和 worldTurretYaw 之间有偏差</b>。</td>
+    <td>⚠️ 大角度时明显</td>
+  </tr>
+  <tr>
+    <td>射击弹道</td>
+    <td>炮管俯仰（barrelElevation）已经独立控制。坡上炮管实际俯仰 = 地形倾角分量 + barrelElevation。<br>当前代码的弹道计算用世界方向，会部分抵消。</td>
+    <td>🟡 需验证</td>
+  </tr>
+</table>
+</div>
+
+<div class="card">
+<h3>为什么这是"可接受的"</h3>
+<ol>
+  <li><b>物理真实</b>：WWII 坦克的炮塔座圈是固定在车体上的。车体倾斜 → 炮塔旋转平面倾斜。真实 T-34 也是如此。</li>
+  <li><b>坡度通常小</b>：你的地图坡度大多 &lt;10°。sin(10°) ≈ 0.17，水平偏差在可接受范围。</li>
+  <li><b>瞄准系统会补偿</b>：鼠标射线投射到地面 → 计算 worldTargetYaw → 驱动 worldTurretYaw 追上。即使有倾斜误差，瞄准回路会自然修正（炮塔追光标直到对准）。</li>
+  <li><b>如果要完全水平稳定</b>：需要把 turretPivot 从 tankGroup 下拆出来，放在一个独立的世界空间层级里（TurretBase 永远水平）——这会带来新的复杂度（同步位置、碰撞体等），且看起来不真实（炮塔浮在倾斜车体上）。</li>
+</ol>
+</div>
+
+<h2>五、实现概要</h2>
+
+<pre>
+<span class="hl3">// === 新增全局状态 ===</span>
+<span class="k">let</span> <span class="hl">worldTurretYaw</span> = 0;  <span class="hl3">// 炮塔世界空间偏航角（持久）</span>
+
+<span class="hl3">// === 出生时初始化 ===</span>
+<span class="hl">worldTurretYaw</span> = Math.PI/2 − tankState.yaw + initialOffset;
+<span class="hl3">// 例：hullYaw=0(面朝+X)，想炮塔北偏东30°(π/3 from +X)</span>
+<span class="hl3">// worldTurretYaw = π/3</span>
+
+<span class="hl3">// === 每帧：鼠标/摇杆驱动 worldTurretYaw ===</span>
+<span class="hl3">// 鼠标（绝对定位）：</span>
+<span class="k">const</span> worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
+<span class="hl">worldTurretYaw</span> = angleMoveToward(<span class="hl">worldTurretYaw</span>, worldTargetYaw, turretAngVel * dt);
+
+<span class="hl3">// 手柄（相对速度）：</span>
+<span class="hl">worldTurretYaw</span> += stickToTarget(−gpx) * turretAngVel * dt;
+
+<span class="hl3">// === 每帧：渲染（世界 → 局部） ===</span>
+turretPivot.rotation.y = <span class="hl">worldTurretYaw</span> − (Math.PI/2 − hullYaw);
+
+<span class="hl3">// ⚠️ 不需要稳定器！不需要 hullDyaw！</span>
+<span class="hl3">// 公式本身已经隐含了完美稳定：</span>
+<span class="hl3">//   车体右转(hullYaw↑) → (π/2−hullYaw)↓ → turretPivot.rotation.y↑</span>
+<span class="hl3">//   → 炮塔相对车体多转了一点点 → 世界指向不变</span>
+</pre>
+
+<hr>
+<p style="text-align:center; color:var(--green); font-size:15px;">
+<b>结论：你的模型是正确的，就是世界空间陀螺仪炮塔。<br>
+地形倾斜的影响是物理真实的（炮塔座圈随车体倾斜），瞄准回路会自然补偿。<br>
+如果确认，我进入计划模式详细设计。</b>
+</p>
+
+</body>
+</html>

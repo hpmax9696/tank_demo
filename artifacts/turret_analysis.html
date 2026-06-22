@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>炮塔运动规律分析 — 坦克解耦方案对比</title>
+    <style>
+      :root {
+        --bg: #1a1a2e;
+        --panel: #16213e;
+        --accent: #e94560;
+        --accent2: #0f3460;
+        --text: #e0e0e0;
+        --text2: #a0a0b8;
+        --green: #4ecca3;
+        --orange: #f0a500;
+        --red: #e94560;
+        --blue: #4a9eff;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+        padding: 24px;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, var(--accent), var(--orange));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .subtitle {
+        text-align: center;
+        color: var(--text2);
+        margin-bottom: 32px;
+        font-size: 14px;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 32px 0 12px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--accent2);
+        color: var(--blue);
+      }
+      h3 {
+        font-size: 16px;
+        margin: 20px 0 8px;
+        color: var(--orange);
+      }
+      .card {
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 16px 0;
+        border-left: 4px solid var(--accent2);
+      }
+      .card.warn {
+        border-left-color: var(--orange);
+      }
+      .card.good {
+        border-left-color: var(--green);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 14px;
+      }
+      th,
+      td {
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 1px solid #2a2a4a;
+      }
+      th {
+        background: var(--accent2);
+        color: var(--text);
+        font-weight: 600;
+      }
+      td {
+        color: var(--text2);
+      }
+      .code {
+        background: #0d0d1a;
+        color: #c8d6e5;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        font-size: 13px;
+      }
+      pre {
+        background: #0d0d1a;
+        color: #c8d6e5;
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        margin: 12px 0;
+      }
+      .hl {
+        color: var(--orange);
+      }
+      .hl2 {
+        color: var(--green);
+      }
+      .hl3 {
+        color: var(--accent);
+      }
+      .hl4 {
+        color: var(--blue);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge.r {
+        background: rgba(233, 69, 96, 0.2);
+        color: var(--red);
+      }
+      .badge.g {
+        background: rgba(78, 204, 163, 0.2);
+        color: var(--green);
+      }
+      .badge.o {
+        background: rgba(240, 165, 0, 0.2);
+        color: var(--orange);
+      }
+      .badge.b {
+        background: rgba(74, 158, 255, 0.2);
+        color: var(--blue);
+      }
+      .diagram {
+        background: #0d0d1a;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 12px 0;
+        text-align: center;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        font-size: 14px;
+        line-height: 1.8;
+        overflow-x: auto;
+        white-space: pre;
+      }
+      .pros-cons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 12px 0;
+      }
+      .pros,
+      .cons {
+        padding: 14px;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .pros {
+        background: rgba(78, 204, 163, 0.08);
+      }
+      .cons {
+        background: rgba(233, 69, 96, 0.08);
+      }
+      .pros h4 {
+        color: var(--green);
+        margin-bottom: 6px;
+      }
+      .cons h4 {
+        color: var(--red);
+        margin-bottom: 6px;
+      }
+      li {
+        margin: 4px 0 4px 20px;
+        color: var(--text2);
+      }
+      .rec {
+        background: linear-gradient(135deg, rgba(78, 204, 163, 0.15), rgba(74, 158, 255, 0.15));
+        border: 1px solid var(--green);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 24px 0;
+      }
+      .rec h3 {
+        color: var(--green);
+        margin-top: 0;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid #2a2a4a;
+        margin: 28px 0;
+      }
+      .flow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      .flow-box {
+        background: var(--accent2);
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+      .flow-arrow {
+        color: var(--text2);
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔫 坦克炮塔运动规律分析</h1>
+    <p class="subtitle">v0.62.0 炮塔解耦方案对比 · 2026-06-21</p>
+
+    <!-- ========== 当前架构 ========== -->
+    <h2>一、当前炮塔运动架构</h2>
+
+    <div class="diagram">
+      ┌─────────────────────────────────────────────────────────┐ │
+      <span class="hl">tankGroup</span> (车身) │ │ rotation.y = π/2 − hullYaw ← 差速转向驱动 │ │ │ │
+      ┌─────────────────────────────────────────────┐ │ │ │
+      <span class="hl2">turretPivot</span> (炮塔) │ │ │ │ rotation.y =
+      <span class="hl3">turretYaw</span> ← 相对车身的局部角度 │ │ │ │ │ │ │ │
+      ┌─────────────────────────┐ │ │ │ │ │ <span class="hl4">barrelPivot</span> (炮管) │ │ │ │ │ │
+      rotation.x = elevation │ │ │ │ │ └─────────────────────────┘ │ │ │
+      └─────────────────────────────────────────────┘ │
+      └─────────────────────────────────────────────────────────┘ 世界炮塔朝向 = (π/2 − hullYaw) +
+      turretYaw
+    </div>
+
+    <div class="card">
+      <h3>三条控制路径同时作用于 turretYaw</h3>
+      <table>
+        <tr>
+          <th>路径</th>
+          <th>代码位置</th>
+          <th>机制</th>
+          <th>速度</th>
+        </tr>
+        <tr>
+          <td><span class="badge o">稳定器</span></td>
+          <td><span class="code">engine.js:1108</span></td>
+          <td><span class="code">turretYaw += hullDyaw</span> — 车体转多少，炮塔反向补偿多少</td>
+          <td>⚡ <b>瞬时</b>（无限速度）</td>
+        </tr>
+        <tr>
+          <td><span class="badge b">鼠标瞄准</span></td>
+          <td><span class="code">engine.js:1188-1194</span></td>
+          <td>
+            世界瞄准点 → invQ局部空间 →
+            <span class="code">angleMoveToward(turretYaw, targetYaw, …)</span>
+          </td>
+          <td>🐢 <b>限速 30°/s</b></td>
+        </tr>
+        <tr>
+          <td><span class="badge g">手柄右摇杆</span></td>
+          <td><span class="code">engine.js:1135</span></td>
+          <td><span class="code">turretYaw += stick * 0.5236 * dt</span> — 摇杆偏转→角速度</td>
+          <td>🎮 <b>比例速度</b></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ========== 问题根因 ========== -->
+    <h2>二、问题根因：瞬时补偿 vs 限速瞄准 互搏</h2>
+
+    <div class="card warn">
+      <h3>场景：玩家按 D 右转 + 鼠标右移瞄准</h3>
+
+      <div class="diagram">
+        时间线（一帧内）： ┌──────────────────────────────────────────────────────┐ │ │ │ ① 车体右转
+        Δ° │ │ ↓ │ │ ② 稳定器：turretYaw <span class="hl3">+= +Δ</span> （瞬时，无限速） │ │ │ │ ③
+        车体右转 → 世界瞄准点的<b>局部角度反而变小</b> │ │ （车身迎向目标，局部 targetYaw ↓） │ │ ↓
+        │ │ ④ angleMoveToward 想<b>减小</b> turretYaw │ │ 但只能以 <b>30°/s</b> 慢速纠偏 │ │ │ │ ⚠️
+        ② 往上冲，④ 往下拉 → 互搏 → 炮塔几乎不动 │ │ 车体和鼠标明明同向，炮塔却像卡住一样 │
+        └──────────────────────────────────────────────────────┘
+      </div>
+
+      <p style="margin-top: 12px; color: var(--text2)">
+        <b>一句话：</b>瞬时补偿（∞速度）和限速瞄准（30°/s）在同一个变量上打架。<br />
+        稳定器已经"过度补偿"了，瞄准系统只能慢速纠偏，造成"同向转反而迟钝"的体感。
+      </p>
+    </div>
+
+    <!-- ========== 三个方案 ========== -->
+    <h2>三、三种解决方案</h2>
+
+    <!-- 方案A -->
+    <h3>方案 A：完全解耦 <span class="badge r">激进</span></h3>
+    <p>
+      删除
+      <span class="code">engine.js:1108</span> 的稳定器行，炮塔纯跟鼠标/摇杆，车体转动不再补偿。
+    </p>
+
+    <div class="diagram">
+      改动：删除一行
+      <span class="hl3">- player.turretYaw += hullDyaw; // ← 就这一行</span>
+
+      效果：turretYaw 完全由鼠标/摇杆单独决定 车体右转 → 世界炮口也跟着右转（无补偿）
+      玩家必须手动修正鼠标来保持瞄准
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>✅ 有利</h4>
+        <ul>
+          <li>同向转不再打架，炮塔满 30°/s 追光标</li>
+          <li>操控模型极简：炮塔=光标，无隐藏魔法</li>
+          <li>真实 WWII 坦克体验（T-34 无稳定器）</li>
+          <li>代码最简，只删一行</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>❌ 不利</h4>
+        <ul>
+          <li>行进间车体转动，炮口在世界空间会漂</li>
+          <li>W+D 斜行+瞄准时，车身持续把炮塔带偏</li>
+          <li>对新手不友好：边开车边瞄准需高度协调</li>
+          <li>手柄双摇杆（左摇杆转+右摇杆瞄）体感类似</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 方案B -->
+    <h3>方案 B：世界空间瞄准 <span class="badge g">推荐</span></h3>
+    <p>
+      将瞄准逻辑从<strong>局部空间</strong>搬到<strong>世界空间</strong>，稳定器的效果变为限速 30°/s
+      的自然结果。
+    </p>
+
+    <pre>
+<span class="hl4">// 替换 engine.js:1108 和 1188-1194</span>
+
+<span class="hl4">// 1. 世界空间目标方向（从鼠标射线，当前已有）</span>
+<span class="hl">const worldTargetYaw</span> = Math.atan2(worldDir.x, worldDir.z);
+
+<span class="hl4">// 2. 当前炮塔世界朝向</span>
+<span class="hl">const worldTurretYaw</span> = Math.PI/2 - hullYaw + turretYaw;
+
+<span class="hl4">// 3. 限速追目标（稳定器效果在此，速度=30°/s，非瞬时）</span>
+<span class="hl">const newWorldYaw</span> = angleMoveToward(worldTurretYaw, worldTargetYaw, turretAngVel * dt);
+
+<span class="hl4">// 4. 反算局部 turretYaw（车体转了多少自动吸收，不打架）</span>
+<span class="hl">turretYaw</span> = normalizeAngle(newWorldYaw - (Math.PI/2 - hullYaw));
+</pre>
+
+    <div class="card good">
+      <b>关键区别：</b>旧稳定器是<strong>瞬时</strong>（无限速度），新稳定器受 30°/s
+      <strong>马达限速</strong>。 车体急转时炮塔会滞后（真实电机做不到瞬时），但不会和鼠标打架。<br />
+      类比：旧 = 魔法瞬移，新 = 真实电机追目标。
+    </div>
+
+    <div class="pros-cons">
+      <div class="pros">
+        <h4>✅ 有利</h4>
+        <ul>
+          <li>同向转不打架（都在世界空间追同一个目标）</li>
+          <li>稳定器效果保留但真实化（有限马达速度 30°/s）</li>
+          <li>鼠标和手柄走同一条世界空间路径，逻辑统一</li>
+          <li>对新老玩家都友好——车转炮不立刻漂，但有真实滞后</li>
+        </ul>
+      </div>
+      <div class="cons">
+        <h4>❌ 不利</h4>
+        <ul>
+          <li>代码改动比方案A大（~15行）</li>
+          <li>需要处理角度归一化边界</li>
+          <li>如果后续觉得"太稳"，想切方案A反而多了一步</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 方案C -->
+    <h3>方案 C：只调顺序 <span class="badge b">最小</span></h3>
+    <p>稳定器放到 angleMoveToward 之后执行，改动最小但对同向转改善有限。</p>
+
+    <pre>
+<span class="hl4">// 先让鼠标驱动炮塔追目标</span>
+player.turretYaw = angleMoveToward(player.turretYaw, targetYaw, turretAngVel * dt);
+<span class="hl4">// 再叠加稳定器补偿（延迟一帧）</span>
+player.turretYaw += hullDyaw;
+</pre>
+
+    <p style="color: var(--text2); margin-top: 8px">
+      <b>效果有限：</b>本质问题（瞬时 vs
+      限速的互搏）没解决，只是改了叠加顺序。同向转改善微乎其微。不推荐。
+    </p>
+
+    <hr />
+
+    <!-- ========== 推荐 ========== -->
+    <div class="rec">
+      <h3>🏆 推荐：方案 B — 世界空间瞄准</h3>
+
+      <p><b>理由：</b></p>
+      <ol style="color: var(--text2)">
+        <li><b>根治问题</b> — 消除瞬时补偿和限速瞄准的互搏，同向转不再迟钝</li>
+        <li>
+          <b>稳定器真实化</b> — 保留稳定器手感但限速 30°/s（像真实炮塔马达），而非极端完全取消
+        </li>
+        <li><b>一致体验</b> — 车体怎么动，炮塔始终以稳定速率追光标，体感可预测</li>
+        <li><b>可降级</b> — 如果觉得"还是太稳"，切到方案 A 只需删一行代码</li>
+        <li>
+          <b>敌我统一</b> — 敌方坦克的炮塔逻辑（<span class="code">engine.js:3289-3291</span
+          >）也可以同一方式改造
+        </li>
+      </ol>
+    </div>
+
+    <h2>四、改动的代码范围</h2>
+
+    <table>
+      <tr>
+        <th>位置</th>
+        <th>改动</th>
+        <th>行数</th>
+      </tr>
+      <tr>
+        <td><span class="code">engine.js:1103-1108</span></td>
+        <td>删除稳定器（<span class="code">hullDyaw</span> 相关），去掉瞬时补偿</td>
+        <td>−3 行</td>
+      </tr>
+      <tr>
+        <td><span class="code">engine.js:1188-1196</span></td>
+        <td>
+          改用世界空间 <span class="code">targetYaw</span>，<span class="code"
+            >angleMoveToward</span
+          >
+          对世界角度
+        </td>
+        <td>+10 行</td>
+      </tr>
+      <tr>
+        <td><span class="code">engine.js:1127-1142</span></td>
+        <td>手柄右摇杆路径同步改为世界空间叠加</td>
+        <td>+5 行</td>
+      </tr>
+      <tr>
+        <td><span class="code">engine.js:3289-3291</span></td>
+        <td>敌方坦克稳定器同样改造</td>
+        <td>+8 行</td>
+      </tr>
+    </table>
+
+    <hr />
+    <p style="text-align: center; color: var(--text2); font-size: 13px">
+      下一步：确认方案后进入计划模式 → 详细实现 → CDP 验证 → 你实操体验
+    </p>
+  </body>
+</html>

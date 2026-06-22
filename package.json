@@ -1,8 +1,9 @@
 {
+  "name": "tank-demo",
+  "version": "0.62.0",
+  "private": true,
+  "description": "3D 坦克对战游戏 — Three.js r160 浏览器游戏",
   "devDependencies": {
-    "playwright": "1.60.0"
-  },
-  "dependencies": {
-    "three": "0.184.0"
+    "prettier": "^3.4.0"
   }
 }

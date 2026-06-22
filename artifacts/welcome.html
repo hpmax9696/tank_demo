@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artifacts — HTML 中间层演示</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d2991d;
+    --red: #f85149;
+    --purple: #a371f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 32px; font-size: 14px; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card h3 { font-size: 16px; margin-bottom: 8px; }
+  .card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .card .icon { font-size: 28px; margin-bottom: 12px; }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .col {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .col.old { border-top: 3px solid var(--orange); }
+  .col.new { border-top: 3px solid var(--green); }
+  .col h3 { margin-bottom: 12px; }
+  .col ul { list-style: none; font-size: 13px; line-height: 2; }
+  .col li::before { margin-right: 8px; }
+  .col.old li::before { content: '❌'; }
+  .col.new li::before { content: '✅'; }
+
+  .flow {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .flow h3 { margin-bottom: 16px; }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+  .step-arrow {
+    color: var(--muted);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  code {
+    background: #1f2335;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<h1>🎨 Artifacts — HTML 中间层</h1>
+<p class="subtitle">这份页面不是"写的网页"，而是 Claude 用 HTML 渲染能力向你传达信息</p>
+
+<div class="cards">
+  <div class="card">
+    <div class="icon">📊</div>
+    <h3>数据可视化</h3>
+    <p>终端 Markdown 表格最多 4-5 列就溢出。HTML 可以做热力图、甘特图、雷达图——任何 Chart.js/ECharts 能画的。</p>
+  </div>
+  <div class="card">
+    <div class="icon">🎛️</div>
+    <h3>交互式决策</h3>
+    <p>拖动滑块调整参数、点击切换方案、实时预览。终端只能回答不可操作——HTML 既是表达也是操作。</p>
+  </div>
+  <div class="card">
+    <div class="icon">🗺️</div>
+    <h3>架构图 / 流程图</h3>
+    <p>Mermaid 太受限。Canvas/SVG 能做任意图——模块依赖图、调用时序图、类继承图，想怎么画怎么画。</p>
+  </div>
+</div>
+
+<div class="comparison">
+  <div class="col old">
+    <h3>终端 Markdown</h3>
+    <ul>
+      <li>纯文本 + 简单表格</li>
+      <li>无法画图</li>
+      <li>阅读型 / 静态</li>
+      <li>屏幕宽度受限</li>
+      <li>输出即丢弃</li>
+    </ul>
+  </div>
+  <div class="col new">
+    <h3>Artifacts HTML</h3>
+    <ul>
+      <li>任意布局 / 颜色 / 排版</li>
+      <li>SVG / Canvas / 图表</li>
+      <li>可交互 / 可点击</li>
+      <li>浏览器全屏查看</li>
+      <li>文件持久化可回看</li>
+    </ul>
+  </div>
+</div>
+
+<div class="flow">
+  <h3>⚡ 工作流程（已自动化）</h3>
+  <div class="flow-step">
+    <span class="step-num">1</span>
+    <span>你说："对比这三个方案的优劣"</span>
+  </div>
+  <div class="flow-step">
+    <span class="step-arrow">→</span>
+    <span class="step-num">2</span>
+    <span>Claude 生成 <code>artifacts/comparison.html</code></span>
+  </div>
+  <div class="flow-step">
+    <span class="step-arrow">→</span>
+    <span class="step-num">3</span>
+    <span>PostToolUse 钩子检测到 artifacts/ 目录写入</span>
+  </div>
+  <div class="flow-step">
+    <span class="step-arrow">→</span>
+    <span class="step-num">4</span>
+    <span>2 秒 debounce（批量写入收集）→ 自动打开 Chrome</span>
+  </div>
+  <div class="flow-step">
+    <span class="step-arrow">→</span>
+    <span class="step-num">5</span>
+    <span>你在浏览器里看到这份页面 🎉</span>
+  </div>
+</div>
+
+</body>
+</html>

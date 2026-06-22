@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Superpowers — Claude Code 最强工程化框架调研</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d2991d;
+    --red: #f85149;
+    --purple: #a371f7;
+    --pink: #db61a2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0d1117 0%, #1a1d27 50%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 32px 40px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #58a6ff 0%, #a371f7 50%, #db61a2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 640px;
+    margin: 0 auto 20px;
+  }
+  .hero .meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .hero .meta a { color: var(--accent); text-decoration: none; }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── Score cards ── */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .score-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .score-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .score-card.featured { border-color: var(--purple); box-shadow: 0 0 24px rgba(163,113,247,0.12); }
+  .score-card .rank {
+    position: absolute; top: -14px; left: 20px;
+    background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700;
+    padding: 2px 10px; border-radius: 20px;
+  }
+  .score-card.featured .rank { background: var(--purple); }
+  .score-card h3 { font-size: 20px; margin-bottom: 4px; }
+  .score-card .author { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .score-card .desc { font-size: 14px; margin-bottom: 16px; line-height: 1.7; }
+  .score-card .stars { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .score-card .stars span { display: flex; align-items: center; gap: 4px; }
+  .score-bar {
+    display: flex; gap: 4px;
+    height: 6px; border-radius: 3px; overflow: hidden;
+  }
+  .score-bar .seg { height: 100%; border-radius: 1px; }
+  .seg.r { background: var(--accent); }
+  .seg.f { background: var(--green); }
+  .seg.c { background: var(--orange); }
+  .seg.t { background: var(--purple); }
+
+  /* ── Pipeline ── */
+  .pipeline {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 40px;
+  }
+  .pipeline h2 { font-size: 20px; margin-bottom: 20px; }
+  .pipe-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .pipe-step {
+    background: #1c2030;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    white-space: nowrap;
+    text-align: center;
+    flex-shrink: 0;
+    transition: border-color 0.2s;
+  }
+  .pipe-step:hover { border-color: var(--accent); }
+  .pipe-step .emoji { font-size: 22px; margin-bottom: 4px; }
+  .pipe-step .name { font-size: 13px; font-weight: 600; }
+  .pipe-step .sub { font-size: 11px; color: var(--muted); }
+  .pipe-arrow {
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+
+  /* ── Skills table ── */
+  .section-title { font-size: 20px; margin-bottom: 16px; }
+  .skill-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 40px;
+    font-size: 14px;
+  }
+  .skill-table th, .skill-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .skill-table th {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #0d1117;
+    position: sticky; top: 0;
+  }
+  .skill-table tr:hover td { background: #1c2030; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.design { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge.plan { background: rgba(163,113,247,0.15); color: var(--purple); }
+  .badge.exec { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge.quality { background: rgba(210,153,29,0.15); color: var(--orange); }
+  .badge.meta { background: rgba(219,97,162,0.15); color: var(--pink); }
+  .badge.env { background: rgba(139,148,158,0.15); color: var(--muted); }
+
+  /* ── Iron Laws ── */
+  .laws {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+  .law {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--purple);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 20px;
+  }
+  .law .num { font-size: 11px; color: var(--purple); font-weight: 700; letter-spacing: 0.08em; }
+  .law .title { font-size: 15px; font-weight: 600; margin: 4px 0 6px; }
+  .law .detail { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── Comparison ── */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 700px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+  }
+  .compare-col.without { border-top: 3px solid var(--orange); }
+  .compare-col.with { border-top: 3px solid var(--green); }
+  .compare-col h3 { margin-bottom: 14px; font-size: 16px; }
+  .compare-col ul { list-style: none; font-size: 13px; }
+  .compare-col li { padding: 6px 0; border-bottom: 1px solid rgba(48,54,61,0.5); }
+  .compare-col li:last-child { border-bottom: none; }
+  .compare-col .icon { margin-right: 8px; }
+
+  /* ── Install ── */
+  .install-box {
+    background: linear-gradient(135deg, #1a1d27, #161b22);
+    border: 2px solid var(--purple);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 40px;
+  }
+  .install-box h3 { font-size: 18px; margin-bottom: 12px; }
+  .install-box code {
+    display: block;
+    background: #0d1117;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--green);
+    margin: 10px 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  }
+  .install-box .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  /* ── Decision box ── */
+  .decision {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .decision h3 { margin-bottom: 16px; }
+  .btn-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); background: #1c2030; }
+  .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn.primary:hover { background: #8b5cf6; }
+  .btn.secondary { border-color: var(--accent); color: var(--accent); }
+  .btn.secondary:hover { background: rgba(88,166,255,0.08); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <h1>⚡ Superpowers</h1>
+  <p class="subtitle">
+    Claude Code 生态中最知名的工程化开发框架——不是一堆 prompt，而是一套可组合的<strong>方法论技能库</strong>，让 AI 编程从"聪明但随性"变成"工程级严谨"
+  </p>
+  <div class="meta">
+    <span>👤 Jesse Vincent (obra)</span>
+    <span>📦 <a href="https://github.com/obra/superpowers" target="_blank">github.com/obra/superpowers</a></span>
+    <span>📄 MIT License</span>
+    <span>🔄 持续维护中</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ── 搜索结果对比 ── -->
+<h2 class="section-title">🔍 搜索结果 Top 3</h2>
+<div class="score-grid">
+  <div class="score-card featured">
+    <div class="rank">⭐ 推荐</div>
+    <h3>obra/superpowers</h3>
+    <div class="author">Jesse Vincent · 原版 · MIT</div>
+    <div class="desc">
+      14 个可组合技能覆盖完整开发周期。不是 prompt 集合，而是强制性的工作流引擎——session 启动时自动注入，<strong>不经过设计/计划/TDD/审查门槛就不能写代码</strong>。
+    </div>
+    <div class="stars">
+      <span>⭐ 8+ 平台支持</span><span>📅 2025-10 发布</span><span>🔄 v5.x 活跃</span>
+    </div>
+    <div class="score-bar">
+      <div class="seg r" style="width:38%"></div>
+      <div class="seg f" style="width:23%"></div>
+      <div class="seg c" style="width:19%"></div>
+      <div class="seg t" style="width:15%"></div>
+    </div>
+  </div>
+
+  <div class="score-card">
+    <div class="rank">#2</div>
+    <h3>tw93/Waza</h3>
+    <div class="author">tw93 · ⭐ 5,978 · Python</div>
+    <div class="desc">
+      "你已经知道的工程习惯，变成 Claude 可运行的技能"。中国开发者做的同类框架，更轻量，偏实用主义而非方法论强制。与 Superpowers 设计哲学不同。
+    </div>
+    <div class="stars">
+      <span>⭐ 5,978</span><span>🔀 363 forks</span><span>📅 活跃</span>
+    </div>
+    <div class="score-bar">
+      <div class="seg r" style="width:30%"></div>
+      <div class="seg f" style="width:20%"></div>
+      <div class="seg c" style="width:25%"></div>
+      <div class="seg t" style="width:15%"></div>
+    </div>
+  </div>
+
+  <div class="score-card">
+    <div class="rank">#3</div>
+    <h3>wlshlad85/superpowers</h3>
+    <div class="author">ClawhHub 分发版 · 得分 4.04</div>
+    <div class="desc">
+      obra/superpowers 在 ClawhHub 上的社区分发版。内容同原版，只是分发渠道不同。ClawhHub 平台用户可通过 <code>/superpowers</code> 直接调用。
+    </div>
+    <div class="stars">
+      <span>🏆 ClawhHub 最高分</span><span>📋 同原版内容</span>
+    </div>
+    <div class="score-bar">
+      <div class="seg r" style="width:28%"></div>
+      <div class="seg f" style="width:18%"></div>
+      <div class="seg c" style="width:22%"></div>
+      <div class="seg t" style="width:12%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 完整工作流 ── -->
+<div class="pipeline">
+  <h2>🔄 标准开发管线（7 阶段）</h2>
+  <div class="pipe-flow">
+    <div class="pipe-step">
+      <div class="emoji">💡</div>
+      <div class="name">brainstorming</div>
+      <div class="sub">模糊需求 → spec 文档</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">🌿</div>
+      <div class="name">git-worktrees</div>
+      <div class="sub">隔离工作区</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">📋</div>
+      <div class="name">writing-plans</div>
+      <div class="sub">拆成 2-5min 任务</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">🔨</div>
+      <div class="name">subagent-dev</div>
+      <div class="sub">每任务独立子 agent</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">🟢🔴</div>
+      <div class="name">TDD</div>
+      <div class="sub">RED→GREEN→REFACTOR</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">👀</div>
+      <div class="name">code-review</div>
+      <div class="sub">双阶段审查门槛</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">
+      <div class="emoji">🏁</div>
+      <div class="name">finishing</div>
+      <div class="sub">验证→合并→清理</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 14 技能全表 ── -->
+<h2 class="section-title">📦 14 个核心技能</h2>
+<table class="skill-table">
+  <thead>
+    <tr><th>类别</th><th>技能名</th><th>触发场景</th><th>核心行为</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge meta">入口</span></td>
+      <td><strong>using-superpowers</strong></td>
+      <td>每次会话启动</td>
+      <td>检测任务类型 → 自动路由到对应技能；1% 概率也检查</td>
+    </tr>
+    <tr>
+      <td><span class="badge design">设计</span></td>
+      <td><strong>brainstorming</strong></td>
+      <td>需求模糊、需要方案</td>
+      <td>苏格拉底式追问 → 2-3 备选方案 → 分块审批 spec</td>
+    </tr>
+    <tr>
+      <td><span class="badge plan">规划</span></td>
+      <td><strong>writing-plans</strong></td>
+      <td>spec 就绪后</td>
+      <td>拆成 2-5 分钟粒度任务，精确到文件路径+验证命令</td>
+    </tr>
+    <tr>
+      <td><span class="badge exec">执行</span></td>
+      <td><strong>subagent-driven-development</strong></td>
+      <td>有子 agent 能力时</td>
+      <td>每个任务 = 独立子 agent → spec 合规审查 → 代码质量审查</td>
+    </tr>
+    <tr>
+      <td><span class="badge exec">执行</span></td>
+      <td><strong>executing-plans</strong></td>
+      <td>无子 agent 能力时</td>
+      <td>顺序执行 + 检查点 + 随时可停下来继续</td>
+    </tr>
+    <tr>
+      <td><span class="badge exec">执行</span></td>
+      <td><strong>dispatching-parallel-agents</strong></td>
+      <td>多独立问题域</td>
+      <td>并发子 agent，互不干扰的问题同时推进</td>
+    </tr>
+    <tr>
+      <td><span class="badge quality">质量</span></td>
+      <td><strong>test-driven-development</strong></td>
+      <td>任何代码修改</td>
+      <td>严格 RED→GREEN→REFACTOR，禁止跳过红灯写代码</td>
+    </tr>
+    <tr>
+      <td><span class="badge quality">质量</span></td>
+      <td><strong>systematic-debugging</strong></td>
+      <td>遇到 bug</td>
+      <td>4 阶段：调查 → 模式分析 → 假设 → 修复（非随手改）</td>
+    </tr>
+    <tr>
+      <td><span class="badge quality">质量</span></td>
+      <td><strong>verification-before-completion</strong></td>
+      <td>宣布"完成"前</td>
+      <td>必须跑全新验证 + 贴完整输出，没证据不算完成</td>
+    </tr>
+    <tr>
+      <td><span class="badge quality">质量</span></td>
+      <td><strong>requesting-code-review</strong></td>
+      <td>任务间</td>
+      <td>按严重程度的结构化自审查，严重问题阻止继续</td>
+    </tr>
+    <tr>
+      <td><span class="badge quality">质量</span></td>
+      <td><strong>receiving-code-review</strong></td>
+      <td>收到外部 review</td>
+      <td>技术性回应每条反馈，有依据可反驳</td>
+    </tr>
+    <tr>
+      <td><span class="badge env">环境</span></td>
+      <td><strong>using-git-worktrees</strong></td>
+      <td>开始开发前</td>
+      <td>每个特性独立 worktree，隔离环境+基线验证</td>
+    </tr>
+    <tr>
+      <td><span class="badge env">环境</span></td>
+      <td><strong>finishing-a-development-branch</strong></td>
+      <td>开发完成</td>
+      <td>验证 → 决定合并/PR/保留/丢弃 → 清理</td>
+    </tr>
+    <tr>
+      <td><span class="badge meta">扩展</span></td>
+      <td><strong>writing-skills</strong></td>
+      <td>要创建新技能</td>
+      <td>TDD 写文档——先写不完整的 SKILL.md 看 agent 哪里犯错→迭代</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── 六条铁律 ── -->
+<h2 class="section-title">⚖️ 六条铁律（Iron Laws）</h2>
+<div class="laws">
+  <div class="law">
+    <div class="num">铁律 01</div>
+    <div class="title">设计先于编码</div>
+    <div class="detail">没有 approved spec，不动手写代码。brainstorming 阶段必须产出结构化设计文档并获用户确认。</div>
+  </div>
+  <div class="law">
+    <div class="num">铁律 02</div>
+    <div class="title">TDD 优先</div>
+    <div class="detail">没有失败的测试，不写生产代码。严格 RED → GREEN → REFACTOR 循环，禁止跳过红灯。</div>
+  </div>
+  <div class="law">
+    <div class="num">铁律 03</div>
+    <div class="title">系统化而非随缘</div>
+    <div class="detail">bug 修复必须走四阶段根因分析（调查→模式→假设→修复），禁止"随手改了试试"。</div>
+  </div>
+  <div class="law">
+    <div class="num">铁律 04</div>
+    <div class="title">证据胜于声称</div>
+    <div class="detail">宣布"完成"前必须跑全新验证并贴完整输出。没有客观证据 = 没有完成。</div>
+  </div>
+  <div class="law">
+    <div class="num">铁律 05</div>
+    <div class="title">子 agent 审查门槛</div>
+    <div class="detail">每个任务完成后：spec 合规审查 → 代码质量审查。两道门槛都过才能进入下一个任务。</div>
+  </div>
+  <div class="law">
+    <div class="num">铁律 06</div>
+    <div class="title">YAGNI + DRY</div>
+    <div class="detail">你不需要它（You Aren't Gonna Need It）。不重复自己（Don't Repeat Yourself）。简单是首要目标。</div>
+  </div>
+</div>
+
+<!-- ── 有无 Superpowers 对比 ── -->
+<h2 class="section-title">📊 有没有 Superpowers 的区别</h2>
+<div class="compare">
+  <div class="compare-col without">
+    <h3>❌ 不用 Superpowers</h3>
+    <ul>
+      <li>你说"加个功能"，AI 直接写代码</li>
+      <li>没有 spec，边写边猜你的意图</li>
+      <li>写完就完了，不验证不审查</li>
+      <li>代码风格每次可能不同</li>
+      <li>bug 修复 = 随手改改试试</li>
+      <li>大功能一个 agent 硬扛到底</li>
+      <li>你靠人力 review 找问题</li>
+    </ul>
+  </div>
+  <div class="compare-col with">
+    <h3>✅ 用 Superpowers</h3>
+    <ul>
+      <li>你说"加个功能"，AI 先追问细节 → 出 spec</li>
+      <li>spec 分块让你审批，确保理解正确</li>
+      <li>拆任务 → 独立子 agent → 双审查 → TDD</li>
+      <li>代码风格受审查门槛约束，一致性高</li>
+      <li>bug 修复 = 根因分析 → 复现测试 → 修复 → 验证</li>
+      <li>大功能自动拆成并行/串行子任务</li>
+      <li>AI 自己 review 自己，你只看最终结果</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ── 安装 ── -->
+<div class="install-box">
+  <h3>📥 安装方式</h3>
+  <p style="color:var(--muted);font-size:14px;">在 Claude Code 官方市场中一行命令：</p>
+  <code>/plugin install superpowers@claude-plugins-official</code>
+  <p style="color:var(--muted);font-size:14px;margin-top:12px;">或者通过 obra 的第三方市场：</p>
+  <code>/plugin marketplace add obra/superpowers-marketplace</code>
+  <code>/plugin install superpowers@superpowers-marketplace</code>
+  <div class="note">⚠️ 安装后，每次 Claude Code 会话启动时 <code>using-superpowers</code> 技能会自动注入上下文，约 4K tokens 开销。</div>
+</div>
+
+<!-- ── 决策区 ── -->
+<div class="decision">
+  <h3>要试试吗？</h3>
+  <div class="btn-group">
+    <button class="btn primary" onclick="alert('回到 Claude Code 终端，输入：/plugin install superpowers@claude-plugins-official')">📦 安装原版</button>
+    <button class="btn secondary" onclick="alert('不安装，让我在项目中手动实现核心流程')">🛠️ 手动实现核心流程</button>
+    <button class="btn" onclick="alert('先记下来，以后再说')">⏸️ 以后再说</button>
+  </div>
+</div>
+
+</div>
+
+<footer>
+  Artifacts 中间层演示 · 这份页面不是"网页"，是 Claude 用 HTML 呈现的调研报告
+</footer>
+
+</body>
+</html>

@@ -1,12 +1,13 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.63.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.63.1
 
 ## 运行
 
 ```bash
 python -m http.server 8080 --bind 127.0.0.1
 ```
+
 访问 `http://127.0.0.1:8080`（必须 127.0.0.1，禁止 localhost）
 
 提供 `preview_url` 前：先杀残留 Python 进程，再启动单一服务，确认就绪后才调用。
@@ -99,25 +100,29 @@ python -m http.server 8080 --bind 127.0.0.1
 
 三个按钮驱动两条独立管线：
 
-| 按钮 | 函数 | 说明 |
-|------|------|------|
-| 🎲 一键全部 | `generateAll()` | 管线A→管线B，完整地图 |
-| 🌍 仅生成地形 | `generateTerrainOnly()` | 管线A：FBM→自动平整→生态区→池塘。结束后可手画河流 |
+| 按钮              | 函数                         | 说明                                                                       |
+| ----------------- | ---------------------------- | -------------------------------------------------------------------------- |
+| 🎲 一键全部       | `generateAll()`              | 管线A→管线B，完整地图                                                      |
+| 🌍 仅生成地形     | `generateTerrainOnly()`      | 管线A：FBM→自动平整→生态区→池塘。结束后可手画河流                          |
 | 🏘️ 生成道路与村落 | `generateRoadsAndVillages()` | 管线B：读当前terrain+water→掩码→主干道→FloodFill→选址预验证→落地→树木→桥梁 |
 
 ### 管线A（仅地形）
+
 FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
 
 ### 管线B（道路+村落+障碍物）
-构建掩码（MG_BUILDABLE/FORBIDDEN/WATER/ROAD）→ A*主干道 → Flood Fill区域分割 → 村落选址+容量预验证 → 落地（广场整平+村路+建筑+连接路）→ 分层采样树木 → 桥梁检测 → roadSystem存储
+
+构建掩码（MG_BUILDABLE/FORBIDDEN/WATER/ROAD）→ A\*主干道 → Flood Fill区域分割 → 村落选址+容量预验证 → 落地（广场整平+村路+建筑+连接路）→ 分层采样树木 → 桥梁检测 → roadSystem存储
 
 ### 新增数据结构
+
 - `MaskGrid` (Uint8Array位掩码)：`MG_BUILDABLE|MG_FORBIDDEN|MG_WATER|MG_ROAD|MG_PLAZA|MG_BUILDING|MG_BUFFER`
 - `BuildableRegion`：FloodFill连通区（面积/质心/平坦度/包围半径）
 - `VillagePlan`：预验证选址（广场+支路+建筑槽位+容量）
 - `GenerationReport`：诊断报告（统计+失败原因+质量评分+种子+耗时）
 
 ### 关键函数
+
 - `_autoFlatten(cfg)`: 保峰压谷 — 保留N个山峰，谷削至 keepRatio%
 - `buildMaskGrid(cfg)`: 从当前地形+水体构建全图禁建掩码
 - `_findBuildableRegions()`: BFS连通域分析
@@ -226,11 +231,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项 | 可选值 |
-|--------|--------|
-| 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
+| 配置项   | 可选值                                                      |
+| -------- | ----------------------------------------------------------- | ------------------------ | --- |
+| 我方     | 坦克、六足(灰色不可选)                                      |
+| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -248,6 +253,7 @@ legGroup (Y旋转=水平摆角)
 ## v0.60.x 本次会话变更 (2026-06-15)
 
 ### 狙击模式（第一人称）
+
 - **右键切换**：`mousedown button=2` 切换 `_sniperMode`，FOV 25°（约1.8x变焦），指挥塔视角
 - **自由观察**：`cameraYaw` + `_sniperPitch` 驱动，水平复用第三人称yaw，垂直独立（movementY驱动）
 - **俯仰限位**：±60°仰角 / -45°俯角（`Math.max(-PI/4, Math.min(PI/3, ...))`）
@@ -260,6 +266,7 @@ legGroup (Y旋转=水平摆角)
 - **俯视小地图**：左下角140px圆形canvas，线框车体+三角车首指示前方，上方=摄像机朝向，HP红→绿
 
 ### 动态天空系统（`js/sky.js`）
+
 - **天空穹顶**：倒置球体（半径`maxSide*1.7`），顶点着色器渐变（天顶深蓝→地平线淡蓝白），太阳光晕
 - **云层**：两层FBM值噪声（`fract(sin(dot(...)))` 哈希），smoothstep软边缘，不同scale/speed飘移
 - **零纹理**：纯着色器算法，~80 ALU ops/pixel，0 纹理采样，<0.5ms/帧
@@ -272,6 +279,7 @@ legGroup (Y旋转=水平摆角)
 - **雾优化**：`fogNear = maxSide*0.4`（从0.8降低，大气透视更早生效）
 
 ### 六足AI修复（v0.60.1~v0.60.3）
+
 - **复活腿部冻结**：`_processTrainingRespawn` 补回 `HexapodEnemy.init(en)` 重建CCD IK上下文
 - **复活后退**：`retreating` 条件 `radialW > 0.3`→`radialW < -0.3`（太近才后退，太远应前进）
 - **复活导弹弹药**：重置 `_missileAmmoL/R=4`，防止打光后永久无弹
@@ -279,6 +287,7 @@ legGroup (Y旋转=水平摆角)
 - **加特林过热停转**：`ai._overheated` 时 `spinRPS=0`，两处update已修复
 
 ### 参数变更
+
 - 围墙高度：80→移除
 - 围墙颜色：`#8899aa`→移除
 - `scene.fog` 颜色：`#8899aa`→`#c8d8e0`；near/far：`maxSide*0.8/1.6`→`maxSide*0.4/1.6`
@@ -289,6 +298,7 @@ legGroup (Y旋转=水平摆角)
 - 天空穹顶分段：`64×32`→`96×48`
 
 ### 性能优化（v0.60.4）
+
 - **草丛InstancedMesh合并**：按单元格分块(每类型8×8=64DC)→按类型合并(每类型1DC)，草丛draw call从~48-192降至固定3
 - **草材质降级**：`MeshStandardMaterial`→`MeshLambertMaterial`（PBR→漫反射，GPU着色器开销降~30%）
 - **草片面剔除**：`DoubleSide`→`FrontSide`（片段着色器调用减半）
@@ -300,16 +310,18 @@ legGroup (Y旋转=水平摆角)
 ## v0.61.0 本次会话变更 (2026-06-17)
 
 ### 模块化玩家角色控制器（可插拔架构）
+
 - **`js/playerControllers/manager.js`**：`window.PlayerControllerManager` 调度层，注册表+当前角色+update分发。采用"默认透传"模式——`isActive()=false`（坦克）时 gameLoop 走原代码（零回归）；`=true`（六足等注册角色）时跳过坦克物理块
 - **接口契约**：核心4方法（`type/onSpawn/update/getPose/dispose`）+ 可选能力钩子（`getGroup/canSniper/handleWeapons/onRespawn/onHit`，typeof 探测）。武器/炮塔进可选钩子（六足无武器，避免接口污染）
 - **`js/playerControllers/hexapodPlayer.js`**：第一个新角色，WASD 八方向+鼠标转向，复用 `HexapodEnemy.init/update` 的 CCD IK 步态管线
 - **扩展性**：未来新增角色（丧尸/突击车）只需 1 文件 + 1 script + 1 按钮，不改 engine.js
 - **⚠️ 关键坑：`engine.js` 顶层 `let` 不挂 `window`**（player1/cameraYaw/scene/gameMode 等）。控制器是独立模块，**绝不能用 `window.cameraYaw` 读取**——会得到 undefined → `Object3D.rotation=NaN` → 所有子 mesh 投影到 NaN 位置（屏幕外）。正确做法：经 `input.cameraYaw` 参数传入（gameLoop 分发时传），或经 `spawnCtx.player1`。其他角色实现时严格遵守这个参数通道。
-- **engine.js 6处PCM守卫**：gameLoop(1466)/enterTrainingMode(5135)/placeCamera(3170)/_processTrainingRespawn(4065)/returnToMenu(5011)/updateTrajectoryLine(1254)
+- **engine.js 6处PCM守卫**：gameLoop(1466)/enterTrainingMode(5135)/placeCamera(3170)/\_processTrainingRespawn(4065)/returnToMenu(5011)/updateTrajectoryLine(1254)
 - **六足→坦克切换修复**：六足退出后重选坦克时检测 `_polluted`（player1被壳化），自动重建坦克模型+全局引用(tankGroup/leftWheels/reloadBarGroup)，并 deactivate PCM
 - **UI适配**：六足模式隐藏血条/装填条/弹道线（无武器），禁止狙击（无炮塔）
 
 ### 六足步态姿势对齐（经探针数据量化定位+修复）
+
 - **探针工具 `js/hexapod_probe.js`**：`__hexProbeStart/Stop/Stats/Compare` + `F7/F8` 快捷键 + localStorage 持久化（同源页面共享），输出精简统计（关节角 min/max/range + hipPeriodJump）。量化对比模型工厂(bodyWriter=true) vs 游戏(bodyWriter=false)的步态差异
 - **Bug1：bodySpeed 时序bug**（`hexapod_enemy.js:178`）：`ctx._prevBodyPos` 在 stepGait 末尾更新成当前位置，下一帧位置差恒=0 → `spd` 恒=0 → `gaitPeriod` 固定0.7（本应自适应）+ `dynamicStride` 与身体失同步。**修复**：bodySpeed 改用 `|ai._desiredVel|` 直接算（精确），位置差仅作 fallback
 - **Bug2：支撑相锁定策略**（`hexapod_core.js` stepGait）：工厂用 `plantPos`（脚实际落地世界位置，钉前方）；游戏端用 `_legHomePos`（身体下方 home）→ CCD 把脚从前方硬拉回下方 → 髋限位卡 0.45 + 膝弯 0.96 + 周期跳变 0.259。**修复**：玩家六足（`ctx._isPlayer`）支撑相用 `tipLocal.applyMatrix4(anklePivot.matrixWorld)` 钉实际位置（对齐 factory），敌人保持 `_legHomePos`（绕圈补偿）
@@ -319,6 +331,7 @@ legGroup (Y旋转=水平摆角)
 - **频率差异**：玩家 period 0.22（快步频，走速2.5）vs 工厂 0.7（展台Walk慢）——这是速度差异，姿势已对齐
 
 ### 技术支持
+
 - **Playwright 自动化验证**：`npx playwright 1.60`（Node.js，chromium headless）用于真实复现 gameLoop 的运行时行为（raf 正常触发，不像旧 CDP headless 不触发 raf）。位于 `pw_test.js`（诊断用，用后清理）。后续步态调试可继续用此工具
 - **状态栏**：`~/.claude/settings.json` 已配置 `statusLine`（python 脚本解析 Claude Code JSON stdin），显示模型·输出风格·会话·上下文%·PR
 
@@ -327,6 +340,7 @@ legGroup (Y旋转=水平摆角)
 ## v0.61.1 本次会话变更 (2026-06-17)
 
 ### 六足玩家步进式转向架构（根治 #5 转向腿飞 + #6 长期漂移）
+
 - **根因**：原架构 `_root.rotation.y = π-_yaw` 身体每帧紧跟视角，腿被动追 → 转向时髋关节顶 ±0.45 限位 → 腿飞；摆动落点 swingFrom+估算步距与身体实际位移失配 → 漂移累积
 - **步进式转向**（用户方案）：turnRate 离散化，每步态周期(0.32s)采样目标转向量→单步转角(clamp≤0.5rad)→整周期恒定执行。身体由 stepGait 步态驱动转向(腿蹬地+预伸)，非每帧跟视角
 - **视角/机体解耦**：视角即时跟鼠标(cameraYaw)，身体步进慢追(笨重延迟, 平移补精细瞄准)；移动按视角(W=鼠标看的方向)
@@ -338,6 +352,7 @@ legGroup (Y旋转=水平摆角)
 - **关键参数**：`STEP_PERIOD=0.32` `MAX_STEP=0.5` `IDLE_THR=0.02`（均在 stepGait 玩家分支，可调）
 
 ### 已知问题
+
 1. 坡地一头翘起一头陷地（地形适应不平滑）
 2. 对山丘目标弹道偏低
 3. 只会对山丘开炮不会绕路
@@ -354,12 +369,13 @@ legGroup (Y旋转=水平摆角)
 - **根因1 接通地形适应**（`engine.js`）：`getGroundHeight` 是脚本作用域局部函数，从未挂 window；`HexapodEnemy.init`（`hexapod_enemy.js:123`）取 `window.getGroundHeight` 得 null → `ctx.groundHeightFn=null` → stepGait 第441行 `if(ctx.groundHeightFn)` 永不成立 → 车身 pitch/roll 代码从不执行、position.y 也不跟随地形（车身完全水平）。**修复**：`window.getGroundHeight = getGroundHeight;`
 - **根因2 防过度倾斜**（`hexapod_core.js` stepGait）：采样 `sD=1.2` 太小（六足前后腿跨~1m，1.2m 没覆盖车身），对 FBM 高频+河岸落水过敏，实测局部采样坡度(48°)远大于宏观(16°)。**修复**：sD 1.2→2.0 + 落水/陡崖过滤（采样点 `< h_center-1.2` 用 center 替代）+ 平滑（HEX_SMOOTH=12）
 - **根因3 hRgt 方向反**：原照搬坦克公式 `(-cos(yaw+π/2), sin(yaw+π/2))`，但六足车头朝向不同 → 左右反（绿箭头指左）。**修复**：hRgt = `hFwd×up = (-sin yaw, -cos yaw)`（右侧）
-- **根因4 pitch/roll 轴互换（最隐蔽）**：六足车头本地 **−X**（坦克是 −Z），YXZ 下 `rotation.x`=侧倾、`rotation.z`=俯仰，与坦克**相反**；原代码照坦克赋值（rotation.x←pitch, rotation.z←roll）→ 正对坡顶（前后落差）错误地变成侧倾。**修复**：`_rollT` 去负号 + 交换赋值（`rotation.x`←侧倾 _smRoll，`rotation.z`←俯仰 _smPitch）
+- **根因4 pitch/roll 轴互换（最隐蔽）**：六足车头本地 **−X**（坦克是 −Z），YXZ 下 `rotation.x`=侧倾、`rotation.z`=俯仰，与坦克**相反**；原代码照坦克赋值（rotation.x←pitch, rotation.z←roll）→ 正对坡顶（前后落差）错误地变成侧倾。**修复**：`_rollT` 去负号 + 交换赋值（`rotation.x`←侧倾 \_smRoll，`rotation.z`←俯仰 \_smPitch）
 - **可视化排查法**：临时在六足加红(hFwd)/绿(hRgt)箭头+黄球(采样点)，用户肉眼对比模型车头，定位根因3/4（纯数据测 hFwd/hRgt 都正确但 roll 仍错）。用后已还原
 - **验证**：Playwright 实测连续缓坡 pitch=9.6° roll=0.3°（俯仰主导）、陡岸不暴涨、0 console 错误
 - **顺带修复**：六足敌人地形适应（同一 HexapodEnemy.init 路径，原同样 groundHeightFn=null）
 
 ### 已知问题（更新）
+
 1. 坡地一头翘起一头陷地（**六足玩家已修**，坦克/敌人仍偶发）
 2. 对山丘目标弹道偏低
 3. 只会对山丘开炮不会绕路
@@ -370,17 +386,19 @@ legGroup (Y旋转=水平摆角)
 ## v0.61.3 本次会话变更 (2026-06-18)
 
 ### 加特林枪管旋转状态机修复（3 根因）
+
 - **根因1**（`hexapod_core.js` updateGatlingSpin）：`spinRPS = spinRPS || 3`，0 被 `||` 当 3 → 枪管恒转 3 RPS（"总在转"直接根因）。**修复**：`|| 0`
 - **根因2**（`hexapod_enemy.js`）：调用方默认 `spinRPS=3`（spinUp=0 不攻击也转），死亡中/完成传 3。**修复**：`spinRPS = (spinUp||0)*30`（0 停/30 满），死亡传 0
 - **根因3**（`enemyAI.js`）：过热恢复 `heat<20` 解除。**修复**：`heat<=0`（强制散热必须降到 0 才能再旋转→达标→射击）
 - **完整状态机**：不攻击/不在射程→spinUp衰减停转；攻击→spinUp渐增加速旋转；spinUp>0.7达标→射击+枪管发热变红（barrelMats emissive）；heat≥80过热停射停转；heat降到0才解除。玩家六足无武器→枪管永静
 
 ### 六足玩家跑/走恢复
+
 - **键盘 WASD（满力度1）→ 跑**：Run 步态（animIndex 2/4），`RUN_SPEED=5.0`
 - **手柄摇杆低力度（<0.7）→ 走**：Walk 步态（1/3），`WALK_SPEED=2.5`；手柄高力度（0.75/1）→ 跑
 - **判定**：`_isRun = max(|forward|,|strafe|) ≥ 0.7`；strafe_run_left/right = 19/20
 - 原 v0.61.0 调试期为统一走（降低步态调试难度），现恢复正常
-- **改动**：hexapodPlayer.js（RUN_SPEED + _isRun 判定 + desiredVel 用 _spd）+ hexapod_enemy.js `_animRequestToIndex` 加 `move_forward_run→2`、`move_backward_run→4`
+- **改动**：hexapodPlayer.js（RUN_SPEED + \_isRun 判定 + desiredVel 用 \_spd）+ hexapod_enemy.js `_animRequestToIndex` 加 `move_forward_run→2`、`move_backward_run→4`
 - **验证**：Playwright 键盘W→animIndex2/vel5，低力度0.5→animIndex1/vel1.25；CDP 0 错误
 
 ---
@@ -388,6 +406,7 @@ legGroup (Y旋转=水平摆角)
 ## v0.61.4 本次会话变更 (2026-06-18)
 
 ### 六足玩家加特林双瞄准线
+
 - **连续射线 + 双段着色**（`js/hexapod_aimLine.js` v0.3）：左右加特林各一条连续直线（无重力），从枪口沿枪管指向延伸到被截断为止（射向虚空延伸到 MAX_LEN=80m 自然终止）。**绿段**枪口→25m(子弹射程)，**红段**25m→截断点(命中点或MAX_LEN)；命中<25m时仅绿段。24段采样，5层碰撞（地面/水体/桥面/障碍物Mesh/敌人圆柱扫掠）。球形标志仅命中物体时显示
 - **俯仰追踪光标**（对标坦克 updateAiming）：engine.js 用 `aimRaycaster` 真实 raycast（`intersectObject(groundMesh)` + 障碍物Mesh），NDC Y 取反（`-(_virtualMouseY/h)*2+1`，与坦克一致）→ 命中点 `aimTarget` 经 PCM input 传入控制器 → hexapodPlayer 反算俯仰角（pivot局部空间 `atan2(localDir.y, -localDir.x)`，左右平均）→ clamp(-0.7俯~+1.05仰) → 平滑跟随(15/dt)
 - **⚠️ 关键坑（方向反）**：pitch 约定"负=俯/正=仰"，但绕 pivot 局部 Z 轴物理旋转"正=俯/负=仰"，故应用时必须**取反**：`setFromAxisAngle(_Z_AXIS, -_gatlingPitch)`。取反前下拉鼠标枪口朝天（dirY=+0.644），取反后正确下俯（dirY=-0.644）
@@ -414,9 +433,32 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
+## v0.63.1 本次会话变更 (2026-06-22)
+
+### Bug修复（8项）
+
+1. **六足右摇杆Y轴翻转**: `engine.js:1522` — `+=` → `-=` 取反，上推=下俯（飞机摇杆风格）
+2. **六足出生点障碍物阴影缺失**: `engine.js:3830` — 阴影相机跟 `tankGroup`（六足模式不更新），PCM 激活时改用 `getPose()` 获取六足位置
+3. **敌六足踉跄时加特林仍在发射**: `hexapod_enemy.js:221` — 踉跄块强制 `spinUp` 衰减→0、`gatlingRequest=false`、`heat` 散热 18/s、`spinRPS=0`；`enemyAI.js:767` — 踉跄中跳过武器决策+移动，仅维持 `bodyYaw` 追踪
+4. **坦克炮弹不让敌六足踉跄**: `engine.js:2389` — 圆柱碰撞直接扣 HP 绕过 `onEnemyDamaged`，替换为完整调用链（扣血+踉跄+死亡检测）
+5. **坦克复活在死亡地点**: `engine.js:5325` — 复活时 `tankState.x/z/yaw` 未同步 → 同帧物理代码从过时 `tankState` 覆写位置，现三行同步
+6. **敌坦克坡地倾斜方向错**: `engine.js:3276+3288` — 前向公式 `(-cos, sin)` 与模型朝向差 90°，修正为 `(sin, cos)` 对齐玩家公式
+7. **爆炸火光粒子残留**: `fireSmokeParticles.js:391+561` — `ExplosionEffects.dispose()` 和 `FlameThrowerEffect.dispose()` 只释放 GPU 资源不调 `scene.remove()`，修复增加 `parent.remove()`
+8. **敌六足不受水体/障碍物碰撞**: `engine.js:3258+3128` — 敌六足只有空气墙钳制无 `checkCollision`，新增碰撞检测（障碍物+河流+池塘推离），存活/死亡两路径均覆盖
+
+### 已知问题（更新）
+
+1. 坡地一头翘起一头陷地（**六足玩家已修，坦克已修**，敌人坦克坡地倾斜方向已修正）
+2. 对山丘目标弹道偏低
+3. 只会对山丘开炮不会绕路
+4. 六足武器俯仰旋转轴不正确（待校准）
+
+---
+
 ## v0.62.0 本次会话变更 (2026-06-19~20)
 
 ### 玩家六足加特林实装
+
 - **左右独立控制**：左键→右加特林(模型名反)，右键→左加特林，各独立状态机
 - **spinUp→射击**：按住0.8s达标→10rps射击→发热25/s→heat≥80过热停转→强制冷却28/s到0恢复
 - **普通冷却**：松手18/s冷却，随时可恢复；过热强制冷却效率更高但锁定到0
@@ -429,6 +471,7 @@ legGroup (Y旋转=水平摆角)
 - **观瞄球体HP发光**：`观瞄球体_mesh`克隆材质，绿(满血)→红(空血)渐变
 
 ### 玩家六足导弹系统实装
+
 - **空格键锁定制导**：锁定框跟随光标(300×200px)，敌在框内按空格→绿圈缩1s→红圈+锁定音→松开发射
 - **锁定状态机**：IDLE→LOCKING(敌出框/松手/死亡→取消)→LOCKED(敌出框不取消，死亡才取消)→松手发射
 - **超出距离/装填中**：超50m或框内无敌→"超出距离"；双巢无弹→"装填中"；按住空格持续显示+按瞬间播一次失败音
@@ -441,6 +484,7 @@ legGroup (Y旋转=水平摆角)
 - **window桥接**：`enemies`/`obstacleMeshes`/`obstacleData`暴露到window供模块化控制器访问
 
 ### Bug修复
+
 - **MG禁用**：`mg.js:updateMGAutoTarget`增加`!player.mgGroup`判断，六足模式不自动射击
 - **子弹穿模**：改用XZ平面距离+Raycaster横扫障碍物，替代3D距离(避免Y差误判)
 - **敌人不爆**：`onEnemyDamaged`返回值触发`spawnExplosion`+`spawnFragments`
@@ -450,6 +494,7 @@ legGroup (Y旋转=水平摆角)
 - **装填条飞天**：改`_scene.add`世界坐标(原`_root.add`当本地偏移)
 
 ### 关键文件行数变化
+
 - `hexapodPlayer.js`: ~160→~1050行
 - `audio.js`: ~240→~310行
 - `engine.js`: ~6100→~6250行

@@ -1,736 +1,979 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>坦克运动demo v0.63.0</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>坦克运动demo v0.63.1</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            overflow: hidden;
-            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-            background: #1a1a2e;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        overflow: hidden;
+        font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+        background: #1a1a2e;
+        user-select: none;
+        -webkit-user-select: none;
+      }
 
-        /* ========== 游戏结束画面 ========== */
-        #game-over-overlay {
-            position: fixed; inset: 0;
-            display: none; flex-direction: column;
-            align-items: center; justify-content: center;
-            background: rgba(20, 20, 25, 0.92);
-            z-index: 110;
-            backdrop-filter: blur(8px);
-        }
-        #game-over-overlay.active {
-            display: flex;
-        }
-        #game-over-overlay .go-title {
-            font-size: 3rem; font-weight: bold;
-            color: #ff4444;
-            text-shadow: 0 0 30px rgba(255,68,68,0.5);
-            margin-bottom: 0.5rem;
-        }
-        #game-over-overlay .go-subtitle {
-            font-size: 1.2rem;
-            color: #aaa;
-            margin-bottom: 2.5rem;
-        }
-        #game-over-overlay .go-stats {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 24px 40px;
-            min-width: 360px;
-        }
-        #game-over-overlay .stat-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        #game-over-overlay .stat-row:last-child {
-            border-bottom: none;
-        }
-        #game-over-overlay .stat-label {
-            color: #888;
-            font-size: 0.95rem;
-        }
-        #game-over-overlay .stat-value {
-            color: #f5954a;
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-        #game-over-overlay .stat-value.highlight {
-            color: #4ade80;
-        }
-        #game-over-overlay .stat-value.danger {
-            color: #f87171;
-        }
-        #game-over-overlay .death-list {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255,255,255,0.06);
-        }
-        #game-over-overlay .death-title {
-            color: #666;
-            font-size: 0.85rem;
-            margin-bottom: 8px;
-        }
-        #game-over-overlay .death-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            font-size: 0.9rem;
-        }
-        #game-over-overlay .death-num {
-            color: #555;
-            width: 24px;
-        }
-        #game-over-overlay .death-cause {
-            color: #f87171;
-        }
-        #game-over-overlay .go-hint {
-            margin-top: 1.5rem;
-            color: #555;
-            font-size: 0.85rem;
-        }
-        .go-retry-btn {
-            margin-top: 1rem;
-            padding: 0.6rem 2rem;
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: #fff;
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            border: 2px solid #e74c3c;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .go-retry-btn:hover {
-            background: linear-gradient(135deg, #ff6b5a, #e74c3c);
-            border-color: #ff6b5a;
-            transform: scale(1.05);
-        }
+      /* ========== 游戏结束画面 ========== */
+      #game-over-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(20, 20, 25, 0.92);
+        z-index: 110;
+        backdrop-filter: blur(8px);
+      }
+      #game-over-overlay.active {
+        display: flex;
+      }
+      #game-over-overlay .go-title {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #ff4444;
+        text-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
+        margin-bottom: 0.5rem;
+      }
+      #game-over-overlay .go-subtitle {
+        font-size: 1.2rem;
+        color: #aaa;
+        margin-bottom: 2.5rem;
+      }
+      #game-over-overlay .go-stats {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 24px 40px;
+        min-width: 360px;
+      }
+      #game-over-overlay .stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #game-over-overlay .stat-row:last-child {
+        border-bottom: none;
+      }
+      #game-over-overlay .stat-label {
+        color: #888;
+        font-size: 0.95rem;
+      }
+      #game-over-overlay .stat-value {
+        color: #f5954a;
+        font-size: 1.1rem;
+        font-weight: bold;
+      }
+      #game-over-overlay .stat-value.highlight {
+        color: #4ade80;
+      }
+      #game-over-overlay .stat-value.danger {
+        color: #f87171;
+      }
+      #game-over-overlay .death-list {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #game-over-overlay .death-title {
+        color: #666;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+      }
+      #game-over-overlay .death-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 0.9rem;
+      }
+      #game-over-overlay .death-num {
+        color: #555;
+        width: 24px;
+      }
+      #game-over-overlay .death-cause {
+        color: #f87171;
+      }
+      #game-over-overlay .go-hint {
+        margin-top: 1.5rem;
+        color: #555;
+        font-size: 0.85rem;
+      }
+      .go-retry-btn {
+        margin-top: 1rem;
+        padding: 0.6rem 2rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #fff;
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        border: 2px solid #e74c3c;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .go-retry-btn:hover {
+        background: linear-gradient(135deg, #ff6b5a, #e74c3c);
+        border-color: #ff6b5a;
+        transform: scale(1.05);
+      }
 
-        /* ========== 主菜单 ========== */
-        #menu-overlay {
-            position: fixed; inset: 0;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1e 100%);
-            z-index: 100;
-            transition: opacity 0.5s, visibility 0.5s;
-        }
-        #menu-overlay.hidden {
-            opacity: 0; visibility: hidden; pointer-events: none;
-        }
-        #menu-overlay .menu-title {
-            font-size: 3rem; font-weight: bold;
-            color: #f5954a;
-            text-shadow: 0 0 30px rgba(245,149,74,0.4);
-            margin-bottom: 0.5rem;
-        }
-        #menu-overlay .menu-version {
-            font-size: 1rem;
-            color: #888;
-            margin-bottom: 3rem;
-            letter-spacing: 0.15em;
-        }
-        #menu-overlay .menu-btn {
-            width: 240px; padding: 14px 0;
-            margin: 8px 0;
-            font-size: 1.15rem; font-weight: bold;
-            border: none; border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-            letter-spacing: 0.05em;
-        }
-        #menu-overlay .menu-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        }
-        #menu-overlay .menu-btn:active {
-            transform: translateY(0);
-        }
-        #btn-enter {
-            background: linear-gradient(135deg, #f5954a, #e07020);
-            color: #fff;
-        }
-        #btn-training {
-            background: linear-gradient(135deg, #4CAF50, #2E7D32);
-            color: #fff;
-        }
-        #btn-training:hover {
-            background: linear-gradient(135deg, #66BB6A, #388E3C);
-        }
-        /* 训练场配置面板 */
-        #training-config {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            margin: 4px 0;
-        }
-        #training-config.active { display: flex; }
-        #training-config .tc-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 260px;
-        }
-        #training-config .tc-label {
-            color: #aaa;
-            font-size: 0.85rem;
-            min-width: 64px;
-            text-align: right;
-            flex-shrink: 0;
-        }
-        #training-config .tc-options {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-        }
-        #training-config .tc-btn {
-            padding: 5px 10px;
-            font-size: 0.78rem;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 4px;
-            background: rgba(255,255,255,0.06);
-            color: #888;
-            cursor: pointer;
-            transition: all 0.15s;
-            white-space: nowrap;
-        }
-        #training-config .tc-btn:hover { border-color: rgba(255,255,255,0.35); color: #ccc; }
-        #training-config .tc-btn.selected { background: #f5954a; color: #fff; border-color: #f5954a; }
-        #training-config .tc-btn.disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
-        #training-config .tc-start {
-            margin-top: 8px;
-            padding: 10px 36px;
-            font-size: 1rem; font-weight: bold;
-            background: linear-gradient(135deg, #4CAF50, #2E7D32);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-        }
-        #training-config .tc-start:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
-        #training-config .tc-cancel {
-            padding: 8px 24px;
-            font-size: 0.85rem;
-            background: rgba(255,255,255,0.06);
-            color: #777;
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #training-config .tc-cancel:hover { color: #aaa; border-color: rgba(255,255,255,0.25); }
-        #menu-overlay .menu-hint {
-            margin-top: 2.5rem;
-            color: #555;
-            font-size: 0.85rem;
-        }
+      /* ========== 主菜单 ========== */
+      #menu-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1e 100%);
+        z-index: 100;
+        transition:
+          opacity 0.5s,
+          visibility 0.5s;
+      }
+      #menu-overlay.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #menu-overlay .menu-title {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #f5954a;
+        text-shadow: 0 0 30px rgba(245, 149, 74, 0.4);
+        margin-bottom: 0.5rem;
+      }
+      #menu-overlay .menu-version {
+        font-size: 1rem;
+        color: #888;
+        margin-bottom: 3rem;
+        letter-spacing: 0.15em;
+      }
+      #menu-overlay .menu-btn {
+        width: 240px;
+        padding: 14px 0;
+        margin: 8px 0;
+        font-size: 1.15rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        letter-spacing: 0.05em;
+      }
+      #menu-overlay .menu-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+      #menu-overlay .menu-btn:active {
+        transform: translateY(0);
+      }
+      #btn-enter {
+        background: linear-gradient(135deg, #f5954a, #e07020);
+        color: #fff;
+      }
+      #btn-training {
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: #fff;
+      }
+      #btn-training:hover {
+        background: linear-gradient(135deg, #66bb6a, #388e3c);
+      }
+      /* 训练场配置面板 */
+      #training-config {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin: 4px 0;
+      }
+      #training-config.active {
+        display: flex;
+      }
+      #training-config .tc-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 260px;
+      }
+      #training-config .tc-label {
+        color: #aaa;
+        font-size: 0.85rem;
+        min-width: 64px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      #training-config .tc-options {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      #training-config .tc-btn {
+        padding: 5px 10px;
+        font-size: 0.78rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #888;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      #training-config .tc-btn:hover {
+        border-color: rgba(255, 255, 255, 0.35);
+        color: #ccc;
+      }
+      #training-config .tc-btn.selected {
+        background: #f5954a;
+        color: #fff;
+        border-color: #f5954a;
+      }
+      #training-config .tc-btn.disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+      #training-config .tc-start {
+        margin-top: 8px;
+        padding: 10px 36px;
+        font-size: 1rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+      }
+      #training-config .tc-start:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      }
+      #training-config .tc-cancel {
+        padding: 8px 24px;
+        font-size: 0.85rem;
+        background: rgba(255, 255, 255, 0.06);
+        color: #777;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #training-config .tc-cancel:hover {
+        color: #aaa;
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      #menu-overlay .menu-hint {
+        margin-top: 2.5rem;
+        color: #555;
+        font-size: 0.85rem;
+      }
 
-        /* 地图选择面板 */
-        #map-selector {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            margin: 6px 0;
-        }
-        #map-selector.active { display: flex; }
-        #map-selector .map-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 200px;
-            overflow-y: auto;
-            width: 280px;
-        }
-        #map-selector .map-item {
-            padding: 10px 16px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            color: #aaa;
-            cursor: pointer;
-            text-align: left;
-            font-size: 0.9rem;
-            transition: all 0.15s;
-        }
-        #map-selector .map-item:hover {
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.2);
-        }
-        #map-selector .map-item.selected {
-            background: rgba(245,149,74,0.2);
-            border-color: #f5954a;
-            color: #f5954a;
-        }
-        #map-selector .map-item .map-name {
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        #map-selector .map-item .map-desc {
-            font-size: 0.7rem;
-            color: #666;
-        }
-        #map-selector .map-btn-row {
-            display: flex;
-            gap: 10px;
-        }
-        #map-selector .map-btn {
-            padding: 10px 28px;
-            font-size: 1rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-        }
-        #map-selector .map-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
-        }
-        #btn-start-game {
-            background: linear-gradient(135deg, #4caf50, #2e7d32);
-            color: #fff;
-        }
-        #btn-cancel-map {
-            background: rgba(255,255,255,0.08);
-            color: #aaa;
-            border: 1px solid rgba(255,255,255,0.12);
-        }
+      /* 地图选择面板 */
+      #map-selector {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin: 6px 0;
+      }
+      #map-selector.active {
+        display: flex;
+      }
+      #map-selector .map-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        width: 280px;
+      }
+      #map-selector .map-item {
+        padding: 10px 16px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        color: #aaa;
+        cursor: pointer;
+        text-align: left;
+        font-size: 0.9rem;
+        transition: all 0.15s;
+      }
+      #map-selector .map-item:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      #map-selector .map-item.selected {
+        background: rgba(245, 149, 74, 0.2);
+        border-color: #f5954a;
+        color: #f5954a;
+      }
+      #map-selector .map-item .map-name {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      #map-selector .map-item .map-desc {
+        font-size: 0.7rem;
+        color: #666;
+      }
+      #map-selector .map-btn-row {
+        display: flex;
+        gap: 10px;
+      }
+      #map-selector .map-btn {
+        padding: 10px 28px;
+        font-size: 1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+      }
+      #map-selector .map-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      }
+      #btn-start-game {
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: #fff;
+      }
+      #btn-cancel-map {
+        background: rgba(255, 255, 255, 0.08);
+        color: #aaa;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
 
-        /* ========== 游戏画面 ========== */
-        #game-container {
-            position: fixed; inset: 0;
-            visibility: hidden; pointer-events: none;
-        }
-        #game-container.active {
-            visibility: visible; pointer-events: auto;
-        }
+      /* ========== 游戏画面 ========== */
+      #game-container {
+        position: fixed;
+        inset: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #game-container.active {
+        visibility: visible;
+        pointer-events: auto;
+      }
 
-        /* ========== 加载画面 ========== */
-        #loading-overlay {
-            position: fixed; inset: 0; z-index: 300;
-            background: #0a0a14;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            visibility: hidden; opacity: 0;
-            transition: opacity 0.4s;
-        }
-        #loading-overlay.active {
-            visibility: visible; opacity: 1;
-        }
-        #loading-title {
-            font-size: 24px; font-weight: bold; color: #ccc;
-            margin-bottom: 24px; letter-spacing: 2px;
-        }
-        #loading-bar-wrap {
-            width: 340px; height: 6px;
-            background: #1a1a2e; border-radius: 3px;
-            overflow: hidden; margin-bottom: 12px;
-        }
-        #loading-bar {
-            height: 100%; width: 0%;
-            background: linear-gradient(90deg, #f5954a, #f5c842);
-            border-radius: 3px; transition: width 0.3s;
-        }
-        #loading-text {
-            font-size: 12px; color: #888; min-height: 18px;
-        }
+      /* ========== 加载画面 ========== */
+      #loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        background: #0a0a14;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+      #loading-overlay.active {
+        visibility: visible;
+        opacity: 1;
+      }
+      #loading-title {
+        font-size: 24px;
+        font-weight: bold;
+        color: #ccc;
+        margin-bottom: 24px;
+        letter-spacing: 2px;
+      }
+      #loading-bar-wrap {
+        width: 340px;
+        height: 6px;
+        background: #1a1a2e;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      #loading-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #f5954a, #f5c842);
+        border-radius: 3px;
+        transition: width 0.3s;
+      }
+      #loading-text {
+        font-size: 12px;
+        color: #888;
+        min-height: 18px;
+      }
 
-        /* ========== 模型预览 ========== */
-        #preview-container {
-            position: fixed; inset: 0;
-            visibility: hidden; pointer-events: none;
-            background: #1a1a2e;
-            z-index: 90;
-        }
-        #preview-container.active {
-            visibility: visible; pointer-events: auto;
-        }
-        #preview-hud {
-            position: fixed; top: 20px; left: 20px;
-            z-index: 95;
-            display: flex; gap: 12px; align-items: flex-start;
-        }
-        #btn-preview-back {
-            padding: 8px 18px;
-            font-size: 0.9rem;
-            background: rgba(0,0,0,0.55);
-            color: #ccc;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s;
-            backdrop-filter: blur(6px);
-            flex-shrink: 0;
-        }
-        #btn-preview-back:hover {
-            background: rgba(0,0,0,0.75);
-            color: #fff;
-        }
-        /* 分类导航 */
-        #preview-nav {
-            display: flex; flex-direction: column; gap: 6px;
-            max-height: 75vh;
-            overflow-y: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        #preview-nav::-webkit-scrollbar { display: none; }
-        #preview-cat-tabs {
-            display: flex; gap: 4px; flex-wrap: wrap;
-        }
-        .preview-cat-tab {
-            padding: 6px 14px;
-            font-size: 0.82rem;
-            color: #888;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-            backdrop-filter: blur(6px);
-            user-select: none;
-        }
-        .preview-cat-tab:hover {
-            color: #ccc;
-            background: rgba(255,255,255,0.12);
-            border-color: rgba(255,255,255,0.2);
-        }
-        .preview-cat-tab.active {
-            color: #fff;
-            background: rgba(74,144,217,0.35);
-            border-color: rgba(74,144,217,0.5);
-        }
-        #preview-model-list {
-            display: flex; gap: 4px; flex-wrap: wrap;
-        }
-        .preview-model-btn {
-            padding: 5px 12px;
-            font-size: 0.78rem;
-            color: #999;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-            backdrop-filter: blur(6px);
-            user-select: none;
-        }
-        .preview-model-btn:hover {
-            color: #ddd;
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.2);
-        }
-        .preview-model-btn.active {
-            color: #fff;
-            background: rgba(74,144,217,0.3);
-            border-color: rgba(74,144,217,0.4);
-        }
-        #preview-label {
-            color: #666;
-            font-size: 0.8rem;
-            padding-top: 8px;
-        }
+      /* ========== 模型预览 ========== */
+      #preview-container {
+        position: fixed;
+        inset: 0;
+        visibility: hidden;
+        pointer-events: none;
+        background: #1a1a2e;
+        z-index: 90;
+      }
+      #preview-container.active {
+        visibility: visible;
+        pointer-events: auto;
+      }
+      #preview-hud {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 95;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      #btn-preview-back {
+        padding: 8px 18px;
+        font-size: 0.9rem;
+        background: rgba(0, 0, 0, 0.55);
+        color: #ccc;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+        backdrop-filter: blur(6px);
+        flex-shrink: 0;
+      }
+      #btn-preview-back:hover {
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+      }
+      /* 分类导航 */
+      #preview-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 75vh;
+        overflow-y: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      #preview-nav::-webkit-scrollbar {
+        display: none;
+      }
+      #preview-cat-tabs {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .preview-cat-tab {
+        padding: 6px 14px;
+        font-size: 0.82rem;
+        color: #888;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        backdrop-filter: blur(6px);
+        user-select: none;
+      }
+      .preview-cat-tab:hover {
+        color: #ccc;
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .preview-cat-tab.active {
+        color: #fff;
+        background: rgba(74, 144, 217, 0.35);
+        border-color: rgba(74, 144, 217, 0.5);
+      }
+      #preview-model-list {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .preview-model-btn {
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        color: #999;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        backdrop-filter: blur(6px);
+        user-select: none;
+      }
+      .preview-model-btn:hover {
+        color: #ddd;
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      .preview-model-btn.active {
+        color: #fff;
+        background: rgba(74, 144, 217, 0.3);
+        border-color: rgba(74, 144, 217, 0.4);
+      }
+      #preview-label {
+        color: #666;
+        font-size: 0.8rem;
+        padding-top: 8px;
+      }
 
-        /* HUD */
-        #hud {
-            position: fixed; top: 20px; left: 20px;
-            z-index: 50;
-            display: flex; gap: 12px;
-            align-items: center;
-        }
-        #btn-back {
-            padding: 8px 18px;
-            font-size: 0.9rem;
-            background: rgba(0,0,0,0.55);
-            color: #ccc;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s;
-            backdrop-filter: blur(6px);
-        }
-        #btn-back:hover {
-            background: rgba(0,0,0,0.75);
-            color: #fff;
-        }
-        #controls-hint {
-            position: fixed; bottom: 24px; left: 50%;
-            transform: translateX(-50%);
-            z-index: 50;
-            padding: 10px 22px;
-            background: rgba(0,0,0,0.55);
-            color: #aaa;
-            font-size: 0.8rem;
-            border-radius: 20px;
-            backdrop-filter: blur(6px);
-            pointer-events: none;
-            letter-spacing: 0.03em;
-        }
+      /* HUD */
+      #hud {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 50;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      #btn-back {
+        padding: 8px 18px;
+        font-size: 0.9rem;
+        background: rgba(0, 0, 0, 0.55);
+        color: #ccc;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+        backdrop-filter: blur(6px);
+      }
+      #btn-back:hover {
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+      }
+      #controls-hint {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 50;
+        padding: 10px 22px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #aaa;
+        font-size: 0.8rem;
+        border-radius: 20px;
+        backdrop-filter: blur(6px);
+        pointer-events: none;
+        letter-spacing: 0.03em;
+      }
 
-        /* ========== 对方指向箭头（杆+三角头） ========== */
-        .arrow-ui {
-            position: fixed;
-            width: 3px;
-            height: 28px;
-            background: #ff4444;
-            z-index: 56;
-            pointer-events: none;
-            border-radius: 2px;
-            transform-origin: 50% 0%;
-            filter: drop-shadow(0 0 4px rgba(0,0,0,0.6));
-        }
-        .arrow-ui::after {
-            content: '';
-            position: absolute;
-            bottom: -7px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 14px solid #ff4444;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
-        }
-        #arrow-p1 { background: #ff4444; }
-        #arrow-p1::after { border-top-color: #ff4444; }
-        #arrow-p2 { background: #ffaa00; }
-        #arrow-p2::after { border-top-color: #ffaa00; }
+      /* ========== 对方指向箭头（杆+三角头） ========== */
+      .arrow-ui {
+        position: fixed;
+        width: 3px;
+        height: 28px;
+        background: #ff4444;
+        z-index: 56;
+        pointer-events: none;
+        border-radius: 2px;
+        transform-origin: 50% 0%;
+        filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+      }
+      .arrow-ui::after {
+        content: '';
+        position: absolute;
+        bottom: -7px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 14px solid #ff4444;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+      }
+      #arrow-p1 {
+        background: #ff4444;
+      }
+      #arrow-p1::after {
+        border-top-color: #ff4444;
+      }
+      #arrow-p2 {
+        background: #ffaa00;
+      }
+      #arrow-p2::after {
+        border-top-color: #ffaa00;
+      }
 
-        /* ========== 版本更新Tips ========== */
-        .changelog {
-            margin-top: 2rem;
-            max-width: 460px;
-            width: 90vw;
-            max-height: 55vh;
-            overflow-y: auto;
-            text-align: left;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .changelog::-webkit-scrollbar { display: none; }
-        .changelog .cl-title {
-            color: #aaa;
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .changelog .cl-item {
-            color: #888;
-            font-size: 0.82rem;
-            padding: 4px 0;
-            padding-left: 18px;
-            position: relative;
-            line-height: 1.6;
-        }
-        .changelog .cl-item::before {
-            content: '•';
-            position: absolute;
-            left: 4px;
-            color: #555;
-        }
+      /* ========== 版本更新Tips ========== */
+      .changelog {
+        margin-top: 2rem;
+        max-width: 460px;
+        width: 90vw;
+        max-height: 55vh;
+        overflow-y: auto;
+        text-align: left;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .changelog::-webkit-scrollbar {
+        display: none;
+      }
+      .changelog .cl-title {
+        color: #aaa;
+        font-size: 0.9rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+      .changelog .cl-item {
+        color: #888;
+        font-size: 0.82rem;
+        padding: 4px 0;
+        padding-left: 18px;
+        position: relative;
+        line-height: 1.6;
+      }
+      .changelog .cl-item::before {
+        content: '•';
+        position: absolute;
+        left: 4px;
+        color: #555;
+      }
 
-        #crosshair {
-            position: fixed;
-            width: 32px; height: 32px;
-            transform: translate(-50%, -50%);
-            z-index: 55; pointer-events: none;
-            display: none;
-            color: #ffffff;
+      #crosshair {
+        position: fixed;
+        width: 32px;
+        height: 32px;
+        transform: translate(-50%, -50%);
+        z-index: 55;
+        pointer-events: none;
+        display: none;
+        color: #ffffff;
+      }
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: currentColor;
+      }
+      #crosshair::before {
+        width: 2px;
+        height: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      #crosshair::after {
+        height: 2px;
+        width: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      #reload-ring {
+        position: fixed;
+        width: 48px;
+        height: 48px;
+        transform: translate(-50%, -50%);
+        z-index: 54;
+        pointer-events: none;
+        display: none;
+      }
+      /* ── 狙击镜叠加层：中心小十字，不贯穿屏幕 ── */
+      #sniper-scope {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        pointer-events: none;
+      }
+      #sniper-scope::before,
+      #sniper-scope::after {
+        content: '';
+        position: fixed;
+        background: rgba(255, 50, 50, 0.6);
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
+      #sniper-scope::before {
+        width: 2px;
+        height: 36px;
+      }
+      #sniper-scope::after {
+        width: 36px;
+        height: 2px;
+      }
+      /* ── 狙击模式俯视小地图 ── */
+      #sniper-minimap {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: 140px;
+        height: 140px;
+        z-index: 61;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        background: rgba(0, 0, 0, 0.55);
+      }
+      /* ── 导弹锁定框 (六足模式, 跟随光标) ── */
+      #missile-lock-box {
+        position: fixed;
+        pointer-events: none;
+        width: 300px;
+        height: 200px;
+        border: 1px dashed rgba(255, 255, 255, 0.5);
+        z-index: 70;
+        display: none;
+        transform: translate(-50%, -50%);
+      }
+      #missile-lock-box.locking {
+        border: 2px solid #00ff00;
+      }
+      #missile-lock-box.locked {
+        border: 2px solid #ff3333;
+      }
+      #missile-lock-box.reloading {
+        border: 2px solid #ff0000;
+        animation: lockbox-blink 0.5s infinite;
+      }
+      @keyframes lockbox-blink {
+        50% {
+          border-color: transparent;
         }
-        #crosshair::before, #crosshair::after {
-            content: ''; position: absolute;
-            background: currentColor;
-        }
-        #crosshair::before {
-            width: 2px; height: 100%;
-            left: 50%; transform: translateX(-50%);
-        }
-        #crosshair::after {
-            height: 2px; width: 100%;
-            top: 50%; transform: translateY(-50%);
-        }
-        #reload-ring {
-            position: fixed;
-            width: 48px; height: 48px;
-            transform: translate(-50%, -50%);
-            z-index: 54; pointer-events: none;
-            display: none;
-        }
-        /* ── 狙击镜叠加层：中心小十字，不贯穿屏幕 ── */
-        #sniper-scope {
-            position: fixed;
-            inset: 0;
-            z-index: 60; pointer-events: none;
-        }
-        #sniper-scope::before, #sniper-scope::after {
-            content: ''; position: fixed;
-            background: rgba(255,50,50,0.6);
-            left: 50%; top: 50%;
-            transform: translate(-50%, -50%);
-        }
-        #sniper-scope::before {
-            width: 2px; height: 36px;
-        }
-        #sniper-scope::after {
-            width: 36px; height: 2px;
-        }
-        /* ── 狙击模式俯视小地图 ── */
-        #sniper-minimap {
-            position: fixed;
-            bottom: 20px; left: 20px;
-            width: 140px; height: 140px;
-            z-index: 61;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.25);
-            background: rgba(0,0,0,0.55);
-        }
-        /* ── 导弹锁定框 (六足模式, 跟随光标) ── */
-        #missile-lock-box {
-            position: fixed; pointer-events: none;
-            width: 300px; height: 200px;
-            border: 1px dashed rgba(255,255,255,0.5);
-            z-index: 70; display: none;
-            transform: translate(-50%, -50%);
-        }
-        #missile-lock-box.locking { border: 2px solid #00ff00; }
-        #missile-lock-box.locked { border: 2px solid #ff3333; }
-        #missile-lock-box.reloading { border: 2px solid #ff0000; animation: lockbox-blink 0.5s infinite; }
-        @keyframes lockbox-blink { 50% { border-color: transparent; } }
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
-        <div class="menu-title">🎮 坦克运动demo</div>
-        <div class="menu-version">v0.63.0</div>
-        <button class="menu-btn" id="btn-enter">单人模式</button>
-        <button class="menu-btn" id="btn-versus" style="background:linear-gradient(135deg,#e04040,#c02020);color:#fff;">⚔ 双人对战</button>
-        <button class="menu-btn" id="btn-preview" style="background:linear-gradient(135deg,#4a90d9,#2563a0);color:#fff;">🔍 模型预览</button>
-        <button class="menu-btn" id="btn-training" style="background:linear-gradient(135deg,#4CAF50,#2E7D32);color:#fff;">🎯 训练场</button>
-        <!-- 训练场配置面板 -->
-        <div id="training-config">
-            <div class="tc-row">
-                <span class="tc-label">👤 我方</span>
-                <div class="tc-options" id="tc-player-opts">
-                    <button class="tc-btn selected" data-val="tank">坦克</button>
-                    <button class="tc-btn" data-val="hexapod">🦗 六足</button>
-                </div>
-            </div>
-            <div class="tc-row">
-                <span class="tc-label">👾 敌方</span>
-                <div class="tc-options" id="tc-enemy-opts">
-                    <button class="tc-btn selected" data-val="tank">坦克</button>
-                    <button class="tc-btn" data-val="hexapod">🦗 六足</button>
-                    <button class="tc-btn" data-val="assault-vehicle">突击车</button>
-                    <button class="tc-btn" data-val="zombie">丧尸</button>
-                </div>
-            </div>
-            <div class="tc-row">
-                <span class="tc-label">⚡ 敌方行为</span>
-                <div class="tc-options" id="tc-behavior-opts">
-                    <button class="tc-btn" data-val="active">主动攻击</button>
-                    <button class="tc-btn selected" data-val="reactive">反击</button>
-                    <button class="tc-btn" data-val="passive">不反击</button>
-                </div>
-            </div>
-            <button class="tc-start" id="btn-training-start">🎯 开始训练</button>
-            <button class="tc-cancel" id="btn-training-cancel">返回</button>
+      <div class="menu-title">🎮 坦克运动demo</div>
+      <div class="menu-version">v0.63.1</div>
+      <button class="menu-btn" id="btn-enter">单人模式</button>
+      <button
+        class="menu-btn"
+        id="btn-versus"
+        style="background: linear-gradient(135deg, #e04040, #c02020); color: #fff"
+      >
+        ⚔ 双人对战
+      </button>
+      <button
+        class="menu-btn"
+        id="btn-preview"
+        style="background: linear-gradient(135deg, #4a90d9, #2563a0); color: #fff"
+      >
+        🔍 模型预览
+      </button>
+      <button
+        class="menu-btn"
+        id="btn-training"
+        style="background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff"
+      >
+        🎯 训练场
+      </button>
+      <!-- 训练场配置面板 -->
+      <div id="training-config">
+        <div class="tc-row">
+          <span class="tc-label">👤 我方</span>
+          <div class="tc-options" id="tc-player-opts">
+            <button class="tc-btn selected" data-val="tank">坦克</button>
+            <button class="tc-btn" data-val="hexapod">🦗 六足</button>
+          </div>
         </div>
-        <!-- 地图选择面板（点击单人模式后显示） -->
-        <div id="map-selector">
-            <div class="map-list" id="map-list"></div>
-            <div class="map-btn-row">
-                <button class="map-btn" id="btn-cancel-map">返回</button>
-                <button class="map-btn" id="btn-start-game">开始游戏</button>
-            </div>
+        <div class="tc-row">
+          <span class="tc-label">👾 敌方</span>
+          <div class="tc-options" id="tc-enemy-opts">
+            <button class="tc-btn selected" data-val="tank">坦克</button>
+            <button class="tc-btn" data-val="hexapod">🦗 六足</button>
+            <button class="tc-btn" data-val="assault-vehicle">突击车</button>
+            <button class="tc-btn" data-val="zombie">丧尸</button>
+          </div>
         </div>
-        <div class="menu-hint">单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏</div>
-        <div class="changelog">
-            <div class="cl-title">🔫 v0.63.0 坦克炮塔世界空间重构 — 删瞬时稳定器 + worldTurretYaw 直驱(陀螺仪炮塔) + 同向不再迟钝 + 鼠标/摇杆直控世界方向</div>
-            <div class="cl-title">🚀 v0.62.0 玩家六足武器实装 — 加特林(左右键独立,spinUp/过热/强制冷却/枪管红热/枪口焰/命中火花,射程35m)+导弹(空格锁定制导,锁定框跟随光标,绿圈缩圈锁定,左右巢交替4发,10s装填,3D装填条)+观瞄球体HP发光+全覆盖碰撞</div>
-            <div class="cl-title">⚙️ v0.61.3 加特林旋转状态机+六足跑走 — 枪管仅攻击时旋转(updateGatlingSpin||0兜底+spinUp驱动,过热停/散热到0才重启)+键盘=跑/手柄低力度=走(阈值0.7)</div>
-            <div class="cl-title">🏔️ v0.61.2 六足玩家坡地地形适应修复 — 接通getGroundHeight(原失效致车身水平)+sD2.0+落水过滤(防河岸过度)+hRgt方向修正(左右)+pitch/roll轴修正(车头-X致rotation.x侧倾/z俯仰, 正对坡顶只俯仰不侧倾)</div>
-            <div class="cl-title">🦗 v0.61.1 六足玩家步进式转向 — 身体由步态驱动转向(腿蹬地+圆弧预伸), 视角跟鼠标机体慢追, 根治转向腿飞+长期漂移, 关键词：步进turnRate/STEP_PERIOD/homeW闭环</div>
+        <div class="tc-row">
+          <span class="tc-label">⚡ 敌方行为</span>
+          <div class="tc-options" id="tc-behavior-opts">
+            <button class="tc-btn" data-val="active">主动攻击</button>
+            <button class="tc-btn selected" data-val="reactive">反击</button>
+            <button class="tc-btn" data-val="passive">不反击</button>
+          </div>
         </div>
+        <button class="tc-start" id="btn-training-start">🎯 开始训练</button>
+        <button class="tc-cancel" id="btn-training-cancel">返回</button>
+      </div>
+      <!-- 地图选择面板（点击单人模式后显示） -->
+      <div id="map-selector">
+        <div class="map-list" id="map-list"></div>
+        <div class="map-btn-row">
+          <button class="map-btn" id="btn-cancel-map">返回</button>
+          <button class="map-btn" id="btn-start-game">开始游戏</button>
+        </div>
+      </div>
+      <div class="menu-hint">
+        单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏
+      </div>
+      <div class="changelog">
+        <div class="cl-title">
+          🔧 v0.63.1 Bug修复×8 — 踉跄加特林停射停转散热 / 圆柱碰撞调onEnemyDamaged / 坦克复活tankState同步 / 敌坦克坡地倾斜修正 / 爆炸粒子残留清理 / 敌六足水体障碍物碰撞 / 阴影相机跟六足 / 右摇杆Y轴翻转
+        </div>
+        <div class="cl-title">
+          🔫 v0.63.0 坦克炮塔世界空间重构 — 删瞬时稳定器 + worldTurretYaw 直驱(陀螺仪炮塔) +
+          同向不再迟钝 + 鼠标/摇杆直控世界方向
+        </div>
+        <div class="cl-title">
+          🚀 v0.62.0 玩家六足武器实装 —
+          加特林(左右键独立,spinUp/过热/强制冷却/枪管红热/枪口焰/命中火花,射程35m)+导弹(空格锁定制导,锁定框跟随光标,绿圈缩圈锁定,左右巢交替4发,10s装填,3D装填条)+观瞄球体HP发光+全覆盖碰撞
+        </div>
+        <div class="cl-title">
+          ⚙️ v0.61.3 加特林旋转状态机+六足跑走 —
+          枪管仅攻击时旋转(updateGatlingSpin||0兜底+spinUp驱动,过热停/散热到0才重启)+键盘=跑/手柄低力度=走(阈值0.7)
+        </div>
+        <div class="cl-title">
+          🏔️ v0.61.2 六足玩家坡地地形适应修复 —
+          接通getGroundHeight(原失效致车身水平)+sD2.0+落水过滤(防河岸过度)+hRgt方向修正(左右)+pitch/roll轴修正(车头-X致rotation.x侧倾/z俯仰,
+          正对坡顶只俯仰不侧倾)
+        </div>
+      </div>
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
     <div id="game-over-overlay">
-        <div class="go-title">💀 游戏结束</div>
-        <div class="go-subtitle">GAME OVER</div>
-        <div class="go-stats" id="go-stats">
-            <div class="stat-row"><span class="stat-label">获取积分</span><span class="stat-value highlight" id="go-score">0</span></div>
-            <div class="stat-row"><span class="stat-label">击杀敌人</span><span class="stat-value" id="go-kills">0</span></div>
-            <div class="stat-row"><span class="stat-label">存活时间</span><span class="stat-value" id="go-time">00:00</span></div>
-            <div class="stat-row"><span class="stat-label">造成伤害</span><span class="stat-value" id="go-damage">0 HP</span></div>
-            <div class="death-list">
-                <div class="death-title">死亡记录</div>
-                <div id="go-deaths"></div>
-            </div>
+      <div class="go-title">💀 游戏结束</div>
+      <div class="go-subtitle">GAME OVER</div>
+      <div class="go-stats" id="go-stats">
+        <div class="stat-row">
+          <span class="stat-label">获取积分</span
+          ><span class="stat-value highlight" id="go-score">0</span>
         </div>
-        <button class="go-retry-btn" id="go-retry-btn">🔄 重新开始</button>
-        <div class="go-hint">按 ESC 返回菜单</div>
+        <div class="stat-row">
+          <span class="stat-label">击杀敌人</span><span class="stat-value" id="go-kills">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">存活时间</span><span class="stat-value" id="go-time">00:00</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">造成伤害</span
+          ><span class="stat-value" id="go-damage">0 HP</span>
+        </div>
+        <div class="death-list">
+          <div class="death-title">死亡记录</div>
+          <div id="go-deaths"></div>
+        </div>
+      </div>
+      <button class="go-retry-btn" id="go-retry-btn">🔄 重新开始</button>
+      <div class="go-hint">按 ESC 返回菜单</div>
     </div>
 
     <!-- ========== 加载画面 ========== -->
     <div id="loading-overlay">
-        <div id="loading-title">🚀 正在载入地图</div>
-        <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
-        <div id="loading-text"></div>
+      <div id="loading-title">🚀 正在载入地图</div>
+      <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+      <div id="loading-text"></div>
     </div>
 
     <!-- ========== 游戏画面 ========== -->
     <div id="game-container">
-        <!-- 调试信息 -->
-        <div id="debug-info" style="position:fixed;top:4px;right:4px;z-index:200;color:#0f0;font-size:12px;font-family:monospace;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:pre;line-height:1.4;"></div>
-        <div id="hud">
-            <span id="btn-back" style="padding:8px 18px;font-size:0.9rem;background:rgba(0,0,0,0.55);color:#aaa;border:1px solid rgba(255,255,255,0.12);border-radius:6px;backdrop-filter:blur(6px);pointer-events:none;user-select:none;">按 ESC 返回</span>
+      <!-- 调试信息 -->
+      <div
+        id="debug-info"
+        style="
+          position: fixed;
+          top: 4px;
+          right: 4px;
+          z-index: 200;
+          color: #0f0;
+          font-size: 12px;
+          font-family: monospace;
+          background: rgba(0, 0, 0, 0.7);
+          padding: 4px 8px;
+          border-radius: 4px;
+          pointer-events: none;
+          white-space: pre;
+          line-height: 1.4;
+        "
+      ></div>
+      <div id="hud">
+        <span
+          id="btn-back"
+          style="
+            padding: 8px 18px;
+            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.55);
+            color: #aaa;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+            user-select: none;
+          "
+          >按 ESC 返回</span
+        >
+      </div>
+      <div id="controls-hint"></div>
+      <!-- 双人对战结束覆盖 -->
+      <div
+        id="versus-result"
+        style="display: none; position: fixed; inset: 0; z-index: 60; pointer-events: none"
+      >
+        <div style="display: flex; height: 100%">
+          <div
+            id="result-p1"
+            style="
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 3rem;
+              font-weight: bold;
+              color: #fff;
+              text-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            "
+          ></div>
+          <div
+            id="result-p2"
+            style="
+              flex: 1;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 3rem;
+              font-weight: bold;
+              color: #fff;
+              text-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            "
+          ></div>
         </div>
-        <div id="controls-hint"></div>
-        <!-- 双人对战结束覆盖 -->
-        <div id="versus-result" style="display:none;position:fixed;inset:0;z-index:60;pointer-events:none;">
-            <div style="display:flex;height:100%;">
-                <div id="result-p1" style="flex:1;display:flex;align-items:center;justify-content:center;font-size:3rem;font-weight:bold;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.8);"></div>
-                <div id="result-p2" style="flex:1;display:flex;align-items:center;justify-content:center;font-size:3rem;font-weight:bold;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.8);"></div>
-            </div>
-        </div>
-        <!-- 分屏分隔线 -->
-        <div id="split-line" style="display:none;position:fixed;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.3);z-index:55;pointer-events:none;"></div>
-        <!-- 对方指向箭头 -->
-        <div id="arrow-p1" class="arrow-ui" style="display:none;"></div>
-        <div id="arrow-p2" class="arrow-ui" style="display:none;"></div>
-        <div id="crosshair"></div>
-        <div id="sniper-scope" style="display:none;"></div>
-        <canvas id="sniper-minimap" width="140" height="140" style="display:none;"></canvas>
-        <canvas id="reload-ring" width="48" height="48"></canvas>
-        <!-- ── 导弹锁定框 ── -->
-        <div id="missile-lock-box"></div>
+      </div>
+      <!-- 分屏分隔线 -->
+      <div
+        id="split-line"
+        style="
+          display: none;
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          width: 2px;
+          background: rgba(255, 255, 255, 0.3);
+          z-index: 55;
+          pointer-events: none;
+        "
+      ></div>
+      <!-- 对方指向箭头 -->
+      <div id="arrow-p1" class="arrow-ui" style="display: none"></div>
+      <div id="arrow-p2" class="arrow-ui" style="display: none"></div>
+      <div id="crosshair"></div>
+      <div id="sniper-scope" style="display: none"></div>
+      <canvas id="sniper-minimap" width="140" height="140" style="display: none"></canvas>
+      <canvas id="reload-ring" width="48" height="48"></canvas>
+      <!-- ── 导弹锁定框 ── -->
+      <div id="missile-lock-box"></div>
     </div>
 
     <!-- ========== 模型预览 ========== -->
     <div id="preview-container">
-        <div id="preview-hud">
-            <button id="btn-preview-back">← 返回菜单 (ESC)</button>
-            <div id="preview-nav">
-                <div id="preview-cat-tabs"></div>
-                <div id="preview-model-list"></div>
-            </div>
-            <span id="preview-label">拖拽鼠标旋转模型 | 滚轮缩放</span>
+      <div id="preview-hud">
+        <button id="btn-preview-back">← 返回菜单 (ESC)</button>
+        <div id="preview-nav">
+          <div id="preview-cat-tabs"></div>
+          <div id="preview-model-list"></div>
         </div>
+        <span id="preview-label">拖拽鼠标旋转模型 | 滚轮缩放</span>
+      </div>
     </div>
 
     <!-- Three.js UMD 构建，本地加载，无需网络 -->
@@ -764,7 +1007,7 @@
     <script src="js/hexapod_probe.js"></script>
     <script src="js/hexapod_core.js"></script>
     <script src="js/hexapod_enemy.js"></script>
-<script src="models/enemies.js"></script>
+    <script src="models/enemies.js"></script>
     <script src="models/pickups.js"></script>
     <!-- PvE 战斗系统模块 -->
     <script src="combat/scoreSystem.js"></script>
@@ -778,5 +1021,5 @@
     <script src="js/playerControllers/hexapodPlayer.js"></script>
     <script src="js/hexapod_aimLine.js"></script>
     <script src="js/engine.js"></script>
-</body>
+  </body>
 </html>
