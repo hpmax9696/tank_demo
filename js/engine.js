@@ -1831,6 +1831,48 @@ function gameLoop() {
       currentRightSpeed = 0;
     }
 
+    // ── 训练场坦克AI托管: 复用敌方AI系统控制玩家坦克 ──
+    if (
+      isTrainingMode &&
+      trainingPlayerAI &&
+      trainingPlayerType === 'tank' &&
+      !playerDead &&
+      !isGameOver
+    ) {
+      // 首次初始化AI数据结构(敌方AI需要)
+      if (!player1.ai) {
+        player1.ai = { state: 'patrol', patrolIndex: 0, bodyYaw: tankState.yaw };
+        player1.cfg = {
+          type: 'tank',
+          speed: 5.0,
+          engageDist: 35,
+          viewDist: 80,
+          attackDamage: 20,
+          attackCooldown: 2.5,
+          flameRange: 55,
+          canFlee: false,
+          reactive: false,
+          aggressive: true,
+          passive: false,
+        };
+        player1.userData = player1.userData || {};
+        player1.userData.enemyType = 'tank';
+        player1.userData.turretPivot = player1.turretPivot;
+        player1.userData.barrelPivot = player1.barrelPivot;
+        player1.hp = player1.hp || 100;
+        player1.userData.maxHp = 100;
+      }
+      // 调用敌方AI(将enemies列表中的敌方作为"玩家"目标, 让AI攻击他们)
+      window.EnemyAI.updateEnemyAI(player1, dt, window.enemies || [], scene);
+      // AI直接设置了 player1.group.rotation.y(=tankGroup.rotation.y), 同步回 tankState
+      tankState.yaw = Math.PI / 2 - tankGroup.rotation.y;
+      tankState.x = player1.group.position.x;
+      tankState.z = player1.group.position.z;
+      targetLeft = 0;
+      targetRight = 0; // 不通过履带差速, AI已直接移动
+      cameraYaw = tankState.yaw;
+    }
+
     // ── 模块化玩家角色控制器分发 (六足等注册角色; 坦克走下面原物理) ──
     if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
       // ── 手柄: 右摇杆 视角+光标, RB 边沿追踪 ──
@@ -2146,7 +2188,8 @@ function gameLoop() {
         player1.state.z = tankState.z;
         player1.state.yaw = tankState.yaw;
         if (!isGameOver) {
-          updateAiming(player1, dt);
+          if (!(isTrainingMode && trainingPlayerAI && trainingPlayerType === 'tank'))
+            updateAiming(player1, dt);
           if (player1.turretPivot) {
             player1.turretPivot.rotation.y = player1.turretYaw;
           }
@@ -2174,8 +2217,12 @@ function gameLoop() {
       _t1 = performance.now(); // perf: 物理阶段结束
       perfAcc.physics += _t1 - _t0;
 
-      // ── 开炮（鼠标左键 / 手柄RT扳机） ──
-      if ((gameMode === 'single' || gameMode === 'combat' || isTrainingMode) && !isGameOver) {
+      // ── 开炮（鼠标左键 / 手柄RT扳机，AI托管坦克跳过敌AI自己管理开火） ──
+      if (
+        !(isTrainingMode && trainingPlayerAI && trainingPlayerType === 'tank') &&
+        (gameMode === 'single' || gameMode === 'combat' || isTrainingMode) &&
+        !isGameOver
+      ) {
         if (mouseFireRequested && mouseFireReady) {
           fireShell();
           mouseFireReady = false;
@@ -4068,9 +4115,11 @@ function placeCamera() {
     window.PlayerControllerManager && window.PlayerControllerManager.isActive()
       ? window.PlayerControllerManager.getPose()
       : null;
-  // 视角跟鼠标(cameraYaw 自由, 与机体朝向解耦); 机体朝向由控制器步进慢追(笨重转向)
-  const cfx = Math.cos(cameraYaw);
-  const cfz = Math.sin(cameraYaw);
+  // 视角: AI托管时跟身体实际朝向, 手动时跟鼠标(cameraYaw自由)
+  const _camYaw =
+    _camPose && window.PlayerControllerManager.isAiDriven() ? _camPose.yaw : cameraYaw;
+  const cfx = Math.cos(_camYaw);
+  const cfz = Math.sin(_camYaw);
   var _camX = _camPose ? _camPose.x : tankGroup.position.x;
   var _camZ = _camPose ? _camPose.z : tankGroup.position.z;
 
@@ -5057,7 +5106,7 @@ function spawnHexapodGatlingBullet(enemy, player1, ai) {
   scene.add(flash);
   muzzleLights.push({ light: flash, life: 0.08 });
   const speed = 80;
-  const maxDist = 25;
+  const maxDist = 50;
   const startPos = muzzlePos.clone();
   const bulletData = {
     mesh: tracer,
@@ -6696,7 +6745,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.61.3  ' +
+    'v0.64.0  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -6834,12 +6883,14 @@ const trainingConfig = document.getElementById('training-config');
 const tcPlayerOpts = document.getElementById('tc-player-opts');
 const tcEnemyOpts = document.getElementById('tc-enemy-opts');
 const tcBehaviorOpts = document.getElementById('tc-behavior-opts');
+const tcAioptsOpts = document.getElementById('tc-aiopts-opts');
 const btnTrainingStart = document.getElementById('btn-training-start');
 const btnTrainingCancel = document.getElementById('btn-training-cancel');
 
 let trainingPlayerType = 'tank';
 let trainingEnemyType = 'tank';
 let trainingBehavior = 'reactive'; // 'active' | 'reactive' | 'passive'
+let trainingPlayerAI = true; // 玩家坦克/六足AI托管: 自动攻击敌方单位
 
 // 初始化训练场配置面板的选择按钮交互
 (function initTrainingConfigUI() {
@@ -6860,6 +6911,9 @@ let trainingBehavior = 'reactive'; // 'active' | 'reactive' | 'passive'
   });
   setupToggle(tcBehaviorOpts, (v) => {
     trainingBehavior = v;
+  });
+  setupToggle(tcAioptsOpts, (v) => {
+    trainingPlayerAI = v === 'ai';
   });
   btnTrainingStart.addEventListener('click', enterTrainingMode);
   btnTrainingCancel.addEventListener('click', hideTrainingConfig);
@@ -6902,9 +6956,9 @@ async function enterTrainingMode() {
     _sniperMode = false;
     _sniperPitch = 0; // 重置狙击模式
     cameraYaw = player1 ? player1.state.yaw : 0;
-    const playerSpawnX = -50,
+    const playerSpawnX = -4,
       playerSpawnZ = 0;
-    const enemySpawnX = 50,
+    const enemySpawnX = 4,
       enemySpawnZ = 0;
     trainingPlayerSpawn = { x: playerSpawnX, z: playerSpawnZ };
     trainingEnemySpawn = { x: enemySpawnX, z: enemySpawnZ };
@@ -6965,10 +7019,11 @@ async function enterTrainingMode() {
         scene: scene,
         getGroundHeight: getGroundHeight,
         position: { x: playerSpawnX, z: playerSpawnZ },
-        yaw: Math.PI,
-        player1: player1, // 传 player1 引用 (顶层 let, 控制器无法用 window.player1 读)
+        yaw: trainingPlayerAI ? 0 : Math.PI,
+        player1: player1,
+        aiDriven: trainingPlayerAI,
       });
-      cameraYaw = Math.PI; // 鼠标初始朝向 = 六足朝向 (关键)
+      cameraYaw = trainingPlayerAI ? 0 : Math.PI;
       hintBar.textContent = 'WASD 移动 | 鼠标转向 | ESC 返回菜单';
     } else if (player1) {
       // ── 坦克 (默认角色) ──
@@ -6997,7 +7052,10 @@ async function enterTrainingMode() {
       }
       player1.state.x = playerSpawnX;
       player1.state.z = playerSpawnZ;
-      player1.state.yaw = Math.PI;
+      // AI托管: 出生即面朝敌方(计算方向)
+      player1.state.yaw = trainingPlayerAI
+        ? Math.atan2(enemySpawnZ - playerSpawnZ, enemySpawnX - playerSpawnX)
+        : Math.PI;
       player1.currentLeftSpeed = 0;
       player1.currentRightSpeed = 0;
       player1.prevForwardSpeed = 0;
@@ -7018,6 +7076,9 @@ async function enterTrainingMode() {
       if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
     }
     resetTank();
+    // AI托管坦克: resetTank 用 π/4 覆盖了朝向, 立即修正为面朝敌方
+    if (trainingPlayerAI && trainingPlayerType === 'tank')
+      tankState.yaw = Math.atan2(enemySpawnZ - playerSpawnZ, enemySpawnX - playerSpawnX);
     totalDistance = 0;
     visibilityTimer = 0;
 
@@ -7158,7 +7219,7 @@ async function enterTrainingMode() {
       heatPerSec: isHexEnemy ? 25 : undefined,
       coolPerSec: isHexEnemy ? 18 : undefined,
       spreadCone: isHexEnemy ? 3 : undefined,
-      gatlingRange: isHexEnemy ? 30 : undefined,
+      gatlingRange: isHexEnemy ? 50 : undefined,
       missileRange: isHexEnemy ? 50 : undefined,
       missileCooldown: isHexEnemy ? 4.0 : undefined,
       fireRate: isHexEnemy ? 10 : undefined,
@@ -7307,7 +7368,7 @@ initScene();
 placeCamera();
 renderer.render(scene, camera);
 console.log(
-  '🎮 坦克运动demo v0.61.3 | 加特林枪管旋转修复(攻击才转/过热停/散热到0)+六足玩家键盘跑手柄低力度走'
+  '🎮 坦克运动demo v0.64.0 | AI托管+性能优化: 双方自动对攻(六足/坦克)+CCD矩阵局部化+子弹碰撞空间网格'
 );
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）

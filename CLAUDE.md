@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.63.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.64.0
 
 ## 运行
 
@@ -433,25 +433,46 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
-## v0.63.1 本次会话变更 (2026-06-22)
+## v0.64.0 本次会话变更 (2026-06-23)
 
-### Bug修复（8项）
+### 训练场AI托管系统
 
-1. **六足右摇杆Y轴翻转**: `engine.js:1522` — `+=` → `-=` 取反，上推=下俯（飞机摇杆风格）
-2. **六足出生点障碍物阴影缺失**: `engine.js:3830` — 阴影相机跟 `tankGroup`（六足模式不更新），PCM 激活时改用 `getPose()` 获取六足位置
-3. **敌六足踉跄时加特林仍在发射**: `hexapod_enemy.js:221` — 踉跄块强制 `spinUp` 衰减→0、`gatlingRequest=false`、`heat` 散热 18/s、`spinRPS=0`；`enemyAI.js:767` — 踉跄中跳过武器决策+移动，仅维持 `bodyYaw` 追踪
-4. **坦克炮弹不让敌六足踉跄**: `engine.js:2389` — 圆柱碰撞直接扣 HP 绕过 `onEnemyDamaged`，替换为完整调用链（扣血+踉跄+死亡检测）
-5. **坦克复活在死亡地点**: `engine.js:5325` — 复活时 `tankState.x/z/yaw` 未同步 → 同帧物理代码从过时 `tankState` 覆写位置，现三行同步
-6. **敌坦克坡地倾斜方向错**: `engine.js:3276+3288` — 前向公式 `(-cos, sin)` 与模型朝向差 90°，修正为 `(sin, cos)` 对齐玩家公式
-7. **爆炸火光粒子残留**: `fireSmokeParticles.js:391+561` — `ExplosionEffects.dispose()` 和 `FlameThrowerEffect.dispose()` 只释放 GPU 资源不调 `scene.remove()`，修复增加 `parent.remove()`
-8. **敌六足不受水体/障碍物碰撞**: `engine.js:3258+3128` — 敌六足只有空气墙钳制无 `checkCollision`，新增碰撞检测（障碍物+河流+池塘推离），存活/死亡两路径均覆盖
+- **玩家AI托管**: 训练配置新增"🤖 我方AI托管"复选框（AI托管/手动操控），默认AI托管
+- **六足AI托管**: `hexapodPlayer.js` AI分支调用 `updateHexapodEngage` 驱动机体（绕圈+武器决策），桥接AI武器指令到玩家射击系统（加特林spinUp同步、导弹直接发射），复活后重置 bodyYaw/targetYaw 防朝向漂移
+- **坦克AI托管**: engine.js 游戏循环内复用 `EnemyAI.updateEnemyAI` 控制玩家坦克（巡逻→追击→绕圈+炮塔瞄准+开火），跳过原有 WASD/鼠标/updateAiming
+- **视角自动跟随**: `placeCamera()` AI模式用 `getPose().yaw` + tank `cameraYaw`（非鼠标手控）
+- **武器参数对齐**: 敌我加特林射程统一50m（maxDist + gatlingRange），子弹碰撞用 `checkCollision` 替代 Raycaster
 
-### 已知问题（更新）
+### 性能优化
 
-1. 坡地一头翘起一头陷地（**六足玩家已修，坦克已修**，敌人坦克坡地倾斜方向已修正）
-2. 对山丘目标弹道偏低
-3. 只会对山丘开炮不会绕路
-4. 六足武器俯仰旋转轴不正确（待校准）
+- **CCD矩阵局部化**: `_ccdLeg` 迭代内 `root.updateMatrixWorld(true)`（全六足树~50节点）→ 首次全树 + 后续仅本腿子树（~5节点），节点访问量降~12倍；IK 耗时从 22ms→9ms，fps +54%
+- **子弹碰撞空间网格**: 玩家加特林子弹 `Raycaster.intersectObjects(obsMeshes)` → `window.checkCollision(pos, 0.15)`（空间网格 O(1)），raycast 7.6ms→~3ms
+- **树冠+建筑阴影优化**: 三类树冠+建筑IM `castShadow=false`（树干保留），减少阴影caster
+- **HEX_CCD_SCALE开关**: `hexapod_core.js` stepGait 加全局缩放因子（默认1.0保持原质量），工厂页面设 `window.HEX_CCD_SCALE=1.0`
+
+### 关键文件变更
+
+| 文件                                    | 改动                                                                                |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| `js/engine.js`                          | +AI托管逻辑（坦克/六足）+ placeCamera AI跟随 + 出生点±4m + 训练UI绑定 + 敌参数对齐  |
+| `js/playerControllers/hexapodPlayer.js` | AI分支（updateHexapodEngage + 武器桥接 + 复活修复 + 加特林俯仰)+ 子弹checkCollision |
+| `js/playerControllers/manager.js`       | +isAiDriven() 接口（供 placeCamera 探测）                                           |
+| `js/hexapod_core.js`                    | \_ccdLeg 局部矩阵更新 + HEX_CCD_SCALE 开关                                          |
+| `combat/enemyAI.js`                     | updateHexapodEngage 导出到 window.EnemyAI                                           |
+| `index.html`                            | AI托管UI复选框                                                                      |
+
+### 性能基线
+
+- 六足对攻（双方CCD IK+加特林+导弹）: 22.5→37.4 fps (+66%)
+- 坦克对攻（无CCD IK，纯AI+物理）: 待测
+
+### 已知问题
+
+1. 坦克AI托管首版（复用EnemyAI），位置同步有一帧延迟，持续测试中
+2. 六足AI托管中距离二人转+导弹射程匹配问题已修复
+3. 坡地一头翘起一头陷地（坦克/敌人偶发）
+4. 对山丘目标弹道偏低
+5. 六足武器俯仰旋转轴不正确（待校准）
 
 ---
 

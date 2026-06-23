@@ -4,6 +4,14 @@
       "type": "stdio",
       "command": "codegraph",
       "args": ["serve", "--mcp"]
+    },
+    "threejs-devtools-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "threejs-devtools-mcp"],
+      "env": {
+        "DEV_PORT": "8080"
+      }
     }
   }
 }

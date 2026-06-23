@@ -6,23 +6,28 @@
  *
  * 依赖: window.THREE, window.HexapodConfig
  */
-var HexapodCore = (function() {
+var HexapodCore = (function () {
   // lazy access: model_factory.html 中 window.THREE 由 deferred module 设置
-  function T() { return window.THREE; }
+  function T() {
+    return window.THREE;
+  }
   var CFG = window.HexapodConfig;
 
   // ── 工具函数 ──
   function _worldX(j) {
-    var q = new (T()).Quaternion(); j.getWorldQuaternion(q);
-    return new (T()).Vector3(1, 0, 0).applyQuaternion(q).normalize();
+    var q = new (T().Quaternion)();
+    j.getWorldQuaternion(q);
+    return new (T().Vector3)(1, 0, 0).applyQuaternion(q).normalize();
   }
   function _worldY(j) {
-    var q = new (T()).Quaternion(); j.getWorldQuaternion(q);
-    return new (T()).Vector3(0, 1, 0).applyQuaternion(q).normalize();
+    var q = new (T().Quaternion)();
+    j.getWorldQuaternion(q);
+    return new (T().Vector3)(0, 1, 0).applyQuaternion(q).normalize();
   }
   function _worldZ(j) {
-    var q = new (T()).Quaternion(); j.getWorldQuaternion(q);
-    return new (T()).Vector3(0, 0, 1).applyQuaternion(q).normalize();
+    var q = new (T().Quaternion)();
+    j.getWorldQuaternion(q);
+    return new (T().Vector3)(0, 0, 1).applyQuaternion(q).normalize();
   }
   function angleDiff(a, b) {
     var d = b - a;
@@ -30,9 +35,15 @@ var HexapodCore = (function() {
     while (d < -Math.PI) d += Math.PI * 2;
     return d;
   }
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-  function _easeOut(t) { return 1 - Math.pow(1 - t, 3); }
-  function _easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+  function clamp(v, lo, hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+  }
+  function _easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+  function _easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
 
   // ═══════════════════════════════════════════
   //  CCD IK 解算器 (单腿, 3关节)
@@ -53,30 +64,41 @@ var HexapodCore = (function() {
     // hip axis accessor
     var hipGetRot, hipSetRot, hipWorldAxis;
     if (ctx.hipAxis === 'z') {
-      hipGetRot = function() { return hipJoint.rotation.z; };
-      hipSetRot = function(v) { hipJoint.rotation.z = v; };
+      hipGetRot = function () {
+        return hipJoint.rotation.z;
+      };
+      hipSetRot = function (v) {
+        hipJoint.rotation.z = v;
+      };
       hipWorldAxis = _worldZ;
       leg._hipRestRot = leg.restHip;
       // restHip stored as Z rotation
     } else {
       // default 'y'
-      hipGetRot = function() { return hipJoint.rotation.y; };
-      hipSetRot = function(v) { hipJoint.rotation.y = v; };
+      hipGetRot = function () {
+        return hipJoint.rotation.y;
+      };
+      hipSetRot = function (v) {
+        hipJoint.rotation.y = v;
+      };
       hipWorldAxis = _worldY;
       leg._hipRestRot = leg.restHip;
     }
 
     for (var iter = 0; iter < iters; iter++) {
-      root.updateMatrixWorld(true);
+      // 局部矩阵更新: 首次全树保基线, 后续仅更新本腿hipJoint子树(省全树遍历)
+      if (iter === 0) root.updateMatrixWorld(true);
+      else hipJoint.updateMatrixWorld(true);
 
       var tipW = leg.tipLocal.clone().applyMatrix4(anklePv.matrixWorld);
       var d, l;
 
       // 1. Thigh X (髋抬腿)
-      var tW = new (T()).Vector3(); thighPv.getWorldPosition(tW);
+      var tW = new (T().Vector3)();
+      thighPv.getWorldPosition(tW);
       d = tipW.clone().sub(tW).normalize();
       var dt = targetWorld.clone().sub(tW).normalize();
-      var ax = new (T()).Vector3().crossVectors(d, dt);
+      var ax = new (T().Vector3)().crossVectors(d, dt);
       l = ax.length();
       if (l > 0.0003) {
         ax.normalize();
@@ -87,28 +109,33 @@ var HexapodCore = (function() {
       else if (thighPv.rotation.x < -2.8) thighPv.rotation.x = -2.8;
 
       // 2. Shin X (膝)
-      var sW = new (T()).Vector3(); shinPv.getWorldPosition(sW);
-      root.updateMatrixWorld(true);
+      var sW = new (T().Vector3)();
+      shinPv.getWorldPosition(sW);
+      thighPv.updateMatrixWorld(true);
       tipW = leg.tipLocal.clone().applyMatrix4(anklePv.matrixWorld);
       d = tipW.clone().sub(sW).normalize();
       dt = targetWorld.clone().sub(sW).normalize();
-      ax = new (T()).Vector3().crossVectors(d, dt);
+      ax = new (T().Vector3)().crossVectors(d, dt);
       l = ax.length();
       if (l > 0.0003) {
         ax.normalize();
         shinPv.rotation.x += Math.atan2(l, d.dot(dt)) * ax.dot(_worldX(shinPv)) * damp;
       }
       // 膝关节防反曲
-      if (leg._shinSign > 0) { if (shinPv.rotation.x < 0.05) shinPv.rotation.x = 0.05; }
-      else                   { if (shinPv.rotation.x > -0.05) shinPv.rotation.x = -0.05; }
+      if (leg._shinSign > 0) {
+        if (shinPv.rotation.x < 0.05) shinPv.rotation.x = 0.05;
+      } else {
+        if (shinPv.rotation.x > -0.05) shinPv.rotation.x = -0.05;
+      }
 
       // 3. Hip (水平摆角)
-      var hW = new (T()).Vector3(); thighPv.getWorldPosition(hW);
-      root.updateMatrixWorld(true);
+      var hW = new (T().Vector3)();
+      thighPv.getWorldPosition(hW);
+      shinPv.updateMatrixWorld(true);
       tipW = leg.tipLocal.clone().applyMatrix4(anklePv.matrixWorld);
       d = tipW.clone().sub(hW).normalize();
       dt = targetWorld.clone().sub(hW).normalize();
-      ax = new (T()).Vector3().crossVectors(d, dt);
+      ax = new (T().Vector3)().crossVectors(d, dt);
       l = ax.length();
       if (l > 0.0003) {
         ax.normalize();
@@ -117,12 +144,15 @@ var HexapodCore = (function() {
       }
       // 髋限位: 相对rest最多±yLimit rad
       var yLimit = leg._yLimit || 0.7;
-      if (ctx._isPlayer) yLimit *= 1.35;  // 玩家放宽(0.45→0.61/0.7→0.95): 容纳转向髋补偿, 防#5腿飞
+      if (ctx._isPlayer) yLimit *= 1.35; // 玩家放宽(0.45→0.61/0.7→0.95): 容纳转向髋补偿, 防#5腿飞
       var diff = hipGetRot() - (leg._hipRestRot || 0);
       while (diff > Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
-      if (diff > yLimit) { hipSetRot((leg._hipRestRot || 0) + yLimit); }
-      else if (diff < -yLimit) { hipSetRot((leg._hipRestRot || 0) - yLimit); }
+      if (diff > yLimit) {
+        hipSetRot((leg._hipRestRot || 0) + yLimit);
+      } else if (diff < -yLimit) {
+        hipSetRot((leg._hipRestRot || 0) - yLimit);
+      }
     }
   }
 
@@ -176,14 +206,15 @@ var HexapodCore = (function() {
       deathState: null,
 
       // 武器垂下枢轴 (死亡时创建)
-      _weaponPivots: null
+      _weaponPivots: null,
     };
 
     // 防御NaN（模型工厂偶发未初始化x/z）
     if (isNaN(root.position.x)) root.position.x = 0;
     if (isNaN(root.position.z)) root.position.z = 0;
     root.updateMatrixWorld(true);
-    var rootWorldPos = new (T()).Vector3(); root.getWorldPosition(rootWorldPos);
+    var rootWorldPos = new (T().Vector3)();
+    root.getWorldPosition(rootWorldPos);
 
     for (var li = 0; li < legRefs.length; li++) {
       var ref = legRefs[li];
@@ -195,8 +226,8 @@ var HexapodCore = (function() {
 
       // 锥尖在 anklePivot 本地空间中的位置
       root.updateMatrixWorld(true);
-      var sb = new (T()).Box3().setFromObject(spikeMesh);
-      var tipWorld = new (T()).Vector3(
+      var sb = new (T().Box3)().setFromObject(spikeMesh);
+      var tipWorld = new (T().Vector3)(
         (sb.min.x + sb.max.x) / 2,
         sb.min.y,
         (sb.min.z + sb.max.z) / 2
@@ -205,11 +236,11 @@ var HexapodCore = (function() {
 
       // 脚到身体中心的 XZ 距离（固定值，防 CCD 误差漂移）
       root.updateMatrixWorld(true);
-      var hw2 = new (T()).Vector3(); root.getWorldPosition(hw2);
+      var hw2 = new (T().Vector3)();
+      root.getWorldPosition(hw2);
       var tipW2 = tipLocal.clone().applyMatrix4(anklePv.matrixWorld);
       var initFootDist = Math.sqrt(
-        (tipW2.x - hw2.x) * (tipW2.x - hw2.x) +
-        (tipW2.z - hw2.z) * (tipW2.z - hw2.z)
+        (tipW2.x - hw2.x) * (tipW2.x - hw2.x) + (tipW2.z - hw2.z) * (tipW2.z - hw2.z)
       );
 
       // homeOffset: 休息姿态足端在本地方空间的偏移（相对定位）
@@ -241,7 +272,7 @@ var HexapodCore = (function() {
         swingFrom: null,
         swingTo: null,
         _wasStance: undefined,
-        _stanceTarget: null
+        _stanceTarget: null,
       };
       ctx.legs.push(leg);
     }
@@ -262,7 +293,7 @@ var HexapodCore = (function() {
       if (tw3.y < lowestTipY) lowestTipY = tw3.y;
     }
     if (lowestTipY < 0) {
-      root.position.y += (-lowestTipY);
+      root.position.y += -lowestTipY;
     }
     // 抬升后重新捕获 homeOffset / _groundY（否则 stepIdle 用旧值导致 CCD 拉腿到极端位置）
     root.updateMatrixWorld(true);
@@ -276,7 +307,8 @@ var HexapodCore = (function() {
 
     // 若有 terrain，计算 _baseY
     if (ctx.groundHeightFn) {
-      var hwPos = new (T()).Vector3(); root.getWorldPosition(hwPos);
+      var hwPos = new (T().Vector3)();
+      root.getWorldPosition(hwPos);
       ctx._baseY = root.position.y - ctx.groundHeightFn(hwPos.x, hwPos.z);
     }
 
@@ -294,7 +326,8 @@ var HexapodCore = (function() {
       var tipW = leg.tipLocal.clone().applyMatrix4(leg.anklePivot.matrixWorld);
       leg.plantPos = tipW.clone();
       leg._groundY = tipW.y;
-      leg.swingFrom = null; leg.swingTo = null;
+      leg.swingFrom = null;
+      leg.swingTo = null;
       leg._stanceTarget = null;
     }
     ctx._prevTotalDist = 0;
@@ -323,28 +356,36 @@ var HexapodCore = (function() {
     if (ctx._isPlayer) {
       // 步进式转向(用户方案): 每步态周期采样目标转向量→单步转角→整周期恒定执行。
       // 身体由步态驱动转向(腿蹬地+预伸), 非每帧跟视角。鼠标停/反向: 当前步走完下步才响应。
-      var STEP_PERIOD = 0.32;   // 转向步态周期(s)
-      var MAX_STEP = 0.5;       // 单步最大转角(rad, ~28°)
-      var IDLE_THR = 0.02;      // 剩余角差<此值不转(防抖); 减小让转向更接近视角精确到位
-      if (ctx._stepTimer === undefined) { ctx._stepTimer = 0; ctx._stepTurn = 0; }
+      var STEP_PERIOD = 0.32; // 转向步态周期(s)
+      var MAX_STEP = 0.5; // 单步最大转角(rad, ~28°)
+      var IDLE_THR = 0.02; // 剩余角差<此值不转(防抖); 减小让转向更接近视角精确到位
+      if (ctx._stepTimer === undefined) {
+        ctx._stepTimer = 0;
+        ctx._stepTurn = 0;
+      }
       ctx._stepTimer += dt;
       if (ctx._stepTimer >= STEP_PERIOD) {
         ctx._stepTimer -= STEP_PERIOD;
-        var _remain = (params.targetYaw !== undefined && !isNaN(params.targetYaw))
-          ? angleDiff(root.rotation.y, params.targetYaw) : 0;
-        ctx._stepTurn = (Math.abs(_remain) > IDLE_THR) ? clamp(_remain, -MAX_STEP, MAX_STEP) : 0;
+        var _remain =
+          params.targetYaw !== undefined && !isNaN(params.targetYaw)
+            ? angleDiff(root.rotation.y, params.targetYaw)
+            : 0;
+        ctx._stepTurn = Math.abs(_remain) > IDLE_THR ? clamp(_remain, -MAX_STEP, MAX_STEP) : 0;
       }
-      actualTurnRate = (ctx._stepTurn || 0) / STEP_PERIOD;  // 本步恒定角速度
+      actualTurnRate = (ctx._stepTurn || 0) / STEP_PERIOD; // 本步恒定角速度
     } else if (!ctx.bodyWriter && params.bodySpeed === undefined) {
-      var bdv = new (T()).Vector3().subVectors(root.position, ctx._prevBodyPos);
+      var bdv = new (T().Vector3)().subVectors(root.position, ctx._prevBodyPos);
       bdv.y = 0;
       bodySpeedNow = bdv.length() / Math.max(dt, 0.001);
       actualTurnRate = angleDiff(ctx._prevBodyYaw, root.rotation.y) / Math.max(dt, 0.001);
     }
     var turnRate = ctx._isPlayer
       ? actualTurnRate
-      : ((cfgTurnRate !== 0) ? cfgTurnRate
-        : (Math.abs(actualTurnRate) > 0.05 ? actualTurnRate : 0));
+      : cfgTurnRate !== 0
+        ? cfgTurnRate
+        : Math.abs(actualTurnRate) > 0.05
+          ? actualTurnRate
+          : 0;
 
     // ── 步态周期 ──
     var gaitPeriod;
@@ -358,11 +399,11 @@ var HexapodCore = (function() {
     } else if (!ctx.bodyWriter && bodySpeedNow > 0.3) {
       // 游戏模式: 步频自适应 bodySpeed, 保持动态步幅≈设计步幅
       // 公式: period = 2*stride/bodySpeed, 使每周期移动距离=2*stride
-      gaitPeriod = clamp(2.0 * Math.max(stride, 0.10) / Math.max(bodySpeedNow, 0.1), 0.22, 0.8);
+      gaitPeriod = clamp((2.0 * Math.max(stride, 0.1)) / Math.max(bodySpeedNow, 0.1), 0.22, 0.8);
     } else if (bodySpeedNow > 1.5) {
       gaitPeriod = clamp(2.0 / bodySpeedNow, 0.3, 0.7);
     } else {
-      gaitPeriod = stride > 0.30 ? 0.38 : 0.7;
+      gaitPeriod = stride > 0.3 ? 0.38 : 0.7;
     }
 
     // 动态步幅（按 AI 速度自适应，但不超过腿长 70% 防止够不到）
@@ -372,18 +413,19 @@ var HexapodCore = (function() {
     var dynamicStride = Math.max(stride, bodySpeedNow * gaitPeriod * 0.5);
     dynamicStride = Math.min(dynamicStride, avgReach * 0.7);
 
-    // CCD参数
+    // CCD参数 — window.HEX_CCD_SCALE 可调迭代(默认1.0原质量; 实测降迭代收益小且伤步态, 不启用)
+    var _ccs = window.HEX_CCD_SCALE == null ? 1.0 : window.HEX_CCD_SCALE;
     var ccdIters;
     if (Math.abs(turnRate) > 1.0) {
-      ccdIters = 20 + Math.round(Math.abs(turnRate) * 13);
+      ccdIters = Math.max(5, Math.round((20 + Math.round(Math.abs(turnRate) * 13)) * _ccs));
     } else if (Math.abs(turnRate) > 0.05) {
-      ccdIters = 20 + Math.round(Math.abs(turnRate) * 8);
-    } else if (stride > 0.30) {
-      ccdIters = 30;
+      ccdIters = Math.max(5, Math.round((20 + Math.round(Math.abs(turnRate) * 8)) * _ccs));
+    } else if (stride > 0.3) {
+      ccdIters = Math.max(5, Math.round(30 * _ccs));
     } else {
-      ccdIters = 15;
+      ccdIters = Math.max(5, Math.round(15 * _ccs));
     }
-    var damp = (Math.abs(turnRate) > 0.05) ? 0.8 : 0.5;
+    var damp = Math.abs(turnRate) > 0.05 ? 0.8 : 0.5;
 
     // ── 累计时间+距离 ──
     if (ctx._totalTime === undefined) ctx._totalTime = 0;
@@ -396,24 +438,28 @@ var HexapodCore = (function() {
     var bodyBob = Math.sin(gaitCycles * Math.PI * 2) * 0.03;
 
     // ── 身体旋转 (bodyWriter 或 玩家步进式 都由步态驱动写) ──
-    var isStaticTurn = (animIndex === 7 || animIndex === 8);
+    var isStaticTurn = animIndex === 7 || animIndex === 8;
     if (ctx.bodyWriter || ctx._isPlayer) {
-      root.rotation.y += turnRate * dt;   // 玩家: 步进式驱动身体转向(腿蹬地转, 非每帧跟视角)
+      root.rotation.y += turnRate * dt; // 玩家: 步进式驱动身体转向(腿蹬地转, 非每帧跟视角)
     }
 
     // 前进方向
     var fwdBody;
     if (dir === 2 || dir === -2) {
-      fwdBody = new (T()).Vector3(0, 0, dir / 2);
+      fwdBody = new (T().Vector3)(0, 0, dir / 2);
     } else {
-      fwdBody = new (T()).Vector3(-1 * dir, 0, 0);
+      fwdBody = new (T().Vector3)(-1 * dir, 0, 0);
     }
     root.localToWorld(fwdBody);
-    var hw = new (T()).Vector3(); root.getWorldPosition(hw);
+    var hw = new (T().Vector3)();
+    root.getWorldPosition(hw);
     fwdBody.sub(hw).normalize();
     // 玩家模式: fwdBody 改用真实移动方向(连续, 支持8方位/斜向/手柄360°), 不用 animIndex 离散dir
     if (ctx._isPlayer && params.desiredMove) {
-      var _dmn = Math.sqrt(params.desiredMove.dx * params.desiredMove.dx + params.desiredMove.dz * params.desiredMove.dz);
+      var _dmn = Math.sqrt(
+        params.desiredMove.dx * params.desiredMove.dx +
+          params.desiredMove.dz * params.desiredMove.dz
+      );
       if (_dmn > 0.001) fwdBody.set(params.desiredMove.dx / _dmn, 0, params.desiredMove.dz / _dmn);
     }
 
@@ -439,28 +485,31 @@ var HexapodCore = (function() {
 
     // ── 地形适应 / 身体高度 ──
     if (ctx.groundHeightFn) {
-      var hwPos = new (T()).Vector3(); root.getWorldPosition(hwPos);
-      var _ghC = ctx.groundHeightFn(hwPos.x, hwPos.z);   // 身体正下方地面高 (采样基准)
+      var hwPos = new (T().Vector3)();
+      root.getWorldPosition(hwPos);
+      var _ghC = ctx.groundHeightFn(hwPos.x, hwPos.z); // 身体正下方地面高 (采样基准)
       root.position.y = _ghC + (ctx._baseY || 0);
       // 地形俯仰侧倾
       if (!root.rotation.order || root.rotation.order !== 'YXZ') {
         root.rotation.order = 'YXZ';
       }
       var hYaw = root.rotation.y;
-      var hFwdX = -Math.cos(hYaw), hFwdZ = Math.sin(hYaw);
-      var hRgtX = -Math.sin(hYaw), hRgtZ = -Math.cos(hYaw);   // 右侧 = hFwd×up (原照搬坦克公式 -cos(yaw+π/2),sin(yaw+π/2), 但六足车头朝向不同→左右反, 致 roll 侧倾方向错)
-      var sD = 2.0;   // 车身尺度采样 (原1.2太小: 六足前后腿跨~1m, 1.2m 没覆盖车身, 对 FBM 高频+河岸陡变过敏, 局部采样坡度远大于宏观 → 车身过度倾斜)
+      var hFwdX = -Math.cos(hYaw),
+        hFwdZ = Math.sin(hYaw);
+      var hRgtX = -Math.sin(hYaw),
+        hRgtZ = -Math.cos(hYaw); // 右侧 = hFwd×up (原照搬坦克公式 -cos(yaw+π/2),sin(yaw+π/2), 但六足车头朝向不同→左右反, 致 roll 侧倾方向错)
+      var sD = 2.0; // 车身尺度采样 (原1.2太小: 六足前后腿跨~1m, 1.2m 没覆盖车身, 对 FBM 高频+河岸陡变过敏, 局部采样坡度远大于宏观 → 车身过度倾斜)
       // 落水/陡崖过滤: 采样点远低于脚下(<基准-1.2m, 即落在河水/陡崖)→ 视为不可达, 用基准替代, 防止河岸采样暴涨到40-65°
-      var _sampH = function(dx, dz) {
+      var _sampH = function (dx, dz) {
         var h = ctx.groundHeightFn(hwPos.x + dx, hwPos.z + dz);
-        return (h < _ghC - 1.2) ? _ghC : h;
+        return h < _ghC - 1.2 ? _ghC : h;
       };
       var fhT = _sampH(hFwdX * sD, hFwdZ * sD);
       var bhT = _sampH(-hFwdX * sD, -hFwdZ * sD);
       var _pitchT = -Math.atan2(fhT - bhT, sD * 2);
       var lhT = _sampH(-hRgtX * sD, -hRgtZ * sD);
       var rhT = _sampH(hRgtX * sD, hRgtZ * sD);
-      var _rollT = Math.atan2(rhT - lhT, sD * 2);      // 左右落差: 右高→正 (六足 rotation.x=侧倾, 正=右倾)
+      var _rollT = Math.atan2(rhT - lhT, sD * 2); // 左右落差: 右高→正 (六足 rotation.x=侧倾, 正=右倾)
       // 平滑 (对齐坦克 P_SMOOTH=15 / 敌人 SM=12): 防止 FBM 粗糙地形每帧高度噪声致车身抖动
       var _HEX_SMOOTH = 12.0;
       if (ctx._smPitch === undefined) ctx._smPitch = _pitchT;
@@ -482,7 +531,7 @@ var HexapodCore = (function() {
       var leg = ctx.legs[li];
       var phaseOffset = leg.tripodA ? 0 : 0.5;
       var gaitT = (gaitCycles + phaseOffset) % 1;
-      var inStance = (gaitT < 0.5);
+      var inStance = gaitT < 0.5;
       var stanceFrac = inStance ? gaitT * 2 : (gaitT - 0.5) * 2;
 
       if (inStance) {
@@ -506,7 +555,11 @@ var HexapodCore = (function() {
       } else {
         // 摆动相: 从 plantPos/stanceTarget 摆向新的落地位置
         if (leg._wasStance) {
-          leg.swingFrom = ctx.bodyWriter ? leg.plantPos.clone() : (leg._stanceTarget ? leg._stanceTarget.clone() : _legHomePos(ctx, leg));
+          leg.swingFrom = ctx.bodyWriter
+            ? leg.plantPos.clone()
+            : leg._stanceTarget
+              ? leg._stanceTarget.clone()
+              : _legHomePos(ctx, leg);
           if (ctx._isPlayer) {
             // 玩家摆动闭环: 身体标准立足 + 速度前瞻 + 步进转向圆弧预伸
             // (#6: homeW闭环每周期重置无漂移; 步进turnRate整周期恒定, 圆弧让腿往转向反向预伸准备蹬地)
@@ -519,20 +572,26 @@ var HexapodCore = (function() {
             leg.swingTo.z += pvz * phalfP;
             if (Math.abs(turnRate) > 0.05) {
               // 圆弧预伸: 摆动腿往转向反向伸(蹬地准备), 步进turnRate整周期恒定
-              var pbc = new (T()).Vector3(); root.getWorldPosition(pbc);
-              var ptf = leg.swingTo.clone().sub(pbc); ptf.y = 0;
+              var pbc = new (T().Vector3)();
+              root.getWorldPosition(pbc);
+              var ptf = leg.swingTo.clone().sub(pbc);
+              ptf.y = 0;
               var pna = Math.atan2(ptf.z, ptf.x) - turnRate * gaitPeriod;
               var pfd = leg._initFootDist || ptf.length() || 1;
               leg.swingTo.x = pbc.x + Math.cos(pna) * pfd + pvx * phalfP;
               leg.swingTo.z = pbc.z + Math.sin(pna) * pfd + pvz * phalfP;
             }
-            leg.swingTo.y = ctx.groundHeightFn ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z) : leg._groundY;
+            leg.swingTo.y = ctx.groundHeightFn
+              ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z)
+              : leg._groundY;
           } else if (turnRate !== 0) {
-            var bodyC = new (T()).Vector3(); root.getWorldPosition(bodyC);
-            var toFoot = leg.swingFrom.clone().sub(bodyC); toFoot.y = 0;
+            var bodyC = new (T().Vector3)();
+            root.getWorldPosition(bodyC);
+            var toFoot = leg.swingFrom.clone().sub(bodyC);
+            toFoot.y = 0;
             var footAngle = Math.atan2(toFoot.z, toFoot.x);
             var newAngle = footAngle - turnRate * gaitPeriod;
-            var footDist = leg._initFootDist || (toFoot.length() || 1);
+            var footDist = leg._initFootDist || toFoot.length() || 1;
             leg.swingTo = bodyC.clone();
             leg.swingTo.x += Math.cos(newAngle) * footDist;
             leg.swingTo.z += Math.sin(newAngle) * footDist;
@@ -564,19 +623,25 @@ var HexapodCore = (function() {
             leg.swingTo.x += fvx * fhalfP;
             leg.swingTo.z += fvz * fhalfP;
             if (Math.abs(turnRate) > 0.05) {
-              var fbc = new (T()).Vector3(); root.getWorldPosition(fbc);
-              var ftf = leg.swingTo.clone().sub(fbc); ftf.y = 0;
+              var fbc = new (T().Vector3)();
+              root.getWorldPosition(fbc);
+              var ftf = leg.swingTo.clone().sub(fbc);
+              ftf.y = 0;
               var fna = Math.atan2(ftf.z, ftf.x) - turnRate * gaitPeriod;
               var ffd = leg._initFootDist || ftf.length() || 1;
               leg.swingTo.x = fbc.x + Math.cos(fna) * ffd + fvx * fhalfP;
               leg.swingTo.z = fbc.z + Math.sin(fna) * ffd + fvz * fhalfP;
             }
-            leg.swingTo.y = ctx.groundHeightFn ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z) : leg._groundY;
+            leg.swingTo.y = ctx.groundHeightFn
+              ? ctx.groundHeightFn(leg.swingTo.x, leg.swingTo.z)
+              : leg._groundY;
           } else if (turnRate !== 0) {
-            var bodyC2 = new (T()).Vector3(); root.getWorldPosition(bodyC2);
-            var tf2 = leg.plantPos.clone().sub(bodyC2); tf2.y = 0;
+            var bodyC2 = new (T().Vector3)();
+            root.getWorldPosition(bodyC2);
+            var tf2 = leg.plantPos.clone().sub(bodyC2);
+            tf2.y = 0;
             var fa2 = Math.atan2(tf2.z, tf2.x);
-            var fd2 = leg._initFootDist || (tf2.length() || 1);
+            var fd2 = leg._initFootDist || tf2.length() || 1;
             leg.swingTo = bodyC2.clone();
             leg.swingTo.x += Math.cos(fa2 - turnRate * gaitPeriod) * fd2;
             leg.swingTo.z += Math.sin(fa2 - turnRate * gaitPeriod) * fd2;
@@ -587,13 +652,11 @@ var HexapodCore = (function() {
             leg.swingTo.z += fwdBody.z * dynamicStride * 2;
           }
         }
-        var target = new (T()).Vector3().lerpVectors(leg.swingFrom, leg.swingTo, stanceFrac);
+        var target = new (T().Vector3)().lerpVectors(leg.swingFrom, leg.swingTo, stanceFrac);
         target.y += Math.sin(stanceFrac * Math.PI) * stepH;
         // 摆向末段确保不低于地面
         if (stanceFrac > 0.7) {
-          var gY = ctx.groundHeightFn
-            ? ctx.groundHeightFn(target.x, target.z)
-            : leg._groundY;
+          var gY = ctx.groundHeightFn ? ctx.groundHeightFn(target.x, target.z) : leg._groundY;
           if (target.y < gY) target.y = gY + 0.03;
         }
         _ccdLeg(ctx, leg, target, ccdIters, damp);
@@ -603,9 +666,14 @@ var HexapodCore = (function() {
       // ── 测量探针 (仅左前腿, 只读) ──
       if (leg.prefix === '左前' && typeof window.__hexProbeSample === 'function') {
         window.__hexProbeSample(ctx, {
-          totalTime: totalT, animIndex: animIndex, gaitT: gaitT, inStance: inStance,
-          gaitPeriod: gaitPeriod, dynamicStride: dynamicStride,
-          bodySpeedNow: bodySpeedNow, turnRate: turnRate
+          totalTime: totalT,
+          animIndex: animIndex,
+          gaitT: gaitT,
+          inStance: inStance,
+          gaitPeriod: gaitPeriod,
+          dynamicStride: dynamicStride,
+          bodySpeedNow: bodySpeedNow,
+          turnRate: turnRate,
         });
       }
     }
@@ -628,10 +696,11 @@ var HexapodCore = (function() {
     if (isNaN(root.position.z)) root.position.z = 0;
 
     if (ctx.bodyWriter) {
-      var bodyBob = (1 - Math.cos(t * Math.PI * 2)) / 2 * 0.08;
+      var bodyBob = ((1 - Math.cos(t * Math.PI * 2)) / 2) * 0.08;
       root.position.y = ctx.restPosY - bodyBob;
     } else if (ctx.groundHeightFn) {
-      var hwPos = new (T()).Vector3(); root.getWorldPosition(hwPos);
+      var hwPos = new (T().Vector3)();
+      root.getWorldPosition(hwPos);
       root.position.y = ctx.groundHeightFn(hwPos.x, hwPos.z) + (ctx._baseY || 0);
     }
     root.updateMatrixWorld(true);
@@ -668,12 +737,16 @@ var HexapodCore = (function() {
       } else {
         leg.hipJoint.rotation.y = leg.restHip;
       }
-      leg.plantPos = null; leg.swingFrom = null; leg.swingTo = null;
-      leg._wasStance = undefined; leg._stanceTarget = null;
+      leg.plantPos = null;
+      leg.swingFrom = null;
+      leg.swingTo = null;
+      leg._wasStance = undefined;
+      leg._stanceTarget = null;
     }
     ctx._staggerDone = false;
     ctx._deathDone = false;
-    ctx._stepTimer = 0; ctx._stepTurn = 0;   // 玩家步进转向状态重置(切动画/复活)
+    ctx._stepTimer = 0;
+    ctx._stepTurn = 0; // 玩家步进转向状态重置(切动画/复活)
     ctx.root.updateMatrixWorld(true);
   }
 
@@ -683,17 +756,19 @@ var HexapodCore = (function() {
   function triggerStagger(ctx, hitWorldDir, force) {
     if (!ctx || !ctx.legs.length) return;
     force = Math.max(0.15, Math.min(1, force || 0.5));
-    var dirWorld = new (T()).Vector3(hitWorldDir.x, 0, hitWorldDir.z);
+    var dirWorld = new (T().Vector3)(hitWorldDir.x, 0, hitWorldDir.z);
     if (dirWorld.length() < 0.01) dirWorld.set(0, 0, 1);
     dirWorld.normalize();
 
     var root = ctx.root;
     root.updateMatrixWorld(true);
-    var hp = new (T()).Vector3(); root.getWorldPosition(hp);
+    var hp = new (T().Vector3)();
+    root.getWorldPosition(hp);
 
     // 转本地方向，判断哪些腿在受击对面
     var localEnd = root.worldToLocal(hp.clone().add(dirWorld));
-    var lx = localEnd.x, lz = localEnd.z;
+    var lx = localEnd.x,
+      lz = localEnd.z;
 
     // 保存所有脚当前位置
     var plants = [];
@@ -713,20 +788,29 @@ var HexapodCore = (function() {
       if (pf.indexOf('右') >= 0) sc += lz;
       scores.push({ i: li2, s: sc });
     }
-    scores.sort(function(a, b) { return b.s - a.s; });
+    scores.sort(function (a, b) {
+      return b.s - a.s;
+    });
     var stompIdx = [scores[0].i, scores[1].i];
     if (ctx.legs.length >= 6 && Math.random() < 0.4) stompIdx.push(scores[2].i);
 
     var push = 0.22 * force;
     ctx.staggerState = {
       t0: performance.now() / 1000,
-      force: force, dir: dirWorld,
-      tImp: 0.12, tStag: 0.35, tRec: 0.50,
-      pushX: dirWorld.x * push, pushZ: dirWorld.z * push,
-      tiltX: dirWorld.z * 0.10 * force, tiltZ: -dirWorld.x * 0.10 * force,
+      force: force,
+      dir: dirWorld,
+      tImp: 0.12,
+      tStag: 0.35,
+      tRec: 0.5,
+      pushX: dirWorld.x * push,
+      pushZ: dirWorld.z * push,
+      tiltX: dirWorld.z * 0.1 * force,
+      tiltZ: -dirWorld.x * 0.1 * force,
       plants: plants,
-      stompIdx: stompIdx, stompTargets: {}, stompFired: false,
-      bodyStart: hp.clone()
+      stompIdx: stompIdx,
+      stompTargets: {},
+      stompFired: false,
+      bodyStart: hp.clone(),
     };
     ctx._gaitActive = false;
     ctx._staggerActive = true;
@@ -737,7 +821,10 @@ var HexapodCore = (function() {
     var s = ctx.staggerState;
     var elapsed = performance.now() / 1000 - s.t0;
     var total = s.tImp + s.tStag + s.tRec;
-    if (elapsed >= total) { _staggerEnd(ctx); return; }
+    if (elapsed >= total) {
+      _staggerEnd(ctx);
+      return;
+    }
 
     var root = ctx.root;
     var inImp = elapsed < s.tImp;
@@ -747,13 +834,17 @@ var HexapodCore = (function() {
     // 身体位移
     var bFrac;
     if (inImp) bFrac = _easeOut(elapsed / s.tImp);
-    else if (inStag) bFrac = 1 + 0.08 * Math.sin((elapsed - s.tImp) / s.tStag * Math.PI * 3);
+    else if (inStag) bFrac = 1 + 0.08 * Math.sin(((elapsed - s.tImp) / s.tStag) * Math.PI * 3);
     else bFrac = 1 - _easeInOut((elapsed - s.tImp - s.tStag) / s.tRec);
     root.position.x = s.bodyStart.x + s.pushX * bFrac;
     root.position.z = s.bodyStart.z + s.pushZ * bFrac;
 
     // 身体倾斜
-    var tFrac = inImp ? _easeOut(elapsed / s.tImp) : inStag ? 1 : 1 - _easeInOut((elapsed - s.tImp - s.tStag) / s.tRec);
+    var tFrac = inImp
+      ? _easeOut(elapsed / s.tImp)
+      : inStag
+        ? 1
+        : 1 - _easeInOut((elapsed - s.tImp - s.tStag) / s.tRec);
     root.rotation.x = s.tiltX * tFrac;
     root.rotation.z = s.tiltZ * tFrac;
     root.updateMatrixWorld(true);
@@ -764,7 +855,9 @@ var HexapodCore = (function() {
         var liIdx = s.stompIdx[si];
         s.stompTargets[liIdx] = {
           from: s.plants[liIdx].clone(),
-          to: s.plants[liIdx].clone().add(new (T()).Vector3(-s.dir.x * 0.1 * s.force, 0.04, -s.dir.z * 0.1 * s.force))
+          to: s.plants[liIdx]
+            .clone()
+            .add(new (T().Vector3)(-s.dir.x * 0.1 * s.force, 0.04, -s.dir.z * 0.1 * s.force)),
         };
       }
       s.stompFired = true;
@@ -777,7 +870,7 @@ var HexapodCore = (function() {
       if (s.stompTargets[li3]) {
         var st = s.stompTargets[li3];
         var frac = Math.min(1, (elapsed - s.tImp) / (s.tStag * 0.35));
-        tgt = new (T()).Vector3().lerpVectors(st.from, st.to, _easeOut(frac));
+        tgt = new (T().Vector3)().lerpVectors(st.from, st.to, _easeOut(frac));
         tgt.y += Math.sin(Math.min(frac, 1) * Math.PI) * 0.07;
       } else {
         tgt = s.plants[li3];
@@ -806,7 +899,8 @@ var HexapodCore = (function() {
     var restY = root.position.y;
     var restX = root.position.x;
     var restZ = root.position.z;
-    var bodyC = new (T()).Vector3(); root.getWorldPosition(bodyC);
+    var bodyC = new (T().Vector3)();
+    root.getWorldPosition(bodyC);
 
     // 地面高度
     var groundY = restY;
@@ -823,10 +917,11 @@ var HexapodCore = (function() {
     var splayPresets = CFG.DEATH_SPLAY_PRESETS || [];
     var deathTargets = [];
     for (var li2 = 0; li2 < ctx.legs.length; li2++) {
-      var fromB = startPlants[li2].clone().sub(bodyC); fromB.y = 0;
+      var fromB = startPlants[li2].clone().sub(bodyC);
+      fromB.y = 0;
       var baseAngle = Math.atan2(fromB.z, fromB.x);
       var baseDist = fromB.length() || 0.5;
-      var sp = (li2 < splayPresets.length) ? splayPresets[li2] : { mul: 1.2, ao: 0 };
+      var sp = li2 < splayPresets.length ? splayPresets[li2] : { mul: 1.2, ao: 0 };
       var dd = baseDist * sp.mul;
       var da = sp.ao + (Math.random() - 0.5) * 0.12;
       var dAngle = baseAngle + da;
@@ -843,7 +938,8 @@ var HexapodCore = (function() {
       var pf2 = ctx.legs[li3].prefix;
       var p = startPlants[li3].clone();
       if (pf2 && pf2.indexOf('前') >= 0) {
-        var toBody = bodyC.clone().sub(p); toBody.y = 0;
+        var toBody = bodyC.clone().sub(p);
+        toBody.y = 0;
         toBody.normalize().multiplyScalar(0.06);
         p.add(toBody);
       }
@@ -853,13 +949,19 @@ var HexapodCore = (function() {
 
     ctx.deathState = {
       t0: performance.now() / 1000,
-      tRearUp: 0.22, tApex: 0.10, tCollapse: 0.7, tSettle: 0.5,
-      restY: restY, restX: restX, restZ: restZ,
-      bellyY: bellyY, groundY: groundY,
+      tRearUp: 0.22,
+      tApex: 0.1,
+      tCollapse: 0.7,
+      tSettle: 0.5,
+      restY: restY,
+      restX: restX,
+      restZ: restZ,
+      bellyY: bellyY,
+      groundY: groundY,
       peakY: restY + 0.12,
       startPlants: startPlants,
       rearTargets: rearTargets,
-      deathTargets: deathTargets
+      deathTargets: deathTargets,
     };
 
     // 武器垂下枢轴
@@ -878,22 +980,27 @@ var HexapodCore = (function() {
     var pivots = [];
     for (var wi = 0; wi < weaponRefs.length; wi++) {
       var wr = weaponRefs[wi];
-      var wg = wr.weaponGroup, mount = wr.mount;
+      var wg = wr.weaponGroup,
+        mount = wr.mount;
       if (!wg || !mount) continue;
       var gp = wg.parent;
       var mountLocal = mount.position.clone();
       var origMatrix = wg.matrix.clone();
 
-      var mwp = new (T()).Vector3(); mount.getWorldPosition(mwp);
-      var gpWorldPos = new (T()).Vector3(); gp.getWorldPosition(gpWorldPos);
-      var gpWorldQuat = new (T()).Quaternion(); gp.getWorldQuaternion(gpWorldQuat);
+      var mwp = new (T().Vector3)();
+      mount.getWorldPosition(mwp);
+      var gpWorldPos = new (T().Vector3)();
+      gp.getWorldPosition(gpWorldPos);
+      var gpWorldQuat = new (T().Quaternion)();
+      gp.getWorldQuaternion(gpWorldQuat);
       var mountInGP = mwp.clone().sub(gpWorldPos).applyQuaternion(gpWorldQuat.clone().invert());
 
-      var wq = new (T()).Quaternion(); wg.getWorldQuaternion(wq);
-      var lzWorld = new (T()).Vector3(0, 0, 1).applyQuaternion(wq).normalize();
+      var wq = new (T().Quaternion)();
+      wg.getWorldQuaternion(wq);
+      var lzWorld = new (T().Vector3)(0, 0, 1).applyQuaternion(wq).normalize();
       var lzInGP = lzWorld.clone().applyQuaternion(gpWorldQuat.clone().invert()).normalize();
 
-      var pivot = new (T()).Group();
+      var pivot = new (T().Group)();
       pivot.name = '_death_wp_' + wi;
       gp.remove(wg);
       gp.add(pivot);
@@ -904,9 +1011,12 @@ var HexapodCore = (function() {
       gp.updateMatrixWorld(true);
 
       pivots.push({
-        pivot: pivot, weaponGroup: wg, grandParent: gp,
-        origMatrix: origMatrix, lz: lzInGP,
-        isGatling: wr.isGatling
+        pivot: pivot,
+        weaponGroup: wg,
+        grandParent: gp,
+        origMatrix: origMatrix,
+        lz: lzInGP,
+        isGatling: wr.isGatling,
       });
     }
     return pivots;
@@ -920,7 +1030,11 @@ var HexapodCore = (function() {
       pv.pivot.remove(pv.weaponGroup);
       pv.grandParent.add(pv.weaponGroup);
       pv.weaponGroup.matrix.copy(pv.origMatrix);
-      pv.weaponGroup.matrix.decompose(pv.weaponGroup.position, pv.weaponGroup.quaternion, pv.weaponGroup.scale);
+      pv.weaponGroup.matrix.decompose(
+        pv.weaponGroup.position,
+        pv.weaponGroup.quaternion,
+        pv.weaponGroup.scale
+      );
       pv.grandParent.remove(pv.pivot);
     }
     ctx.deathState.weaponPivots = null;
@@ -930,18 +1044,19 @@ var HexapodCore = (function() {
     if (!ctx.deathState) return;
     var ds = ctx.deathState;
     var elapsed = performance.now() / 1000 - ds.t0;
-    var tRear = ds.tRearUp, tApex = ds.tApex;
+    var tRear = ds.tRearUp,
+      tApex = ds.tApex;
     var tPhase2 = tRear + tApex;
     var tPhase3 = tPhase2 + ds.tCollapse;
     var total = tPhase3 + ds.tSettle;
-    if (elapsed >= total) { _deathEnd(ctx); return; }
+    if (elapsed >= total) {
+      _deathEnd(ctx);
+      return;
+    }
 
     var root = ctx.root;
 
-    var phase = elapsed < tRear ? 0
-              : elapsed < tPhase2 ? 1
-              : elapsed < tPhase3 ? 2
-              : 3;
+    var phase = elapsed < tRear ? 0 : elapsed < tPhase2 ? 1 : elapsed < tPhase3 ? 2 : 3;
 
     // 身体Y
     if (phase === 0) {
@@ -955,18 +1070,19 @@ var HexapodCore = (function() {
     } else {
       root.position.y = ds.bellyY;
     }
-    root.position.x = ds.restX; root.position.z = ds.restZ;
+    root.position.x = ds.restX;
+    root.position.z = ds.restZ;
 
     // 身体倾斜
     if (phase === 0) {
-      root.rotation.x = -0.10 * _easeOut(elapsed / tRear);
+      root.rotation.x = -0.1 * _easeOut(elapsed / tRear);
       root.rotation.z = 0;
     } else if (phase === 1) {
-      root.rotation.x = -0.10;
+      root.rotation.x = -0.1;
       root.rotation.z = 0;
     } else if (phase === 2) {
       var cf2 = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
-      root.rotation.x = -0.10 + 0.22 * cf2;
+      root.rotation.x = -0.1 + 0.22 * cf2;
       root.rotation.z = 0.07 * cf2;
     } else {
       root.rotation.x = 0.12;
@@ -988,7 +1104,7 @@ var HexapodCore = (function() {
         tgt = ds.rearTargets[li];
       } else if (phase === 2) {
         var cf3 = _easeInOut((elapsed - tPhase2) / ds.tCollapse);
-        tgt = new (T()).Vector3().lerpVectors(ds.rearTargets[li], ds.deathTargets[li], cf3);
+        tgt = new (T().Vector3)().lerpVectors(ds.rearTargets[li], ds.deathTargets[li], cf3);
       } else {
         tgt = ds.deathTargets[li];
       }
@@ -1008,10 +1124,10 @@ var HexapodCore = (function() {
       }
       for (var pi = 0; pi < ds.weaponPivots.length; pi++) {
         var wpv = ds.weaponPivots[pi];
-        var maxDroopRad = (wpv.isGatling ? 20 : 30) * Math.PI / 180;
+        var maxDroopRad = ((wpv.isGatling ? 20 : 30) * Math.PI) / 180;
         var angle = droopFrac * maxDroopRad;
         if (angle > maxDroopRad) angle = maxDroopRad;
-        if (angle < -5 * Math.PI / 180) angle = -5 * Math.PI / 180;
+        if (angle < (-5 * Math.PI) / 180) angle = (-5 * Math.PI) / 180;
         wpv.pivot.quaternion.setFromAxisAngle(wpv.lz, angle);
       }
     }
@@ -1029,7 +1145,7 @@ var HexapodCore = (function() {
   // ═══════════════════════════════════════════
   function updateGatlingSpin(barrelClusters, dt, spinRPS) {
     if (!barrelClusters || barrelClusters.length === 0) return;
-    spinRPS = spinRPS || 0;   // 0=停转 (原||3: 0被当3, 枪管永转 — 加特林"总在转"直接根因)
+    spinRPS = spinRPS || 0; // 0=停转 (原||3: 0被当3, 枪管永转 — 加特林"总在转"直接根因)
     var delta = spinRPS * Math.PI * 2 * dt;
     for (var ci = 0; ci < barrelClusters.length; ci++) {
       var cluster = barrelClusters[ci];
@@ -1067,6 +1183,6 @@ var HexapodCore = (function() {
     angleDiff: angleDiff,
     clamp: clamp,
     _easeOut: _easeOut,
-    _easeInOut: _easeInOut
+    _easeInOut: _easeInOut,
   };
 })();

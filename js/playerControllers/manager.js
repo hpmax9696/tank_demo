@@ -23,7 +23,7 @@
  *           gameLoop 跳过坦克物理块, 转而调 update()。坦克是"特权默认角色"。
  */
 var PlayerControllerManager = (function () {
-'use strict';
+  'use strict';
 
   // type → factory(spawnCtx) → controller instance
   var _registry = {};
@@ -35,7 +35,9 @@ var PlayerControllerManager = (function () {
     _registry[type] = factory;
   }
 
-  function isRegistered(type) { return !!_registry[type]; }
+  function isRegistered(type) {
+    return !!_registry[type];
+  }
 
   // 进入模式时调用 (engine.js enterTrainingMode)
   // type='tank' 或未注册 → _active=null (走原 gameLoop)
@@ -59,8 +61,12 @@ var PlayerControllerManager = (function () {
     }
   }
 
-  function getActive() { return _active; }
-  function isActive() { return _active !== null; }
+  function getActive() {
+    return _active;
+  }
+  function isActive() {
+    return _active !== null;
+  }
 
   // gameLoop 每帧调用: _active 存在则跑控制器并返回 true (公共层据此跳过坦克物理)
   function update(dt, input) {
@@ -82,7 +88,7 @@ var PlayerControllerManager = (function () {
   }
 
   function hasWeapons() {
-    return !!( _active && typeof _active.handleWeapons === 'function');
+    return !!(_active && typeof _active.handleWeapons === 'function');
   }
 
   function hasAimLine() {
@@ -91,6 +97,10 @@ var PlayerControllerManager = (function () {
 
   function canSniper() {
     return !!(_active && typeof _active.canSniper === 'function' && _active.canSniper());
+  }
+
+  function isAiDriven() {
+    return !!(_active && typeof _active.isAiDriven === 'function' && _active.isAiDriven());
   }
 
   return {
@@ -105,7 +115,8 @@ var PlayerControllerManager = (function () {
     getGroup: getGroup,
     hasWeapons: hasWeapons,
     hasAimLine: hasAimLine,
-    canSniper: canSniper
+    canSniper: canSniper,
+    isAiDriven: isAiDriven,
   };
 })();
 window.PlayerControllerManager = PlayerControllerManager;

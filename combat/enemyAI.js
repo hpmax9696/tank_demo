@@ -1220,6 +1220,7 @@
     ZOMBIE_STATE: ZS,
     canSeeTarget,
     updateEnemyAI,
+    updateHexapodEngage,
     onEnemyDamaged,
     shareAggro,
     findNearestPlayer,
