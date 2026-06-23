@@ -1855,7 +1855,16 @@ function gameLoop() {
           aggressive: true,
           passive: false,
         };
-        player1.userData = player1.userData || {};
+        // Object3D 兼容接口: updateEnemyAI 及辅助函数(findNearestPlayer/canSeeTarget/
+        // moveEnemyToward/aimTurretAt)按敌方Object3D接口(.position/.rotation/.userData)编写,
+        // 但 player1 是包装对象{group,state,...}缺这些字段 → 直接复用会TypeError中断帧。
+        // 这里把 group 的 position/rotation/userData 引用挂到 player1, AI改它们即改group。
+        player1.position = player1.group.position; // Vector3 同一引用
+        player1.rotation = player1.group.rotation; // Euler 同一引用
+        player1.userData = player1.group.userData; // 共享(aimTurretAt 读 .userData.turretPivot/barrelPivot)
+        player1.updateMatrixWorld = function () {
+          player1.group.updateMatrixWorld(true);
+        };
         player1.userData.enemyType = 'tank';
         player1.userData.turretPivot = player1.turretPivot;
         player1.userData.barrelPivot = player1.barrelPivot;
@@ -1864,13 +1873,40 @@ function gameLoop() {
       }
       // 调用敌方AI(将enemies列表中的敌方作为"玩家"目标, 让AI攻击他们)
       window.EnemyAI.updateEnemyAI(player1, dt, window.enemies || [], scene);
+      // 玩家坦克AI开炮(对称敌方3100块: engage + 炮塔瞄准 + 距离>10)
+      if (player1.ai.state === 'engage') {
+        var _nearD = Infinity;
+        for (var _i = 0; _i < (window.enemies || []).length; _i++) {
+          var _en = window.enemies[_i];
+          if (!_en || _en.dead || _en.hp <= 0) continue;
+          var _d = player1.group.position.distanceTo(_en.position);
+          if (_d < _nearD) _nearD = _d;
+        }
+        var _pt = player1.ai._tankFireTimer || 0;
+        _pt -= dt;
+        if (_pt <= 0 && player1.ai._turretAimed && _nearD !== Infinity && _nearD > 10) {
+          _pt = 2.5 + Math.random() * 1.0;
+          firePlayerTrainingShell(player1);
+        }
+        player1.ai._tankFireTimer = _pt;
+      }
       // AI直接设置了 player1.group.rotation.y(=tankGroup.rotation.y), 同步回 tankState
       tankState.yaw = Math.PI / 2 - tankGroup.rotation.y;
       tankState.x = player1.group.position.x;
       tankState.z = player1.group.position.z;
       targetLeft = 0;
       targetRight = 0; // 不通过履带差速, AI已直接移动
-      cameraYaw = tankState.yaw;
+      // AI托管: 视角跟炮管世界方向(瞄准对象), 而非车体朝向(对标手柄1381逻辑)
+      {
+        var _bd = new THREE.Vector3(0, 0, 1);
+        if (player1.barrelPivot) {
+          player1.barrelPivot.getWorldQuaternion(_tmpQuat);
+          _bd.applyQuaternion(_tmpQuat);
+          cameraYaw = Math.atan2(_bd.z, _bd.x);
+        } else {
+          cameraYaw = tankState.yaw;
+        }
+      }
     }
 
     // ── 模块化玩家角色控制器分发 (六足等注册角色; 坦克走下面原物理) ──
@@ -2188,13 +2224,13 @@ function gameLoop() {
         player1.state.z = tankState.z;
         player1.state.yaw = tankState.yaw;
         if (!isGameOver) {
-          if (!(isTrainingMode && trainingPlayerAI && trainingPlayerType === 'tank'))
-            updateAiming(player1, dt);
-          if (player1.turretPivot) {
-            player1.turretPivot.rotation.y = player1.turretYaw;
-          }
-          if (player1.barrelPivot) {
-            player1.barrelPivot.rotation.x = player1.barrelElevation;
+          var _aiTank = isTrainingMode && trainingPlayerAI && trainingPlayerType === 'tank';
+          if (!_aiTank) updateAiming(player1, dt);
+          if (!_aiTank) {
+            // AI托管: 炮塔/炮管由 aimTurretAt(updateEnemyAI内)直接控制, 跳过此处覆盖
+            // (否则每帧被未更新的 turretYaw/barrelElevation 还原 → 炮塔不转)
+            if (player1.turretPivot) player1.turretPivot.rotation.y = player1.turretYaw;
+            if (player1.barrelPivot) player1.barrelPivot.rotation.x = player1.barrelElevation;
           }
           if (player1.mgGroup) {
             player1.mgGroup.rotation.y = player1.mgYaw;
@@ -5191,30 +5227,14 @@ function spawnHexapodMissile(enemy, player1, ai) {
   if (typeof playMissileLaunchSound === 'function') playMissileLaunchSound();
 }
 
-// ─── 训练场坦克敌人炮击（完整视效+音效）───
-function fireEnemyTrainingShell(enemy) {
-  if (!player1 || player1.dead) return;
-  var barrelPivot = enemy.userData && enemy.userData.barrelPivot;
-  // 炮口位置+方向: 从炮管实际朝向发射
-  var muzzlePos, barrelDir;
-  if (barrelPivot) {
-    muzzlePos = new THREE.Vector3(0, 0, 1.8);
-    barrelPivot.localToWorld(muzzlePos);
-    barrelDir = new THREE.Vector3(0, 0, 1);
-    barrelPivot.getWorldQuaternion(_tmpQuat);
-    barrelDir.applyQuaternion(_tmpQuat);
-  } else {
-    muzzlePos = enemy.position.clone();
-    muzzlePos.y += 1.5;
-    barrelDir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
+// ─── 训练场炮弹创建（共享：炮口位置+方向+阵营+散布）───
+function _spawnTrainingShell(muzzlePos, aimDir, owner, isEnemy, spread) {
+  var dir = aimDir.clone();
+  if (spread) {
+    dir.x += (Math.random() - 0.5) * spread;
+    dir.z += (Math.random() - 0.5) * spread;
+    dir.normalize();
   }
-  // 敌方散布 ±4° (模拟AI瞄准误差, 玩家无散布)
-  var spread = 0.07;
-  barrelDir.x += (Math.random() - 0.5) * spread;
-  barrelDir.z += (Math.random() - 0.5) * spread;
-  barrelDir.normalize();
-  // 重力补偿已由 aimTurretAt 在炮管俯仰中处理, 此处不再叠加
-  var aimDir = barrelDir.clone();
   // 炮口闪光
   var flash = new THREE.PointLight('#ffcc44', 10, 6, 2);
   flash.position.copy(muzzlePos);
@@ -5268,15 +5288,64 @@ function fireEnemyTrainingShell(enemy) {
   scene.add(tracerLight);
   shells.push({
     mesh: shellGroup,
-    vel: aimDir.clone().multiplyScalar(SHELL_SPEED),
+    vel: dir.clone().multiplyScalar(SHELL_SPEED),
     type: 'ap',
     tracerLight: tracerLight,
     glowTail: glowTail,
-    owner: enemy,
+    owner: owner,
     prevPos: null,
-    isEnemyShell: true,
+    isEnemyShell: !!isEnemy,
   });
   playFireSound();
+}
+
+// ─── 训练场坦克敌人炮击（朝玩家，±4°散布）───
+function fireEnemyTrainingShell(enemy) {
+  if (!player1 || player1.dead) return;
+  var muzzlePos, barrelDir;
+  var barrelPivot = enemy.userData && enemy.userData.barrelPivot;
+  if (barrelPivot) {
+    muzzlePos = new THREE.Vector3(0, 0, 1.8);
+    barrelPivot.localToWorld(muzzlePos);
+    barrelDir = new THREE.Vector3(0, 0, 1);
+    barrelPivot.getWorldQuaternion(_tmpQuat);
+    barrelDir.applyQuaternion(_tmpQuat);
+  } else {
+    muzzlePos = enemy.position.clone();
+    muzzlePos.y += 1.5;
+    barrelDir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
+  }
+  _spawnTrainingShell(muzzlePos, barrelDir, enemy, true, 0.07);
+}
+
+// ─── 训练场玩家坦克炮击（AI托管：朝最近敌方，无散布）───
+function firePlayerTrainingShell(player) {
+  var target = null,
+    bestD = Infinity;
+  for (var i = 0; i < enemies.length; i++) {
+    var en = enemies[i];
+    if (!en || en.dead || (en.ai && en.ai.state === 'dead') || en.hp <= 0) continue;
+    var d = player.group.position.distanceTo(en.position);
+    if (d < bestD) {
+      bestD = d;
+      target = en;
+    }
+  }
+  if (!target) return;
+  var muzzlePos, barrelDir;
+  var barrelPivot = player.userData && player.userData.barrelPivot;
+  if (barrelPivot) {
+    muzzlePos = new THREE.Vector3(0, 0, 1.8);
+    barrelPivot.localToWorld(muzzlePos);
+    barrelDir = new THREE.Vector3(0, 0, 1);
+    barrelPivot.getWorldQuaternion(_tmpQuat);
+    barrelDir.applyQuaternion(_tmpQuat);
+  } else {
+    muzzlePos = player.group.position.clone();
+    muzzlePos.y += 1.5;
+    barrelDir = new THREE.Vector3().subVectors(target.position, muzzlePos).normalize();
+  }
+  _spawnTrainingShell(muzzlePos, barrelDir, player1, false, 0);
 }
 
 // ─── 训练场敌人MG曳光弹 ──
@@ -5323,6 +5392,7 @@ function _spawnEnemyMGTracer(enemy) {
 // ─── 训练场玩家死亡（重生队列）───
 function _killPlayerInTraining() {
   player1.dead = true;
+  player1.hp = 0; // 确保死亡状态一致(复活检测 hp<=0)
   var pep = player1.group.position.clone();
   pep.y += 0.5;
   spawnFragments(pep, '#4a5c2e');
@@ -5337,6 +5407,7 @@ function _killPlayerInTraining() {
 // ─── 训练场敌人死亡（重生队列）───
 function _killEnemyInTraining(enemy) {
   enemy.dead = true;
+  enemy.hp = 0; // 确保死亡状态一致(复活检测 hp<=0; 否则 dead=true 但 hp>0 会永久卡死)
   enemy.ai.state = 'dead';
   var ep = enemy.position.clone();
   ep.y += 0.5;
@@ -5382,17 +5453,25 @@ function _processTrainingRespawn(dt) {
         player1.group.visible = true;
         player1.hp = 100;
         player1.dead = false;
+        if (trainingPlayerAI && player1.ai) player1.ai.state = 'chase'; // 复活后立即追击(不等视野)
         player1.state.x = trainingPlayerSpawn.x;
         player1.state.z = trainingPlayerSpawn.z;
-        player1.state.yaw = Math.PI;
+        var _ryaw = trainingPlayerAI
+          ? Math.atan2(
+              trainingEnemySpawn.z - trainingPlayerSpawn.z,
+              trainingEnemySpawn.x - trainingPlayerSpawn.x
+            )
+          : Math.PI;
+        player1.state.yaw = _ryaw;
         tankState.x = trainingPlayerSpawn.x;
         tankState.z = trainingPlayerSpawn.z;
-        tankState.yaw = Math.PI;
+        tankState.yaw = _ryaw;
         player1.currentLeftSpeed = 0;
         player1.currentRightSpeed = 0;
         player1.worldTurretYaw = undefined; // 惰性初始化将对齐重生朝向
         player1.reloadTimer = 0;
-        player1.group.rotation.set(0, 0, 0);
+        // 朝敌方: rotation.y=π/2-yaw(同gameLoop 2207), 避免旧 rotation=0 经1899/2207循环锁死+Z看不见敌方
+        player1.group.rotation.set(0, Math.PI / 2 - _ryaw, 0);
         if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
         togglePlayerBars(player1, true);
         hintBar.textContent = 'WASD 移动 | 鼠标瞄准 | 左键 主炮 | ESC 退出训练';
@@ -5449,6 +5528,19 @@ function _processTrainingRespawn(dt) {
         en.position.set(trainingEnemySpawn.x, egy, trainingEnemySpawn.z);
         en.rotation.set(0, 0, 0);
         if (en.userData && en.userData.hpBarGroup) en.userData.hpBarGroup.visible = true;
+        // 复活获知(A): 敌方复活后通知玩家AI互相追击(避免远距离卡PATROL看不见)
+        if (
+          trainingPlayerAI &&
+          trainingPlayerType === 'tank' &&
+          player1 &&
+          player1.ai &&
+          !player1.dead
+        ) {
+          player1.ai.state = 'chase';
+          player1.ai.target = en;
+          player1.ai.lastSeenPlayerPos = en.position.clone();
+          player1.ai.alertTimer = 0;
+        }
         // 六足复活: 重新初始化CCD IK上下文+腿部关节, 重置死亡/动画状态
         var isHex = en.cfg && en.cfg.type === 'hexapod';
         if (isHex) {
@@ -6745,7 +6837,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.64.0  ' +
+    'v0.65.0  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7076,9 +7168,23 @@ async function enterTrainingMode() {
       if (player1.damageEffects && player1.damageEffects.active) player1.damageEffects.hide();
     }
     resetTank();
-    // AI托管坦克: resetTank 用 π/4 覆盖了朝向, 立即修正为面朝敌方
-    if (trainingPlayerAI && trainingPlayerType === 'tank')
+    // AI托管坦克: resetTank 把 tankState 和 tankGroup.position 都设成 POINT_A[0,0](1215),
+    // gameLoop 1895 用 group.position 覆盖 tankState, 故 group 也要设回训练场出生点
+    if (trainingPlayerAI && trainingPlayerType === 'tank') {
+      tankState.x = playerSpawnX;
+      tankState.z = playerSpawnZ;
       tankState.yaw = Math.atan2(enemySpawnZ - playerSpawnZ, enemySpawnX - playerSpawnX);
+      if (player1.group) {
+        player1.group.position.set(
+          playerSpawnX,
+          getGroundHeight(playerSpawnX, playerSpawnZ),
+          playerSpawnZ
+        );
+        // 朝敌方: rotation.y=π/2 使 +Z 车头朝 +X(敌方方向);
+        // gameLoop 1899(tankState.yaw=π/2-rotY) 与 2207(rotY=π/2-yaw) 据此维持, 不设则被resetTank的0锁死
+        player1.group.rotation.set(0, Math.PI / 2, 0);
+      }
+    }
     totalDistance = 0;
     visibilityTimer = 0;
 
@@ -7156,16 +7262,9 @@ async function enterTrainingMode() {
       });
       t34result.group.position.set(0, 0, 0);
       t34result.group.rotation.set(0, 0, 0);
-      var children = t34result.group.children.slice();
-      for (var ci = 0; ci < children.length; ci++) {
-        var child = children[ci];
-        var cx = child.position.x,
-          cz = child.position.z;
-        child.position.x = cz;
-        child.position.z = -cx;
-        child.rotation.y -= Math.PI / 2;
-      }
-      t34result.group.updateMatrixWorld(true);
+      // 切勿旋转子节点: T34V16Builder 车头已 +Z(同玩家 createPlayerTank / tankState.yaw=π/2 "朝向+Z")。
+      // 原 -90° 旋转会把车头 +Z→+X, 与 AI enemyForward/aimTurretAt 的 +Z 约定差 90°,
+      // 导致模型侧滑(车头+X但AI沿+Z移动)+炮塔朝侧面开炮。
       enemyModel = t34result.group;
       enemyModel.group = enemyModel;
       enemyModel.userData = {
@@ -7368,7 +7467,7 @@ initScene();
 placeCamera();
 renderer.render(scene, camera);
 console.log(
-  '🎮 坦克运动demo v0.64.0 | AI托管+性能优化: 双方自动对攻(六足/坦克)+CCD矩阵局部化+子弹碰撞空间网格'
+  '🎮 坦克运动demo v0.65.0 | 坦克AI托管完整修复: 双方移动+炮塔追踪+对攻+多轮复活+复活搜寻'
 );
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）

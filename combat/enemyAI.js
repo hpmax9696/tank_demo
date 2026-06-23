@@ -43,6 +43,23 @@
     return d;
   }
 
+  // ─── 车头朝向约定(v0.64.x): 坦克(T-34)车头+Z [forward=(sinθ,cosθ)];
+  //     突击车/六足车头-X [forward=(-cosθ,sinθ)]. 视野/移动需按约定算forward ───
+  function enemyIsTank(enemy) {
+    const t = (enemy.cfg && enemy.cfg.type) || (enemy.userData && enemy.userData.enemyType);
+    return t === 'tank';
+  }
+  function enemyForward(enemy) {
+    const ry = enemy.rotation.y;
+    return enemyIsTank(enemy)
+      ? { x: Math.sin(ry), z: Math.cos(ry) }
+      : { x: -Math.cos(ry), z: Math.sin(ry) };
+  }
+  function enemyTargetYaw(enemy, dx, dz) {
+    // 使车头指向 (dx,dz) 的目标 rotation.y
+    return enemyIsTank(enemy) ? Math.atan2(dx, dz) : Math.atan2(dz, -dx);
+  }
+
   // ─── 视野检测 ───
   function canSeeTarget(enemy, target, coneAngle, maxDist, scene) {
     if (!target || target.hp <= 0) return false;
@@ -51,8 +68,8 @@
     const dist = ePos.distanceTo(tPos);
     if (dist > maxDist) return false;
 
-    // 前端朝 -X，rotation.y=θ 时前向量 = (-cosθ, 0, sinθ)
-    const forward = new THREE.Vector3(-Math.cos(enemy.rotation.y), 0, Math.sin(enemy.rotation.y));
+    const _fwd = enemyForward(enemy);
+    const forward = new THREE.Vector3(_fwd.x, 0, _fwd.z);
     const dirX = tPos.x - ePos.x;
     const dirZ = tPos.z - ePos.z;
     const hDist2 = dirX * dirX + dirZ * dirZ;
@@ -86,7 +103,9 @@
       bestD = Infinity;
     for (const p of players) {
       if (!p || p.hp <= 0 || p.dead) continue;
-      const d = enemy.position.distanceTo(p.group.position);
+      // target 位置兼容: 玩家是包装对象(有.group), 敌方是Object3D(无.group, 位置在自身.position)
+      const tPos = p.group ? p.group.position : p.position;
+      const d = enemy.position.distanceTo(tPos);
       if (d < bestD) {
         bestD = d;
         best = p;
@@ -108,13 +127,14 @@
       return true;
     } // 到达
 
-    // 1. 计算敌人当前朝向（前端朝 -X，rotation.y=θ 时前向量 = (-cosθ, 0, sinθ)）
+    // 1. 当前朝向（按车头约定：坦克+Z / 突击车·六足-X）
     const curYaw = enemy.rotation.y;
-    const forwardX = -Math.cos(curYaw);
-    const forwardZ = Math.sin(curYaw);
+    const _ef = enemyForward(enemy);
+    const forwardX = _ef.x;
+    const forwardZ = _ef.z;
 
-    // 2. 计算目标方向角（使 -X 指向目标）
-    const targetYaw = Math.atan2(dz, -dx);
+    // 2. 目标方向角（使车头指向目标）
+    const targetYaw = enemyTargetYaw(enemy, dx, dz);
 
     // 3. 判断前进还是倒车（目标在前方→前进，目标在后方→倒车不甩头）
     const facingDot = forwardX * (dx / dist) + forwardZ * (dz / dist);
@@ -134,8 +154,9 @@
       if (facingDot > -0.8) {
         const alignment = Math.max(0.15, (facingDot + 0.8) / 1.8);
         let moveStep = speed * dt * alignment;
-        const newFwdX = -Math.cos(enemy.rotation.y);
-        const newFwdZ = Math.sin(enemy.rotation.y);
+        const _nf = enemyForward(enemy);
+        const newFwdX = _nf.x;
+        const newFwdZ = _nf.z;
         const slopeFront = getTerrainHeight(
           enemy.position.x + newFwdX * 1.0,
           enemy.position.z + newFwdZ * 1.0
@@ -147,8 +168,8 @@
         const slopeAngle = Math.atan2(slopeFront - slopeBack, 2.0);
         if (Math.abs(slopeAngle) > MAX_SLOPE) {
           // 陡坡阻挡: 左右采样寻找可通行方向
-          const rightX = -Math.cos(enemy.rotation.y + Math.PI / 2);
-          const rightZ = Math.sin(enemy.rotation.y + Math.PI / 2);
+          const rightX = -newFwdZ;
+          const rightZ = newFwdX;
           const sampleD = 2.0;
           const rSlope = Math.atan2(
             getTerrainHeight(
@@ -194,7 +215,7 @@
     // 水平瞄准 (Y轴旋转)
     const dx = targetWorldPos.x - turretWorldPos.x;
     const dz = targetWorldPos.z - turretWorldPos.z;
-    const worldTargetAngle = Math.atan2(dz, -dx);
+    const worldTargetAngle = enemyTargetYaw(enemy, dx, dz);
     const localTargetAngle = worldTargetAngle - enemy.rotation.y;
     const curAngle = tp.rotation.y;
     const ad = angleDiff(curAngle, localTargetAngle);
@@ -227,7 +248,23 @@
 
   // ── PATROL: 沿路径点移动 ──
   function updatePatrol(enemy, ai, cfg, dt) {
-    if (!cfg.patrolPath || cfg.patrolPath.length === 0) return;
+    if (!cfg.patrolPath || cfg.patrolPath.length === 0) {
+      // 搜寻模式: 朝最后见敌位置找回; 到达清除→朝当前朝向探索(遍历), 不原地卡死
+      var _tx, _tz;
+      if (ai.lastSeenPlayerPos) {
+        _tx = ai.lastSeenPlayerPos.x;
+        _tz = ai.lastSeenPlayerPos.z;
+        if (Math.hypot(enemy.position.x - _tx, enemy.position.z - _tz) < 2) {
+          ai.lastSeenPlayerPos = null;
+        }
+      } else {
+        var _f = enemyForward(enemy);
+        _tx = enemy.position.x + _f.x * 10;
+        _tz = enemy.position.z + _f.z * 10;
+      }
+      moveEnemyToward(enemy, _tx, _tz, (cfg.speed || 3) * 0.6, dt);
+      return;
+    }
     const wp = cfg.patrolPath[ai.patrolIndex];
     const distBefore = Math.hypot(enemy.position.x - wp[0], enemy.position.z - wp[1]);
     const arrived = moveEnemyToward(enemy, wp[0], wp[1], cfg.speed || 3.0, dt);
@@ -342,27 +379,29 @@
       radialW = -1.0;
       tangentW = 0.0; // 被遮挡: 先逼近拉近距离
     }
-    // 1. 车体移动（侧滑约束履带物理）
-    const facingX = -Math.cos(enemy.rotation.y);
-    const facingZ = Math.sin(enemy.rotation.y);
+    // 1. 车体移动（侧滑约束履带物理）— facing 按车头约定
+    const _efE = enemyForward(enemy);
+    const facingX = _efE.x;
+    const facingZ = _efE.z;
     const retreating = radialW < -0.3; // 太近时(<optimalDist)远离玩家，倒车而非掉头
     if (retreating) {
       // 倒车：车身不转向，直接后退
       enemy.position.x -= facingX * speed * 0.7 * dt;
       enemy.position.z -= facingZ * speed * 0.7 * dt;
     } else {
-      // 转向朝移动方向
-      const targetYaw = Math.atan2(moveZ / mn, -(moveX / mn));
+      // 转向朝移动方向（按车头约定）
+      const targetYaw = enemyTargetYaw(enemy, moveX, moveZ);
       const rotSpeed = 1.0; // (减半)
       const ad = angleDiff(enemy.rotation.y, targetYaw);
       const rotStep = Math.min(Math.abs(ad), rotSpeed * dt) * Math.sign(ad);
       enemy.rotation.y += rotStep;
-      // 前进驱动力（只有朝向大致匹配才驱动）
-      const facingDot = facingX * (moveX / mn) + facingZ * (moveZ / mn);
+      // 前进驱动力(转向后重新算朝向, 履带式"先转再走", 避免用转向前的旧朝向位移导致侧滑)
+      const _nf = enemyForward(enemy);
+      const facingDot = _nf.x * (moveX / mn) + _nf.z * (moveZ / mn);
       if (facingDot > 0.2) {
         const step = speed * dt * Math.min(1.0, Math.abs(facingDot));
-        enemy.position.x += facingX * step;
-        enemy.position.z += facingZ * step;
+        enemy.position.x += _nf.x * step;
+        enemy.position.z += _nf.z * step;
       }
     }
 
@@ -784,11 +823,8 @@
       switch (ai.state) {
         case AI_STATE.PATROL:
           updatePatrol(enemy, ai, cfg, dt);
-          if (
-            !cfg.reactive &&
-            nearestPlayer &&
-            canSeeTarget(enemy, nearestPlayer, Math.PI / 4, cfg.viewDist || 60, scene)
-          ) {
+          // PATROL→CHASE 用距离判定(canSeeTarget地形遮挡在FBM地形易误判, 导致复活后卡PATROL看不见敌方)
+          if (!cfg.reactive && nearestPlayer && nearestDist < (cfg.viewDist || 60)) {
             ai.state = AI_STATE.CHASE;
             ai.target = nearestPlayer;
             ai.lastSeenPlayerPos = nearestPlayer.group.position.clone();
@@ -803,7 +839,7 @@
             if (
               nearestPlayer &&
               nearestDist < wr * 0.85 &&
-              canSeeTarget(enemy, nearestPlayer, Math.PI / 4, cfg.viewDist || 60, scene)
+              canSeeTarget(enemy, nearestPlayer, Math.PI, cfg.viewDist || 60, scene)
             ) {
               ai.state = AI_STATE.ENGAGE;
             }

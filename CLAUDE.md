@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.64.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.0
 
 ## 运行
 
@@ -430,6 +430,44 @@ legGroup (Y旋转=水平摆角)
 - **同向不再迟钝**: 车体+鼠标同向转时炮塔以满 30°/s 追光标，无稳定器与瞄准互搏
 - **惰性初始化**: `worldTurretYaw: undefined` → 首帧自动对齐，所有模式/spawn/respawn 零改动
 - **改动范围**: 仅 `engine.js` ~40行；敌人/六足/摄像机/俯仰 均不受影响
+
+---
+
+## v0.65.0 本次会话变更 (2026-06-23)
+
+### 坦克AI托管完整修复（10层根因）
+
+训练场敌我坦克AI托管从"双方不动"逐层修到"双方移动+炮塔追踪+双向对攻+多轮复活稳定"。每层独立根因:
+
+1. **player1无.position**(包装对象vs敌方Object3D): `updateEnemyAI(player1)`抛TypeError中断帧 → 加Object3D兼容接口(position/rotation/userData引用group); findNearestPlayer兼容target位置(`p.group?p.group.position:p.position`)
+2. **朝向约定**(enemyAI硬编码车头-X, 坦克实际+Z): 加`enemyForward/enemyTargetYaw/enemyIsTank`helper按cfg.type选约定; canSeeTarget/moveEnemyToward/updateEngage/aimTurretAt统一调用
+3. **玩家不开炮**: `fireEnemyTrainingShell`硬编码朝player1; 提取`_spawnTrainingShell`共享 + 新增`firePlayerTrainingShell`(owner:player1,isEnemyShell:false) + 玩家AI块开炮(命中借2503行`s.owner===player1`)
+4. **炮塔不转**: gameLoop:2220每帧覆盖`player1.turretPivot=turretYaw`; AI托管跳过2220/2223覆盖(让aimTurretAt独占)
+5. **视角跟车体**: `cameraYaw=炮管世界方向`(atan2(bd.z,bd.x), 对标手柄1381)
+6. **敌人侧滑**: updateEngage前进用转向前朝向 → 改转向后重算enemyForward(履带式先转再走)
+7. **车头90°/炮击低**: 敌方模型7228旋转-90°(车头+Z→+X)与AI+Z约定不符 → 删旋转; CHASE→ENGAGE改全向π(极近绕圈canSeeTarget视野锥不满足)
+8. **玩家不动**: resetTank设POINT_A[0,0]+gameLoop 1895/2207双向同步循环(group↔tankState互相覆盖) → enterTrainingMode设group.position(出生点)+group.rotation.y(朝敌方)
+9. **复活后不动**: `_killEnemyInTraining`/`_killPlayerInTraining`只设dead不设hp=0, 复活检测`hp<=0` → kill函数加hp=0(防御状态一致); PATROL→CHASE改距离only(去canSeeTarget地形误判); 玩家复活路径朝向(group.rotation.y=π/2-yaw)
+10. **复活远卡住**: A复活获知(敌方复活设玩家ai.state=chase+target+lastSeenPlayerPos) + B PATROL搜寻(updatePatrol无patrolPath时朝lastSeenPlayerPos移动/到达探索)
+
+### 池塘空气墙验证
+
+三方均调`checkCollision`(含池塘1274+河流1244): 玩家坦克(engine:2071/2102)、敌方坦克(engine:3831)、敌六足(engine:3347)、玩家六足(hexapodPlayer:1183 via window.checkCollision)。`window.checkCollision/isInRiver/isInPond`均已暴露。Playwright实测敌方30s+引诱均未入池塘。**偶发入水难复现**。
+
+### 关键文件变更
+
+| 文件                       | 改动                                                                                                                                                                                                |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `js/engine.js`             | player1 Object3D兼容 + 玩家AI块开炮 + placeCamera视角跟炮管 + resetTank初始化group + 复活朝向/状态hp=0 + 敌方复活获知玩家 + `_spawnTrainingShell`/`firePlayerTrainingShell` + 删7228模型旋转        |
+| `combat/enemyAI.js`        | `enemyForward/enemyTargetYaw/enemyIsTank`helper + canSeeTarget/moveEnemyToward/updateEngage/aimTurretAt按约定 + PATROL→CHASE距离only + CHASE→ENGAGE全向π + updatePatrol搜寻 + findNearestPlayer兼容 |
+| `docs/ai-search-design.md` | 新增: AI搜寻设计(A+B)                                                                                                                                                                               |
+
+### 已知问题
+
+1. 坦克AI托管: 偶发敌方坦克驶入池塘(难复现, checkCollision代码层面生效)
+2. 坡地一头翘起一头陷地(坦克/敌人偶发)
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确(待校准)
 
 ---
 
