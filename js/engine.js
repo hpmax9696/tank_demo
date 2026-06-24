@@ -1310,6 +1310,40 @@ let currentShellType = 'ap';
 let aimPoint = new THREE.Vector3();
 let aimValid = true;
 let aimRaycaster = new THREE.Raycaster();
+// 高度图射线投射: 沿射线步进+二分找穿地交点, 替代 groundMesh brute-force raycast
+// (groundMesh 131072三角, Three.js无BVH, intersectObject单次14ms → 步进+二分~0.1ms)
+function _raycastGroundHM(ray, maxDist) {
+  const o = ray.origin,
+    d = ray.direction;
+  if (d.y >= -0.001) return null; // 射线不下压(望天)打不到地面
+  maxDist = maxDist || 400;
+  let prevT = 0;
+  let prevAbove = o.y > getGroundHeight(o.x, o.z);
+  const step = 4;
+  for (let t = step; t < maxDist; t += step) {
+    const x = o.x + d.x * t,
+      y = o.y + d.y * t,
+      z = o.z + d.z * t;
+    const above = y > getGroundHeight(x, z);
+    if (prevAbove && !above) {
+      // 穿入地下: [prevT, t] 二分细化
+      let lo = prevT,
+        hi = t;
+      for (let b = 0; b < 6; b++) {
+        const mid = (lo + hi) * 0.5;
+        if (o.y + d.y * mid > getGroundHeight(o.x + d.x * mid, o.z + d.z * mid)) lo = mid;
+        else hi = mid;
+      }
+      const ft = (lo + hi) * 0.5;
+      const fx = o.x + d.x * ft,
+        fz = o.z + d.z * ft;
+      return { point: new THREE.Vector3(fx, getGroundHeight(fx, fz), fz), distance: ft };
+    }
+    prevT = t;
+    prevAbove = above;
+  }
+  return null;
+}
 let groundMesh = null;
 let trajLine = null;
 let trajDot = null;
@@ -1388,7 +1422,8 @@ function updateAiming(player, dt) {
     const ndcY = -(mouseY / window.innerHeight) * 2 + 1;
     const screenPos = new THREE.Vector2(ndcX, ndcY);
     aimRaycaster.setFromCamera(screenPos, camera);
-    const groundHits = aimRaycaster.intersectObject(groundMesh);
+    const _gh = _raycastGroundHM(aimRaycaster.ray);
+    const groundHits = _gh ? [{ point: _gh.point, distance: _gh.distance }] : [];
     const aimTargets = obstacleMeshes.slice();
     for (let ei = 0; ei < enemies.length; ei++) {
       const en = enemies[ei];
@@ -1946,8 +1981,8 @@ function gameLoop() {
       if (groundMesh) {
         var _ndcY = -(_virtualMouseY / window.innerHeight) * 2 + 1;
         aimRaycaster.setFromCamera(new THREE.Vector2(0, _ndcY), camera);
-        var _gHit = aimRaycaster.intersectObject(groundMesh);
-        if (_gHit.length > 0) _hexAimTarget = _gHit[0].point.clone();
+        var _gHit = _raycastGroundHM(aimRaycaster.ray);
+        if (_gHit) _hexAimTarget = _gHit.point.clone();
         var _oHit = aimRaycaster.intersectObjects(obstacleMeshes, true);
         if (
           _oHit.length > 0 &&
@@ -4253,7 +4288,8 @@ function updateAimingForVs(p, dt) {
       -(p1MouseY / window.innerHeight) * 2 + 1
     );
     aimRaycaster.setFromCamera(mouseNDC, cam);
-    const groundHits = aimRaycaster.intersectObject(groundMesh);
+    const _gh = _raycastGroundHM(aimRaycaster.ray);
+    const groundHits = _gh ? [{ point: _gh.point, distance: _gh.distance }] : [];
     const aimTgts = obstacleMeshes.slice();
     for (let ei = 0; ei < enemies.length; ei++) {
       const en = enemies[ei];
@@ -5890,7 +5926,8 @@ function versusGameLoop() {
     // 使用1P分屏的尺寸计算NDC坐标
     const mouseNDC = new THREE.Vector2((p1MouseX / halfCssW) * 2 - 1, -(p1MouseY / cssH) * 2 + 1);
     aimRaycaster.setFromCamera(mouseNDC, camera);
-    const groundHits = aimRaycaster.intersectObject(groundMesh);
+    const _gh = _raycastGroundHM(aimRaycaster.ray);
+    const groundHits = _gh ? [{ point: _gh.point, distance: _gh.distance }] : [];
     const aimTgts = obstacleMeshes.slice();
     for (let ei = 0; ei < enemies.length; ei++) {
       const en = enemies[ei];
@@ -6822,7 +6859,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.65.1  ' +
+    'v0.65.2  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7451,7 +7488,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.1 | AI对峙/出界修复+对攻性能优化(碎片对象池+临时向量复用)');
+console.log('🎮 坦克运动demo v0.65.2 | 地面射线高度图优化+建筑分类+阴影恢复+AI对峙/出界修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

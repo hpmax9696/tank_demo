@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.2
 
 ## 运行
 
@@ -430,6 +430,25 @@ legGroup (Y旋转=水平摆角)
 - **同向不再迟钝**: 车体+鼠标同向转时炮塔以满 30°/s 追光标，无稳定器与瞄准互搏
 - **惰性初始化**: `worldTurretYaw: undefined` → 首帧自动对齐，所有模式/spawn/respawn 零改动
 - **改动范围**: 仅 `engine.js` ~40行；敌人/六足/摄像机/俯仰 均不受影响
+
+---
+
+## v0.65.2 本次会话变更 (2026-06-24)
+
+### 单人模式性能优化
+
+**地面射线高度图优化**: updateAiming 的 groundMesh raycast (131072三角 brute-force 14ms) 是单人模式出生点 30fps 的元凶(非战斗)。用 `_raycastGroundHM` 沿射线步进+二分(基于 getGroundHeight O(1))替代, 同时改 4 处(单人/双人/六足)。物理阶段 19→1-7ms, 单人 01a 出生点 fps 30→48(+60%)。
+
+**P0-1 建筑 IM 合并(根因定位)**: obstacles.js 按 targetHeight 细致分组建 IM→141 个 bld-im(count 仅 10-13); 根因为 material 对象引用比较(每次 createFn 创建新实例)无法跨组合并。加 category 字段 + 扩大 targetHeight 范围, 建筑设 castShadow=true 恢复阴影。按 material 值合并的完整方案(限定 5-8 种固定原型→~15 IM)待续。
+
+### 已知问题（更新）
+
+1. ~~坦克AI托管: 偶发敌方驶入池塘~~ + ~~偶发远距离对峙/出界~~ **v0.65.1 已修复**
+2. avg fps 41.5 仍非稳定60(剩余 GC 20ms 来自未池化 spawn: 炮弹 mesh/ringFX/ExplosionEffects), 待 P-burst-3 续做
+3. 坡地一头翘起一头陷地(坦克/敌人偶发)
+4. 对山丘目标弹道偏低
+5. 六足武器俯仰旋转轴不正确(待校准)
+6. **P0-1 建筑 IM 合并**: 141 bld-im(每10例)→~15(5-8种原型+material值合并), 待续
 
 ---
 

@@ -814,7 +814,7 @@ function createObstacles(targetScene = scene) {
           );
           if (!mergedTemplateGeo) continue;
           const im = new THREE.InstancedMesh(mergedTemplateGeo, mt.material, items.length);
-          im.castShadow = false;
+          im.castShadow = true;
           im.receiveShadow = true;
           im.name = 'bld-im';
           targetScene.add(im);
