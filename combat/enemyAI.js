@@ -203,6 +203,13 @@
       }
     }
 
+    // 边界 clamp: 防止 AI 迂回/倒车把坦克推出地图边界进虚空
+    const _hw = window.worldHalfW || 150;
+    const _hd = window.worldHalfD || 150;
+    if (enemy.position.x < -_hw) enemy.position.x = -_hw;
+    else if (enemy.position.x > _hw) enemy.position.x = _hw;
+    if (enemy.position.z < -_hd) enemy.position.z = -_hd;
+    else if (enemy.position.z > _hd) enemy.position.z = _hd;
     return false; // 未到达
   }
 
@@ -305,9 +312,13 @@
       return;
     }
     const pp = nearestPlayer.group.position;
-    // 检查视线是否被地形遮挡
-    if (!canSeeTarget(enemy, nearestPlayer, Math.PI, cfg.viewDist || 100, scene)) {
-      // 视线受阻: 侧向迂回, 交替左右包抄
+    // 超出视野距离: 直线追近(否则侧向迂回永远追不上, 还会被侧向推出地图边界进虚空)
+    const distToP = enemy.position.distanceTo(pp);
+    const viewD = cfg.viewDist || 100;
+    if (distToP > viewD) {
+      moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
+    } else if (!canSeeTarget(enemy, nearestPlayer, Math.PI, viewD, scene)) {
+      // 视野内但被地形遮挡: 侧向迂回包抄(目标=玩家附近+侧向偏移, 既靠近又绕遮挡, 不再纯侧向)
       if (typeof ai._flankDir === 'undefined') ai._flankDir = Math.random() > 0.5 ? 1 : -1;
       if (typeof ai._flankTimer === 'undefined') ai._flankTimer = 0;
       ai._flankTimer += dt;
@@ -320,9 +331,8 @@
       const nd = Math.sqrt(dx * dx + dz * dz) || 1;
       const flankX = (-dz / nd) * ai._flankDir;
       const flankZ = (dx / nd) * ai._flankDir;
-      // 沿侧向持续移动直到找到可射击角度
-      const targetX = enemy.position.x + flankX * 30;
-      const targetZ = enemy.position.z + flankZ * 30;
+      const targetX = pp.x + flankX * 10;
+      const targetZ = pp.z + flankZ * 10;
       moveEnemyToward(enemy, targetX, targetZ, (cfg.speed || 5.0) * 1.2, dt);
     } else {
       // 视线畅通: 直追
@@ -342,7 +352,7 @@
     const dist = enemy.position.distanceTo(pp);
     // 绕圈理想距离 = 取地图配置 engageDist 和 武器射程×75% 的较小值
     // 确保敌人在可攻击范围内绕圈（不会在射程外空转）
-    const weaponRange = cfg.flameRange || 12;
+    const weaponRange = cfg.flameRange || cfg.shellRange || cfg.engageDist || 12;
     const idealDist = Math.min(cfg.engageDist || 15, weaponRange * 0.75);
     const speed = cfg.speed || 5.0;
 
@@ -383,7 +393,7 @@
     const _efE = enemyForward(enemy);
     const facingX = _efE.x;
     const facingZ = _efE.z;
-    const retreating = radialW < -0.3; // 太近时(<optimalDist)远离玩家，倒车而非掉头
+    const retreating = radialW > 0.3; // 太近时(远离玩家)倒车保持炮塔朝向，而非掉头
     if (retreating) {
       // 倒车：车身不转向，直接后退
       enemy.position.x -= facingX * speed * 0.7 * dt;
@@ -835,7 +845,7 @@
         case AI_STATE.CHASE:
           updateChase(enemy, ai, cfg, dt, nearestPlayer);
           {
-            const wr = cfg.flameRange || 12;
+            const wr = cfg.flameRange || cfg.shellRange || cfg.engageDist || 12;
             if (
               nearestPlayer &&
               nearestDist < wr * 0.85 &&
@@ -859,7 +869,7 @@
         case AI_STATE.ENGAGE:
           updateEngage(enemy, ai, cfg, dt, nearestPlayer);
           {
-            const wr = cfg.flameRange || 12;
+            const wr = cfg.flameRange || cfg.shellRange || cfg.engageDist || 12;
             if (!nearestPlayer || nearestDist > wr * 1.3) {
               ai.state = AI_STATE.CHASE;
             }

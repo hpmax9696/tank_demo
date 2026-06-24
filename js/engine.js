@@ -1166,11 +1166,7 @@ function resetTank() {
   });
   shells = [];
   // 清除所有碎块
-  fragments.forEach((f) => {
-    scene.remove(f.mesh);
-    f.mesh.geometry.dispose();
-    f.mesh.material.dispose();
-  });
+  fragments.forEach((f) => _releaseFrag(f));
   fragments = [];
   // 清除炮口焰
   muzzleLights.forEach((ml) => {
@@ -1198,11 +1194,7 @@ function resetTank() {
   });
   scorchMarks = [];
   // 清除地面碎片
-  groundDebris.forEach((gd) => {
-    scene.remove(gd.mesh);
-    gd.mesh.geometry.dispose();
-    gd.mesh.material.dispose();
-  });
+  groundDebris.forEach((gd) => _releaseFrag(gd));
   groundDebris = [];
   // 重置装填条（PlaneGeometry: scale.y=1, 底部对齐）
   if (reloadBarFill) {
@@ -1306,6 +1298,13 @@ let visibilityTimer = 0;
 // 四阶段累加：physics(物理), combat(战斗), updates(杂项更新), render(渲染)
 let perfAcc = { physics: 0, combat: 0, updates: 0, render: 0, frames: 0 };
 let perfDisplay = { physics: 0, combat: 0, updates: 0, render: 0, total: 0 };
+
+// P-burst-1: 炮弹循环临时向量复用 —— 免每帧 new/clone，减 GC，缓解对攻 burst spike
+// _shellPrev 做 ping-pong 缓冲(存上一帧位置)，避免 prevPos 引用被 s.prevPos.copy() 污染
+const _shellPrev = new THREE.Vector3();
+const _shellTmpA = new THREE.Vector3(); // lookAt 目标点
+const _shellTmpB = new THREE.Vector3(); // 炮弹速度方向(拖尾定位)
+const _shellTmpC = new THREE.Vector3(); // 单帧位移向量(扫掠碰撞)
 
 let currentShellType = 'ap';
 let aimPoint = new THREE.Vector3();
@@ -2313,27 +2312,31 @@ function gameLoop() {
     // ── 炮弹更新 ──
     for (let i = shells.length - 1; i >= 0; i--) {
       const s = shells[i];
-      // 保存上一帧位置用于扫掠碰撞检测
-      const prevPos = s.prevPos || s.mesh.position.clone();
+      // 保存上一帧位置用于扫掠碰撞检测（P-burst-1: 复用 _shellPrev，免每帧 clone）
+      _shellPrev.copy(s.prevPos || s.mesh.position);
+      const prevPos = _shellPrev;
       s.vel.y -= SHELL_GRAVITY * dt;
       s.mesh.position.x += s.vel.x * dt;
       s.mesh.position.y += s.vel.y * dt;
       s.mesh.position.z += s.vel.z * dt;
-      s.prevPos = s.mesh.position.clone();
+      if (!s.prevPos) s.prevPos = new THREE.Vector3();
+      s.prevPos.copy(s.mesh.position);
       if (s.vel.lengthSq() > 0.01) {
-        s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
+        _shellTmpA.copy(s.mesh.position).add(s.vel);
+        s.mesh.lookAt(_shellTmpA);
       }
       // 曳光弹：光源跟随炮弹，拖尾光球略落后方
       if (s.tracerLight) s.tracerLight.position.copy(s.mesh.position);
       if (s.glowTail) {
-        const velDir = s.vel.clone().normalize();
-        s.glowTail.position.copy(s.mesh.position).addScaledVector(velDir, -0.18);
+        _shellTmpB.copy(s.vel).normalize();
+        s.glowTail.position.copy(s.mesh.position).addScaledVector(_shellTmpB, -0.18);
       }
 
       // 碰撞检测：炮弹 vs 障碍物（扫掠检测防穿越）
       let hit = false;
       const shellR = 0.18;
-      const moveVec = new THREE.Vector3().subVectors(s.mesh.position, prevPos);
+      _shellTmpC.subVectors(s.mesh.position, prevPos);
+      const moveVec = _shellTmpC;
       const moveLen = moveVec.length();
       const checkObs = window._obstacleGrid
         ? window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, moveLen + 2)
@@ -2838,9 +2841,7 @@ function gameLoop() {
       f.mesh.material.transparent = alpha < 1;
 
       if (f.life <= 0) {
-        scene.remove(f.mesh);
-        f.mesh.geometry.dispose();
-        f.mesh.material.dispose();
+        _releaseFrag(f);
         fragments.splice(i, 1);
       }
     }
@@ -3895,9 +3896,7 @@ function gameLoop() {
       const gd = groundDebris[i];
       gd.life -= dt;
       if (gd.life <= 0) {
-        scene.remove(gd.mesh);
-        gd.mesh.geometry.dispose();
-        gd.mesh.material.dispose();
+        _releaseFrag(gd);
         groundDebris.splice(i, 1);
       } else {
         gd.vel.y -= 9.8 * dt;
@@ -4634,11 +4633,7 @@ function enterVersusMode() {
     }
   });
   shells = [];
-  fragments.forEach((f) => {
-    scene.remove(f.mesh);
-    f.mesh.geometry.dispose();
-    f.mesh.material.dispose();
-  });
+  fragments.forEach((f) => _releaseFrag(f));
   fragments = [];
   muzzleLights.forEach((ml) => {
     scene.remove(ml.light);
@@ -4654,11 +4649,7 @@ function enterVersusMode() {
     sc.mesh.material.dispose();
   });
   scorchMarks = [];
-  groundDebris.forEach((gd) => {
-    scene.remove(gd.mesh);
-    gd.mesh.geometry.dispose();
-    gd.mesh.material.dispose();
-  });
+  groundDebris.forEach((gd) => _releaseFrag(gd));
   groundDebris = [];
   // 重建大平原地图
   rebuildMap();
@@ -4755,11 +4746,7 @@ async function enterCombatMode() {
     }
   });
   shells = [];
-  fragments.forEach((f) => {
-    scene.remove(f.mesh);
-    f.mesh.geometry.dispose();
-    f.mesh.material.dispose();
-  });
+  fragments.forEach((f) => _releaseFrag(f));
   fragments = [];
   muzzleLights.forEach((ml) => {
     scene.remove(ml.light);
@@ -4781,11 +4768,7 @@ async function enterCombatMode() {
     sc.mesh.material.dispose();
   });
   scorchMarks = [];
-  groundDebris.forEach((gd) => {
-    scene.remove(gd.mesh);
-    gd.mesh.geometry.dispose();
-    gd.mesh.material.dispose();
-  });
+  groundDebris.forEach((gd) => _releaseFrag(gd));
   groundDebris = [];
   cleanupEnemies();
   cleanupPickups();
@@ -6003,9 +5986,7 @@ function versusGameLoop() {
     const gd = groundDebris[i];
     gd.life -= dt;
     if (gd.life <= 0) {
-      scene.remove(gd.mesh);
-      gd.mesh.geometry.dispose();
-      gd.mesh.material.dispose();
+      _releaseFrag(gd);
       groundDebris.splice(i, 1);
     } else {
       gd.vel.y -= 9.8 * dt;
@@ -6095,21 +6076,27 @@ function placeCameraFor(p, cam) {
 function updateShellsFragsMuzzle(dt) {
   for (let i = shells.length - 1; i >= 0; i--) {
     const s = shells[i];
-    const prevPos = s.prevPos || s.mesh.position.clone();
+    _shellPrev.copy(s.prevPos || s.mesh.position);
+    const prevPos = _shellPrev;
     s.vel.y -= SHELL_GRAVITY * dt;
     s.mesh.position.x += s.vel.x * dt;
     s.mesh.position.y += s.vel.y * dt;
     s.mesh.position.z += s.vel.z * dt;
-    s.prevPos = s.mesh.position.clone();
-    if (s.vel.lengthSq() > 0.01) s.mesh.lookAt(s.mesh.position.clone().add(s.vel));
+    if (!s.prevPos) s.prevPos = new THREE.Vector3();
+    s.prevPos.copy(s.mesh.position);
+    if (s.vel.lengthSq() > 0.01) {
+      _shellTmpA.copy(s.mesh.position).add(s.vel);
+      s.mesh.lookAt(_shellTmpA);
+    }
     if (s.tracerLight) s.tracerLight.position.copy(s.mesh.position);
     if (s.glowTail) {
-      const vd = s.vel.clone().normalize();
-      s.glowTail.position.copy(s.mesh.position).addScaledVector(vd, -0.18);
+      _shellTmpB.copy(s.vel).normalize();
+      s.glowTail.position.copy(s.mesh.position).addScaledVector(_shellTmpB, -0.18);
     }
     let hit = false;
+    _shellTmpC.subVectors(s.mesh.position, prevPos);
     const sR = 0.18,
-      mv = new THREE.Vector3().subVectors(s.mesh.position, prevPos),
+      mv = _shellTmpC,
       mvL = mv.length();
     const checkObs = window._obstacleGrid
       ? window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, mvL + 2)
@@ -6421,9 +6408,7 @@ function updateShellsFragsMuzzle(dt) {
     f.mesh.material.opacity = Math.max(0, f.life / FRAG_LIFE);
     f.mesh.material.transparent = f.life / FRAG_LIFE < 1;
     if (f.life <= 0) {
-      scene.remove(f.mesh);
-      f.mesh.geometry.dispose();
-      f.mesh.material.dispose();
+      _releaseFrag(f);
       fragments.splice(i, 1);
     }
   }
@@ -6837,7 +6822,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.65.0  ' +
+    'v0.65.1  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7466,9 +7451,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log(
-  '🎮 坦克运动demo v0.65.0 | 坦克AI托管完整修复: 双方移动+炮塔追踪+对攻+多轮复活+复活搜寻'
-);
+console.log('🎮 坦克运动demo v0.65.1 | AI对峙/出界修复+对攻性能优化(碎片对象池+临时向量复用)');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.0</title>
+    <title>坦克运动demo v0.65.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.0</div>
+      <div class="menu-version">v0.65.1</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -816,6 +816,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🐛 v0.65.1 坦克AI对峙/出界修复 + 对攻性能优化 —
+          updateChase超距离直线追(修侧向推坦克出地图进虚空)+moveEnemyToward边界clamp+碎片对象池+炮弹临时向量复用(最坏帧-67%/GC-46%)
+        </div>
+        <div class="cl-title">
           🎯 v0.65.0 坦克AI托管完整修复 —
           双方移动+炮塔追踪+双向对攻+多轮复活稳定+复活搜寻(10层根因)+池塘空气墙验证
         </div>
@@ -831,9 +835,6 @@
         <div class="cl-title">
           🔫 v0.63.0 坦克炮塔世界空间重构 — 删瞬时稳定器 + worldTurretYaw 直驱(陀螺仪炮塔) +
           同向不再迟钝 + 鼠标/摇杆直控世界方向
-        </div>
-        <div class="cl-title">
-          🚀 v0.62.0 玩家六足武器实装 — 加特林+导弹+观瞄球体HP发光+全覆盖碰撞
         </div>
       </div>
     </div>

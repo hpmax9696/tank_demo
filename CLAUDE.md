@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.1
 
 ## 运行
 
@@ -430,6 +430,37 @@ legGroup (Y旋转=水平摆角)
 - **同向不再迟钝**: 车体+鼠标同向转时炮塔以满 30°/s 追光标，无稳定器与瞄准互搏
 - **惰性初始化**: `worldTurretYaw: undefined` → 首帧自动对齐，所有模式/spawn/respawn 零改动
 - **改动范围**: 仅 `engine.js` ~40行；敌人/六足/摄像机/俯仰 均不受影响
+
+---
+
+## v0.65.1 本次会话变更 (2026-06-24)
+
+### 坦克AI远距离对峙/出界修复
+
+训练场坦克对攻偶发"两车远远对峙不开炮"(用户睡午觉回来发现, 敌方出地图边界进虚空)。诊断观测: state=chase, dist=118.8m, fireTimer=-152(152s没开炮), ePos=[-116,163]贴近虚空边界。
+
+**根因**: updateChase 不区分"超视野距离"和"地形遮挡", 一律侧向迂回; 侧向目标=`enemy+侧向×30`是纯侧向不朝玩家 → 持续侧推 → moveEnemyToward无边界约束 → 推出地图进虚空 → 越来越远卡CHASE(state≠engage不开炮)。之前的retreating修复是另一个bug(ENGAGE振荡), 非此对峙根因。
+
+- **updateChase 区分超距离/遮挡**(`combat/enemyAI.js`): `dist>viewDist`直线追近(不再侧向, 否则永远追不上); 视野内地形遮挡时侧向目标朝玩家(`pp+侧向×10`, 既靠近又绕遮挡)
+- **moveEnemyToward 边界 clamp**: `window.worldHalfW/D`(150)硬限制, 任何情况推不出地图
+- **(顺带)updateEngage retreating 判断修正**: `radialW<-0.3`→`>0.3`(原方向反: 偏远靠近radialW=-1被误判倒车→ENGAGE振荡); wr加`shellRange||engageDist`fallback(坦克实际flameRange=55)
+
+### 训练场对攻性能优化(P-burst, 目标稳定60fps)
+
+性能基准测试定位: 坦克对攻瓶颈是**CPU端burst(战斗阶段)**, 非GPU渲染。最坏帧150ms中~37ms是GC停顿。文档原优化方案(`docs/perf_optimization_plan.md`, 降DC/三角/阴影)针对稳态渲染, 不解决spike → 重新评估后新增P-burst方向。
+
+- **P-burst-1 炮弹循环临时向量复用**(`js/engine.js`): prevPos用`_shellPrev` ping-pong缓冲(免每帧clone污染扫掠碰撞), lookAt/velDir/moveVec复用`_shellTmpA/B/C`; gameLoop+updateShellsFragsMuzzle两份循环同改。**战斗阶段burst 29.48→13ms**
+- **P-burst-2 碎片对象池**(`js/shells.js`+`js/engine.js`): `_fragGeo`共享单位Box(大小用mesh.scale)+`_fragPool`+`_acquireFrag`/`_releaseFrag`; `_spawnSparkParticles`/`spawnFragments`/`spawnGroundDebris`改从池取; 5处fragments销毁+5处groundDebris销毁全改`_releaseFrag`回收(共享geometry绝不dispose, 漏一处dispose全毁)。**GC停顿 37→20ms, 碎片池复用59个**
+- **累计**: 最坏帧 150→50ms(**-67%**), GC 37→20ms(**-46%**); p50=16.7ms(60fps)不变(稳态未动,符合预期)
+- **关键诊断法**: tab后台raf暂停致采样失败(`visibilityState=hidden`, perf_monitor/injected采样全失效); 改用setInterval+localStorage监控; 4阶段perfAcc采样(4阶段max和 vs 帧max 差额=GC停顿估计)
+
+### 已知问题(更新)
+
+1. ~~坦克AI托管: 偶发敌方驶入池塘~~ + ~~偶发远距离对峙/出界~~ **v0.65.1 已修复**(updateChase超距离直线追+moveEnemyToward边界clamp)
+2. avg fps 41.5仍非稳定60(剩余GC 20ms来自未池化spawn: 炮弹mesh/ringFX/ExplosionEffects), 待P-burst-3续做
+3. 坡地一头翘起一头陷地(坦克/敌人偶发)
+4. 对山丘目标弹道偏低
+5. 六足武器俯仰旋转轴不正确(待校准)
 
 ---
 
