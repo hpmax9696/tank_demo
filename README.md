@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.65.2** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.65.4** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,14 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.65.4 — 树冠阴影恢复 shadow proxy（2026-06-25）
+
+- **树冠阴影恢复(零画质损失)**: v0.64.0 为省开销把树冠castShadow=false(树冠无影子)。spherical/oak用极简proxy球(20面IcosahedronGeometry,半径×0.8)藏树冠内投影(靠不透明树冠遮挡,主通道看不见,省8000→20三角);conical扁平棱柱(448三角)藏不住球→直接castShadow。踩坑(Three.js r160实测):layers.set(1)+shadow.camera.layers.enable(1)阴影相机仍看不到layer1;colorWrite=false连带跳过阴影pass→最终用物理遮挡。⚠️待多角度验证proxy不露出+阴影开销实测
+
+### v0.65.3 — 建筑 InstancedMesh 合并修复（2026-06-24）
+
+- **建筑 IM 碎片化合并修复(bld-im 141→18, 零画质损失)**: v0.65.2 诊断(随机拓扑/材质引用)有误, MCP实测真实根因=obstacles.js外层循环遍历每个子mesh而非唯一材质,同材质重复建IM(窗户#aaccff建56个)。修复: buildings.js 18材质全局化 + obstacles.js seenMat按material去重 + dispose路径保护全局材质。实测: 三角面1.58M→1.23M(-22%), 建筑shadow caster 141→18(-87%), 控制台0错误, 3次进出地图材质正常
 
 ### v0.65.2 — 地面射线高度图优化 + 建筑分类（2026-06-24）
 
@@ -1274,24 +1282,20 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.65.2）
+### 代码规模（截至 v0.65.4）
 
-- `index.html`：约 5377 行（主游戏引擎）
-- `map_editor.html`：约 1800 行（核心框架，新增状态面板+模型参数控件）
-- 编辑器模块：6个共~2930行（terrainGen 750 + genStatus 120 + waterBridge 659 + entities 645 + data 503 + terrainPaint 335）
-- `js/waters.js`：~317行 | `js/bridges.js`：~165行 | `js/debugcolliders.js`：~122行
-- 游戏模块13个总计~4006行 | 战斗系统2个~875行 | 模型系统11个~3240行
-- **源代码总计约 2.0万行**（terrainGen重写-600行，genStatus+120行，净-480行）
-- `js/audio.js`：~240行 | `js/input.js`：~70行 | `js/shells.js`：~309行 | `js/mg.js`：~198行
-- `js/bars.js`：~80行 | `js/obstacles.js`：~817行 | `js/spatialGrid.js`：~110行
-- `js/fireSmokeParticles.js`：~536行
-- `model_factory.html`：约 2428 行（通用程序化模型编辑器）
-- `map_editor.html`：约 4698 行（地图编辑器）
-- `models/enemies.js`：约 901 行（装甲突击车+程序化丧尸）
-- `combat/enemyAI.js`：约 748 行（AI状态机）
-- `combat/scoreSystem.js`：约 127 行（积分系统）
-- `models/`其他：tank.js(84)+trees.js(262)+buildings.js(304)+grass.js(207)+pickups.js(133)+terrainTextures.js(52)+modelRegistry.js(88)+t34-85.js(628)+t34_v16_builder.js(488)+windmill.js(57)+model_configs.js(36)
-- **总计约 21,081 行**
+| 分类             | 文件                                                                                                                                                                        |      行数      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
+| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                               |  1034 + 7543   |
+| 游戏模块 (12个)  | waters(326) bridges(165) debugcolliders(122) obstacles(878) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271)                      |      3497      |
+| 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                       |      2973      |
+| 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                            |      1530      |
+| 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                             |      5036      |
+| 模型工厂         | `model_factory.html`                                                                                                                                                        |      4158      |
+| 模型系统 (13个)  | enemies(1324) t34-85(628) v16_builder(488) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) configs(36) hexapod_config(70) |      3793      |
+| 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                              |      1407      |
+| 地图加载         | `maploader.js`                                                                                                                                                              |      191       |
+| **总计**         | **49 个源文件**                                                                                                                                                             | **~31,092 行** |
 
 ---
 

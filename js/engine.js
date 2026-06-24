@@ -6859,7 +6859,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.65.2  ' +
+    'v0.65.4  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7488,7 +7488,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.2 | 地面射线高度图优化+建筑分类+阴影恢复+AI对峙/出界修复');
+console.log('🎮 坦克运动demo v0.65.4 | 树冠阴影恢复shadow proxy(零画质损失)');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

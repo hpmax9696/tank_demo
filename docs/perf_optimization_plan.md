@@ -31,31 +31,31 @@
 
 ## P0 — 零画质损失，必须修
 
-### 1. 建筑 InstancedMesh 碎片化合并
+### 1. 建筑 InstancedMesh 碎片化合并 ✅ v0.65.3 已修复
 
-**文件**: `js/obstacles.js:598-664`
+**文件**: `js/obstacles.js` + `models/buildings.js`
 
-**现状**: 建筑按 `targetHeightMinM|targetHeightMaxM` 分组 → `ModelRegistry.randomBuildingMaker()` 每次可能返回不同拓扑（不同屋顶/墙壁组合）→ 同一高度范围产生多个 IM → 130+ 个仅含 12-17 实例的 IM，完全违背 instancing 初衷。
+**原诊断（v0.65.2，有误）**: 归因为 `randomBuildingMaker()` 返回不同拓扑 → 推荐"限定 5-8 种固定原型"。
 
-**方案**:
+**真实根因（v0.65.3 经 MCP 实测确认）**: 141 个 bld-im 但仅 15 种唯一材质颜色——窗户 `#aaccff` 被建 **56 个 IM**。根因是 `obstacles.js` 外层 `for (const mt of matTemplates)` 遍历**每个子 mesh**（一栋建筑多扇窗/栏杆）而非**唯一材质**，同材质被重复建 IM；叠加 `buildings.js` 每次 create 都 `new` 新材质实例。与建筑拓扑/分组(targetHeight)无关。
 
-1. 限定建筑原型为 5-8 种固定造型（屋顶×墙壁 确定性组合）
-2. 每种原型 2 个 IM（墙壁 + 屋顶），共 ~15 个 IM
-3. 视觉多样性由 `instanceColor`（每栋不同颜色）+ scale 微调 + rotation 提供
+**实际修复**: ①`buildings.js` 18 材质全局化（同 category 共享 material 对象）②`obstacles.js` 外层加 `seenMat` 按 material 去重（核心）③dispose 路径保护全局材质（只 dispose geometry）。
 
-**预期**: 建筑 DC: 130 → 15 | 阴影 caster: 130 → 15 | **零画质损失**
+**实测结果（map01a 单人，MCP run_js）**: bld-im 141→**18**(-87%) | 窗户材质 IM 56→3 | 三角面 1.58M→1.23M(-22%) | 建筑 shadow caster 141→18 | 控制台 0 错误 | 零画质损失。
+
+**注**: 主通道 DC 因 frustum culling 基本持平（311→308，之前 141 个小 IM 多被视野剔除），真实收益在三角面（-22%，GPU 填充率）+ 阴影 caster（-87%，阴影 pass 减负）+ IM 对象数（-87%，CPU 遍历/矩阵更新）。跨 category 共享通用材质（18→~15 IM）留作后续可选优化。
 
 ### 2. 阴影 Caster 数量暴降
 
 阴影优化的关键是——**建筑合并后 caster 自动减少**。当前阴影 pass 画 154 个物体，合并后降至 ~25。
 
-**补充方案 — Shadow Proxy Geometry**:
+**补充方案 — Shadow Proxy Geometry** ✅ v0.65.4 已实现（方案调整）:
 
-- 树冠（当前阴影 pass 画 1.1M 三角）→ 用 3-4 个交叉平面替代，阴影 pass 三角 <1000
-- 通过 `Object3D.customDepthMaterial` 实现，主通道渲染不受影响
-- 512×512 阴影贴图根本分辨不出树冠是 8000 三角还是 12 三角投射的
+- 树冠用极简 proxy IM 投影（20面 IcosahedronGeometry 球），阴影 pass 三角大降
+- ⚠️ 实测 r160 下 `customDepthMaterial`/layers/colorWrite 方案均不可行，最终用"proxy 球缩小藏入树冠内部，靠不透明树冠物理遮挡"（主通道看不见，castShadow 投影）
+- spherical/oak（圆形树冠）用 proxy（藏得住）；conical（尖锥扁平棱柱）藏不住球 → 直接 crownIM.castShadow=true（448三角/棵，开销小）
 
-**预期**: 阴影 pass 三角 1.1M → <1000 | 阴影 DC: 154 → ~25 | **零画质损失**
+**预期**: 阴影 pass 三角 1.1M → <1000 | 阴影 DC: 154 → ~25 | **零画质损失**（⚠️ v0.65.4 待多角度验证 proxy 不露出）
 
 ### 3. pixelRatio 增加防御性上限
 

@@ -2,9 +2,46 @@
  * 建筑模型 — 平房、别墅、公寓
  */
 (function () {
-  const wallMat = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.9 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: '#8B4513', roughness: 0.85 });
-  const aptMat = new THREE.MeshStandardMaterial({ color: '#C0C0C0', roughness: 0.7 });
+  // ── 全局共享材质：同 category 建筑复用同一组材质对象，
+  //    这是 obstacles.js 把同类建筑合并进同一个 InstancedMesh 的前提（按 material 引用去重）。
+  //    ⚠️ 这些材质跨地图重建长期存活，任何 dispose 路径都不得释放它们（否则下次重建黑块/丢材质）。
+  // 平房
+  const bunWallM = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.85 });
+  const bunRoofM = new THREE.MeshStandardMaterial({ color: '#A0522D', roughness: 0.8 });
+  const bunTrimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
+  const bunWinM = new THREE.MeshStandardMaterial({
+    color: '#AACCFF',
+    emissive: '#224466',
+    emissiveIntensity: 0.1,
+  });
+  const bunDoorM = new THREE.MeshStandardMaterial({ color: '#5C3317', roughness: 0.6 });
+  // 别墅
+  const vilStoneM = new THREE.MeshStandardMaterial({ color: '#8B7D6B', roughness: 0.95 });
+  const vilWoodM = new THREE.MeshStandardMaterial({ color: '#A0825A', roughness: 0.85 });
+  const vilDarkM = new THREE.MeshStandardMaterial({ color: '#5C3A1E', roughness: 0.8 });
+  const vilRoofM = new THREE.MeshStandardMaterial({ color: '#8B4513', roughness: 0.85 });
+  const vilTrimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
+  const vilWinM = new THREE.MeshStandardMaterial({
+    color: '#AACCFF',
+    emissive: '#224466',
+    emissiveIntensity: 0.1,
+  });
+  const vilDoorM = new THREE.MeshStandardMaterial({ color: '#4A2810', roughness: 0.6 });
+  // 公寓
+  const aptStoneM = new THREE.MeshStandardMaterial({ color: '#5A5A5A', roughness: 0.95 });
+  const aptTileM = new THREE.MeshStandardMaterial({ color: '#F5F5F5', roughness: 0.55 });
+  const aptTopM = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.75 });
+  const aptWinM = new THREE.MeshStandardMaterial({
+    color: '#AACCFF',
+    emissive: '#224466',
+    emissiveIntensity: 0.1,
+  });
+  const aptFrameM = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.6 });
+  const aptShutterM = new THREE.MeshStandardMaterial({
+    color: '#C0C0C0',
+    roughness: 0.4,
+    metalness: 0.3,
+  });
 
   function addShadow(g) {
     g.traverse((c) => {
@@ -24,15 +61,11 @@
     const h = 0.72; // 主体高度
     const rH = 0.32; // 屋顶高度
 
-    const wallM = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.85 });
-    const roofM = new THREE.MeshStandardMaterial({ color: '#A0522D', roughness: 0.8 });
-    const trimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
-    const winM = new THREE.MeshStandardMaterial({
-      color: '#AACCFF',
-      emissive: '#224466',
-      emissiveIntensity: 0.1,
-    });
-    const doorM = new THREE.MeshStandardMaterial({ color: '#5C3317', roughness: 0.6 });
+    const wallM = bunWallM,
+      roofM = bunRoofM,
+      trimM = bunTrimM,
+      winM = bunWinM,
+      doorM = bunDoorM;
 
     // 主体
     const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallM);
@@ -107,17 +140,13 @@
     const w2 = w * 0.78,
       d2 = d * 0.78; // 二楼退台
 
-    const stoneM = new THREE.MeshStandardMaterial({ color: '#8B7D6B', roughness: 0.95 });
-    const woodM = new THREE.MeshStandardMaterial({ color: '#A0825A', roughness: 0.85 });
-    const darkM = new THREE.MeshStandardMaterial({ color: '#5C3A1E', roughness: 0.8 });
-    const roofM = new THREE.MeshStandardMaterial({ color: '#8B4513', roughness: 0.85 });
-    const trimM = new THREE.MeshStandardMaterial({ color: '#C4956A', roughness: 0.7 });
-    const winM = new THREE.MeshStandardMaterial({
-      color: '#AACCFF',
-      emissive: '#224466',
-      emissiveIntensity: 0.1,
-    });
-    const doorM = new THREE.MeshStandardMaterial({ color: '#4A2810', roughness: 0.6 });
+    const stoneM = vilStoneM,
+      woodM = vilWoodM,
+      darkM = vilDarkM,
+      roofM = vilRoofM,
+      trimM = vilTrimM,
+      winM = vilWinM,
+      doorM = vilDoorM;
 
     // 一楼（石墙，带墙角石装饰条）
     const f1 = new THREE.Mesh(new THREE.BoxGeometry(w, h1, d), stoneM);
@@ -236,20 +265,12 @@
     const railH = 0.06; // 顶层围栏高度
 
     // 材质
-    const stoneM = new THREE.MeshStandardMaterial({ color: '#5A5A5A', roughness: 0.95 });
-    const tileM = new THREE.MeshStandardMaterial({ color: '#F5F5F5', roughness: 0.55 });
-    const topM = new THREE.MeshStandardMaterial({ color: '#999999', roughness: 0.75 });
-    const winM = new THREE.MeshStandardMaterial({
-      color: '#AACCFF',
-      emissive: '#224466',
-      emissiveIntensity: 0.1,
-    });
-    const frameM = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.6 });
-    const shutterM = new THREE.MeshStandardMaterial({
-      color: '#C0C0C0',
-      roughness: 0.4,
-      metalness: 0.3,
-    });
+    const stoneM = aptStoneM,
+      tileM = aptTileM,
+      topM = aptTopM,
+      winM = aptWinM,
+      frameM = aptFrameM,
+      shutterM = aptShutterM;
 
     // ── 底层：深色石材（商铺/车库） ──
     const shopBody = new THREE.Mesh(new THREE.BoxGeometry(w, shopH, d), stoneM);

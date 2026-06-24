@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.2
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.4
 
 ## 运行
 
@@ -15,46 +15,48 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏引擎 (~780行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~6100行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
-├── js/                # 游戏模块（14个）
-│   ├── waters.js      # 水体模块 (~317行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
+├── index.html         # 核心游戏框架 (~1034行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~7543行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── js/                # 游戏模块（12个）
+│   ├── waters.js      # 水体模块 (~326行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
 │   ├── debugcolliders.js  # 碰撞可视化 (~122行)：F3切换(默认关)，从运行时数据反向生成
-│   ├── obstacles.js   # 环境对象 (~794行)：树木/建筑/InstancedMesh管理
-│   ├── shells.js      # 炮弹系统 (~309行)
-│   ├── audio.js       # 音频系统 (~240行)
-│   ├── fireSmokeParticles.js  # 粒子系统 (~536行)
-│   ├── mg.js          # 机枪系统 (~198行)
-│   ├── bars.js        # UI 血条/装填条 (~80行)
-│   ├── input.js       # 输入处理 (~70行)：WASD+手柄5段力度
+│   ├── obstacles.js   # 环境对象 (~878行)：树木/建筑/InstancedMesh管理
+│   ├── shells.js      # 炮弹系统 (~363行)：炮弹+碎片对象池(P-burst-2)
+│   ├── audio.js       # 音频系统 (~322行)：锁定音+卡壳音+爆炸音
+│   ├── fireSmokeParticles.js  # 粒子系统 (~572行)
+│   ├── mg.js          # 机枪系统 (~209行)
+│   ├── bars.js        # UI 血条/装填条 (~85行)
+│   ├── input.js       # 输入处理 (~74行)：WASD+手柄5段力度
 │   ├── spatialGrid.js # 空间网格 (~110行)
-│   ├── sky.js         # 动态天空系统 (~200行)：渐变穹顶+噪声云层+太阳光晕
-│   ├── three.min.js   # Three.js r160 压缩库
-│   └── BufferGeometryUtils.js  # Three.js 工具函数
-├── models/hexapod_config.js # 六足战车共享模型配置+动画参数表：3节腿(大腿+小腿+尖刺足)+4DOF+ANIM_TABLE(23项)+腿配置
-├── js/hexapod_core.js        # 六足CCD IK核心模块 (~920行)：纯计算层，模型工厂+游戏共享，hipAxis/bodyWriter参数化
-├── js/hexapod_factory.js     # 六足工厂适配器 (~600行)：nodeMap→legRefs+IK测试+转弯验证+武器校准
-├── js/hexapod_enemy.js       # 六足游戏适配器 (~230行)：getObjectByName→legRefs, bodyWriter=false; 卡住检测(敌人); bodySpeed用desiredVel
-├── js/hexapod_probe.js       # 六足步态测量探针 (~190行)：stepGait末尾采样左前腿; F7/F8快捷键; __hexProbeStart/Stop/Stats/Compare; localStorage持久化
+│   └── sky.js         # 动态天空系统 (~271行)：渐变穹顶+噪声云层+太阳光晕
+├── js/hexapod_aimLine.js     # 六足加特林瞄准线 (~295行)：双段着色+5层碰撞+颜色状态机
+├── models/hexapod_config.js  # 六足战车共享模型配置 (~70行)：ANIM_TABLE(23项)+腿配置
+├── js/hexapod_core.js        # 六足CCD IK核心模块 (~1188行)：纯计算层，模型工厂+游戏共享，hipAxis/bodyWriter参数化
+├── js/hexapod_factory.js     # 六足工厂适配器 (~884行)：nodeMap→legRefs+IK测试+转弯验证+武器校准
+├── js/hexapod_enemy.js       # 六足游戏适配器 (~328行)：getObjectByName→legRefs; 卡住检测; bodySpeed用desiredVel
+├── js/hexapod_probe.js       # 六足步态测量探针 (~208行)：stepGait采样; F7/F8快捷键; Stats/Compare; localStorage
 ├── js/playerControllers/     # 模块化玩家角色控制器 (可插拔)
-│   ├── manager.js            # PlayerControllerManager (~80行)：注册表+当前角色+update分发+能力探测
-│   └── hexapodPlayer.js      # 六足玩家控制器 (~160行)：WASD+鼠标转向; 复用HexapodEnemy管线; _isPlayer支撑相plantPos
-├── map_editor.html    # 地图编辑器 (~1800行)：v0.53.0
+│   ├── manager.js            # PlayerControllerManager (~122行)：注册表+当前角色+update分发+能力探测
+│   └── hexapodPlayer.js      # 六足玩家控制器 (~1408行)：WASD+鼠标+加特林+导弹+锁定+AI托管+装填
+├── map_editor.html    # 地图编辑器 (~1790行)
 ├── js/editor_*.js     # 编辑器模块（6个）
-│   ├── editor_terrainGen.js  # 地形+村落生成 (~750行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
-│   ├── editor_genStatus.js   # 生成状态面板 (~120行)：实时进度+统计+质量评分+自动隐藏
-│   ├── editor_entities.js    # 实体管理 (~645行)：标记+CRUD+配置面板+列表+建筑朝向(yaw)
+│   ├── editor_terrainGen.js  # 地形+村落生成 (~914行)：双管线(地形/村落)+掩码网格+FloodFill+A*+容量预验证
+│   ├── editor_genStatus.js   # 生成状态面板 (~181行)：实时进度+统计+质量评分+自动隐藏
+│   ├── editor_entities.js    # 实体管理 (~653行)：标记+CRUD+配置面板+列表+建筑朝向(yaw)
 │   ├── editor_waterBridge.js # 水体桥梁 (~659行)：水面+河床+桥梁检测
-│   ├── editor_data.js        # 数据持久化 (~503行)：蓝图+JSON+init
+│   ├── editor_data.js        # 数据持久化 (~504行)：蓝图+JSON+init
 │   └── editor_terrainPaint.js # 地形绘制 (~335行)：笔刷+高度图画布
-├── model_factory.html # 程序化模型编辑器 (~2428行)
+├── model_factory.html # 程序化模型编辑器 (~4158行)
 ├── models/            # 模型文件 (GLB主力 + 程序化兜底)
+│   ├── enemies.js     # 敌方单位模型 (~1324行)：装甲突击车+程序化丧尸
+│   └── buildings.js   # 建筑模型 (~364行)：3种建筑+category分类+阴影
 ├── maps/              # .map.json 地图配置
 ├── combat/            # AI状态机 + 积分系统
+│   ├── enemyAI.js     # AI状态机 (~1280行)：巡逻→追击→绕圈+六足ENGAGE+武器优先级
+│   └── scoreSystem.js # 积分系统 (~127行)
 ├── docs/              # 协作文档
 └── CODEBUDDY.md       # 详细架构/参数/已知问题/待办 → 查阅细节时读它
-├── AGENTS.md           # Codex 专属文档（本次新增）
 ```
 
 ## 摄像机系统 (v0.59.0)
@@ -439,7 +441,7 @@ legGroup (Y旋转=水平摆角)
 
 **地面射线高度图优化**: updateAiming 的 groundMesh raycast (131072三角 brute-force 14ms) 是单人模式出生点 30fps 的元凶(非战斗)。用 `_raycastGroundHM` 沿射线步进+二分(基于 getGroundHeight O(1))替代, 同时改 4 处(单人/双人/六足)。物理阶段 19→1-7ms, 单人 01a 出生点 fps 30→48(+60%)。
 
-**P0-1 建筑 IM 合并(根因定位)**: obstacles.js 按 targetHeight 细致分组建 IM→141 个 bld-im(count 仅 10-13); 根因为 material 对象引用比较(每次 createFn 创建新实例)无法跨组合并。加 category 字段 + 扩大 targetHeight 范围, 建筑设 castShadow=true 恢复阴影。按 material 值合并的完整方案(限定 5-8 种固定原型→~15 IM)待续。
+**P0-1 建筑 IM 合并(v0.65.2 根因定位有误，v0.65.3 已修复)**: 当时诊断为"material 引用比较无法跨组合并"，并据此加 category 字段+扩大 targetHeight 范围+castShadow=true。**但 MCP 实测推翻该诊断**——真正根因是 obstacles.js 外层循环遍历每个子 mesh 而非唯一材质，同材质被重复建 IM(实测 141 bld-im 中窗户材质被建 56 次)。v0.65.3 按 material 去重+材质全局化修复，141→18，详见 v0.65.3 段。
 
 ### 已知问题（更新）
 
@@ -448,7 +450,49 @@ legGroup (Y旋转=水平摆角)
 3. 坡地一头翘起一头陷地(坦克/敌人偶发)
 4. 对山丘目标弹道偏低
 5. 六足武器俯仰旋转轴不正确(待校准)
-6. **P0-1 建筑 IM 合并**: 141 bld-im(每10例)→~15(5-8种原型+material值合并), 待续
+6. ~~P0-1 建筑 IM 合并~~ **v0.65.3 已修复**(141→18 bld-im, 见下)
+
+---
+
+## v0.65.3 本次会话变更 (2026-06-24)
+
+### 建筑 InstancedMesh 碎片化合并修复（bld-im 141→18，零画质损失）
+
+**背景**: v0.65.2 把 P0-1 根因诊断为"randomBuildingMaker 返回不同拓扑"，commit/perf plan 据此写"141 待合并"。但经 Three.js DevTools MCP 实测(map01a 单人)，**该诊断有误**。
+
+**真实根因（实测确认，非推断）**: 当前 141 个 bld-im 但仅 15 种唯一材质颜色——窗户材质 #aaccff 被建了 **56 个 IM**、灰框 #888888 建 52 个。根因是 `js/obstacles.js` 外层 `for (const mt of matTemplates)` 遍历**每个子 mesh**（一栋建筑多扇窗/栏杆）而非**唯一材质**，同材质被重复建 IM；叠加 `models/buildings.js` 每次 create 都 new 新材质实例。与建筑拓扑/分组(targetHeight)无关。
+
+**修复（3 处）**:
+
+- `models/buildings.js`: 3 个 create 函数的材质提升为 18 个模块级全局常量，同 category 建筑共享 material 对象（合并前提）
+- `js/obstacles.js`: 外层循环加 `seenMat` Set 按 material 对象去重，每个唯一材质只建 1 个 IM（核心修复，56→1 的来源）
+- `js/obstacles.js`: 清理路径保护全局材质——bld-im 重建时只 dispose geometry 不 dispose material（顺带修了 bld-im 不被清理的泄漏）
+
+**实测对比（map01a 单人，MCP run_js）**: bld-im 141→**18**(-87%) | 窗户材质 IM 56→3 | 三角面 1.58M→1.23M(-22%) | 建筑 shadow caster 141→18 | 控制台 0 错误 | 视觉零损失(截图分析确认) | 3 次进出地图材质正常(dispose 安全验证)
+
+**注**: 主通道 DC 311→308 基本持平——因 frustum culling，之前 141 个小 IM 多被视野剔除，实际渲染 DC 本就 ~18；真实收益在三角面(-22%,GPU 填充率)+阴影 caster(-87%,阴影 pass 减负)+IM 对象数(-87%,CPU 场景遍历/矩阵更新)。跨 category 共享通用材质(18→~15 IM)留作后续可选优化。
+
+---
+
+## v0.65.4 本次会话变更 (2026-06-25)
+
+### 树冠阴影恢复（shadow proxy）
+
+**背景**: v0.64.0 为省阴影开销把树冠 castShadow=false（树冠无影子，只有树干）。用户要求恢复树冠影子。
+
+**方案**（per perf plan P0-2）:
+
+- **spherical/oak（圆形树冠）**: 极简 proxy IM（IcosahedronGeometry 20面球，半径=crownGeo包围球×0.8），castShadow=true 投影；proxy 球缩小藏入树冠内部，靠不透明树冠物理遮挡（主通道看不见）。阴影开销 20三角/棵 vs 精细树冠 8000三角/棵。
+- **conical（尖锥松树）**: 扁平三角棱柱(448三角/棵)藏不住球 → 直接 crownIM.castShadow=true 投影。
+
+**踩坑（Three.js r160 实测，重要）**:
+
+- ❌ layers 不可行：proxy.layers.set(1)+sunLight.shadow.camera.layers.enable(1)，阴影相机仍看不到 layer1 → 不投影
+- ❌ colorWrite=false 不可行：连带跳过阴影 pass
+- ✅ 最终：proxy 藏树冠内靠物理遮挡（不依赖 layers/colorWrite）
+
+**改动**: `js/obstacles.js` makeCrownProxy 辅助 + spherical/oak 接入 + conical castShadow=true。
+**验证状态**: ⚠️ 已实现+node check通过+spherical/oak proxy 截图确认被圆形树冠遮挡+有影子。**待明早多角度验证 proxy 不露出 + 阴影开销实测 + 多次进出 dispose 安全**。
 
 ---
 

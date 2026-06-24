@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.65.2
+# CODEBUDDY.md — v0.65.4
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -80,16 +80,16 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | 文件                | 行数  | 功能                                                       |
 | ------------------- | :---: | ---------------------------------------------------------- |
-| `index.html`        | ~5094 | 核心游戏引擎（状态机/场景/物理/瞄准/摄像机/训练场UI）      |
-| `waters.js`         | ~317  | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画）      |
-| `bridges.js`        | ~177  | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤）            |
-| `debugcolliders.js` | ~120  | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
-| `audio.js`          | ~223  | 音频系统（引擎声/开火/爆炸/命中/换弹音效）                 |
-| `input.js`          |  ~71  | 输入处理（WASD驾驶+手柄5段力度+倒车转向修正）              |
-| `shells.js`         | ~267  | 炮弹系统（发射/爆炸/溅射伤害/HE冲击波）                    |
-| `mg.js`             | ~180  | 机枪系统（自动锁敌/弹道/过热）                             |
-| `bars.js`           |  ~75  | UI元素（血条/装填条/HUD）                                  |
-| `obstacles.js`      | ~794  | 环境对象（树木/建筑/InstancedMesh管理）                    |
+| `index.html`        | ~1034 | 核心游戏框架（UI框架+菜单+脚本加载+训练配置）              |
+| `waters.js`         | ~326  | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画）      |
+| `bridges.js`        | ~165  | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤）            |
+| `debugcolliders.js` | ~122  | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
+| `audio.js`          | ~322  | 音频系统（引擎声/开火/爆炸/命中/锁定音/卡壳音）            |
+| `input.js`          |  ~74  | 输入处理（WASD驾驶+手柄5段力度+倒车转向修正）              |
+| `shells.js`         | ~363  | 炮弹系统（发射/爆炸/溅射+碎片对象池P-burst-2）             |
+| `mg.js`             | ~209  | 机枪系统（自动锁敌/弹道/过热）                             |
+| `bars.js`           |  ~85  | UI元素（血条/装填条/HUD）                                  |
+| `obstacles.js`      | ~893  | 环境对象（树木/建筑/IM合并去重+category分类+材质全局化）   |
 
 ### 地图编辑器（v0.49.0 模块拆分后）
 
@@ -97,16 +97,17 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | 文件                        | 行数  | 功能                                                                   |
 | --------------------------- | :---: | ---------------------------------------------------------------------- |
-| `map_editor.html`           | ~1762 | 核心框架（尺寸/撤销/事件绑定/3D场景/地面）                             |
-| `js/editor_terrainGen.js`   | ~1376 | 地形生成（FBM噪声+A\*寻路+主干道+村路+村落建筑集群+树木填充+平整）     |
-| `js/editor_entities.js`     | ~638  | 实体管理（出生点/树/建筑/敌人标记+CRUD+配置面板+实体列表+分组+巡逻线） |
+| `map_editor.html`           | ~1790 | 核心框架（尺寸/撤销/事件绑定/3D场景/地面）                             |
+| `js/editor_terrainGen.js`   | ~914  | 地形生成（FBM噪声+A\*寻路+主干道+村路+村落建筑集群+树木填充+平整）     |
+| `js/editor_genStatus.js`    | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                        |
+| `js/editor_entities.js`     | ~653  | 实体管理（出生点/树/建筑/敌人标记+CRUD+配置面板+实体列表+分组+巡逻线） |
 | `js/editor_waterBridge.js`  | ~659  | 水体桥梁（水体记录+水面3D+河床雕刻+桥梁创建+桥梁检测+道路清理）        |
-| `js/editor_data.js`         | ~503  | 数据持久化（蓝图CRUD+JSON导入导出+base64编解码+init/animate）          |
+| `js/editor_data.js`         | ~504  | 数据持久化（蓝图CRUD+JSON导入导出+base64编解码+init/animate）          |
 | `js/editor_terrainPaint.js` | ~335  | 地形绘制（纹理合成+高度图画布+5种笔刷+相机控制）                       |
 
 ### 游戏引擎（index.html）
 
-`index.html` 是核心游戏引擎，约 5365 行，采用以下模块化结构：
+`index.html` 是核心游戏框架，约 1034 行，主要负责 UI 和脚本加载。游戏逻辑已拆分到 `js/engine.js` (~7543行)：
 
 ```
 ├── 状态机: gameMode = 'menu' | 'single' | 'versus' | 'combat' | 'training'
@@ -126,7 +127,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ### 模型工厂编辑器（model_factory.html）⭐ v0.38.1
 
-`model_factory.html` 是通用程序化模型编辑器，~1922行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
+`model_factory.html` 是通用程序化模型编辑器，~4158行，用于可视化设计坦克/建筑/敌人等游戏实体的程序化模型：
 
 ```
 ├── 几何系统: buildTaperedBox() + 7种Three.js几何 + RoundedBoxGeometry

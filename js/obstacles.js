@@ -430,7 +430,16 @@ function createObstacles(targetScene = scene) {
     window._treeIMs = [];
   }
   obstacleMeshes.forEach((g) => {
-    if (g.isInstancedMesh) return;
+    if (g.isInstancedMesh) {
+      // 建筑 bld-im：移除并释放 geometry，但【不释放 material】——
+      // 建筑材质是 buildings.js 的全局共享对象，释放会导致下次重建地图时材质失效（黑块/丢材质）。
+      // 树 IM 由 window._treeIMs 单独清理（含 material.dispose），这里只处理 bld-im。
+      if (g.name === 'bld-im') {
+        if (g.parent) g.parent.remove(g);
+        if (g.geometry) g.geometry.dispose();
+      }
+      return;
+    }
     if (g.parent) g.parent.remove(g);
     g.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
@@ -566,6 +575,21 @@ function createObstacles(targetScene = scene) {
 
   window._treeIMs = [];
   const dummy = new THREE.Object3D();
+  // 树冠阴影 proxy：极简低面数球(20面)，castShadow 投影出树冠影子。
+  // proxy 球缩小到 0.8 藏入树冠内部，靠不透明的精细树冠遮挡（主通道看不见），但阴影仍投影。
+  // 不用 layers（实测 r160 下阴影相机看不到 layer1 物体），也不用 colorWrite=false（会连带跳过阴影 pass）。
+  const proxyMat = new THREE.MeshBasicMaterial({ color: 0x1a3d0a }); // 深绿(树冠色)，藏树冠内被遮挡
+  function makeCrownProxy(tm, count) {
+    tm.crownGeo.computeBoundingSphere();
+    const im = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(tm.crownGeo.boundingSphere.radius * 0.8, 0),
+      proxyMat,
+      count
+    );
+    im.castShadow = true;
+    im.receiveShadow = false;
+    return im;
+  }
 
   if (conePts.length > 0) {
     const tm = window.TreeModels.conical;
@@ -573,7 +597,8 @@ function createObstacles(targetScene = scene) {
     trunkIM.castShadow = true;
     trunkIM.receiveShadow = true;
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, conePts.length);
-    crownIM.castShadow = false;
+    // conical 树冠是扁平三角棱柱(仅448三角/棵)，藏不住球 proxy → 直接 castShadow 投影(开销小，448×100≈4.5万阴影三角)
+    crownIM.castShadow = true;
     crownIM.receiveShadow = true;
 
     for (let i = 0; i < conePts.length; i++) {
@@ -609,8 +634,7 @@ function createObstacles(targetScene = scene) {
     }
     trunkIM.instanceMatrix.needsUpdate = true;
     crownIM.instanceMatrix.needsUpdate = true;
-    targetScene.add(trunkIM);
-    targetScene.add(crownIM);
+    targetScene.add(trunkIM, crownIM);
     obstacleMeshes.push(trunkIM, crownIM);
     window._treeIMs.push(trunkIM, crownIM);
   }
@@ -623,6 +647,7 @@ function createObstacles(targetScene = scene) {
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, spherePts.length);
     crownIM.castShadow = false;
     crownIM.receiveShadow = true;
+    const crownProxyIM = makeCrownProxy(tm, spherePts.length);
 
     for (let i = 0; i < spherePts.length; i++) {
       const p = spherePts[i];
@@ -642,6 +667,7 @@ function createObstacles(targetScene = scene) {
       dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
       dummy.updateMatrix();
       crownIM.setMatrixAt(i, dummy.matrix);
+      crownProxyIM.setMatrixAt(i, dummy.matrix);
 
       obstacleData.push({
         x: p.x,
@@ -657,10 +683,10 @@ function createObstacles(targetScene = scene) {
     }
     trunkIM.instanceMatrix.needsUpdate = true;
     crownIM.instanceMatrix.needsUpdate = true;
-    targetScene.add(trunkIM);
-    targetScene.add(crownIM);
+    crownProxyIM.instanceMatrix.needsUpdate = true;
+    targetScene.add(trunkIM, crownIM, crownProxyIM);
     obstacleMeshes.push(trunkIM, crownIM);
-    window._treeIMs.push(trunkIM, crownIM);
+    window._treeIMs.push(trunkIM, crownIM, crownProxyIM);
   }
 
   if (oakPts.length > 0) {
@@ -671,6 +697,7 @@ function createObstacles(targetScene = scene) {
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, oakPts.length);
     crownIM.castShadow = false;
     crownIM.receiveShadow = true;
+    const crownProxyIM = makeCrownProxy(tm, oakPts.length);
 
     for (let i = 0; i < oakPts.length; i++) {
       const p = oakPts[i];
@@ -690,6 +717,7 @@ function createObstacles(targetScene = scene) {
       dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
       dummy.updateMatrix();
       crownIM.setMatrixAt(i, dummy.matrix);
+      crownProxyIM.setMatrixAt(i, dummy.matrix);
 
       obstacleData.push({
         x: p.x,
@@ -705,10 +733,10 @@ function createObstacles(targetScene = scene) {
     }
     trunkIM.instanceMatrix.needsUpdate = true;
     crownIM.instanceMatrix.needsUpdate = true;
-    targetScene.add(trunkIM);
-    targetScene.add(crownIM);
+    crownProxyIM.instanceMatrix.needsUpdate = true;
+    targetScene.add(trunkIM, crownIM, crownProxyIM);
     obstacleMeshes.push(trunkIM, crownIM);
-    window._treeIMs.push(trunkIM, crownIM);
+    window._treeIMs.push(trunkIM, crownIM, crownProxyIM);
   }
 
   let bldIdx = 0;
@@ -797,8 +825,14 @@ function createObstacles(targetScene = scene) {
           });
         });
         // 每种材质：合并模板几何 → InstancedMesh
+        // ⚠️ 按 material 对象去重：matTemplates 含同材质的多个子 mesh（一栋建筑有多扇窗/多根栏杆），
+        //    不去重会为同一材质重复建 IM（修复前实测 141 个 bld-im，窗户材质被建 56 次）。
+        //    前提：buildings.js 的材质已全局化，同 category 建筑共享同一组 material 对象。
         const ims = [];
+        const seenMat = new Set();
         for (const mt of matTemplates) {
+          if (seenMat.has(mt.material)) continue;
+          seenMat.add(mt.material);
           const templateGeosMerged = [];
           // 合并该材质在模板中的所有子mesh几何体（应用局部矩阵）
           for (const mt2 of matTemplates) {

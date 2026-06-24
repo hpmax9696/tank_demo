@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.2</title>
+    <title>坦克运动demo v0.65.4</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.2</div>
+      <div class="menu-version">v0.65.4</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -816,6 +816,15 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🌳 v0.65.4 树冠阴影恢复 shadow proxy —
+          spherical/oak用极简proxy球(20面)藏树冠内投影(省8000→20三角);conical扁平棱柱直接castShadow。踩坑:r160下layers/colorWrite不可行→物理遮挡
+        </div>
+        <div class="cl-title">
+          ⚡ v0.65.3 建筑 InstancedMesh 合并修复 — bld-im
+          141→18(零画质损失)。真实根因:obstacles.js外层循环遍历每个子mesh而非唯一材质,同材质重复建IM(窗户被建56次);修复=buildings.js材质全局化+obstacles.js
+          seenMat去重+dispose保护。实测三角面-22%/建筑caster-87%
+        </div>
+        <div class="cl-title">
           ⚡ v0.65.2 地面射线高度图+建筑分类+阴影 —
           updateAiming用getGroundHeight步进取代131k三角brute-force raycast(14ms→0.1ms,单人fps
           30→48)+建筑category+castShadow+P0-1建筑IM合并根因定位
@@ -827,15 +836,6 @@
         <div class="cl-title">
           🎯 v0.65.0 坦克AI托管完整修复 —
           双方移动+炮塔追踪+双向对攻+多轮复活稳定+复活搜寻(10层根因)+池塘空气墙验证
-        </div>
-        <div class="cl-title">
-          🤖 v0.64.0 AI托管+性能优化 —
-          训练场双方AI自动对攻(六足/坦克)+CCD矩阵局部化+子弹碰撞空间网格
-        </div>
-        <div class="cl-title">
-          🔧 v0.63.1 Bug修复×8 — 踉跄加特林停射停转散热 / 圆柱碰撞调onEnemyDamaged /
-          坦克复活tankState同步 / 敌坦克坡地倾斜修正 / 爆炸粒子残留清理 / 敌六足水体障碍物碰撞 /
-          阴影相机跟六足 / 右摇杆Y轴翻转
         </div>
       </div>
     </div>

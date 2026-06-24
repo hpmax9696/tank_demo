@@ -17,13 +17,14 @@ description: >
 
 先用 `Skill` 工具调用 `bump-version`，完成版本号同步 + changelog 裁剪。
 
-### Step 2: 补全文档
+### Step 2: 补全四份文档
 
 bump-version 只更新 index.html + README.md 的 8 处版本号。检查并补全：
 
-- **CLAUDE.md**: 标题版本号 + 新增 `## vX.Y.Z 本次会话变更` 节（按日期记录本次改动要点）
-- **CODEBUDDY.md**: 标题版本号 + 已知问题表（新增/修复项）+ 参数变更
-- **README.md**: 版本历史追加新条目（bump-version 可能已做，确认即可）
+- **CLAUDE.md**: 标题版本号 + 新增 `## vX.Y.Z 本次会话变更` 节（按日期记录本次改动要点）+ 如文件结构行数有显著变化则更新注释
+- **CODEBUDDY.md**: 标题版本号 + 已知问题表（新增/修复项）+ 参数变更 + 文件行数表如有变化则更新
+- **.trae/rules/project_rules.md**: 标题版本号 + 关键文件行数表 + 关键参数 + 已知问题 + 待完成任务（⚠️ CLAUDE.md 规则8要求三份文档保持一致）
+- **README.md**: 版本历史追加新条目（bump-version 可能已做，确认即可）+ **代码规模表用最新实测数据更新**（bump-version 只改版本号不更新行数）
 
 ### Step 3: git status 确认
 
@@ -37,6 +38,7 @@ git status
 
 ```bash
 git add -A
+git status  # 确认无意外文件被暂存
 git commit -m "vX.Y.Z: 描述"
 ```
 
@@ -72,6 +74,8 @@ cp -r "D:\我的文档\tank_demo" "C:\Users\hpmax\OneDrive\共享软件\坦克�
 | bump-version      | 否                   |
 | 补全 CLAUDE.md    | 否                   |
 | 补全 CODEBUDDY.md | 否                   |
+| 补全 .trae/rules  | 否                   |
+| 补全 README 规模  | 否                   |
 | git add + commit  | **绝不**             |
 | git push origin   | **绝不**             |
 | git push github   | 仅当 remote 未配置时 |
@@ -82,7 +86,7 @@ cp -r "D:\我的文档\tank_demo" "C:\Users\hpmax\OneDrive\共享软件\坦克�
 ```
 ✅ 移交完成 — vX.Y.Z
 ├── 版本号: 8 处全部同步
-├── 文档: CLAUDE.md + CODEBUDDY.md + README.md 已更新
+├── 文档: CLAUDE.md + CODEBUDDY.md + .trae/rules + README.md 已更新
 ├── 提交: <commit-hash> vX.Y.Z: 描述
 ├── 推送: origin ✅  github ✅
 └── OneDrive: ✅
