@@ -18,10 +18,8 @@ game-*.png
 _*.js
 _*.mjs
 
-# Codegraph runtime artifacts (don't track WAL/PID)
-.codegraph/codegraph.db-shm
-.codegraph/codegraph.db-wal
-.codegraph/daemon.pid
+# Codegraph — full directory is local rebuildable index, never commit
+.codegraph/
 
 # Dependencies
 node_modules/
