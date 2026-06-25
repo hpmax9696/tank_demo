@@ -122,8 +122,8 @@
       height: h + rH,
       radius: (Math.max(w, d) / 2) * 1.15,
       color: '#' + wallM.color.getHexString(),
-      targetHeightMinM: 2,
-      targetHeightMaxM: 12,
+      targetHeightMinM: 2.5,
+      targetHeightMaxM: 3.3,
     };
     addShadow(g);
     return g;
@@ -241,8 +241,8 @@
       height: h1 + h2 + rH,
       radius: (Math.max(w, d) / 2) * 1.15,
       color: '#8B7D6B',
-      targetHeightMinM: 6,
-      targetHeightMaxM: 20,
+      targetHeightMinM: 3,
+      targetHeightMaxM: 5.5,
     };
     addShadow(g);
     return g;
@@ -371,8 +371,8 @@
       height: totalH + railH,
       radius: (Math.max(w, d) / 2) * 1.15,
       color: '#F5F5F5',
-      targetHeightMinM: 15,
-      targetHeightMaxM: 35,
+      targetHeightMinM: 4.2,
+      targetHeightMaxM: 9.7,
     };
     addShadow(g);
     return g;

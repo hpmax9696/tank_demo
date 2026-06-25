@@ -1,430 +1,765 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>地图编辑器 — 坦克对战demo</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
-            background: #1a1a2e;
-            color: #ccc;
-            height: 100vh;
-            display: grid;
-            grid-template-rows: 44px 1fr 24px;
-            grid-template-columns: 220px 1fr 320px;
-            grid-template-areas:
-                "toolbar toolbar toolbar"
-                "sidebar view3d heightmap"
-                "statusbar statusbar statusbar";
-            overflow: hidden;
-            user-select: none;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+        background: #1a1a2e;
+        color: #ccc;
+        height: 100vh;
+        display: grid;
+        grid-template-rows: 44px 1fr 24px;
+        grid-template-columns: 220px 1fr 320px;
+        grid-template-areas:
+          'toolbar toolbar toolbar'
+          'sidebar view3d heightmap'
+          'statusbar statusbar statusbar';
+        overflow: hidden;
+        user-select: none;
+      }
 
-        /* ===== 工具栏 ===== */
-        .toolbar {
-            grid-area: toolbar;
-            background: #252540;
-            border-bottom: 1px solid #3a3a55;
-            display: flex;
-            align-items: center;
-            padding: 0 12px;
-            gap: 8px;
-            z-index: 10;
-        }
-        .toolbar .title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #f5954a;
-            margin-right: 16px;
-            white-space: nowrap;
-        }
-        .toolbar .sep {
-            width: 1px;
-            height: 24px;
-            background: #3a3a55;
-            margin: 0 6px;
-        }
-        .toolbar button, .toolbar select {
-            background: #333350;
-            color: #ccc;
-            border: 1px solid #4a4a65;
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 12px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-        .toolbar button:hover, .toolbar select:hover {
-            background: #404060;
-            border-color: #f5954a;
-        }
-        .toolbar button.active {
-            background: #f5954a;
-            color: #1a1a2e;
-            border-color: #f5954a;
-        }
-        .toolbar label {
-            font-size: 11px;
-            color: #888;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .toolbar input[type="range"] {
-            width: 80px;
-            accent-color: #f5954a;
-        }
-        .toolbar input[type="text"] {
-            background: #1a1a2e;
-            border: 1px solid #4a4a65;
-            color: #ccc;
-            border-radius: 3px;
-            padding: 3px 6px;
-            font-size: 11px;
-            width: 140px;
-            font-family: inherit;
-        }
-        .toolbar .map-name {
-            color: #aaa;
-            font-size: 12px;
-        }
-        .toolbar .brush-group {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .toolbar .brush-btn {
-            min-width: 28px;
-            padding: 4px 8px;
-            font-size: 13px;
-        }
-        .toolbar .terrain-swatch {
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
-            border: 1px solid #555;
-            flex-shrink: 0;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-        .toolbar .terrain-swatch:hover { transform: scale(1.2); }
-        .toolbar .terrain-swatch.active { border-color: #f5954a; box-shadow: 0 0 6px #f5954a; }
-        .terrain-sel { display: none; align-items: center; gap: 4px; }
-        .terrain-sel.visible { display: flex; }
-        .entity-sel { display:none; align-items:center; gap:4px; }
-        .entity-sel.visible { display:flex; }
-        .entity-swatch { width:18px; height:18px; border-radius:3px; border:1px solid #555; cursor:pointer; }
-        .entity-swatch:hover { transform:scale(1.2); }
-        .entity-swatch.active { border-color:#f5954a; box-shadow:0 0 6px #f5954a; }
-        /* 道路选择器 */
-        .road-sel { display:none; align-items:center; gap:4px; }
-        .road-sel.visible { display:flex; }
-        .road-swatch { width:18px; height:18px; border-radius:3px; border:1px solid #555; cursor:pointer; }
-        .road-swatch:hover { transform:scale(1.2); }
-        .road-swatch.active { border-color:#f5954a; box-shadow:0 0 6px #f5954a; }
-        .road-width-btn {
-            background:#333350; color:#888; border:1px solid #4a4a65; border-radius:3px;
-            padding:2px 6px; font-size:10px; cursor:pointer; font-family:inherit;
-        }
-        .road-width-btn:hover { background:#404060; color:#ccc; }
-        .road-width-btn.active { background:#f5954a; color:#1a1a2e; border-color:#f5954a; }
+      /* ===== 工具栏 ===== */
+      .toolbar {
+        grid-area: toolbar;
+        background: #252540;
+        border-bottom: 1px solid #3a3a55;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 8px;
+        z-index: 10;
+      }
+      .toolbar .title {
+        font-size: 14px;
+        font-weight: bold;
+        color: #f5954a;
+        margin-right: 16px;
+        white-space: nowrap;
+      }
+      .toolbar .sep {
+        width: 1px;
+        height: 24px;
+        background: #3a3a55;
+        margin: 0 6px;
+      }
+      .toolbar button,
+      .toolbar select {
+        background: #333350;
+        color: #ccc;
+        border: 1px solid #4a4a65;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .toolbar button:hover,
+      .toolbar select:hover {
+        background: #404060;
+        border-color: #f5954a;
+      }
+      .toolbar button.active {
+        background: #f5954a;
+        color: #1a1a2e;
+        border-color: #f5954a;
+      }
+      .toolbar label {
+        font-size: 11px;
+        color: #888;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .toolbar input[type='range'] {
+        width: 80px;
+        accent-color: #f5954a;
+      }
+      .toolbar input[type='text'] {
+        background: #1a1a2e;
+        border: 1px solid #4a4a65;
+        color: #ccc;
+        border-radius: 3px;
+        padding: 3px 6px;
+        font-size: 11px;
+        width: 140px;
+        font-family: inherit;
+      }
+      .toolbar .map-name {
+        color: #aaa;
+        font-size: 12px;
+      }
+      .toolbar .brush-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .toolbar .brush-btn {
+        min-width: 28px;
+        padding: 4px 8px;
+        font-size: 13px;
+      }
+      .toolbar .terrain-swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        border: 1px solid #555;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+      .toolbar .terrain-swatch:hover {
+        transform: scale(1.2);
+      }
+      .toolbar .terrain-swatch.active {
+        border-color: #f5954a;
+        box-shadow: 0 0 6px #f5954a;
+      }
+      .terrain-sel {
+        display: none;
+        align-items: center;
+        gap: 4px;
+      }
+      .terrain-sel.visible {
+        display: flex;
+      }
+      .entity-sel {
+        display: none;
+        align-items: center;
+        gap: 4px;
+      }
+      .entity-sel.visible {
+        display: flex;
+      }
+      .entity-swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        border: 1px solid #555;
+        cursor: pointer;
+      }
+      .entity-swatch:hover {
+        transform: scale(1.2);
+      }
+      .entity-swatch.active {
+        border-color: #f5954a;
+        box-shadow: 0 0 6px #f5954a;
+      }
+      /* 道路选择器 */
+      .road-sel {
+        display: none;
+        align-items: center;
+        gap: 4px;
+      }
+      .road-sel.visible {
+        display: flex;
+      }
+      .road-swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        border: 1px solid #555;
+        cursor: pointer;
+      }
+      .road-swatch:hover {
+        transform: scale(1.2);
+      }
+      .road-swatch.active {
+        border-color: #f5954a;
+        box-shadow: 0 0 6px #f5954a;
+      }
+      .road-width-btn {
+        background: #333350;
+        color: #888;
+        border: 1px solid #4a4a65;
+        border-radius: 3px;
+        padding: 2px 6px;
+        font-size: 10px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .road-width-btn:hover {
+        background: #404060;
+        color: #ccc;
+      }
+      .road-width-btn.active {
+        background: #f5954a;
+        color: #1a1a2e;
+        border-color: #f5954a;
+      }
 
-        /* ===== 侧边栏 ===== */
-        .sidebar {
-            grid-area: sidebar;
-            background: #1e1e35;
-            border-right: 1px solid #3a3a55;
-            padding: 8px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .sidebar .section {
-            border-bottom: 1px solid #2a2a45;
-            padding-bottom: 8px;
-        }
-        .sidebar .section-title {
-            font-size: 11px;
-            font-weight: bold;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 4px;
-        }
-        .sidebar .entity-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 6px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .sidebar .entity-row:hover {
-            background: #2a2a45;
-        }
-        .sidebar .entity-row.selected { background:#3a3a20; border:1px solid rgba(245,149,74,0.3); }
-        .sidebar .entity-row .btn-del { margin-left:auto; background:none; border:none; color:#844; cursor:pointer; font-size:14px; padding:0 4px; }
-        .sidebar .entity-row .btn-del:hover { color:#f44; }
-        /* 实体类型分色左边框 */
-        .sidebar .entity-row.type-spawn { border-left: 3px solid #4fc3f7; padding-left: 3px; }
-        .sidebar .entity-row.type-tree { border-left: 3px solid #81c784; padding-left: 3px; }
-        .sidebar .entity-row.type-building { border-left: 3px solid #ffb74d; padding-left: 3px; }
-        .sidebar .entity-row.type-enemy { border-left: 3px solid #ef5350; padding-left: 3px; }
-        /* 分类折叠 */
-        .sidebar .cat-header {
-            display:flex; align-items:center; gap:4px;
-            padding:4px 6px; margin-top:4px; border-radius:3px;
-            cursor:pointer; font-size:10px; color:#aaa; user-select:none;
-            background:#1a1a2e; border:1px solid #2a2a45;
-        }
-        .sidebar .cat-header:hover { background:#252545; color:#ccc; }
-        .sidebar .cat-header .cat-arrow { transition:transform 0.2s; display:inline-block; width:12px; text-align:center; }
-        .sidebar .cat-header.collapsed .cat-arrow { transform:rotate(-90deg); }
-        .sidebar .cat-header .cat-count { margin-left:auto; color:#666; font-size:9px; }
-        .sidebar .cat-body { overflow:hidden; }
-        .sidebar .cat-body.collapsed { display:none; }
-        .sidebar .cat-body .entity-row { padding-left:14px; }
-        .sidebar .chk-multi { margin-right:2px; accent-color:#f5954a; }
-        .sidebar .batch-bar { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; padding:4px 0; border-top:1px solid #3a3a55; }
-        .sidebar .batch-bar.hidden { display:none; }
-        .sidebar .batch-btn { background:#333350; color:#ccc; border:1px solid #4a4a65; border-radius:3px; padding:3px 6px; font-size:10px; cursor:pointer; }
-        .sidebar .batch-btn:hover { background:#4a4a65; }
-        .sidebar .batch-btn.danger { color:#f66; border-color:#844; }
-        .sidebar .batch-btn.danger:hover { background:#522; }
-        .sidebar .group-section { margin-top:2px; }
-        .sidebar .group-row { display:flex; align-items:center; gap:4px; padding:3px 4px; border-radius:3px; cursor:pointer; font-size:11px; }
-        .sidebar .group-row:hover { background:#2a2a45; }
-        .sidebar .group-row .gcount { font-size:10px; color:#888; }
-        .sidebar .group-row .btn-gdel { margin-left:auto; background:none; border:none; color:#844; cursor:pointer; font-size:12px; }
+      /* ===== 侧边栏 ===== */
+      .sidebar {
+        grid-area: sidebar;
+        background: #1e1e35;
+        border-right: 1px solid #3a3a55;
+        padding: 8px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .sidebar .section {
+        border-bottom: 1px solid #2a2a45;
+        padding-bottom: 8px;
+      }
+      .sidebar .section-title {
+        font-size: 11px;
+        font-weight: bold;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 4px;
+      }
+      .sidebar .entity-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .sidebar .entity-row:hover {
+        background: #2a2a45;
+      }
+      .sidebar .entity-row.selected {
+        background: #3a3a20;
+        border: 1px solid rgba(245, 149, 74, 0.3);
+      }
+      .sidebar .entity-row .btn-del {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: #844;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0 4px;
+      }
+      .sidebar .entity-row .btn-del:hover {
+        color: #f44;
+      }
+      /* 实体类型分色左边框 */
+      .sidebar .entity-row.type-spawn {
+        border-left: 3px solid #4fc3f7;
+        padding-left: 3px;
+      }
+      .sidebar .entity-row.type-tree {
+        border-left: 3px solid #81c784;
+        padding-left: 3px;
+      }
+      .sidebar .entity-row.type-building {
+        border-left: 3px solid #ffb74d;
+        padding-left: 3px;
+      }
+      .sidebar .entity-row.type-enemy {
+        border-left: 3px solid #ef5350;
+        padding-left: 3px;
+      }
+      /* 分类折叠 */
+      .sidebar .cat-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 6px;
+        margin-top: 4px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+        color: #aaa;
+        user-select: none;
+        background: #1a1a2e;
+        border: 1px solid #2a2a45;
+      }
+      .sidebar .cat-header:hover {
+        background: #252545;
+        color: #ccc;
+      }
+      .sidebar .cat-header .cat-arrow {
+        transition: transform 0.2s;
+        display: inline-block;
+        width: 12px;
+        text-align: center;
+      }
+      .sidebar .cat-header.collapsed .cat-arrow {
+        transform: rotate(-90deg);
+      }
+      .sidebar .cat-header .cat-count {
+        margin-left: auto;
+        color: #666;
+        font-size: 9px;
+      }
+      .sidebar .cat-body {
+        overflow: hidden;
+      }
+      .sidebar .cat-body.collapsed {
+        display: none;
+      }
+      .sidebar .cat-body .entity-row {
+        padding-left: 14px;
+      }
+      .sidebar .chk-multi {
+        margin-right: 2px;
+        accent-color: #f5954a;
+      }
+      .sidebar .batch-bar {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+        padding: 4px 0;
+        border-top: 1px solid #3a3a55;
+      }
+      .sidebar .batch-bar.hidden {
+        display: none;
+      }
+      .sidebar .batch-btn {
+        background: #333350;
+        color: #ccc;
+        border: 1px solid #4a4a65;
+        border-radius: 3px;
+        padding: 3px 6px;
+        font-size: 10px;
+        cursor: pointer;
+      }
+      .sidebar .batch-btn:hover {
+        background: #4a4a65;
+      }
+      .sidebar .batch-btn.danger {
+        color: #f66;
+        border-color: #844;
+      }
+      .sidebar .batch-btn.danger:hover {
+        background: #522;
+      }
+      .sidebar .group-section {
+        margin-top: 2px;
+      }
+      .sidebar .group-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 4px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .sidebar .group-row:hover {
+        background: #2a2a45;
+      }
+      .sidebar .group-row .gcount {
+        font-size: 10px;
+        color: #888;
+      }
+      .sidebar .group-row .btn-gdel {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: #844;
+        cursor: pointer;
+        font-size: 12px;
+      }
 
-        /* ===== 蓝图弹窗 ===== */
-        .modal-overlay { display:none; position:fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:1000;justify-content:center;align-items:center; }
-        .modal-overlay.show { display:flex; }
-        .modal-dialog { background:#1e1e35;border:1px solid #4a4a65;border-radius:8px;padding:16px;min-width:400px;max-width:500px;max-height:70vh;overflow-y:auto; }
-        .modal-dialog h3 { margin:0 0 8px;font-size:14px;color:#f5954a; }
-        .modal-dialog .bp-row { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;font-size:12px; }
-        .modal-dialog .bp-row:hover { background:#2a2a45; }
-        .modal-dialog .bp-row .bp-name { flex:1;color:#ccc; }
-        .modal-dialog .bp-row .bp-info { font-size:10px;color:#888; }
-        .modal-dialog .bp-row .bp-btn { background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;padding:2px 6px;font-size:10px;cursor:pointer; }
-        .modal-dialog .bp-row .bp-btn.danger { color:#f66;border-color:#844; }
-        .modal-close { float:right;background:none;border:none;color:#888;font-size:18px;cursor:pointer; }
-        .modal-close:hover { color:#f5954a; }
-        /* 随机生成参数（右侧面板内） */
-        .rg-body { padding:4px 6px; }
-        .rg-row { display:flex;align-items:center;gap:4px;padding:2px 0;font-size:10px;color:#aaa; }
-        .rg-row label { width:100px;flex-shrink:0;text-align:right;font-size:10px; }
-        .rg-row input[type=range] { flex:1;accent-color:#f5954a;height:12px; }
-        .rg-row .rg-val { width:28px;text-align:left;color:#ccc;font-size:9px; }
-        .section-title.collapsible { cursor:pointer; user-select:none; }
-        .section-title.collapsible:hover { color:#f5954a; }
-        .sidebar .entity-row .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .sidebar .empty-msg {
-            color: #555;
-            font-size: 11px;
-            font-style: italic;
-            padding: 4px 6px;
-        }
-        .sidebar .info-row {
-            font-size: 11px;
-            color: #777;
-            display: flex;
-            justify-content: space-between;
-        }
+      /* ===== 蓝图弹窗 ===== */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+      .modal-overlay.show {
+        display: flex;
+      }
+      .modal-dialog {
+        background: #1e1e35;
+        border: 1px solid #4a4a65;
+        border-radius: 8px;
+        padding: 16px;
+        min-width: 400px;
+        max-width: 500px;
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+      .modal-dialog h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        color: #f5954a;
+      }
+      .modal-dialog .bp-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .modal-dialog .bp-row:hover {
+        background: #2a2a45;
+      }
+      .modal-dialog .bp-row .bp-name {
+        flex: 1;
+        color: #ccc;
+      }
+      .modal-dialog .bp-row .bp-info {
+        font-size: 10px;
+        color: #888;
+      }
+      .modal-dialog .bp-row .bp-btn {
+        background: #333350;
+        color: #ccc;
+        border: 1px solid #4a4a65;
+        border-radius: 3px;
+        padding: 2px 6px;
+        font-size: 10px;
+        cursor: pointer;
+      }
+      .modal-dialog .bp-row .bp-btn.danger {
+        color: #f66;
+        border-color: #844;
+      }
+      .modal-close {
+        float: right;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 18px;
+        cursor: pointer;
+      }
+      .modal-close:hover {
+        color: #f5954a;
+      }
+      /* 随机生成参数（右侧面板内） */
+      .rg-body {
+        padding: 4px 6px;
+      }
+      .rg-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 0;
+        font-size: 10px;
+        color: #aaa;
+      }
+      .rg-row label {
+        width: 100px;
+        flex-shrink: 0;
+        text-align: right;
+        font-size: 10px;
+      }
+      .rg-row input[type='range'] {
+        flex: 1;
+        accent-color: #f5954a;
+        height: 12px;
+      }
+      .rg-row .rg-val {
+        width: 28px;
+        text-align: left;
+        color: #ccc;
+        font-size: 9px;
+      }
+      .section-title.collapsible {
+        cursor: pointer;
+        user-select: none;
+      }
+      .section-title.collapsible:hover {
+        color: #f5954a;
+      }
+      .sidebar .entity-row .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .sidebar .empty-msg {
+        color: #555;
+        font-size: 11px;
+        font-style: italic;
+        padding: 4px 6px;
+      }
+      .sidebar .info-row {
+        font-size: 11px;
+        color: #777;
+        display: flex;
+        justify-content: space-between;
+      }
 
-        /* ===== 3D 视口 ===== */
-        .view3d {
-            grid-area: view3d;
-            position: relative;
-            background: #111122;
-            cursor: grab;
-        }
-        .view3d:active { cursor: grabbing; }
-        .view3d canvas { display:block; }
-        .view3d.painting, .view3d.painting:active { cursor:none; }
-        .view3d.placing, .view3d.placing:active { cursor:crosshair; }
-        .view3d .overlay-info {
-            position: absolute;
-            top: 8px;
-            left: 8px;
-            font-size: 11px;
-            color: #ccc;
-            pointer-events: none;
-            background: rgba(0,0,0,0.6);
-            padding: 4px 8px;
-            border-radius: 3px;
-        }
-        .gen-status-panel {
-            position: absolute;
-            bottom: 50px;
-            right: 12px;
-            background: rgba(10,10,25,0.9);
-            border: 1px solid #4a4a65;
-            border-radius: 8px;
-            padding: 10px 14px;
-            min-width: 220px;
-            max-width: 300px;
-            font-size: 11px;
-            color: #ccc;
-            z-index: 20;
-            backdrop-filter: blur(4px);
-            cursor: pointer;
-        }
-        .gen-status-panel .gs-stat-row { display: flex; justify-content: space-between; padding: 1px 0; }
-        .view3d .brush-indicator {
-            position: absolute;
-            border: 2px solid #f5954a;
-            border-radius: 50%;
-            pointer-events: none;
-            display: none;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 8px rgba(245,149,74,0.3);
-        }
-        .view3d .selection-box {
-            position: absolute;
-            border: 2px dashed #4fc3f7;
-            background: rgba(79,195,247,0.1);
-            pointer-events: none;
-            display: none;
-        }
+      /* ===== 3D 视口 ===== */
+      .view3d {
+        grid-area: view3d;
+        position: relative;
+        background: #111122;
+        cursor: grab;
+      }
+      .view3d:active {
+        cursor: grabbing;
+      }
+      .view3d canvas {
+        display: block;
+      }
+      .view3d.painting,
+      .view3d.painting:active {
+        cursor: none;
+      }
+      .view3d.placing,
+      .view3d.placing:active {
+        cursor: crosshair;
+      }
+      .view3d .overlay-info {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        font-size: 11px;
+        color: #ccc;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 4px 8px;
+        border-radius: 3px;
+      }
+      .gen-status-panel {
+        position: absolute;
+        bottom: 50px;
+        right: 12px;
+        background: rgba(10, 10, 25, 0.9);
+        border: 1px solid #4a4a65;
+        border-radius: 8px;
+        padding: 10px 14px;
+        min-width: 220px;
+        max-width: 300px;
+        font-size: 11px;
+        color: #ccc;
+        z-index: 20;
+        backdrop-filter: blur(4px);
+        cursor: pointer;
+      }
+      .gen-status-panel .gs-stat-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 1px 0;
+      }
+      .view3d .brush-indicator {
+        position: absolute;
+        border: 2px solid #f5954a;
+        border-radius: 50%;
+        pointer-events: none;
+        display: none;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 8px rgba(245, 149, 74, 0.3);
+      }
+      .view3d .selection-box {
+        position: absolute;
+        border: 2px dashed #4fc3f7;
+        background: rgba(79, 195, 247, 0.1);
+        pointer-events: none;
+        display: none;
+      }
 
-        /* ===== 高度图面板（右侧面板）===== */
-        .heightmap-panel {
-            grid-area: heightmap;
-            background: #1e1e35;
-            border-left: 1px solid #3a3a55;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            overflow-y: auto;
-        }
-        .heightmap-panel .panel-title {
-            font-size: 11px;
-            font-weight: bold;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-        .heightmap-panel .hm-container {
-            position: relative;
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            height: 160px;
-        }
-        .heightmap-panel canvas {
-            border: 1px solid #3a3a55;
-            image-rendering: pixelated;
-            max-width: 100%;
-            max-height: 100%;
-        }
-        .heightmap-panel .hm-legend {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: #555;
-        }
-        .heightmap-panel .section {
-            border-bottom: 1px solid #2a2a45;
-            padding-bottom: 6px;
-        }
-        .heightmap-panel .section-title {
-            font-size: 11px;
-            font-weight: bold;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin-bottom: 4px;
-        }
-        .heightmap-panel .info-row {
-            font-size: 11px;
-            color: #777;
-            display: flex;
-            justify-content: space-between;
-            padding: 1px 0;
-        }
-        .heightmap-panel .entity-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 6px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .heightmap-panel .entity-row:hover { background: #2a2a45; }
-        .heightmap-panel .entity-row .btn-del { margin-left:auto; background:none; border:none; color:#844; cursor:pointer; font-size:14px; padding:0 4px; }
-        .heightmap-panel .entity-row .btn-del:hover { color:#f44; }
-        .heightmap-panel .empty-msg {
-            color: #555;
-            font-size: 11px;
-            font-style: italic;
-            padding: 4px 6px;
-        }
+      /* ===== 高度图面板（右侧面板）===== */
+      .heightmap-panel {
+        grid-area: heightmap;
+        background: #1e1e35;
+        border-left: 1px solid #3a3a55;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow-y: auto;
+      }
+      .heightmap-panel .panel-title {
+        font-size: 11px;
+        font-weight: bold;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .heightmap-panel .hm-container {
+        position: relative;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        height: 160px;
+      }
+      .heightmap-panel canvas {
+        border: 1px solid #3a3a55;
+        image-rendering: pixelated;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .heightmap-panel .hm-legend {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: #555;
+      }
+      .heightmap-panel .section {
+        border-bottom: 1px solid #2a2a45;
+        padding-bottom: 6px;
+      }
+      .heightmap-panel .section-title {
+        font-size: 11px;
+        font-weight: bold;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 4px;
+      }
+      .heightmap-panel .info-row {
+        font-size: 11px;
+        color: #777;
+        display: flex;
+        justify-content: space-between;
+        padding: 1px 0;
+      }
+      .heightmap-panel .entity-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .heightmap-panel .entity-row:hover {
+        background: #2a2a45;
+      }
+      .heightmap-panel .entity-row .btn-del {
+        margin-left: auto;
+        background: none;
+        border: none;
+        color: #844;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0 4px;
+      }
+      .heightmap-panel .entity-row .btn-del:hover {
+        color: #f44;
+      }
+      .heightmap-panel .empty-msg {
+        color: #555;
+        font-size: 11px;
+        font-style: italic;
+        padding: 4px 6px;
+      }
 
-        /* ===== 敌人配置面板 ===== */
-        .enemy-cfg { display:none; }
-        .enemy-cfg.visible { display:flex; flex-direction:column; gap:4px; }
-        .enemy-cfg .cfg-row { display:flex; align-items:center; gap:6px; font-size:11px; }
-        .enemy-cfg .cfg-row label { flex:0 0 70px; color:#888; font-size:10px; }
-        .enemy-cfg .cfg-row input, .enemy-cfg .cfg-row select {
-            background:#1a1a2e; color:#ccc; border:1px solid #4a4a65; border-radius:3px;
-            padding:3px 5px; font-size:11px; font-family:inherit; width:80px;
-        }
-        .enemy-cfg .cfg-row input:focus, .enemy-cfg .cfg-row select:focus { border-color:#f5954a; outline:none; }
-        .enemy-cfg .cfg-mode-bar { display:flex; gap:4px; }
-        .enemy-cfg .cfg-mode-btn {
-            flex:1; background:#333350; color:#888; border:1px solid #4a4a65; border-radius:3px;
-            padding:4px 6px; font-size:10px; cursor:pointer; text-align:center;
-        }
-        .enemy-cfg .cfg-mode-btn:hover { background:#404060; color:#ccc; }
-        .enemy-cfg .cfg-mode-btn.active { background:#f5954a; color:#1a1a2e; border-color:#f5954a; }
-        .enemy-cfg .cfg-patrol-preview { font-size:10px; color:#777; max-height:120px; overflow-y:auto; }
-        .enemy-cfg .cfg-patrol-preview .wp-line { padding:1px 4px; }
-        .enemy-cfg .cfg-patrol-preview .wp-line:hover { background:#2a2a45; }
+      /* ===== 敌人配置面板 ===== */
+      .enemy-cfg {
+        display: none;
+      }
+      .enemy-cfg.visible {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .enemy-cfg .cfg-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+      }
+      .enemy-cfg .cfg-row label {
+        flex: 0 0 70px;
+        color: #888;
+        font-size: 10px;
+      }
+      .enemy-cfg .cfg-row input,
+      .enemy-cfg .cfg-row select {
+        background: #1a1a2e;
+        color: #ccc;
+        border: 1px solid #4a4a65;
+        border-radius: 3px;
+        padding: 3px 5px;
+        font-size: 11px;
+        font-family: inherit;
+        width: 80px;
+      }
+      .enemy-cfg .cfg-row input:focus,
+      .enemy-cfg .cfg-row select:focus {
+        border-color: #f5954a;
+        outline: none;
+      }
+      .enemy-cfg .cfg-mode-bar {
+        display: flex;
+        gap: 4px;
+      }
+      .enemy-cfg .cfg-mode-btn {
+        flex: 1;
+        background: #333350;
+        color: #888;
+        border: 1px solid #4a4a65;
+        border-radius: 3px;
+        padding: 4px 6px;
+        font-size: 10px;
+        cursor: pointer;
+        text-align: center;
+      }
+      .enemy-cfg .cfg-mode-btn:hover {
+        background: #404060;
+        color: #ccc;
+      }
+      .enemy-cfg .cfg-mode-btn.active {
+        background: #f5954a;
+        color: #1a1a2e;
+        border-color: #f5954a;
+      }
+      .enemy-cfg .cfg-patrol-preview {
+        font-size: 10px;
+        color: #777;
+        max-height: 120px;
+        overflow-y: auto;
+      }
+      .enemy-cfg .cfg-patrol-preview .wp-line {
+        padding: 1px 4px;
+      }
+      .enemy-cfg .cfg-patrol-preview .wp-line:hover {
+        background: #2a2a45;
+      }
 
-        /* ===== 底部状态栏 ===== */
-        .statusbar {
-            grid-area: statusbar;
-            background: #252540;
-            border-top: 1px solid #3a3a55;
-            display: flex;
-            align-items: center;
-            padding: 0 12px;
-            gap: 16px;
-            font-size: 11px;
-            color: #777;
-        }
-        .statusbar span { color: #aaa; }
+      /* ===== 底部状态栏 ===== */
+      .statusbar {
+        grid-area: statusbar;
+        background: #252540;
+        border-top: 1px solid #3a3a55;
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        gap: 16px;
+        font-size: 11px;
+        color: #777;
+      }
+      .statusbar span {
+        color: #aaa;
+      }
     </style>
-</head>
-<body>
-
-<!-- 工具栏 -->
-<div class="toolbar">
-    <span class="title">🗺️ 地图编辑器</span>
-    <!-- 视图 -->
-    <select id="sel-view" title="视图模式">
+  </head>
+  <body>
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <span class="title">🗺️ 地图编辑器</span>
+      <!-- 视图 -->
+      <select id="sel-view" title="视图模式">
         <option value="3d">3D 透视</option>
         <option value="top" selected>顶视图</option>
         <option value="front">前视图</option>
-    </select>
-    <button id="btn-reset-view" title="重置视角">🔍</button>
-    <span class="sep"></span>
-    <!-- 笔刷模式 -->
-    <div class="brush-group">
+      </select>
+      <button id="btn-reset-view" title="重置视角">🔍</button>
+      <span class="sep"></span>
+      <!-- 笔刷模式 -->
+      <div class="brush-group">
         <button id="btn-cursor" class="brush-btn active" title="选择/查看">🖱️</button>
         <button id="btn-raise" class="brush-btn" title="提升地形">⬆️</button>
         <button id="btn-lower" class="brush-btn" title="下陷地形">⬇️</button>
@@ -432,33 +767,43 @@
         <button id="btn-paint" class="brush-btn" title="涂抹纹理">🎨</button>
         <button id="btn-water" class="brush-btn" title="水体(池塘/河流)">🟦</button>
         <button id="btn-road" class="brush-btn" title="道路绘制(拖拽画路)">🛣️</button>
-    </div>
-    <span class="sep"></span>
-    <!-- 纹理选择器（画纹理时显示） -->
-    <div class="terrain-sel" id="terrain-sel">
-        <span style="font-size:10px;color:#888;">纹理:</span>
-        <div class="terrain-swatch active" data-type="0" style="background:#4a6b3a;" title="草地"></div>
-        <div class="terrain-swatch" data-type="1" style="background:#6b5a3a;" title="泥地"></div>
-        <div class="terrain-swatch" data-type="2" style="background:#c4b47a;" title="沙地"></div>
-        <div class="terrain-swatch" data-type="3" style="background:#8a8a80;" title="水泥"></div>
-        <div class="terrain-swatch" data-type="4" style="background:#3a3a3e;" title="柏油"></div>
-        <div class="terrain-swatch" data-type="5" style="background:#8b5e4a;" title="地砖"></div>
-    </div>
-    <!-- 道路类型选择器（画道路时显示） -->
-    <div class="road-sel" id="road-sel">
-        <span style="font-size:10px;color:#888;">道路:</span>
-        <div class="road-swatch active" data-rtype="4" style="background:#3a3a3e;" title="柏油路"></div>
-        <div class="road-swatch" data-rtype="3" style="background:#8a8a80;" title="水泥路"></div>
-        <div class="road-swatch" data-rtype="5" style="background:#8b5e4a;" title="地砖路"></div>
-        <span style="font-size:10px;color:#888;margin-left:6px;">宽:</span>
+      </div>
+      <span class="sep"></span>
+      <!-- 纹理选择器（画纹理时显示） -->
+      <div class="terrain-sel" id="terrain-sel">
+        <span style="font-size: 10px; color: #888">纹理:</span>
+        <div
+          class="terrain-swatch active"
+          data-type="0"
+          style="background: #4a6b3a"
+          title="草地"
+        ></div>
+        <div class="terrain-swatch" data-type="1" style="background: #6b5a3a" title="泥地"></div>
+        <div class="terrain-swatch" data-type="2" style="background: #c4b47a" title="沙地"></div>
+        <div class="terrain-swatch" data-type="3" style="background: #8a8a80" title="水泥"></div>
+        <div class="terrain-swatch" data-type="4" style="background: #3a3a3e" title="柏油"></div>
+        <div class="terrain-swatch" data-type="5" style="background: #8b5e4a" title="地砖"></div>
+      </div>
+      <!-- 道路类型选择器（画道路时显示） -->
+      <div class="road-sel" id="road-sel">
+        <span style="font-size: 10px; color: #888">道路:</span>
+        <div
+          class="road-swatch active"
+          data-rtype="4"
+          style="background: #3a3a3e"
+          title="柏油路"
+        ></div>
+        <div class="road-swatch" data-rtype="3" style="background: #8a8a80" title="水泥路"></div>
+        <div class="road-swatch" data-rtype="5" style="background: #8b5e4a" title="地砖路"></div>
+        <span style="font-size: 10px; color: #888; margin-left: 6px">宽:</span>
         <button class="road-width-btn active" data-rw="4">村路</button>
         <button class="road-width-btn" data-rw="6">双车道</button>
         <button class="road-width-btn" data-rw="12">四车道</button>
         <button class="road-width-btn" data-rw="18">六车道</button>
-    </div>
-    <span class="sep"></span>
-    <!-- 实体放置 -->
-    <div class="brush-group">
+      </div>
+      <span class="sep"></span>
+      <!-- 实体放置 -->
+      <div class="brush-group">
         <button id="btn-entity-select" class="brush-btn" title="选择/移动实体">👆</button>
         <button id="btn-entity-spawn" class="brush-btn" title="放置出生点">🚩</button>
         <button id="btn-entity-tree" class="brush-btn" title="放置树木">🌲</button>
@@ -466,1069 +811,1771 @@
         <button id="btn-entity-enemy" class="brush-btn" title="放置敌人">👾</button>
         <button id="btn-entity-waypoint" class="brush-btn" title="添加巡逻点">🔄</button>
         <button id="btn-entity-bridge" class="brush-btn" title="放置桥梁(需先有水体)">🌉</button>
+      </div>
+      <!-- 敌人类型选择器 -->
+      <div class="entity-sel" id="entity-sel-enemy">
+        <span style="font-size: 10px; color: #888">敌人:</span>
+        <div
+          class="entity-swatch active"
+          data-etype="assault"
+          style="background: #c44"
+          title="装甲突击车"
+        ></div>
+        <div class="entity-swatch" data-etype="zombie" style="background: #84c" title="丧尸"></div>
+        <div
+          class="entity-swatch"
+          data-etype="hexapod"
+          style="background: #668"
+          title="六足战车"
+        ></div>
+      </div>
+      <!-- 树木类型选择器 -->
+      <div class="entity-sel" id="entity-sel-tree">
+        <span style="font-size: 10px; color: #888">树:</span>
+        <div
+          class="entity-swatch active"
+          data-ttype="cone"
+          style="background: #2d6b2d"
+          title="锥形树"
+        ></div>
+        <div
+          class="entity-swatch"
+          data-ttype="sphere"
+          style="background: #4a8b4a"
+          title="球形树"
+        ></div>
+        <div class="entity-swatch" data-ttype="oak" style="background: #3a7a3a" title="橡树"></div>
+      </div>
+      <!-- 建筑类型选择器 -->
+      <div class="entity-sel" id="entity-sel-building">
+        <span style="font-size: 10px; color: #888">建筑:</span>
+        <div
+          class="entity-swatch active"
+          data-btype="bungalow"
+          style="background: #a0a0b0"
+          title="平房"
+        ></div>
+        <div
+          class="entity-swatch"
+          data-btype="villa"
+          style="background: #c0c0cc"
+          title="别墅"
+        ></div>
+        <div
+          class="entity-swatch"
+          data-btype="apartment"
+          style="background: #808090"
+          title="公寓"
+        ></div>
+      </div>
+      <span class="sep"></span>
+      <!-- 笔刷参数 -->
+      <label id="lbl-radius" title="笔刷半径(m)"
+        >半径 <input type="range" id="brush-radius" min="2" max="60" value="15" step="1"
+      /></label>
+      <label id="lbl-strength" title="笔刷强度"
+        >强度 <input type="range" id="brush-strength" min="1" max="50" value="8" step="1"
+      /></label>
+      <span class="sep"></span>
+      <!-- 文件操作 -->
+      <button id="btn-new-map">📄 新建</button>
+      <button id="btn-random-gen">🎲 随机生成</button>
+      <button id="btn-save-bp">💾 暂存</button>
+      <button id="btn-load-bp">📂 恢复</button>
+      <button id="btn-export-json">📤 导出</button>
+      <button id="btn-import-json">📥 导入</button>
+      <input type="file" id="file-import" accept=".json" style="display: none" />
+      <span class="sep"></span>
+      <button id="btn-undo" title="撤销 Ctrl+Z" disabled>↩️</button>
+      <button id="btn-redo" title="重做 Ctrl+Y" disabled>↪️</button>
+      <span class="sep"></span>
+      <label title="网格显示"><input type="checkbox" id="chk-grid" checked /> 网格</label>
+      <label title="线框模式"><input type="checkbox" id="chk-wireframe" /> 线框</label>
+      <span class="sep"></span>
+      <span class="map-name" id="map-name-label">未命名地图</span>
     </div>
-    <!-- 敌人类型选择器 -->
-    <div class="entity-sel" id="entity-sel-enemy">
-        <span style="font-size:10px;color:#888;">敌人:</span>
-        <div class="entity-swatch active" data-etype="assault" style="background:#c44;" title="装甲突击车"></div>
-        <div class="entity-swatch" data-etype="zombie" style="background:#84c;" title="丧尸"></div>
-        <div class="entity-swatch" data-etype="hexapod" style="background:#668;" title="六足战车"></div>
-    </div>
-    <!-- 树木类型选择器 -->
-    <div class="entity-sel" id="entity-sel-tree">
-        <span style="font-size:10px;color:#888;">树:</span>
-        <div class="entity-swatch active" data-ttype="cone" style="background:#2d6b2d;" title="锥形树"></div>
-        <div class="entity-swatch" data-ttype="sphere" style="background:#4a8b4a;" title="球形树"></div>
-        <div class="entity-swatch" data-ttype="oak" style="background:#3a7a3a;" title="橡树"></div>
-    </div>
-    <!-- 建筑类型选择器 -->
-    <div class="entity-sel" id="entity-sel-building">
-        <span style="font-size:10px;color:#888;">建筑:</span>
-        <div class="entity-swatch active" data-btype="bungalow" style="background:#a0a0b0;" title="平房"></div>
-        <div class="entity-swatch" data-btype="villa" style="background:#c0c0cc;" title="别墅"></div>
-        <div class="entity-swatch" data-btype="apartment" style="background:#808090;" title="公寓"></div>
-    </div>
-    <span class="sep"></span>
-    <!-- 笔刷参数 -->
-    <label id="lbl-radius" title="笔刷半径(m)">半径 <input type="range" id="brush-radius" min="2" max="60" value="15" step="1"></label>
-    <label id="lbl-strength" title="笔刷强度">强度 <input type="range" id="brush-strength" min="1" max="50" value="8" step="1"></label>
-    <span class="sep"></span>
-    <!-- 文件操作 -->
-    <button id="btn-new-map">📄 新建</button>
-    <button id="btn-random-gen">🎲 随机生成</button>
-    <button id="btn-save-bp">💾 暂存</button>
-    <button id="btn-load-bp">📂 恢复</button>
-    <button id="btn-export-json">📤 导出</button>
-    <button id="btn-import-json">📥 导入</button>
-    <input type="file" id="file-import" accept=".json" style="display:none;">
-    <span class="sep"></span>
-    <button id="btn-undo" title="撤销 Ctrl+Z" disabled>↩️</button>
-    <button id="btn-redo" title="重做 Ctrl+Y" disabled>↪️</button>
-    <span class="sep"></span>
-    <label title="网格显示"><input type="checkbox" id="chk-grid" checked> 网格</label>
-    <label title="线框模式"><input type="checkbox" id="chk-wireframe"> 线框</label>
-    <span class="sep"></span>
-    <span class="map-name" id="map-name-label">未命名地图</span>
-</div>
 
-<!-- 侧边栏 -->
-<div class="sidebar">
-    <div class="section">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+      <div class="section">
         <div class="section-title">📐 地图参数</div>
-        <div class="info-row"><span>尺寸</span><span id="info-size">200×200</span></div>
+        <div class="info-row"><span>尺寸(米)</span><span id="info-size">260×260 m</span></div>
         <div class="info-row"><span>地形精度</span><span id="info-segments">301×301</span></div>
         <div class="info-row"><span>最低高度</span><span id="info-minh">0.00</span></div>
         <div class="info-row"><span>最高高度</span><span id="info-maxh">0.00</span></div>
-        <div class="cfg-row" style="margin-top:6px;border-top:1px solid #3a3a55;padding-top:4px;">
-            <label>世界宽度</label>
-            <input type="range" id="dim-worldW" min="200" max="800" step="50" value="300" style="width:60px;">
-            <input type="number" id="dim-worldW-num" min="200" max="800" step="50" value="300" style="width:50px;">
+        <div
+          class="cfg-row"
+          style="margin-top: 6px; border-top: 1px solid #3a3a55; padding-top: 4px"
+        >
+          <label>世界宽度(米)</label>
+          <input
+            type="range"
+            id="dim-worldW"
+            min="260"
+            max="1040"
+            step="50"
+            value="390"
+            style="width: 60px"
+          />
+          <input
+            type="number"
+            id="dim-worldW-num"
+            min="260"
+            max="1040"
+            step="50"
+            value="390"
+            style="width: 50px"
+          />
         </div>
         <div class="cfg-row">
-            <label>世界深度</label>
-            <input type="range" id="dim-worldD" min="200" max="800" step="50" value="300" style="width:60px;">
-            <input type="number" id="dim-worldD-num" min="200" max="800" step="50" value="300" style="width:50px;">
+          <label>世界深度(米)</label>
+          <input
+            type="range"
+            id="dim-worldD"
+            min="260"
+            max="1040"
+            step="50"
+            value="390"
+            style="width: 60px"
+          />
+          <input
+            type="number"
+            id="dim-worldD-num"
+            min="260"
+            max="1040"
+            step="50"
+            value="390"
+            style="width: 50px"
+          />
         </div>
         <div class="cfg-row">
-            <label>游玩宽度</label>
-            <input type="range" id="dim-playW" min="100" max="500" step="50" value="200" style="width:60px;">
-            <input type="number" id="dim-playW-num" min="100" max="500" step="50" value="200" style="width:50px;">
+          <label>游玩宽度(米)</label>
+          <input
+            type="range"
+            id="dim-playW"
+            min="130"
+            max="650"
+            step="50"
+            value="260"
+            style="width: 60px"
+          />
+          <input
+            type="number"
+            id="dim-playW-num"
+            min="130"
+            max="650"
+            step="50"
+            value="260"
+            style="width: 50px"
+          />
         </div>
         <div class="cfg-row">
-            <label>游玩深度</label>
-            <input type="range" id="dim-playD" min="100" max="500" step="50" value="200" style="width:60px;">
-            <input type="number" id="dim-playD-num" min="100" max="500" step="50" value="200" style="width:50px;">
+          <label>游玩深度(米)</label>
+          <input
+            type="range"
+            id="dim-playD"
+            min="130"
+            max="650"
+            step="50"
+            value="260"
+            style="width: 60px"
+          />
+          <input
+            type="number"
+            id="dim-playD-num"
+            min="130"
+            max="650"
+            step="50"
+            value="260"
+            style="width: 50px"
+          />
         </div>
         <div class="cfg-row">
-            <button id="btn-apply-dims" style="width:100%;background:#4a4a65;color:#ccc;border:1px solid #5a5a75;border-radius:3px;cursor:pointer;">应用尺寸</button>
+          <button
+            id="btn-apply-dims"
+            style="
+              width: 100%;
+              background: #4a4a65;
+              color: #ccc;
+              border: 1px solid #5a5a75;
+              border-radius: 3px;
+              cursor: pointer;
+            "
+          >
+            应用尺寸
+          </button>
         </div>
-    </div>
-    <div class="section">
-        <div class="section-title">📍 实体列表 <span style="font-size:10px;color:#888;">(Ctrl多选 Shift连选)</span></div>
-        <div class="sort-bar" id="sort-bar" style="display:none;margin:4px 0;display:flex;gap:4px;align-items:center;">
-            <span style="font-size:10px;color:#888;">排序:</span>
-            <button class="sort-btn active" data-sort="time" style="font-size:10px;padding:2px 6px;background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;cursor:pointer;">⏱ 生成时间</button>
-            <button class="sort-btn" data-sort="type" style="font-size:10px;padding:2px 6px;background:#333350;color:#ccc;border:1px solid #4a4a65;border-radius:3px;cursor:pointer;">📂 实体类型</button>
+      </div>
+      <div class="section">
+        <div class="section-title">
+          📍 实体列表 <span style="font-size: 10px; color: #888">(Ctrl多选 Shift连选)</span>
+        </div>
+        <div
+          class="sort-bar"
+          id="sort-bar"
+          style="display: none; margin: 4px 0; display: flex; gap: 4px; align-items: center"
+        >
+          <span style="font-size: 10px; color: #888">排序:</span>
+          <button
+            class="sort-btn active"
+            data-sort="time"
+            style="
+              font-size: 10px;
+              padding: 2px 6px;
+              background: #333350;
+              color: #ccc;
+              border: 1px solid #4a4a65;
+              border-radius: 3px;
+              cursor: pointer;
+            "
+          >
+            ⏱ 生成时间
+          </button>
+          <button
+            class="sort-btn"
+            data-sort="type"
+            style="
+              font-size: 10px;
+              padding: 2px 6px;
+              background: #333350;
+              color: #ccc;
+              border: 1px solid #4a4a65;
+              border-radius: 3px;
+              cursor: pointer;
+            "
+          >
+            📂 实体类型
+          </button>
         </div>
         <div class="empty-msg" id="entity-list">暂无实体</div>
         <div class="batch-bar hidden" id="batch-bar">
-            <button class="batch-btn" data-batch="del-sel">🗑️删除选中</button>
-            <button class="batch-btn" data-batch="group">📦编组</button>
-            <button class="batch-btn batch-cfg-btn" data-batch="batch-cfg" id="batch-cfg-btn" style="display:none;">⚙️批量属性</button>
+          <button class="batch-btn" data-batch="del-sel">🗑️删除选中</button>
+          <button class="batch-btn" data-batch="group">📦编组</button>
+          <button
+            class="batch-btn batch-cfg-btn"
+            data-batch="batch-cfg"
+            id="batch-cfg-btn"
+            style="display: none"
+          >
+            ⚙️批量属性
+          </button>
         </div>
-    </div>
-    <div class="section enemy-cfg" id="enemy-cfg-panel">
+      </div>
+      <div class="section enemy-cfg" id="enemy-cfg-panel">
         <div class="section-title">⚙️ 敌人属性</div>
-        <div class="cfg-row"><label>HP</label><input type="number" id="cfg-hp" min="1" max="999" step="1"></div>
-        <div class="cfg-row"><label>速度</label><input type="number" id="cfg-speed" min="0.1" max="20" step="0.1"></div>
-        <div class="cfg-row"><label>视野(m)</label><input type="number" id="cfg-view" min="5" max="200" step="1"></div>
-        <div class="cfg-row"><label>攻击伤害</label><input type="number" id="cfg-atkdmg" min="1" max="100" step="1"></div>
-        <div class="cfg-row"><label>攻击冷却(s)</label><input type="number" id="cfg-atkcd" min="0.5" max="30" step="0.1"></div>
-        <div class="cfg-row"><label>掉落概率</label><input type="number" id="cfg-drop" min="0" max="1" step="0.05"></div>
-        <div class="cfg-row"><label>回血量</label><input type="number" id="cfg-heal" min="0" max="100" step="1"></div>
-        <div class="cfg-row"><label>击杀得分</label><input type="number" id="cfg-score" min="0" max="9999" step="1"></div>
-        <div class="cfg-row"><label>行为模式</label>
-            <div class="cfg-mode-bar" id="cfg-mode-bar">
-                <button class="cfg-mode-btn active" data-mode="reactive" title="受击后反击">被动</button>
-                <button class="cfg-mode-btn" data-mode="aggressive" title="主动索敌追击">主动</button>
-                <button class="cfg-mode-btn" data-mode="none" title="不反击">不反击</button>
-            </div>
+        <div class="cfg-row">
+          <label>HP</label><input type="number" id="cfg-hp" min="1" max="999" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>速度</label><input type="number" id="cfg-speed" min="0.1" max="20" step="0.1" />
+        </div>
+        <div class="cfg-row">
+          <label>视野(m)</label><input type="number" id="cfg-view" min="5" max="200" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>攻击伤害</label><input type="number" id="cfg-atkdmg" min="1" max="100" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>攻击冷却(s)</label
+          ><input type="number" id="cfg-atkcd" min="0.5" max="30" step="0.1" />
+        </div>
+        <div class="cfg-row">
+          <label>掉落概率</label><input type="number" id="cfg-drop" min="0" max="1" step="0.05" />
+        </div>
+        <div class="cfg-row">
+          <label>回血量</label><input type="number" id="cfg-heal" min="0" max="100" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>击杀得分</label><input type="number" id="cfg-score" min="0" max="9999" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>行为模式</label>
+          <div class="cfg-mode-bar" id="cfg-mode-bar">
+            <button class="cfg-mode-btn active" data-mode="reactive" title="受击后反击">
+              被动
+            </button>
+            <button class="cfg-mode-btn" data-mode="aggressive" title="主动索敌追击">主动</button>
+            <button class="cfg-mode-btn" data-mode="none" title="不反击">不反击</button>
+          </div>
         </div>
         <div class="cfg-patrol-preview" id="cfg-patrol-preview"></div>
+      </div>
     </div>
-</div>
 
-<!-- 3D 视口 -->
-<div class="view3d" id="viewport-3d"><div class="selection-box" id="selection-box"></div>
-    <div class="overlay-info" id="overlay-info">地图预览 — 拖拽旋转 | 滚轮缩放 | Shift+拖拽平移</div>
-    <div class="brush-indicator" id="brush-indicator"></div>
-</div>
+    <!-- 3D 视口 -->
+    <div class="view3d" id="viewport-3d">
+      <div class="selection-box" id="selection-box"></div>
+      <div class="overlay-info" id="overlay-info">
+        地图预览 — 拖拽旋转 | 滚轮缩放 | Shift+拖拽平移
+      </div>
+      <div class="brush-indicator" id="brush-indicator"></div>
+    </div>
 
-<!-- 高度图面板（右侧） -->
-<div class="heightmap-panel">
-    <div class="panel-title" id="hm-panel-title">⛰️ 高度图</div>
-    <div class="hm-container">
+    <!-- 高度图面板（右侧） -->
+    <div class="heightmap-panel">
+      <div class="panel-title" id="hm-panel-title">⛰️ 高度图</div>
+      <div class="hm-container">
         <canvas id="heightmap-canvas" width="256" height="256"></canvas>
-    </div>
-    <div class="hm-legend">
+      </div>
+      <div class="hm-legend">
         <span>▼ 低</span>
         <span id="hm-minval">0.0</span>
         <span id="hm-maxval">0.0</span>
         <span>▲ 高</span>
-    </div>
-    <div class="section">
+      </div>
+      <div class="section">
         <div class="section-title">🌍 地形图层</div>
-        <div class="info-row"><span style="color:#4a6b3a;">●</span><span>草地</span><span id="pct-grass">100%</span></div>
-        <div class="info-row"><span style="color:#6b5a3a;">●</span><span>泥地</span><span id="pct-mud">0%</span></div>
-        <div class="info-row"><span style="color:#c4b47a;">●</span><span>沙地</span><span id="pct-sand">0%</span></div>
-        <div class="info-row"><span style="color:#8a8a80;">●</span><span>水泥</span><span id="pct-concrete">0%</span></div>
-        <div class="info-row"><span style="color:#3a3a3e;">●</span><span>柏油</span><span id="pct-asphalt">0%</span></div>
-        <div class="info-row"><span style="color:#8b5e4a;">●</span><span>地砖</span><span id="pct-brick">0%</span></div>
-    </div>
-    <div class="section">
+        <div class="info-row">
+          <span style="color: #4a6b3a">●</span><span>草地</span><span id="pct-grass">100%</span>
+        </div>
+        <div class="info-row">
+          <span style="color: #6b5a3a">●</span><span>泥地</span><span id="pct-mud">0%</span>
+        </div>
+        <div class="info-row">
+          <span style="color: #c4b47a">●</span><span>沙地</span><span id="pct-sand">0%</span>
+        </div>
+        <div class="info-row">
+          <span style="color: #8a8a80">●</span><span>水泥</span><span id="pct-concrete">0%</span>
+        </div>
+        <div class="info-row">
+          <span style="color: #3a3a3e">●</span><span>柏油</span><span id="pct-asphalt">0%</span>
+        </div>
+        <div class="info-row">
+          <span style="color: #8b5e4a">●</span><span>地砖</span><span id="pct-brick">0%</span>
+        </div>
+      </div>
+      <div class="section">
         <div class="section-title">💧 水体列表</div>
         <div class="empty-msg" id="water-list">暂无水体</div>
-    </div>
-    <div class="section">
+      </div>
+      <div class="section">
         <div class="section-title">📦 编组列表</div>
         <div class="empty-msg" id="group-list">暂无编组</div>
-    </div>
-    <div class="section">
-        <div class="section-title collapsible" id="rg-terrain-header">🌍 随机地形 <span style="font-size:10px;color:#888;">(点击展开)</span></div>
-        <div class="rg-body" id="rg-terrain-body" style="display:none;">
-            <div class="rg-row"><label>起伏幅度(m)</label><input type="range" id="rg-maxh" min="2" max="20" value="8" step="0.5"><span class="rg-val" id="rg-maxh-v">8</span></div>
-            <div class="rg-row"><label>斑块尺度</label><input type="range" id="rg-ptch" min="15" max="80" value="35" step="5"><span class="rg-val" id="rg-ptch-v">35</span></div>
-            <div class="rg-row"><label>山丘数量</label><input type="range" id="rg-hills" min="0" max="10" value="3" step="1"><span class="rg-val" id="rg-hills-v">3</span></div>
-            <div class="rg-row"><label>噪声细节</label><input type="range" id="rg-octaves" min="1" max="8" value="4" step="1"><span class="rg-val" id="rg-octaves-v">4</span></div>
-            <div class="rg-row"><label>湿度倾向</label><input type="range" id="rg-moist" min="0" max="100" value="50" step="5"><span class="rg-val" id="rg-moist-v">50</span></div>
-            <div class="rg-row"><label>沙地海拔阈值(%)</label><input type="range" id="rg-sandlvl" min="20" max="80" value="55" step="5"><span class="rg-val" id="rg-sandlvl-v">55</span></div>
-            <div class="rg-row"><label>泥地湿度阈值(%)</label><input type="range" id="rg-mudlvl" min="30" max="90" value="60" step="5"><span class="rg-val" id="rg-mudlvl-v">60</span></div>
-            <div class="rg-row"><label>池塘数量</label><input type="range" id="rg-ponds" min="0" max="6" value="1" step="1"><span class="rg-val" id="rg-ponds-v">1</span></div>
-            <div class="rg-row"><label>最大半径(m)</label><input type="range" id="rg-pondr" min="4" max="25" value="10" step="1"><span class="rg-val" id="rg-pondr-v">10</span></div>
-            <div class="rg-row"><label>最大深度</label><input type="range" id="rg-pondd" min="1" max="8" value="3" step="0.5"><span class="rg-val" id="rg-pondd-v">3</span></div>
-            <div class="rg-row"><label>🏔️ 山峰保留度(%)</label><input type="range" id="rg-keep" min="0" max="100" value="85" step="5"><span class="rg-val" id="rg-keep-v">85</span></div>
-            <div class="rg-row"><label>🏔️ 平坦衰减半径(%)</label><input type="range" id="rg-flatrad" min="10" max="50" value="25" step="5"><span class="rg-val" id="rg-flatrad-v">25</span></div>
-            <div class="rg-row"><label>🎲 随机种子</label><input type="number" id="rg-seed" value="0" min="0" max="2147483647" style="width:70px;"><button id="btn-rg-random-seed" style="font-size:9px;padding:1px 4px;margin-left:2px;">🎲</button><span style="font-size:9px;color:#888;margin-left:4px;">0=自动</span></div>
-            <div style="text-align:right;padding-top:4px;">
-                <button id="btn-rg-all" style="background:#f5954a;color:#111;border:none;padding:5px 16px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;">🎲 一键全部</button>
-                <button id="btn-rg-terrain" style="background:#4a9b3a;color:#fff;border:none;padding:5px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;margin-left:4px;">🌍 仅生成地形</button>
-                <button id="btn-flatten-terrain" style="background:#8b6914;color:#fff;border:none;padding:5px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;margin-left:4px;">📐 平整</button>
-            </div>
+      </div>
+      <div class="section">
+        <div class="section-title collapsible" id="rg-terrain-header">
+          🌍 随机地形 <span style="font-size: 10px; color: #888">(点击展开)</span>
         </div>
-    </div>
-    <div class="section">
-        <div class="section-title collapsible" id="rg-village-header">🏘️ 道路与村落 <span style="font-size:10px;color:#888;">(点击展开)</span></div>
-        <div class="rg-body" id="rg-village-body" style="display:none;">
-            <div class="rg-row"><label>村落密度</label><select id="rg-vdensity" style="width:80px;"><option value="sparse">稀疏</option><option value="normal" selected>正常</option><option value="dense">密集</option></select></div>
-            <div class="rg-row"><label>主干道宽度(m)</label><input type="range" id="rg-roadw" min="2" max="10" value="5" step="1"><span class="rg-val" id="rg-roadw-v">5</span></div>
-            <div class="rg-row"><label>广场半径(m)</label><input type="range" id="rg-plazar" min="3" max="20" value="7" step="1"><span class="rg-val" id="rg-plazar-v">7</span></div>
-            <div class="rg-row"><label>道路缓冲(m)</label><input type="range" id="rg-roadbuf" min="3" max="20" value="8" step="1"><span class="rg-val" id="rg-roadbuf-v">8</span></div>
-            <div class="rg-row"><label>水体缓冲(m)</label><input type="range" id="rg-waterbuf" min="3" max="15" value="6" step="1"><span class="rg-val" id="rg-waterbuf-v">6</span></div>
-            <div class="rg-row"><label>最少建筑/村</label><input type="range" id="rg-minbld" min="10" max="40" value="15" step="1"><span class="rg-val" id="rg-minbld-v">15</span></div>
-            <div class="rg-row"><label>出生安全半径(m)</label><input type="range" id="rg-safe" min="5" max="50" value="15" step="1"><span class="rg-val" id="rg-safe-v">15</span></div>
-            <div class="rg-row"><label>树木密度(%)</label><input type="range" id="rg-treed" min="0" max="100" value="60" step="5"><span class="rg-val" id="rg-treed-v">60</span></div>
-            <div class="rg-row"><label>树木间距(m)</label><input type="range" id="rg-treesp" min="3" max="20" value="8" step="1"><span class="rg-val" id="rg-treesp-v">8</span></div>
-            <div class="rg-row"><label>绿化带宽(m)</label><input type="range" id="rg-greenb" min="2" max="20" value="8" step="1"><span class="rg-val" id="rg-greenb-v">8</span></div>
-            <div style="text-align:right;padding-top:4px;">
-                <button id="btn-rg-roads" style="background:#3a7bd5;color:#fff;border:none;padding:5px 16px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:bold;">🏘️ 生成道路与村落</button>
-            </div>
+        <div class="rg-body" id="rg-terrain-body" style="display: none">
+          <div class="rg-row">
+            <label>起伏幅度(m)</label
+            ><input type="range" id="rg-maxh" min="2" max="20" value="8" step="0.5" /><span
+              class="rg-val"
+              id="rg-maxh-v"
+              >8</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>斑块尺度</label
+            ><input type="range" id="rg-ptch" min="15" max="80" value="35" step="5" /><span
+              class="rg-val"
+              id="rg-ptch-v"
+              >35</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>山丘数量</label
+            ><input type="range" id="rg-hills" min="0" max="10" value="3" step="1" /><span
+              class="rg-val"
+              id="rg-hills-v"
+              >3</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>噪声细节</label
+            ><input type="range" id="rg-octaves" min="1" max="8" value="4" step="1" /><span
+              class="rg-val"
+              id="rg-octaves-v"
+              >4</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>湿度倾向</label
+            ><input type="range" id="rg-moist" min="0" max="100" value="50" step="5" /><span
+              class="rg-val"
+              id="rg-moist-v"
+              >50</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>沙地海拔阈值(%)</label
+            ><input type="range" id="rg-sandlvl" min="20" max="80" value="55" step="5" /><span
+              class="rg-val"
+              id="rg-sandlvl-v"
+              >55</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>泥地湿度阈值(%)</label
+            ><input type="range" id="rg-mudlvl" min="30" max="90" value="60" step="5" /><span
+              class="rg-val"
+              id="rg-mudlvl-v"
+              >60</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>池塘数量</label
+            ><input type="range" id="rg-ponds" min="0" max="6" value="1" step="1" /><span
+              class="rg-val"
+              id="rg-ponds-v"
+              >1</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>最大半径(m)</label
+            ><input type="range" id="rg-pondr" min="4" max="25" value="10" step="1" /><span
+              class="rg-val"
+              id="rg-pondr-v"
+              >10</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>最大深度</label
+            ><input type="range" id="rg-pondd" min="1" max="8" value="3" step="0.5" /><span
+              class="rg-val"
+              id="rg-pondd-v"
+              >3</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>🏔️ 山峰保留度(%)</label
+            ><input type="range" id="rg-keep" min="0" max="100" value="85" step="5" /><span
+              class="rg-val"
+              id="rg-keep-v"
+              >85</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>🏔️ 平坦衰减半径(%)</label
+            ><input type="range" id="rg-flatrad" min="10" max="50" value="25" step="5" /><span
+              class="rg-val"
+              id="rg-flatrad-v"
+              >25</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>🎲 随机种子</label
+            ><input
+              type="number"
+              id="rg-seed"
+              value="0"
+              min="0"
+              max="2147483647"
+              style="width: 70px"
+            /><button
+              id="btn-rg-random-seed"
+              style="font-size: 9px; padding: 1px 4px; margin-left: 2px"
+            >
+              🎲</button
+            ><span style="font-size: 9px; color: #888; margin-left: 4px">0=自动</span>
+          </div>
+          <div style="text-align: right; padding-top: 4px">
+            <button
+              id="btn-rg-all"
+              style="
+                background: #f5954a;
+                color: #111;
+                border: none;
+                padding: 5px 16px;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: bold;
+              "
+            >
+              🎲 一键全部
+            </button>
+            <button
+              id="btn-rg-terrain"
+              style="
+                background: #4a9b3a;
+                color: #fff;
+                border: none;
+                padding: 5px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: bold;
+                margin-left: 4px;
+              "
+            >
+              🌍 仅生成地形
+            </button>
+            <button
+              id="btn-flatten-terrain"
+              style="
+                background: #8b6914;
+                color: #fff;
+                border: none;
+                padding: 5px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: bold;
+                margin-left: 4px;
+              "
+            >
+              📐 平整
+            </button>
+          </div>
         </div>
+      </div>
+      <div class="section">
+        <div class="section-title collapsible" id="rg-village-header">
+          🏘️ 道路与村落 <span style="font-size: 10px; color: #888">(点击展开)</span>
+        </div>
+        <div class="rg-body" id="rg-village-body" style="display: none">
+          <div class="rg-row">
+            <label>村落密度</label
+            ><select id="rg-vdensity" style="width: 80px">
+              <option value="sparse">稀疏</option>
+              <option value="normal" selected>正常</option>
+              <option value="dense">密集</option>
+            </select>
+          </div>
+          <div class="rg-row">
+            <label>主干道宽度(m)</label
+            ><input type="range" id="rg-roadw" min="2" max="10" value="5" step="1" /><span
+              class="rg-val"
+              id="rg-roadw-v"
+              >5</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>广场半径(m)</label
+            ><input type="range" id="rg-plazar" min="3" max="20" value="7" step="1" /><span
+              class="rg-val"
+              id="rg-plazar-v"
+              >7</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>道路缓冲(m)</label
+            ><input type="range" id="rg-roadbuf" min="3" max="20" value="8" step="1" /><span
+              class="rg-val"
+              id="rg-roadbuf-v"
+              >8</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>水体缓冲(m)</label
+            ><input type="range" id="rg-waterbuf" min="3" max="15" value="6" step="1" /><span
+              class="rg-val"
+              id="rg-waterbuf-v"
+              >6</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>最少建筑/村</label
+            ><input type="range" id="rg-minbld" min="10" max="40" value="15" step="1" /><span
+              class="rg-val"
+              id="rg-minbld-v"
+              >15</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>出生安全半径(m)</label
+            ><input type="range" id="rg-safe" min="5" max="50" value="15" step="1" /><span
+              class="rg-val"
+              id="rg-safe-v"
+              >15</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>树木密度(%)</label
+            ><input type="range" id="rg-treed" min="0" max="100" value="60" step="5" /><span
+              class="rg-val"
+              id="rg-treed-v"
+              >60</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>树木间距(m)</label
+            ><input type="range" id="rg-treesp" min="3" max="20" value="8" step="1" /><span
+              class="rg-val"
+              id="rg-treesp-v"
+              >8</span
+            >
+          </div>
+          <div class="rg-row">
+            <label>绿化带宽(m)</label
+            ><input type="range" id="rg-greenb" min="2" max="20" value="8" step="1" /><span
+              class="rg-val"
+              id="rg-greenb-v"
+              >8</span
+            >
+          </div>
+          <div style="text-align: right; padding-top: 4px">
+            <button
+              id="btn-rg-roads"
+              style="
+                background: #3a7bd5;
+                color: #fff;
+                border: none;
+                padding: 5px 16px;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: bold;
+              "
+            >
+              🏘️ 生成道路与村落
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-</div>
 
-<!-- 状态栏 -->
-<div class="statusbar">
-    <span>地图编辑器 v0.29.0</span>
-    <span>|</span>
-    <span>相机: <span id="status-cam">顶视图</span></span>
-    <span>|</span>
-    <span>工具: <span id="status-tool">选择</span></span>
-    <span>|</span>
-    <span>鼠标: <span id="status-mouse">—</span></span>
-    <span style="margin-left:auto;">Three.js r160</span>
-</div>
+    <!-- 状态栏 -->
+    <div class="statusbar">
+      <span>地图编辑器 v0.29.0</span>
+      <span>|</span>
+      <span>相机: <span id="status-cam">顶视图</span></span>
+      <span>|</span>
+      <span>工具: <span id="status-tool">选择</span></span>
+      <span>|</span>
+      <span>鼠标: <span id="status-mouse">—</span></span>
+      <span style="margin-left: auto">Three.js r160</span>
+    </div>
 
-<!-- 蓝图弹窗 -->
-<div class="modal-overlay" id="blueprint-modal">
-    <div class="modal-dialog">
+    <!-- 蓝图弹窗 -->
+    <div class="modal-overlay" id="blueprint-modal">
+      <div class="modal-dialog">
         <button class="modal-close" id="bp-modal-close">×</button>
         <h3>📂 草稿列表（浏览器持久化存储）</h3>
         <div id="bp-list">暂无蓝图</div>
+      </div>
     </div>
-</div>
 
+    <script src="js/three.min.js"></script>
+    <script>
+      // ============================================================
+      //  地图编辑器 — Phase 1: 基础架构
+      //  版本: v0.1.0 | 日期: 2026-05-14
+      // ============================================================
 
-<script src="js/three.min.js"></script>
-<script>
-// ============================================================
-//  地图编辑器 — Phase 1: 基础架构
-//  版本: v0.1.0 | 日期: 2026-05-14
-// ============================================================
+      console.log('🗺️ 地图编辑器 v0.51.0 — 引道地形修整 + 水平桥面 + 分段水面剖面');
 
-console.log('🗺️ 地图编辑器 v0.51.0 — 引道地形修整 + 水平桥面 + 分段水面剖面');
+      // ----- 常量（矩形尺寸，可动态更新） -----
+      let worldWidth = 300; // 地图世界宽度 X（含外围缓冲区）
+      let worldDepth = 300; // 地图世界深度 Z
+      let worldHalfW = worldWidth / 2; // 150
+      let worldHalfD = worldDepth / 2; // 150
+      let playWidth = 200; // 空气墙/可游玩宽度 X
+      let playDepth = 200; // 空气墙/可游玩深度 Z
+      let playHalfW = playWidth / 2; // 100
+      let playHalfD = playDepth / 2; // 100
+      const TARGET_CELL_SIZE = 1.0; // 高度图目标精度 米/格
+      let hmResW = Math.ceil(worldWidth / 1.0) + 1,
+        hmResD = Math.ceil(worldDepth / 1.0) + 1; // 高度图动态分辨率（X/Z独立）
+      let TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8); // 地面纹理分辨率（预览用，动态适配）
 
-// ----- 常量（矩形尺寸，可动态更新） -----
-let worldWidth = 300;          // 地图世界宽度 X（含外围缓冲区）
-let worldDepth = 300;          // 地图世界深度 Z
-let worldHalfW = worldWidth / 2;  // 150
-let worldHalfD = worldDepth / 2;  // 150
-let playWidth = 200;           // 空气墙/可游玩宽度 X
-let playDepth = 200;           // 空气墙/可游玩深度 Z
-let playHalfW = playWidth / 2;   // 100
-let playHalfD = playDepth / 2;   // 100
-const TARGET_CELL_SIZE = 1.0;     // 高度图目标精度 米/格
-let hmResW = Math.ceil(worldWidth / 1.0) + 1, hmResD = Math.ceil(worldDepth / 1.0) + 1;  // 高度图动态分辨率（X/Z独立）
-let TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8);  // 地面纹理分辨率（预览用，动态适配）
+      // ----- 向后兼容的动态常量（矩形尺寸的实际范围由 X/Z 独立控制）-----
+      // WORLD_SIZE = max(worldWidth, worldDepth) 用于随机生成的范围计算
+      // w2i 和 FBM 坐标映射使用各自的 worldHalfW/worldHalfD
+      let WORLD_SIZE = 300,
+        WORLD_HALF = 150,
+        PLAY_HALF = 100;
+      // 高度图X/Z方向独立网格步长（矩形地图必需）
+      let hmStepW = worldWidth / (hmResW - 1);
+      let hmStepD = worldDepth / (hmResD - 1);
 
-// ----- 向后兼容的动态常量（矩形尺寸的实际范围由 X/Z 独立控制）-----
-// WORLD_SIZE = max(worldWidth, worldDepth) 用于随机生成的范围计算
-// w2i 和 FBM 坐标映射使用各自的 worldHalfW/worldHalfD
-let WORLD_SIZE = 300, WORLD_HALF = 150, PLAY_HALF = 100;
-// 高度图X/Z方向独立网格步长（矩形地图必需）
-let hmStepW = worldWidth / (hmResW - 1);
-let hmStepD = worldDepth / (hmResD - 1);
-
-// ----- 尺寸同步函数：从 mapData 更新全局尺寸变量 -----
-function applyMapDimensions() {
-    const mw = mapData.worldWidth || 300;
-    const md = mapData.worldDepth || 300;
-    const pw = mapData.playWidth || 200;
-    const pd = mapData.playDepth || 200;
-    // 约束：可游玩 ≤ 世界
-    worldWidth = Math.max(mw, pw);
-    worldDepth = Math.max(md, pd);
-    playWidth = Math.min(pw, worldWidth);
-    playDepth = Math.min(pd, worldDepth);
-    worldHalfW = worldWidth / 2;
-    worldHalfD = worldDepth / 2;
-    playHalfW = playWidth / 2;
-    playHalfD = playDepth / 2;
-    // 更新向后兼容常量：使用最大范围确保全覆盖
-    WORLD_SIZE = Math.max(worldWidth, worldDepth);
-    WORLD_HALF = WORLD_SIZE / 2;
-    PLAY_HALF = Math.min(playWidth, playDepth) / 2;
-    // 高度图动态分辨率（目标~1m/格，矩形地图X/Z独立）
-    hmResW = Math.ceil(worldWidth / TARGET_CELL_SIZE) + 1;
-    hmResD = Math.ceil(worldDepth / TARGET_CELL_SIZE) + 1;
-    // 高度图网格步长同步（X/Z独立，适配矩形地图）
-    hmStepW = worldWidth / (hmResW - 1);
-    hmStepD = worldDepth / (hmResD - 1);
-    // 纹理分辨率动态适配（每个网格单元~8像素）
-    TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8);
-    // 高度图/splatMap 数组尺寸跟随重建（保留重叠区域数据）
-    const newSize = hmResW * hmResD;
-    if (mapData.heightmap.length !== newSize) {
-        const oldHm = mapData.heightmap, oldSm = mapData.splatMap;
-        const oldW = Math.round(Math.sqrt(oldHm.length)); // 近似旧宽度（正方形假设，迁移用）
-        const oldD = oldW;
-        const newHm = new Float32Array(newSize), newSm = new Uint8Array(newSize);
-        newSm.fill(0); // 默认草地
-        for (let sy = 0; sy < Math.min(oldD, hmResD); sy++)
-            for (let sx = 0; sx < Math.min(oldW, hmResW); sx++)
-                { newHm[sy * hmResW + sx] = oldHm[sy * oldW + sx]; newSm[sy * hmResW + sx] = oldSm[sy * oldW + sx]; }
-        mapData.heightmap = newHm; mapData.splatMap = newSm;
-        // 水编辑标记按比例迁移
-        const oldSet = mapData.editedVerticesPaint;
-        const newSet = new Set();
-        for (const key of oldSet) {
+      // ----- 尺寸同步函数：从 mapData 更新全局尺寸变量 -----
+      function applyMapDimensions() {
+        const mw = mapData.worldWidth || 300;
+        const md = mapData.worldDepth || 300;
+        const pw = mapData.playWidth || 200;
+        const pd = mapData.playDepth || 200;
+        // 约束：可游玩 ≤ 世界
+        worldWidth = Math.max(mw, pw);
+        worldDepth = Math.max(md, pd);
+        playWidth = Math.min(pw, worldWidth);
+        playDepth = Math.min(pd, worldDepth);
+        worldHalfW = worldWidth / 2;
+        worldHalfD = worldDepth / 2;
+        playHalfW = playWidth / 2;
+        playHalfD = playDepth / 2;
+        // 更新向后兼容常量：使用最大范围确保全覆盖
+        WORLD_SIZE = Math.max(worldWidth, worldDepth);
+        WORLD_HALF = WORLD_SIZE / 2;
+        PLAY_HALF = Math.min(playWidth, playDepth) / 2;
+        // 高度图动态分辨率（目标~1m/格，矩形地图X/Z独立）
+        hmResW = Math.ceil(worldWidth / TARGET_CELL_SIZE) + 1;
+        hmResD = Math.ceil(worldDepth / TARGET_CELL_SIZE) + 1;
+        // 高度图网格步长同步（X/Z独立，适配矩形地图）
+        hmStepW = worldWidth / (hmResW - 1);
+        hmStepD = worldDepth / (hmResD - 1);
+        // 纹理分辨率动态适配（每个网格单元~8像素）
+        TEX_RES = Math.max(2048, Math.max(hmResW, hmResD) * 8);
+        // 高度图/splatMap 数组尺寸跟随重建（保留重叠区域数据）
+        const newSize = hmResW * hmResD;
+        if (mapData.heightmap.length !== newSize) {
+          const oldHm = mapData.heightmap,
+            oldSm = mapData.splatMap;
+          const oldW = Math.round(Math.sqrt(oldHm.length)); // 近似旧宽度（正方形假设，迁移用）
+          const oldD = oldW;
+          const newHm = new Float32Array(newSize),
+            newSm = new Uint8Array(newSize);
+          newSm.fill(0); // 默认草地
+          for (let sy = 0; sy < Math.min(oldD, hmResD); sy++)
+            for (let sx = 0; sx < Math.min(oldW, hmResW); sx++) {
+              newHm[sy * hmResW + sx] = oldHm[sy * oldW + sx];
+              newSm[sy * hmResW + sx] = oldSm[sy * oldW + sx];
+            }
+          mapData.heightmap = newHm;
+          mapData.splatMap = newSm;
+          // 水编辑标记按比例迁移
+          const oldSet = mapData.editedVerticesPaint;
+          const newSet = new Set();
+          for (const key of oldSet) {
             const [osx, osy] = key.split(',').map(Number);
-            if (osx < hmResW && osy < hmResD) { const nsx = Math.round(osx * hmResW / oldW), nsy = Math.round(osy * hmResD / oldD); newSet.add(nsx + ',' + nsy); }
+            if (osx < hmResW && osy < hmResD) {
+              const nsx = Math.round((osx * hmResW) / oldW),
+                nsy = Math.round((osy * hmResD) / oldD);
+              newSet.add(nsx + ',' + nsy);
+            }
+          }
+          mapData.editedVerticesPaint = newSet;
         }
-        mapData.editedVerticesPaint = newSet;
-    }
-    // 更新UI显示
-    const infoSize = document.getElementById('info-size');
-    if (infoSize) infoSize.textContent = worldWidth + '×' + worldDepth + ' (游玩' + playWidth + '×' + playDepth + ')';
-    // 同步滑块值
-    ['worldW','worldD','playW','playD'].forEach(k => {
-        const sl = document.getElementById('dim-' + k);
-        const num = document.getElementById('dim-' + k + '-num');
-        const val = k === 'worldW' ? worldWidth : k === 'worldD' ? worldDepth : k === 'playW' ? playWidth : playDepth;
-        if (sl) sl.value = val;
-        if (num) num.value = val;
-    });
-    // 更新高度图精度显示
-    const infoSeg = document.getElementById('info-segments');
-    if (infoSeg) infoSeg.textContent = hmResW + '×' + hmResD;
-    const hmTitle = document.getElementById('hm-panel-title');
-    if (hmTitle) hmTitle.textContent = '⛰️ 高度图 (' + hmResW + '×' + hmResD + ')';
-    // 高度图画布同步尺寸
-    if (typeof hmCanvas !== 'undefined' && hmCanvas) {
-        hmCanvas.width = hmResW; hmCanvas.height = hmResD;
-        hmCanvas.style.width = Math.min(256, hmResW) + 'px';
-        hmCanvas.style.height = Math.min(256, hmResD) + 'px';
-    }
-    // 摄像机 far 截面跟随地图尺寸动态调整，避免大地图时地面被裁剪成黑屏
-    const _maxDim = Math.max(worldWidth, worldDepth);
-    camera.far = Math.max(800, _maxDim * 3);
-    camera.updateProjectionMatrix();
-    // 阴影相机范围同步扩展
-    if (typeof sunLight !== 'undefined' && sunLight && sunLight.shadow && sunLight.shadow.camera) {
-        sunLight.shadow.camera.far = Math.max(300, _maxDim * 1.5);
-        const _shBound = Math.max(80, _maxDim * 0.6);
-        sunLight.shadow.camera.left = -_shBound;
-        sunLight.shadow.camera.right = _shBound;
-        sunLight.shadow.camera.top = _shBound;
-        sunLight.shadow.camera.bottom = -_shBound;
-        sunLight.shadow.camera.updateProjectionMatrix();
-    }
-}
-// 尺寸滑块/输入框双向绑定
-function bindDimSlider(sliderId, numId, mapDataKey) {
-    const sl = document.getElementById(sliderId), num = document.getElementById(numId);
-    if (!sl || !num) return;
-    sl.addEventListener('input', () => { num.value = sl.value; });
-    num.addEventListener('change', () => { sl.value = num.value; });
-}
-['worldW','worldD','playW','playD'].forEach(k => {
-    bindDimSlider('dim-' + k, 'dim-' + k + '-num', k);
-});
-// 应用尺寸按钮
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('btn-apply-dims');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        const nww = parseInt(document.getElementById('dim-worldW').value) || 300;
-        const nwd = parseInt(document.getElementById('dim-worldD').value) || 300;
-        const npw = parseInt(document.getElementById('dim-playW').value) || 200;
-        const npd = parseInt(document.getElementById('dim-playD').value) || 200;
-        if (npw > nww || npd > nwd) { alert('游玩区域不能大于世界尺寸！'); return; }
-        mapData.worldWidth = nww;
-        mapData.worldDepth = nwd;
-        mapData.playWidth = npw;
-        mapData.playDepth = npd;
-        applyMapDimensions();
-        createGround(); createGrid();
-        overlayInfo.textContent = '📐 地图尺寸已更新：' + worldWidth + '×' + worldDepth + ' (游玩' + playWidth + '×' + playDepth + ')，建议重新随机生成地形';
-    });
-});
+        // 更新UI显示
+        const infoSize = document.getElementById('info-size');
+        if (infoSize)
+          infoSize.textContent =
+            (worldWidth * 1.3).toFixed(0) +
+            '×' +
+            (worldDepth * 1.3).toFixed(0) +
+            ' m (游玩' +
+            (playWidth * 1.3).toFixed(0) +
+            '×' +
+            (playDepth * 1.3).toFixed(0) +
+            ' m)';
+        // 同步滑块值
+        ['worldW', 'worldD', 'playW', 'playD'].forEach((k) => {
+          const sl = document.getElementById('dim-' + k);
+          const num = document.getElementById('dim-' + k + '-num');
+          const val =
+            k === 'worldW'
+              ? worldWidth
+              : k === 'worldD'
+                ? worldDepth
+                : k === 'playW'
+                  ? playWidth
+                  : playDepth;
+          if (sl) sl.value = Math.round(val * 1.3);
+          if (num) num.value = Math.round(val * 1.3);
+        });
+        // 更新高度图精度显示
+        const infoSeg = document.getElementById('info-segments');
+        if (infoSeg) infoSeg.textContent = hmResW + '×' + hmResD;
+        const hmTitle = document.getElementById('hm-panel-title');
+        if (hmTitle) hmTitle.textContent = '⛰️ 高度图 (' + hmResW + '×' + hmResD + ')';
+        // 高度图画布同步尺寸
+        if (typeof hmCanvas !== 'undefined' && hmCanvas) {
+          hmCanvas.width = hmResW;
+          hmCanvas.height = hmResD;
+          hmCanvas.style.width = Math.min(256, hmResW) + 'px';
+          hmCanvas.style.height = Math.min(256, hmResD) + 'px';
+        }
+        // 摄像机 far 截面跟随地图尺寸动态调整，避免大地图时地面被裁剪成黑屏
+        const _maxDim = Math.max(worldWidth, worldDepth);
+        camera.far = Math.max(800, _maxDim * 3);
+        camera.updateProjectionMatrix();
+        // 阴影相机范围同步扩展
+        if (
+          typeof sunLight !== 'undefined' &&
+          sunLight &&
+          sunLight.shadow &&
+          sunLight.shadow.camera
+        ) {
+          sunLight.shadow.camera.far = Math.max(300, _maxDim * 1.5);
+          const _shBound = Math.max(80, _maxDim * 0.6);
+          sunLight.shadow.camera.left = -_shBound;
+          sunLight.shadow.camera.right = _shBound;
+          sunLight.shadow.camera.top = _shBound;
+          sunLight.shadow.camera.bottom = -_shBound;
+          sunLight.shadow.camera.updateProjectionMatrix();
+        }
+      }
+      // 尺寸滑块/输入框双向绑定
+      function bindDimSlider(sliderId, numId, mapDataKey) {
+        const sl = document.getElementById(sliderId),
+          num = document.getElementById(numId);
+        if (!sl || !num) return;
+        sl.addEventListener('input', () => {
+          num.value = sl.value;
+        });
+        num.addEventListener('change', () => {
+          sl.value = num.value;
+        });
+      }
+      ['worldW', 'worldD', 'playW', 'playD'].forEach((k) => {
+        bindDimSlider('dim-' + k, 'dim-' + k + '-num', k);
+      });
+      // 应用尺寸按钮
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btn-apply-dims');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          const nww = Math.round(
+            (parseInt(document.getElementById('dim-worldW').value) || 390) / 1.3
+          );
+          const nwd = Math.round(
+            (parseInt(document.getElementById('dim-worldD').value) || 390) / 1.3
+          );
+          const npw = Math.round(
+            (parseInt(document.getElementById('dim-playW').value) || 260) / 1.3
+          );
+          const npd = Math.round(
+            (parseInt(document.getElementById('dim-playD').value) || 260) / 1.3
+          );
+          if (npw > nww || npd > nwd) {
+            alert('游玩区域不能大于世界尺寸！');
+            return;
+          }
+          mapData.worldWidth = nww;
+          mapData.worldDepth = nwd;
+          mapData.playWidth = npw;
+          mapData.playDepth = npd;
+          applyMapDimensions();
+          createGround();
+          createGrid();
+          overlayInfo.textContent =
+            '📐 地图尺寸已更新：' +
+            (worldWidth * 1.3).toFixed(0) +
+            '×' +
+            (worldDepth * 1.3).toFixed(0) +
+            ' m (游玩' +
+            (playWidth * 1.3).toFixed(0) +
+            '×' +
+            (playDepth * 1.3).toFixed(0) +
+            ' m)，建议重新随机生成地形';
+        });
+      });
 
-// ----- DOM 引用 -----
-const viewport3D = document.getElementById('viewport-3d');
-const vp = viewport3D; // 别名
-const selView = document.getElementById('sel-view');
-const btnResetView = document.getElementById('btn-reset-view');
-const chkGrid = document.getElementById('chk-grid');
-const chkWireframe = document.getElementById('chk-wireframe');
-const btnExportJson = document.getElementById('btn-export-json');
-const btnNewMap = document.getElementById('btn-new-map');
-const mapNameLabel = document.getElementById('map-name-label');
-const overlayInfo = document.getElementById('overlay-info');
-const statusCam = document.getElementById('status-cam');
-const statusMouse = document.getElementById('status-mouse');
-const hmCanvas = document.getElementById('heightmap-canvas');
-const hmMinVal = document.getElementById('hm-minval');
-const hmMaxVal = document.getElementById('hm-maxval');
-const brushInd = document.getElementById('brush-indicator');
-const sldR = document.getElementById('brush-radius');
-const sldS = document.getElementById('brush-strength');
-// ----- 敌人配置面板 DOM -----
-const cfgPanel = document.getElementById('enemy-cfg-panel');
-const cfgHp = document.getElementById('cfg-hp');
-const cfgSpeed = document.getElementById('cfg-speed');
-const cfgView = document.getElementById('cfg-view');
-const cfgAtkDmg = document.getElementById('cfg-atkdmg');
-const cfgAtkCd = document.getElementById('cfg-atkcd');
-const cfgDrop = document.getElementById('cfg-drop');
-const cfgHeal = document.getElementById('cfg-heal');
-const cfgScore = document.getElementById('cfg-score');
-const cfgModeBar = document.getElementById('cfg-mode-bar');
-const cfgPatrolPrev = document.getElementById('cfg-patrol-preview');
-// ----- 地图数据模型 -----
-const mapData = {
-    name: '未命名',
-    worldWidth: 300, worldDepth: 300,
-    playWidth: 200, playDepth: 200,
-    heightmap: new Float32Array(hmResW * hmResD),
-    splatMap: new Uint8Array(hmResW * hmResD),
-    entities: [],
-    groups: [],
-    waters: [],      // { id, type:'pond'|'river', center:{x,z}, radius, height, points:[{x,z}] }
-    bridges: [],     // { id, from:{x,z}, to:{x,z}, width, height }
-    editedVerticesPaint: new Set(),  // "sx,sy" — 水体笔刷已编辑顶点（去重）
-};
+      // ----- DOM 引用 -----
+      const viewport3D = document.getElementById('viewport-3d');
+      const vp = viewport3D; // 别名
+      const selView = document.getElementById('sel-view');
+      const btnResetView = document.getElementById('btn-reset-view');
+      const chkGrid = document.getElementById('chk-grid');
+      const chkWireframe = document.getElementById('chk-wireframe');
+      const btnExportJson = document.getElementById('btn-export-json');
+      const btnNewMap = document.getElementById('btn-new-map');
+      const mapNameLabel = document.getElementById('map-name-label');
+      const overlayInfo = document.getElementById('overlay-info');
+      const statusCam = document.getElementById('status-cam');
+      const statusMouse = document.getElementById('status-mouse');
+      const hmCanvas = document.getElementById('heightmap-canvas');
+      const hmMinVal = document.getElementById('hm-minval');
+      const hmMaxVal = document.getElementById('hm-maxval');
+      const brushInd = document.getElementById('brush-indicator');
+      const sldR = document.getElementById('brush-radius');
+      const sldS = document.getElementById('brush-strength');
+      // ----- 敌人配置面板 DOM -----
+      const cfgPanel = document.getElementById('enemy-cfg-panel');
+      const cfgHp = document.getElementById('cfg-hp');
+      const cfgSpeed = document.getElementById('cfg-speed');
+      const cfgView = document.getElementById('cfg-view');
+      const cfgAtkDmg = document.getElementById('cfg-atkdmg');
+      const cfgAtkCd = document.getElementById('cfg-atkcd');
+      const cfgDrop = document.getElementById('cfg-drop');
+      const cfgHeal = document.getElementById('cfg-heal');
+      const cfgScore = document.getElementById('cfg-score');
+      const cfgModeBar = document.getElementById('cfg-mode-bar');
+      const cfgPatrolPrev = document.getElementById('cfg-patrol-preview');
+      // ----- 地图数据模型 -----
+      const mapData = {
+        name: '未命名',
+        worldWidth: 300,
+        worldDepth: 300,
+        playWidth: 200,
+        playDepth: 200,
+        heightmap: new Float32Array(hmResW * hmResD),
+        splatMap: new Uint8Array(hmResW * hmResD),
+        entities: [],
+        groups: [],
+        waters: [], // { id, type:'pond'|'river', center:{x,z}, radius, height, points:[{x,z}] }
+        bridges: [], // { id, from:{x,z}, to:{x,z}, width, height }
+        editedVerticesPaint: new Set(), // "sx,sy" — 水体笔刷已编辑顶点（去重）
+      };
 
-// 初始化默认 SplatMap (全草地)
-mapData.splatMap.fill(0);
+      // 初始化默认 SplatMap (全草地)
+      mapData.splatMap.fill(0);
 
-// ----- 笔刷状态 -----
-let brushMode = 'cursor'; // cursor|raise|lower|smooth|paint
-let brushRadius = 15, brushStrength = 8, paintType = 0;
-let isPainting = false;
-let isSprayPlacing = false;  // 拖拽连续放置实体
-let lastSprayPos = { x: 0, z: 0 };
-const SPRAY_SPACING = 8;
-let bridgePt1 = null;       // 桥梁起点
-let bridgePtMarker = null;
-let dirtyTex = false;
-let isDragging = false, isPanning = false, isBoxSelecting = false;
-let needsHmRender = false;
-let dragStart = { x: 0, y: 0 };
-const affectedBlocks = new Set();
-let entityMode = null; // 'select'|'spawn'|'tree'|'building'|'enemy'|'waypoint'|'bridge'|null
-let entityType = 'assault'; // enemy
-let treeType = 'cone'; // cone|sphere|oak
-let bldgType = 'bungalow'; // bungalow|villa|apartment
-let selectedEntityIds = new Set();  // 多选 ID 集合
-let collapsedCategories = new Set(['building', 'tree']); // 默认折叠建筑和树木
-let entitySortMode = 'time'; // 'time' | 'type'
-let waypointParentId = null;
-let entityIdCounter = 1;
-const entityMarkers = {};
-const patrolLines = {};
-const highlightRings = {};
-const bridgeMeshes = {};  // bridgeId → THREE.Group
-// 水体拖拽状态
-let isWaterPainting = false;   // 水体笔刷拖拽中
-let waterDragPoints = [];      // 拖拽轨迹点 [{x,z},...]
-let waterDragBaseLevels = []; // 拖拽轨迹点的原始地形高度（用于计算水面基准）
-let waterBaseLevel = 0;        // 当前水体基准水位（首次点击的地形高度）
-let waterLayerMeshes = [];     // 3D水面mesh列表
-let isRoadPainting = false;    // 道路绘制拖拽中
-let roadDragPoints = [];       // 道路轨迹点 [{x,z},...]
-let roadType = 4;              // 道路纹理类型 (3=水泥 4=柏油 5=地砖)
-let roadWidth = 4;             // 道路宽度(米) 默认村路
-const roadTypeNames = {3:'水泥路',4:'柏油路',5:'地砖路'};
+      // ----- 笔刷状态 -----
+      let brushMode = 'cursor'; // cursor|raise|lower|smooth|paint
+      let brushRadius = 15,
+        brushStrength = 8,
+        paintType = 0;
+      let isPainting = false;
+      let isSprayPlacing = false; // 拖拽连续放置实体
+      let lastSprayPos = { x: 0, z: 0 };
+      const SPRAY_SPACING = 8;
+      let bridgePt1 = null; // 桥梁起点
+      let bridgePtMarker = null;
+      let dirtyTex = false;
+      let isDragging = false,
+        isPanning = false,
+        isBoxSelecting = false;
+      let needsHmRender = false;
+      let dragStart = { x: 0, y: 0 };
+      const affectedBlocks = new Set();
+      let entityMode = null; // 'select'|'spawn'|'tree'|'building'|'enemy'|'waypoint'|'bridge'|null
+      let entityType = 'assault'; // enemy
+      let treeType = 'cone'; // cone|sphere|oak
+      let bldgType = 'bungalow'; // bungalow|villa|apartment
+      let selectedEntityIds = new Set(); // 多选 ID 集合
+      let collapsedCategories = new Set(['building', 'tree']); // 默认折叠建筑和树木
+      let entitySortMode = 'time'; // 'time' | 'type'
+      let waypointParentId = null;
+      let entityIdCounter = 1;
+      const entityMarkers = {};
+      const patrolLines = {};
+      const highlightRings = {};
+      const bridgeMeshes = {}; // bridgeId → THREE.Group
+      // 水体拖拽状态
+      let isWaterPainting = false; // 水体笔刷拖拽中
+      let waterDragPoints = []; // 拖拽轨迹点 [{x,z},...]
+      let waterDragBaseLevels = []; // 拖拽轨迹点的原始地形高度（用于计算水面基准）
+      let waterBaseLevel = 0; // 当前水体基准水位（首次点击的地形高度）
+      let waterLayerMeshes = []; // 3D水面mesh列表
+      let isRoadPainting = false; // 道路绘制拖拽中
+      let roadDragPoints = []; // 道路轨迹点 [{x,z},...]
+      let roadType = 4; // 道路纹理类型 (3=水泥 4=柏油 5=地砖)
+      let roadWidth = 4; // 道路宽度(米) 默认村路
+      const roadTypeNames = { 3: '水泥路', 4: '柏油路', 5: '地砖路' };
 
-// ----- 地形纹理 + Three.js 场景 -----
-const TC = [[74,107,58],[107,90,58],[196,180,122],[138,138,128],[58,58,62],[139,94,74]];
-const TNAMES = ['grass','mud','sand','concrete','asphalt','brick'];
-let groundTexCanvas = null;
+      // ----- 地形纹理 + Three.js 场景 -----
+      const TC = [
+        [74, 107, 58],
+        [107, 90, 58],
+        [196, 180, 122],
+        [138, 138, 128],
+        [58, 58, 62],
+        [139, 94, 74],
+      ];
+      const TNAMES = ['grass', 'mud', 'sand', 'concrete', 'asphalt', 'brick'];
+      let groundTexCanvas = null;
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a2e);
 
-const camera = new THREE.PerspectiveCamera(55, viewport3D.clientWidth / Math.max(viewport3D.clientHeight, 1), 0.1, 800);
-camera.position.set(0, 120, 0); camera.lookAt(0, 0, 0);
+      const camera = new THREE.PerspectiveCamera(
+        55,
+        viewport3D.clientWidth / Math.max(viewport3D.clientHeight, 1),
+        0.1,
+        800
+      );
+      camera.position.set(0, 120, 0);
+      camera.lookAt(0, 0, 0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
-viewport3D.appendChild(renderer.domElement);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+      viewport3D.appendChild(renderer.domElement);
 
-const ambientLight = new THREE.AmbientLight(0x8899aa, 0.6); scene.add(ambientLight);
-const sunLight = new THREE.DirectionalLight(0xffeedd, 0.9);
-sunLight.position.set(60, 100, 30); sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(1024, 1024); sunLight.shadow.camera.near = 1;
-sunLight.shadow.camera.far = 300; sunLight.shadow.camera.left = -80;
-sunLight.shadow.camera.right = 80; sunLight.shadow.camera.top = 80;
-sunLight.shadow.camera.bottom = -80; scene.add(sunLight);
-const hemiLight = new THREE.HemisphereLight(0x8899aa, 0x445566, 0.4); scene.add(hemiLight);
+      const ambientLight = new THREE.AmbientLight(0x8899aa, 0.6);
+      scene.add(ambientLight);
+      const sunLight = new THREE.DirectionalLight(0xffeedd, 0.9);
+      sunLight.position.set(60, 100, 30);
+      sunLight.castShadow = true;
+      sunLight.shadow.mapSize.set(1024, 1024);
+      sunLight.shadow.camera.near = 1;
+      sunLight.shadow.camera.far = 300;
+      sunLight.shadow.camera.left = -80;
+      sunLight.shadow.camera.right = 80;
+      sunLight.shadow.camera.top = 80;
+      sunLight.shadow.camera.bottom = -80;
+      scene.add(sunLight);
+      const hemiLight = new THREE.HemisphereLight(0x8899aa, 0x445566, 0.4);
+      scene.add(hemiLight);
 
-let groundPlane, groundWireframe, gridHelper;
-const raycaster = new THREE.Raycaster();
-const mNDC = new THREE.Vector2();
-const gPlane3 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      let groundPlane, groundWireframe, gridHelper;
+      const raycaster = new THREE.Raycaster();
+      const mNDC = new THREE.Vector2();
+      const gPlane3 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-// ========== UndoManager (50步快照栈) ==========
-const undoManager = {
-    stack: [],
-    index: -1,
-    maxSteps: 50,
-    _inUndoRedo: false,  // 防止撤消/重做时再次推快照
-};
-function pushSnapshot() {
-    if (undoManager._inUndoRedo) return;
-    // 截断回退栈（新操作废弃之后的redo历史）
-    if (undoManager.index < undoManager.stack.length - 1) {
-        undoManager.stack.length = undoManager.index + 1;
-    }
-    // 深拷贝快照
-    const snap = {
-        heightmap: new Float32Array(mapData.heightmap),
-        splatMap: new Uint8Array(mapData.splatMap),
-        entities: deepClone(mapData.entities),
-        waters: deepClone(mapData.waters),
-        bridges: deepClone(mapData.bridges),
-        groups: deepClone(mapData.groups),
-        editedVerticesPaint: [...mapData.editedVerticesPaint],
-    };
-    undoManager.stack.push(snap);
-    if (undoManager.stack.length > undoManager.maxSteps) undoManager.stack.shift();
-    else undoManager.index++;
-    updateUndoButtons();
-}
-function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+      // ========== UndoManager (50步快照栈) ==========
+      const undoManager = {
+        stack: [],
+        index: -1,
+        maxSteps: 50,
+        _inUndoRedo: false, // 防止撤消/重做时再次推快照
+      };
+      function pushSnapshot() {
+        if (undoManager._inUndoRedo) return;
+        // 截断回退栈（新操作废弃之后的redo历史）
+        if (undoManager.index < undoManager.stack.length - 1) {
+          undoManager.stack.length = undoManager.index + 1;
+        }
+        // 深拷贝快照
+        const snap = {
+          heightmap: new Float32Array(mapData.heightmap),
+          splatMap: new Uint8Array(mapData.splatMap),
+          entities: deepClone(mapData.entities),
+          waters: deepClone(mapData.waters),
+          bridges: deepClone(mapData.bridges),
+          groups: deepClone(mapData.groups),
+          editedVerticesPaint: [...mapData.editedVerticesPaint],
+        };
+        undoManager.stack.push(snap);
+        if (undoManager.stack.length > undoManager.maxSteps) undoManager.stack.shift();
+        else undoManager.index++;
+        updateUndoButtons();
+      }
+      function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
 
-function undo() {
-    if (undoManager.index < 0) return;
-    const snap = undoManager.stack[undoManager.index];
-    undoManager.index--;
-    restoreSnapshot(snap);
-    updateUndoButtons();
-    overlayInfo.textContent = '↩️ 已撤销 (第'+(undoManager.index+2)+'步)';
-}
-function redo() {
-    if (undoManager.index >= undoManager.stack.length - 1) return;
-    undoManager.index++;
-    const snap = undoManager.stack[undoManager.index];
-    restoreSnapshot(snap);
-    updateUndoButtons();
-    overlayInfo.textContent = '↪️ 已重做 (第'+(undoManager.index+1)+'步)';
-}
-function restoreSnapshot(snap) {
-    undoManager._inUndoRedo = true;
-    // 恢复高度图
-    for (let i = 0; i < Math.min(snap.heightmap.length, mapData.heightmap.length); i++) {
-        mapData.heightmap[i] = snap.heightmap[i];
-        mapData.splatMap[i] = snap.splatMap[i];
-    }
-    // 清空当前场景标记
-    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
-    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
-    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
-    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
-    Object.values(highlightRings).forEach(r => { scene.remove(r); r.geometry.dispose(); r.material.dispose(); });
-    Object.keys(highlightRings).forEach(k => delete highlightRings[k]);
-    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
-    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
-    // 恢复实体/水体/桥梁
-    mapData.entities = deepClone(snap.entities);
-    mapData.waters = deepClone(snap.waters);
-    mapData.bridges = deepClone(snap.bridges);
-    mapData.groups = deepClone(snap.groups);
-    mapData.editedVerticesPaint = new Set(snap.editedVerticesPaint || []);
-    selectedEntityIds.clear();
-    // 重建3D标记
-    mapData.entities.forEach(ent => {
-        let marker;
-        switch (ent.type) {
-            case 'spawn': marker = createSpawnMarker(ent.position.x, ent.position.y, ent.position.z, ent.yaw||0); break;
-            case 'tree': marker = createTreeMarker(ent.position.x, ent.position.y, ent.position.z, ent.subType||'cone'); break;
-            case 'building': marker = createBuildingMarker(ent.position.x, ent.position.y, ent.position.z, ent.subType||'bungalow'); break;
+      function undo() {
+        if (undoManager.index < 0) return;
+        const snap = undoManager.stack[undoManager.index];
+        undoManager.index--;
+        restoreSnapshot(snap);
+        updateUndoButtons();
+        overlayInfo.textContent = '↩️ 已撤销 (第' + (undoManager.index + 2) + '步)';
+      }
+      function redo() {
+        if (undoManager.index >= undoManager.stack.length - 1) return;
+        undoManager.index++;
+        const snap = undoManager.stack[undoManager.index];
+        restoreSnapshot(snap);
+        updateUndoButtons();
+        overlayInfo.textContent = '↪️ 已重做 (第' + (undoManager.index + 1) + '步)';
+      }
+      function restoreSnapshot(snap) {
+        undoManager._inUndoRedo = true;
+        // 恢复高度图
+        for (let i = 0; i < Math.min(snap.heightmap.length, mapData.heightmap.length); i++) {
+          mapData.heightmap[i] = snap.heightmap[i];
+          mapData.splatMap[i] = snap.splatMap[i];
+        }
+        // 清空当前场景标记
+        Object.values(entityMarkers).forEach((m) => {
+          scene.remove(m);
+          disposeGroup(m);
+        });
+        Object.keys(entityMarkers).forEach((k) => delete entityMarkers[k]);
+        Object.values(patrolLines).forEach((l) => {
+          scene.remove(l);
+          l.geometry.dispose();
+          l.material.dispose();
+        });
+        Object.keys(patrolLines).forEach((k) => delete patrolLines[k]);
+        Object.values(highlightRings).forEach((r) => {
+          scene.remove(r);
+          r.geometry.dispose();
+          r.material.dispose();
+        });
+        Object.keys(highlightRings).forEach((k) => delete highlightRings[k]);
+        Object.values(bridgeMeshes).forEach((m) => {
+          scene.remove(m);
+          m.traverse((c) => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+          });
+        });
+        Object.keys(bridgeMeshes).forEach((k) => delete bridgeMeshes[k]);
+        // 恢复实体/水体/桥梁
+        mapData.entities = deepClone(snap.entities);
+        mapData.waters = deepClone(snap.waters);
+        mapData.bridges = deepClone(snap.bridges);
+        mapData.groups = deepClone(snap.groups);
+        mapData.editedVerticesPaint = new Set(snap.editedVerticesPaint || []);
+        selectedEntityIds.clear();
+        // 重建3D标记
+        mapData.entities.forEach((ent) => {
+          let marker;
+          switch (ent.type) {
+            case 'spawn':
+              marker = createSpawnMarker(
+                ent.position.x,
+                ent.position.y,
+                ent.position.z,
+                ent.yaw || 0
+              );
+              break;
+            case 'tree':
+              marker = createTreeMarker(
+                ent.position.x,
+                ent.position.y,
+                ent.position.z,
+                ent.subType || 'cone'
+              );
+              break;
+            case 'building':
+              marker = createBuildingMarker(
+                ent.position.x,
+                ent.position.y,
+                ent.position.z,
+                ent.subType || 'bungalow'
+              );
+              break;
             case 'enemy':
-                marker = createEnemyMarker(ent.position.x, ent.position.y, ent.position.z, ent.enemyType||'assault');
-                if (ent.patrol) ent.patrol.forEach((wp, j) => {
-                    const mk = createWaypointMarker(wp.x, wp.y, wp.z, j);
-                    entityMarkers[ent.id + '_wp' + j] = mk; scene.add(mk);
+              marker = createEnemyMarker(
+                ent.position.x,
+                ent.position.y,
+                ent.position.z,
+                ent.enemyType || 'assault'
+              );
+              if (ent.patrol)
+                ent.patrol.forEach((wp, j) => {
+                  const mk = createWaypointMarker(wp.x, wp.y, wp.z, j);
+                  entityMarkers[ent.id + '_wp' + j] = mk;
+                  scene.add(mk);
                 });
-                refreshPatrolLines(ent.id);
-                break;
+              refreshPatrolLines(ent.id);
+              break;
+          }
+          if (marker) {
+            scene.add(marker);
+            entityMarkers[ent.id] = marker;
+          }
+        });
+        // 重建桥梁网格（水体由 vertexColors 呈现，无需独立 mesh）
+        mapData.bridges.forEach((b) => {
+          const m = createBridgeMesh(b);
+          scene.add(m);
+          bridgeMeshes[b.id] = m;
+        });
+        // 重建地面+UI
+        if (groundPlane) {
+          groundPlane.geometry.dispose();
+          if (groundPlane.material.map) groundPlane.material.map.dispose();
+          groundPlane.material.dispose();
         }
-        if (marker) { scene.add(marker); entityMarkers[ent.id] = marker; }
-    });
-    // 重建桥梁网格（水体由 vertexColors 呈现，无需独立 mesh）
-    mapData.bridges.forEach(b => { const m = createBridgeMesh(b); scene.add(m); bridgeMeshes[b.id] = m; });
-    // 重建地面+UI
-    if (groundPlane) { groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
-    createGround();
-    renderHeightmapCanvas();
-    refreshEntityList();
-    refreshWaterList();
-    refreshGroupList();
-    undoManager._inUndoRedo = false;
-}
-function updateUndoButtons() {
-    document.getElementById('btn-undo').disabled = undoManager.index < 0;
-    document.getElementById('btn-redo').disabled = undoManager.index >= undoManager.stack.length - 1;
-}
-function clearUndoStack() {
-    undoManager.stack = [];
-    undoManager.index = -1;
-    updateUndoButtons();
-}
+        createGround();
+        renderHeightmapCanvas();
+        refreshEntityList();
+        refreshWaterList();
+        refreshGroupList();
+        undoManager._inUndoRedo = false;
+      }
+      function updateUndoButtons() {
+        document.getElementById('btn-undo').disabled = undoManager.index < 0;
+        document.getElementById('btn-redo').disabled =
+          undoManager.index >= undoManager.stack.length - 1;
+      }
+      function clearUndoStack() {
+        undoManager.stack = [];
+        undoManager.index = -1;
+        updateUndoButtons();
+      }
 
-// 按钮事件
-document.getElementById('btn-undo').addEventListener('click', undo);
-document.getElementById('btn-redo').addEventListener('click', redo);
-// 键盘快捷键
-window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey||e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-    if ((e.ctrlKey||e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
-    // Delete键删除选中实体（跳过输入框聚焦时）
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEntityIds.size > 0) {
-        const tag = document.activeElement && document.activeElement.tagName;
-        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && document.activeElement.contentEditable !== 'true') {
+      // 按钮事件
+      document.getElementById('btn-undo').addEventListener('click', undo);
+      document.getElementById('btn-redo').addEventListener('click', redo);
+      // 键盘快捷键
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          undo();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+          e.preventDefault();
+          redo();
+        }
+        // Delete键删除选中实体（跳过输入框聚焦时）
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEntityIds.size > 0) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (
+            tag !== 'INPUT' &&
+            tag !== 'TEXTAREA' &&
+            document.activeElement.contentEditable !== 'true'
+          ) {
             e.preventDefault();
             pushSnapshot();
-            [...selectedEntityIds].forEach(id => deleteEntity(id));
+            [...selectedEntityIds].forEach((id) => deleteEntity(id));
+          }
         }
-    }
-});
+      });
 
+      function createGround() {
+        if (groundPlane) {
+          scene.remove(groundPlane);
+          groundPlane.geometry.dispose();
+          if (groundPlane.material.map) groundPlane.material.map.dispose();
+          groundPlane.material.dispose();
+        }
+        if (groundWireframe) {
+          scene.remove(groundWireframe);
+          groundWireframe.geometry.dispose();
+          groundWireframe.material.dispose();
+        }
 
-function createGround() {
-    if (groundPlane) { scene.remove(groundPlane); groundPlane.geometry.dispose(); if(groundPlane.material.map)groundPlane.material.map.dispose(); groundPlane.material.dispose(); }
-    if (groundWireframe) { scene.remove(groundWireframe); groundWireframe.geometry.dispose(); groundWireframe.material.dispose(); }
+        const geo = new THREE.PlaneGeometry(worldWidth, worldDepth, hmResW - 1, hmResD - 1);
+        geo.rotateX(-Math.PI / 2);
+        updGeoHeights(geo);
 
-    const geo = new THREE.PlaneGeometry(worldWidth, worldDepth, hmResW - 1, hmResD - 1);
-    geo.rotateX(-Math.PI / 2);
-    updGeoHeights(geo);
-
-    // vertexColors: 只在确实凹陷的顶点着色蓝色（平滑过渡带消锯齿）
-    if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0) {
-        const p = geo.attributes.position;
-        const colorAttr = new Float32Array(p.count * 3);
-        colorAttr.fill(1.0);
-        for (let i = 0; i < p.count; i++) {
-            const x = p.getX(i), z = p.getZ(i);
+        // vertexColors: 只在确实凹陷的顶点着色蓝色（平滑过渡带消锯齿）
+        if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0) {
+          const p = geo.attributes.position;
+          const colorAttr = new Float32Array(p.count * 3);
+          colorAttr.fill(1.0);
+          for (let i = 0; i < p.count; i++) {
+            const x = p.getX(i),
+              z = p.getZ(i);
             const { sx, sy } = world2sm(x, z);
             if (mapData.editedVerticesPaint.has(sx + ',' + sy)) {
-                const idx = w2i(x, z);
-                const h = idx >= 0 ? mapData.heightmap[idx] : 0;
-                // 平滑过渡带: h<-0.12 全蓝 → -0.12<h<-0.04 渐变到白 → h>-0.04 白色
-                const blend = h < -0.12 ? 1.0 : h < -0.04 ? (-0.04 - h) / 0.08 : 0;
-                if (blend > 0.01) {
-                    const depth = Math.min(1, Math.max(0, (-h) / (brushStrength * 0.2 + 0.5)));
-                    colorAttr[i * 3] = 0.10 + (1 - blend) * 0.90;
-                    colorAttr[i * 3 + 1] = (0.40 + depth * 0.15) * blend + (1 - blend);
-                    colorAttr[i * 3 + 2] = (0.65 + depth * 0.25) * blend + (1 - blend);
-                }
+              const idx = w2i(x, z);
+              const h = idx >= 0 ? mapData.heightmap[idx] : 0;
+              // 平滑过渡带: h<-0.12 全蓝 → -0.12<h<-0.04 渐变到白 → h>-0.04 白色
+              const blend = h < -0.12 ? 1.0 : h < -0.04 ? (-0.04 - h) / 0.08 : 0;
+              if (blend > 0.01) {
+                const depth = Math.min(1, Math.max(0, -h / (brushStrength * 0.2 + 0.5)));
+                colorAttr[i * 3] = 0.1 + (1 - blend) * 0.9;
+                colorAttr[i * 3 + 1] = (0.4 + depth * 0.15) * blend + (1 - blend);
+                colorAttr[i * 3 + 2] = (0.65 + depth * 0.25) * blend + (1 - blend);
+              }
             }
+          }
+          geo.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
         }
-        geo.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
-    }
 
-    const tex = freshTex(); // SplatMap 驱动纹理
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05, vertexColors: mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0 });
-    groundPlane = new THREE.Mesh(geo, mat);
-    groundPlane.receiveShadow = true;
-    scene.add(groundPlane);
+        const tex = freshTex(); // SplatMap 驱动纹理
+        const mat = new THREE.MeshStandardMaterial({
+          map: tex,
+          roughness: 0.85,
+          metalness: 0.05,
+          vertexColors: mapData.editedVerticesPaint && mapData.editedVerticesPaint.size > 0,
+        });
+        groundPlane = new THREE.Mesh(geo, mat);
+        groundPlane.receiveShadow = true;
+        scene.add(groundPlane);
 
-    const wireGeo = new THREE.WireframeGeometry(geo, 1);
-    groundWireframe = new THREE.Mesh(wireGeo, new THREE.MeshBasicMaterial({ color: 0x333355, transparent: true, opacity: 0.3 }));
-    groundWireframe.visible = chkWireframe.checked;
-    scene.add(groundWireframe);
+        const wireGeo = new THREE.WireframeGeometry(geo, 1);
+        groundWireframe = new THREE.Mesh(
+          wireGeo,
+          new THREE.MeshBasicMaterial({ color: 0x333355, transparent: true, opacity: 0.3 })
+        );
+        groundWireframe.visible = chkWireframe.checked;
+        scene.add(groundWireframe);
 
-    // 平坦水体水面层
-    createWaterLayer();
+        // 平坦水体水面层
+        createWaterLayer();
 
-    updateTerrainStats();
-}
-// ----- 鼠标/相机控制 -----
-viewport3D.addEventListener('mousedown', (e) => {
-    // 桥梁放置模式（两次点击）
-    if (entityMode === 'bridge' && e.button === 0) {
-        if (!bridgePt1) {
+        updateTerrainStats();
+      }
+      // ----- 鼠标/相机控制 -----
+      viewport3D.addEventListener('mousedown', (e) => {
+        // 桥梁放置模式（两次点击）
+        if (entityMode === 'bridge' && e.button === 0) {
+          if (!bridgePt1) {
             const pt = getWorldPos(e);
-            bridgePt1 = { x: pt.x, z: pt.z }; bridgePtMarker = createWaypointMarker(pt.x, smpHeight(pt.x, pt.z), pt.z, 0);
-            bridgePtMarker.children.forEach(c => { c.material.color.set(0x44aaff); });
+            bridgePt1 = { x: pt.x, z: pt.z };
+            bridgePtMarker = createWaypointMarker(pt.x, smpHeight(pt.x, pt.z), pt.z, 0);
+            bridgePtMarker.children.forEach((c) => {
+              c.material.color.set(0x44aaff);
+            });
             scene.add(bridgePtMarker);
-            overlayInfo.textContent = '🌉 桥梁起点已定，点击终点 (X:'+pt.x.toFixed(1)+' Z:'+pt.z.toFixed(1)+')';
-        } else {
+            overlayInfo.textContent =
+              '🌉 桥梁起点已定，点击终点 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')';
+          } else {
             const pt = getWorldPos(e);
-            if (bridgePtMarker) { scene.remove(bridgePtMarker); disposeGroup(bridgePtMarker); bridgePtMarker = null; }
+            if (bridgePtMarker) {
+              scene.remove(bridgePtMarker);
+              disposeGroup(bridgePtMarker);
+              bridgePtMarker = null;
+            }
             addBridge(bridgePt1, { x: pt.x, z: pt.z });
             createGround();
             renderHeightmapCanvas();
             overlayInfo.textContent = '✅ 桥梁已放置';
             bridgePt1 = null;
+          }
+          e.preventDefault();
+          return;
         }
-        e.preventDefault(); return;
-    }
 
-    // 水体笔刷 — 以首次点击地形高度为基准水位，统一平坦水面
-    if (brushMode === 'water' && e.button === 0 && !e.shiftKey) {
-        pushSnapshot();  // 操作前保存快照
-        isPainting = true;
-        isWaterPainting = true;
-        const pt = getWorldPos(e);
-        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
-        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
-        const baseLevel = smpHeight(pt.x, pt.z);  // 记录点击处原始地形高度
-        waterBaseLevel = baseLevel;  // 初始水位 = 点击处高度
-        waterDragPoints = [{ x: pt.x, z: pt.z }];
-        waterDragBaseLevels = [baseLevel];  // 记录每个轨迹点的原始高度
-        // v0.32.5: 不再在此调用 applyBrush，河床由 mouseup 走廊法统一雕刻
-        // 首次水体编辑需要启用 vertexColors
-        if (!groundPlane.material.vertexColors) {
+        // 水体笔刷 — 以首次点击地形高度为基准水位，统一平坦水面
+        if (brushMode === 'water' && e.button === 0 && !e.shiftKey) {
+          pushSnapshot(); // 操作前保存快照
+          isPainting = true;
+          isWaterPainting = true;
+          const pt = getWorldPos(e);
+          pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+          pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
+          const baseLevel = smpHeight(pt.x, pt.z); // 记录点击处原始地形高度
+          waterBaseLevel = baseLevel; // 初始水位 = 点击处高度
+          waterDragPoints = [{ x: pt.x, z: pt.z }];
+          waterDragBaseLevels = [baseLevel]; // 记录每个轨迹点的原始高度
+          // v0.32.5: 不再在此调用 applyBrush，河床由 mouseup 走廊法统一雕刻
+          // 首次水体编辑需要启用 vertexColors
+          if (!groundPlane.material.vertexColors) {
             if (!groundPlane.geometry.attributes.color) {
-                const colorAttr = new Float32Array(groundPlane.geometry.attributes.position.count * 3);
-                colorAttr.fill(1.0);
-                groundPlane.geometry.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
+              const colorAttr = new Float32Array(
+                groundPlane.geometry.attributes.position.count * 3
+              );
+              colorAttr.fill(1.0);
+              groundPlane.geometry.setAttribute('color', new THREE.BufferAttribute(colorAttr, 3));
             }
             groundPlane.material.vertexColors = true;
             groundPlane.material.needsUpdate = true;
+          }
+          needsHmRender = true;
+          overlayInfo.textContent =
+            '🟦 水体笔刷 — 单击生成池塘 | 拖拽画河流 (r:' +
+            brushRadius +
+            ' 深度:' +
+            brushStrength +
+            ')';
+          e.preventDefault();
+          return;
         }
-        needsHmRender = true;
-        overlayInfo.textContent = '🟦 水体笔刷 — 单击生成池塘 | 拖拽画河流 (r:'+brushRadius+' 深度:'+brushStrength+')';
-        e.preventDefault(); return;
-    }
 
-    // 道路绘制 — CatmullRom平滑拖拽
-    if (brushMode === 'road' && e.button === 0 && !e.shiftKey) {
-        pushSnapshot();
-        isPainting = true;
-        isRoadPainting = true;
-        const pt = getWorldPos(e);
-        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
-        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
-        roadDragPoints = [{ x: pt.x, z: pt.z }];
-        needsHmRender = true;
-        overlayInfo.textContent = '🛣️ 道路绘制中... '+roadTypeNames[roadType]+' '+roadWidth+'m | 松手完成';
-        e.preventDefault(); return;
-    }
+        // 道路绘制 — CatmullRom平滑拖拽
+        if (brushMode === 'road' && e.button === 0 && !e.shiftKey) {
+          pushSnapshot();
+          isPainting = true;
+          isRoadPainting = true;
+          const pt = getWorldPos(e);
+          pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+          pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
+          roadDragPoints = [{ x: pt.x, z: pt.z }];
+          needsHmRender = true;
+          overlayInfo.textContent =
+            '🛣️ 道路绘制中... ' + roadTypeNames[roadType] + ' ' + roadWidth + 'm | 松手完成';
+          e.preventDefault();
+          return;
+        }
 
-    // 实体选择模式 — 仅处理点击选实体，拖拽/视角留给后续逻辑
-    if (entityMode === 'select' && e.button === 0 && !e.shiftKey) {
-        const pt = getWorldPos(e);
-        let bestDist = 5, bestId = null;
-        mapData.entities.forEach(ent => {
+        // 实体选择模式 — 仅处理点击选实体，拖拽/视角留给后续逻辑
+        if (entityMode === 'select' && e.button === 0 && !e.shiftKey) {
+          const pt = getWorldPos(e);
+          let bestDist = 5,
+            bestId = null;
+          mapData.entities.forEach((ent) => {
             const d = Math.hypot(pt.x - ent.position.x, pt.z - ent.position.z);
-            if (d < bestDist) { bestDist = d; bestId = ent.id; }
-        });
-        const ctrl = e.ctrlKey || e.metaKey;
-        if (bestId) {
+            if (d < bestDist) {
+              bestDist = d;
+              bestId = ent.id;
+            }
+          });
+          const ctrl = e.ctrlKey || e.metaKey;
+          if (bestId) {
             if (ctrl) {
-                if (selectedEntityIds.has(bestId)) {
-                    selectedEntityIds.delete(bestId);
-                    overlayInfo.textContent = '取消选中 #' + bestId + ' | 已选 ' + selectedEntityIds.size + ' 个';
-                } else {
-                    pushSnapshot();
-                    selectedEntityIds.add(bestId);
-                    overlayInfo.textContent = '👆 Ctrl多选 #' + bestId + ' | 已选 ' + selectedEntityIds.size + ' 个 — 拖拽移动';
-                }
-            } else if (selectedEntityIds.has(bestId)) {
-                // 点击已选实体 → 保持多选，准备整体拖拽
-                overlayInfo.textContent = '👆 拖拽移动 ' + selectedEntityIds.size + ' 个实体 | 点空白取消选择';
-            } else {
+              if (selectedEntityIds.has(bestId)) {
+                selectedEntityIds.delete(bestId);
+                overlayInfo.textContent =
+                  '取消选中 #' + bestId + ' | 已选 ' + selectedEntityIds.size + ' 个';
+              } else {
                 pushSnapshot();
-                selectedEntityIds.clear();
                 selectedEntityIds.add(bestId);
-                overlayInfo.textContent = '👆 已选中 #' + bestId + ' — 拖拽移动实体 | Ctrl+点击可多选';
+                overlayInfo.textContent =
+                  '👆 Ctrl多选 #' + bestId + ' | 已选 ' + selectedEntityIds.size + ' 个 — 拖拽移动';
+              }
+            } else if (selectedEntityIds.has(bestId)) {
+              // 点击已选实体 → 保持多选，准备整体拖拽
+              overlayInfo.textContent =
+                '👆 拖拽移动 ' + selectedEntityIds.size + ' 个实体 | 点空白取消选择';
+            } else {
+              pushSnapshot();
+              selectedEntityIds.clear();
+              selectedEntityIds.add(bestId);
+              overlayInfo.textContent =
+                '👆 已选中 #' + bestId + ' — 拖拽移动实体 | Ctrl+点击可多选';
             }
             refreshEntityList();
-        } else if (!ctrl) {
+          } else if (!ctrl) {
             selectedEntityIds.clear();
             refreshEntityList();
-            overlayInfo.textContent = '👆 点击实体选中，Ctrl+点击多选 | 拖拽移动 | 未命中实体时可旋转视角';
+            overlayInfo.textContent =
+              '👆 点击实体选中，Ctrl+点击多选 | 拖拽移动 | 未命中实体时可旋转视角';
+          }
+          // 不 return，继续执行下面的相机旋转/平移逻辑
         }
-        // 不 return，继续执行下面的相机旋转/平移逻辑
-    }
 
-    // 实体放置模式
-    if (entityMode && entityMode !== 'select' && e.button === 0 && !e.shiftKey) {
-        pushSnapshot();
-        const pt = getWorldPos(e);
-        // 实体/巡逻点仅允许放置在空气墙内
-        if (Math.abs(pt.x) > playHalfW || Math.abs(pt.z) > playHalfD) {
+        // 实体放置模式
+        if (entityMode && entityMode !== 'select' && e.button === 0 && !e.shiftKey) {
+          pushSnapshot();
+          const pt = getWorldPos(e);
+          // 实体/巡逻点仅允许放置在空气墙内
+          if (Math.abs(pt.x) > playHalfW || Math.abs(pt.z) > playHalfD) {
             overlayInfo.textContent = '⚠️ 实体仅可放置在空气墙内，外围区域不可放置';
             return;
-        }
-        const h = smpHeight(pt.x, pt.z);
-        if (entityMode === 'waypoint') {
+          }
+          const h = smpHeight(pt.x, pt.z);
+          if (entityMode === 'waypoint') {
             // 添加巡逻点到所有选中的敌人
-            const selEnemies = [...selectedEntityIds].filter(id => (mapData.entities.find(e=>e.id===id)||{}).type==='enemy');
-            if (selEnemies.length === 0) { overlayInfo.textContent = '⚠️ 请先选中至少一个敌人'; return; }
-            selEnemies.forEach(eid => {
-                const ent = mapData.entities.find(e => e.id === eid);
-                if (!ent || ent.type !== 'enemy') return;
-                ent.patrol.push({ x: pt.x, y: h, z: pt.z });
-                const wp = createWaypointMarker(pt.x, h, pt.z, ent.patrol.length - 1);
-                entityMarkers[ent.id + '_wp' + (ent.patrol.length - 1)] = wp;
-                scene.add(wp);
-                refreshPatrolLines(ent.id);
+            const selEnemies = [...selectedEntityIds].filter(
+              (id) => (mapData.entities.find((e) => e.id === id) || {}).type === 'enemy'
+            );
+            if (selEnemies.length === 0) {
+              overlayInfo.textContent = '⚠️ 请先选中至少一个敌人';
+              return;
+            }
+            selEnemies.forEach((eid) => {
+              const ent = mapData.entities.find((e) => e.id === eid);
+              if (!ent || ent.type !== 'enemy') return;
+              ent.patrol.push({ x: pt.x, y: h, z: pt.z });
+              const wp = createWaypointMarker(pt.x, h, pt.z, ent.patrol.length - 1);
+              entityMarkers[ent.id + '_wp' + (ent.patrol.length - 1)] = wp;
+              scene.add(wp);
+              refreshPatrolLines(ent.id);
             });
             refreshEntityList();
-            const suffix = selEnemies.length > 1 ? ' (已同步到 ' + selEnemies.length + ' 个敌人)' : '';
-            overlayInfo.textContent = '✅ 巡逻点已添加 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')' + suffix;
-        } else if (entityMode === 'spawn') {
+            const suffix =
+              selEnemies.length > 1 ? ' (已同步到 ' + selEnemies.length + ' 个敌人)' : '';
+            overlayInfo.textContent =
+              '✅ 巡逻点已添加 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')' + suffix;
+          } else if (entityMode === 'spawn') {
             // 出生点已存在则禁止新建（防止蓝图出现多个出生点导致游戏取错）
-            if (mapData.entities.some(e => e.type === 'spawn')) {
-                overlayInfo.textContent = '⚠️ 出生点已存在，请先删除旧的再放置新的';
-                return;
+            if (mapData.entities.some((e) => e.type === 'spawn')) {
+              overlayInfo.textContent = '⚠️ 出生点已存在，请先删除旧的再放置新的';
+              return;
             }
-            const stype = entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
+            const stype =
+              entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
             const ent = addEntity(entityMode, pt.x, h, pt.z, stype);
-            overlayInfo.textContent = '✅ 出生点已放置 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')';
-            selectedEntityIds.clear(); selectedEntityIds.add(ent.id);
+            overlayInfo.textContent =
+              '✅ 出生点已放置 (X:' + pt.x.toFixed(1) + ' Z:' + pt.z.toFixed(1) + ')';
+            selectedEntityIds.clear();
+            selectedEntityIds.add(ent.id);
             refreshEntityList();
-        } else {
+          } else {
             // 树木/建筑/敌人：拖拽连续放置
-            const stype = entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
+            const stype =
+              entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
             const ent = addEntity(entityMode, pt.x, h, pt.z, stype);
-            selectedEntityIds.clear(); selectedEntityIds.add(ent.id);
+            selectedEntityIds.clear();
+            selectedEntityIds.add(ent.id);
             refreshEntityList();
             isSprayPlacing = true;
             lastSprayPos = { x: pt.x, z: pt.z };
-            overlayInfo.textContent = '🖌️ 拖拽连续放置中… (' + 
-                {tree:'树木',building:'建筑',enemy:'敌人'}[entityMode] + ' 间距' + SPRAY_SPACING + 'm)';
+            overlayInfo.textContent =
+              '🖌️ 拖拽连续放置中… (' +
+              { tree: '树木', building: '建筑', enemy: '敌人' }[entityMode] +
+              ' 间距' +
+              SPRAY_SPACING +
+              'm)';
+          }
+          e.preventDefault();
+          return;
         }
-        e.preventDefault();
-        return;
-    }
 
-    if (brushMode !== 'cursor' && e.button === 0 && !e.shiftKey) {
-        pushSnapshot();  // 首次按下时记录快照
-        isPainting = true;
-        const pt = getWorldPos(e);
-        applyBrush(pt.x, pt.z);
-        needsHmRender = true;  // 延迟到帧末刷新
-        e.preventDefault();
-    } else if (e.button === 0 && e.shiftKey && (entityMode === 'select' || !entityMode)) {
-        // Shift+左键 → 框选（选择模式）
-        isBoxSelecting = true;
-        boxSelStart = { x: e.clientX, y: e.clientY };
-        selBox.style.display = 'block';
-        selBox.style.left = e.clientX + 'px';
-        selBox.style.top = e.clientY + 'px';
-        selBox.style.width = '0px';
-        selBox.style.height = '0px';
-    } else if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
-        // 右键/中键/Shift+左键（非选择模式）→ 平移
-        isPanning = true;
-    } else if (e.button === 0) {
-        isDragging = true;
-    }
-    dragStart = { x: e.clientX, y: e.clientY };
-    e.preventDefault();
-});
-
-window.addEventListener('mousemove', (e) => {
-    // 框选拖拽 — 更新选框
-    if (isBoxSelecting) {
-        boxSelEnd = { x: e.clientX, y: e.clientY };
-        const rect = vp.getBoundingClientRect();
-        const x1 = Math.min(boxSelStart.x, e.clientX);
-        const y1 = Math.min(boxSelStart.y, e.clientY);
-        const w = Math.abs(e.clientX - boxSelStart.x);
-        const h = Math.abs(e.clientY - boxSelStart.y);
-        selBox.style.left = (x1 - rect.left) + 'px';
-        selBox.style.top = (y1 - rect.top) + 'px';
-        selBox.style.width = w + 'px';
-        selBox.style.height = h + 'px';
-        return;
-    }
-
-    const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
-
-    // 水体拖拽（画河流）— 允许超出地图，渲染时自然截断
-    if (isWaterPainting) {
-        const pt = getWorldPos(e);
-        const last = waterDragPoints[waterDragPoints.length - 1];
-        const dist = last ? Math.hypot(pt.x - last.x, pt.z - last.z) : Infinity;
-        if ((last && dist > 3) || !last) {
-            const origH = smpHeight(pt.x, pt.z);
-            if (!last) {
-                waterDragPoints.push({ x: pt.x, z: pt.z });
-                waterDragBaseLevels.push(origH);
-            } else {
-                const n = waterDragPoints.length;
-                const p0 = waterDragPoints[Math.max(0, n - 2)];
-                const p1 = waterDragPoints[n - 1];
-                const p2 = { x: pt.x, z: pt.z };
-                const p3 = p2;
-                const steps = Math.max(1, Math.round(dist / 2));
-                for (let j = 1; j < steps; j++) {
-                    const s = catmullRomInterpolate(p0, p1, p2, p3, j / steps);
-                    waterDragBaseLevels.push(smpHeight(s.x, s.z));
-                }
-                waterDragPoints.push({ x: pt.x, z: pt.z });
-                waterDragBaseLevels.push(origH);
-            }
-            // 拖拽期间不修改地形，视觉指示器由 updBrushIndicator(e) 统一更新
-        }
-    }
-
-    // 道路拖拽 — 采样轨迹点
-    if (isRoadPainting) {
-        const pt = getWorldPos(e);
-        pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
-        pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
-        const last = roadDragPoints[roadDragPoints.length - 1];
-        if (last && Math.hypot(pt.x - last.x, pt.z - last.z) > 4) {
-            roadDragPoints.push({ x: pt.x, z: pt.z });
-            needsHmRender = true;
-        }
-    }
-
-    // 拖拽移动实体（选择模式或无实体模式但已选中）
-    if (isDragging && (entityMode === 'select' || !entityMode) && selectedEntityIds.size > 0) {
-        const pt = getWorldPos(e);
-        if (Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
-            const h = smpHeight(pt.x, pt.z);
-            const firstId = [...selectedEntityIds][0];
-            const firstEnt = mapData.entities.find(en => en.id === firstId);
-            if (firstEnt && entityMarkers[firstId]) {
-                const offsetX = pt.x - firstEnt.position.x;
-                const offsetZ = pt.z - firstEnt.position.z;
-                const offsetY = h - firstEnt.position.y;
-                // 移动所有选中实体
-                [...selectedEntityIds].forEach(eid => {
-                    const ent = mapData.entities.find(en => en.id === eid);
-                    if (!ent || !entityMarkers[eid]) return;
-                    const newH = smpHeight(ent.position.x + offsetX, ent.position.z + offsetZ);
-                    ent.position.x += offsetX; ent.position.z += offsetZ;
-                    ent.position.y = newH;
-                    entityMarkers[eid].position.set(ent.position.x, newH, ent.position.z);
-                    // 同步巡逻点
-                    if (ent.patrol) {
-                        ent.patrol.forEach((wp, i) => {
-                            const mk = entityMarkers[eid + '_wp' + i];
-                            if (mk) { wp.x += offsetX; wp.z += offsetZ; wp.y = smpHeight(wp.x, wp.z); mk.position.set(wp.x, wp.y + 0.5, wp.z); }
-                        });
-                        refreshPatrolLines(eid);
-                    }
-                });
-            }
-            refreshEntityList();
+        if (brushMode !== 'cursor' && e.button === 0 && !e.shiftKey) {
+          pushSnapshot(); // 首次按下时记录快照
+          isPainting = true;
+          const pt = getWorldPos(e);
+          applyBrush(pt.x, pt.z);
+          needsHmRender = true; // 延迟到帧末刷新
+          e.preventDefault();
+        } else if (e.button === 0 && e.shiftKey && (entityMode === 'select' || !entityMode)) {
+          // Shift+左键 → 框选（选择模式）
+          isBoxSelecting = true;
+          boxSelStart = { x: e.clientX, y: e.clientY };
+          selBox.style.display = 'block';
+          selBox.style.left = e.clientX + 'px';
+          selBox.style.top = e.clientY + 'px';
+          selBox.style.width = '0px';
+          selBox.style.height = '0px';
+        } else if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+          // 右键/中键/Shift+左键（非选择模式）→ 平移
+          isPanning = true;
+        } else if (e.button === 0) {
+          isDragging = true;
         }
         dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isSprayPlacing) {
-        // 拖拽连续放置实体
-        const pt = getWorldPos(e);
-        const dist = Math.hypot(pt.x - lastSprayPos.x, pt.z - lastSprayPos.z);
-        if (dist >= SPRAY_SPACING && Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        // 框选拖拽 — 更新选框
+        if (isBoxSelecting) {
+          boxSelEnd = { x: e.clientX, y: e.clientY };
+          const rect = vp.getBoundingClientRect();
+          const x1 = Math.min(boxSelStart.x, e.clientX);
+          const y1 = Math.min(boxSelStart.y, e.clientY);
+          const w = Math.abs(e.clientX - boxSelStart.x);
+          const h = Math.abs(e.clientY - boxSelStart.y);
+          selBox.style.left = x1 - rect.left + 'px';
+          selBox.style.top = y1 - rect.top + 'px';
+          selBox.style.width = w + 'px';
+          selBox.style.height = h + 'px';
+          return;
+        }
+
+        const dx = e.clientX - dragStart.x,
+          dy = e.clientY - dragStart.y;
+
+        // 水体拖拽（画河流）— 允许超出地图，渲染时自然截断
+        if (isWaterPainting) {
+          const pt = getWorldPos(e);
+          const last = waterDragPoints[waterDragPoints.length - 1];
+          const dist = last ? Math.hypot(pt.x - last.x, pt.z - last.z) : Infinity;
+          if ((last && dist > 3) || !last) {
+            const origH = smpHeight(pt.x, pt.z);
+            if (!last) {
+              waterDragPoints.push({ x: pt.x, z: pt.z });
+              waterDragBaseLevels.push(origH);
+            } else {
+              const n = waterDragPoints.length;
+              const p0 = waterDragPoints[Math.max(0, n - 2)];
+              const p1 = waterDragPoints[n - 1];
+              const p2 = { x: pt.x, z: pt.z };
+              const p3 = p2;
+              const steps = Math.max(1, Math.round(dist / 2));
+              for (let j = 1; j < steps; j++) {
+                const s = catmullRomInterpolate(p0, p1, p2, p3, j / steps);
+                waterDragBaseLevels.push(smpHeight(s.x, s.z));
+              }
+              waterDragPoints.push({ x: pt.x, z: pt.z });
+              waterDragBaseLevels.push(origH);
+            }
+            // 拖拽期间不修改地形，视觉指示器由 updBrushIndicator(e) 统一更新
+          }
+        }
+
+        // 道路拖拽 — 采样轨迹点
+        if (isRoadPainting) {
+          const pt = getWorldPos(e);
+          pt.x = Math.max(-worldHalfW, Math.min(worldHalfW, pt.x));
+          pt.z = Math.max(-worldHalfD, Math.min(worldHalfD, pt.z));
+          const last = roadDragPoints[roadDragPoints.length - 1];
+          if (last && Math.hypot(pt.x - last.x, pt.z - last.z) > 4) {
+            roadDragPoints.push({ x: pt.x, z: pt.z });
+            needsHmRender = true;
+          }
+        }
+
+        // 拖拽移动实体（选择模式或无实体模式但已选中）
+        if (isDragging && (entityMode === 'select' || !entityMode) && selectedEntityIds.size > 0) {
+          const pt = getWorldPos(e);
+          if (Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
+            const h = smpHeight(pt.x, pt.z);
+            const firstId = [...selectedEntityIds][0];
+            const firstEnt = mapData.entities.find((en) => en.id === firstId);
+            if (firstEnt && entityMarkers[firstId]) {
+              const offsetX = pt.x - firstEnt.position.x;
+              const offsetZ = pt.z - firstEnt.position.z;
+              const offsetY = h - firstEnt.position.y;
+              // 移动所有选中实体
+              [...selectedEntityIds].forEach((eid) => {
+                const ent = mapData.entities.find((en) => en.id === eid);
+                if (!ent || !entityMarkers[eid]) return;
+                const newH = smpHeight(ent.position.x + offsetX, ent.position.z + offsetZ);
+                ent.position.x += offsetX;
+                ent.position.z += offsetZ;
+                ent.position.y = newH;
+                entityMarkers[eid].position.set(ent.position.x, newH, ent.position.z);
+                // 同步巡逻点
+                if (ent.patrol) {
+                  ent.patrol.forEach((wp, i) => {
+                    const mk = entityMarkers[eid + '_wp' + i];
+                    if (mk) {
+                      wp.x += offsetX;
+                      wp.z += offsetZ;
+                      wp.y = smpHeight(wp.x, wp.z);
+                      mk.position.set(wp.x, wp.y + 0.5, wp.z);
+                    }
+                  });
+                  refreshPatrolLines(eid);
+                }
+              });
+            }
+            refreshEntityList();
+          }
+          dragStart = { x: e.clientX, y: e.clientY };
+        } else if (isSprayPlacing) {
+          // 拖拽连续放置实体
+          const pt = getWorldPos(e);
+          const dist = Math.hypot(pt.x - lastSprayPos.x, pt.z - lastSprayPos.z);
+          if (dist >= SPRAY_SPACING && Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD) {
             // 沿路径补充放置（超过间距后逐个生成）
             const steps = Math.floor(dist / SPRAY_SPACING);
-            const dx = steps > 1 ? (pt.x - lastSprayPos.x) / dist * SPRAY_SPACING : pt.x - lastSprayPos.x;
-            const dz = steps > 1 ? (pt.z - lastSprayPos.z) / dist * SPRAY_SPACING : pt.z - lastSprayPos.z;
+            const dx =
+              steps > 1 ? ((pt.x - lastSprayPos.x) / dist) * SPRAY_SPACING : pt.x - lastSprayPos.x;
+            const dz =
+              steps > 1 ? ((pt.z - lastSprayPos.z) / dist) * SPRAY_SPACING : pt.z - lastSprayPos.z;
             for (let s = 1; s <= steps; s++) {
-                const nx = lastSprayPos.x + dx * s;
-                const nz = lastSprayPos.z + dz * s;
-                if (Math.abs(nx) > playHalfW || Math.abs(nz) > playHalfD) break;
-                const h = smpHeight(nx, nz);
-                const stype = entityMode === 'tree' ? treeType : entityMode === 'building' ? bldgType : entityType;
-                const ent = addEntity(entityMode, nx, h, nz, stype);
-                selectedEntityIds.clear(); selectedEntityIds.add(ent.id);
+              const nx = lastSprayPos.x + dx * s;
+              const nz = lastSprayPos.z + dz * s;
+              if (Math.abs(nx) > playHalfW || Math.abs(nz) > playHalfD) break;
+              const h = smpHeight(nx, nz);
+              const stype =
+                entityMode === 'tree'
+                  ? treeType
+                  : entityMode === 'building'
+                    ? bldgType
+                    : entityType;
+              const ent = addEntity(entityMode, nx, h, nz, stype);
+              selectedEntityIds.clear();
+              selectedEntityIds.add(ent.id);
             }
             lastSprayPos = { x: lastSprayPos.x + dx * steps, z: lastSprayPos.z + dz * steps };
             refreshEntityList();
+          }
+          dragStart = { x: e.clientX, y: e.clientY };
+        } else if (isPainting && !isWaterPainting && !isRoadPainting) {
+          const pt = getWorldPos(e);
+          applyBrush(pt.x, pt.z);
+          needsHmRender = true; // 延迟到帧末刷新
+          dragStart = { x: e.clientX, y: e.clientY };
+        } else if (
+          isDragging &&
+          (entityMode === 'select' || !entityMode) &&
+          selectedEntityIds.size > 0
+        ) {
+          // 实体拖拽已在上方处理，跳过相机旋转
+          dragStart = { x: e.clientX, y: e.clientY };
+        } else if (isDragging) {
+          camYaw += dx * 0.005;
+          camPitch = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, camPitch - dy * 0.005));
+          updCam();
+          dragStart = { x: e.clientX, y: e.clientY };
+        } else if (isPanning) {
+          const ps = camDist * 0.001;
+          // 手抓地图平移：屏幕坐标 → 世界XZ坐标（dx/dy反号适配）
+          camTarget.x += ps * (-Math.sin(camYaw) * dx + -Math.cos(camYaw) * dy);
+          camTarget.z += ps * (Math.cos(camYaw) * dx + -Math.sin(camYaw) * dy);
+          updCam();
+          dragStart = { x: e.clientX, y: e.clientY };
         }
-        dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isPainting && !isWaterPainting && !isRoadPainting) {
-        const pt = getWorldPos(e);
-        applyBrush(pt.x, pt.z);
-        needsHmRender = true;  // 延迟到帧末刷新
-        dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isDragging && (entityMode === 'select' || !entityMode) && selectedEntityIds.size > 0) {
-        // 实体拖拽已在上方处理，跳过相机旋转
-        dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isDragging) {
-        camYaw += dx * 0.005;
-        camPitch = Math.max(0.05, Math.min(Math.PI / 2 - 0.01, camPitch - dy * 0.005));
-        updCam(); dragStart = { x: e.clientX, y: e.clientY };
-    } else if (isPanning) {
-        const ps = camDist * 0.001;
-        // 手抓地图平移：屏幕坐标 → 世界XZ坐标（dx/dy反号适配）
-        camTarget.x += ps * (-Math.sin(camYaw) * dx + -Math.cos(camYaw) * dy);
-        camTarget.z += ps * (Math.cos(camYaw) * dx + -Math.sin(camYaw) * dy);
-        updCam(); dragStart = { x: e.clientX, y: e.clientY };
-    }
 
-    updBrushIndicator(e);
-    updateMouseWorldPos(e);
-});
+        updBrushIndicator(e);
+        updateMouseWorldPos(e);
+      });
 
-window.addEventListener('mouseup', (e) => {
-    // 框选结束
-    if (isBoxSelecting) {
-        isBoxSelecting = false;
-        selBox.style.display = 'none';
-        const rect = vp.getBoundingClientRect();
-        const rx1 = Math.min(boxSelStart.x, boxSelEnd.x) - rect.left;
-        const ry1 = Math.min(boxSelStart.y, boxSelEnd.y) - rect.top;
-        const rx2 = Math.max(boxSelStart.x, boxSelEnd.x) - rect.left;
-        const ry2 = Math.max(boxSelStart.y, boxSelEnd.y) - rect.top;
-        const rw = rx2 - rx1, rh = ry2 - ry1;
-        if (rw > 4 || rh > 4) { // 最小5px防误触
+      window.addEventListener('mouseup', (e) => {
+        // 框选结束
+        if (isBoxSelecting) {
+          isBoxSelecting = false;
+          selBox.style.display = 'none';
+          const rect = vp.getBoundingClientRect();
+          const rx1 = Math.min(boxSelStart.x, boxSelEnd.x) - rect.left;
+          const ry1 = Math.min(boxSelStart.y, boxSelEnd.y) - rect.top;
+          const rx2 = Math.max(boxSelStart.x, boxSelEnd.x) - rect.left;
+          const ry2 = Math.max(boxSelStart.y, boxSelEnd.y) - rect.top;
+          const rw = rx2 - rx1,
+            rh = ry2 - ry1;
+          if (rw > 4 || rh > 4) {
+            // 最小5px防误触
             if (!(e.ctrlKey || e.metaKey)) selectedEntityIds.clear();
-            const halfW = rect.width / 2, halfH = rect.height / 2;
-            mapData.entities.forEach(ent => {
-                const wp = new THREE.Vector3(ent.position.x, ent.position.y, ent.position.z);
-                wp.project(camera);
-                const sx = (wp.x * halfW) + halfW;
-                const sy = -(wp.y * halfH) + halfH;
-                if (sx >= rx1 && sx <= rx2 && sy >= ry1 && sy <= ry2 && wp.z < 1) {
-                    selectedEntityIds.add(ent.id);
-                }
+            const halfW = rect.width / 2,
+              halfH = rect.height / 2;
+            mapData.entities.forEach((ent) => {
+              const wp = new THREE.Vector3(ent.position.x, ent.position.y, ent.position.z);
+              wp.project(camera);
+              const sx = wp.x * halfW + halfW;
+              const sy = -(wp.y * halfH) + halfH;
+              if (sx >= rx1 && sx <= rx2 && sy >= ry1 && sy <= ry2 && wp.z < 1) {
+                selectedEntityIds.add(ent.id);
+              }
             });
             refreshEntityList();
             overlayInfo.textContent = '✅ 框选 ' + selectedEntityIds.size + ' 个实体';
+          }
         }
-    }
 
-    isDragging = false; isPanning = false; isPainting = false;
-    if (isSprayPlacing) { isSprayPlacing = false; overlayInfo.textContent = '🖱️选择模式 — 拖拽旋转 | Shift平移 | 滚轮缩放'; }
-    if (isWaterPainting) {
-        isWaterPainting = false;
-        const t0 = performance.now();
-        // 记录水体元数据（池塘 vs 河流）
-        // ===== v0.51.0: 走廊法 + 分段水面剖面 + 桥引道 =====
-        // 每段水面 = min(前段水面, 本地形-strength*0.3)，单调不增
-        // 使用 hmStepW/hmStepD + worldHalfW/worldHalfD 替代固定 WORLD_SIZE，适配矩形地图
-        if (!mapData.editedVerticesPaint) mapData.editedVerticesPaint = new Set();
-        const carveT0 = performance.now();
+        isDragging = false;
+        isPanning = false;
+        isPainting = false;
+        if (isSprayPlacing) {
+          isSprayPlacing = false;
+          overlayInfo.textContent = '🖱️选择模式 — 拖拽旋转 | Shift平移 | 滚轮缩放';
+        }
+        if (isWaterPainting) {
+          isWaterPainting = false;
+          const t0 = performance.now();
+          // 记录水体元数据（池塘 vs 河流）
+          // ===== v0.51.0: 走廊法 + 分段水面剖面 + 桥引道 =====
+          // 每段水面 = min(前段水面, 本地形-strength*0.3)，单调不增
+          // 使用 hmStepW/hmStepD + worldHalfW/worldHalfD 替代固定 WORLD_SIZE，适配矩形地图
+          if (!mapData.editedVerticesPaint) mapData.editedVerticesPaint = new Set();
+          const carveT0 = performance.now();
 
-        if (waterDragPoints.length >= 3) {
+          if (waterDragPoints.length >= 3) {
             // ===== 河流：统一河床深度 + 水面低于河岸最低点 =====
-            const hw = brushRadius * 0.5;  // 半宽
+            const hw = brushRadius * 0.5; // 半宽
             const smoothPts = samplePathSmoothDense(waterDragPoints, 2.0);
             const pathLen = smoothPts.length;
 
             // 1. 扫描地图最低点（河床基准，排除已有水体区域，保持各河床一致）
             let mapMinH = Infinity;
             for (let i = 0; i < hmResW * hmResD; i++) {
-                const sx = i % hmResW, sy = Math.floor(i / hmResW);
-                if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(sx + ',' + sy)) continue;
+              const sx = i % hmResW,
+                sy = Math.floor(i / hmResW);
+              if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(sx + ',' + sy))
+                continue;
+              if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
+            }
+            if (mapMinH === Infinity) {
+              // 整图已挖水，回退全扫描
+              for (let i = 0; i < hmResW * hmResD; i++) {
                 if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
+              }
             }
-            if (mapMinH === Infinity) { // 整图已挖水，回退全扫描
-                for (let i = 0; i < hmResW * hmResD; i++) {
-                    if (mapData.heightmap[i] < mapMinH) mapMinH = mapData.heightmap[i];
-                }
-            }
-            const bedH = mapMinH - 10;  // 河床 = 原始地图最低点 - 10m（不受已有河流影响）
+            const bedH = mapMinH - 10; // 河床 = 原始地图最低点 - 10m（不受已有河流影响）
 
             // 2. 扫描河岸最低点（水面 = 河岸最低 - 3m，确保水不溢出）
             //    排除已有水体区域，避免交叉河流的河岸高度被已挖河床污染
             let bankMinH = Infinity;
             for (let i = 0; i < pathLen; i++) {
-                const p = smoothPts[i];
-                let dx, dz;
-                if (i === 0) { dx = smoothPts[i+1].x - p.x; dz = smoothPts[i+1].z - p.z; }
-                else if (i === pathLen-1) { dx = p.x - smoothPts[i-1].x; dz = p.z - smoothPts[i-1].z; }
-                else { dx = smoothPts[i+1].x - smoothPts[i-1].x; dz = smoothPts[i+1].z - smoothPts[i-1].z; }
-                const nlen = Math.hypot(dx, dz) || 1;
-                const nx = -dz/nlen, nz = dx/nlen;
-                for (const side of [-1, 1]) {
-                    const bx = p.x + side * nx * (hw + 1);
-                    const bz = p.z + side * nz * (hw + 1);
-                    if (Math.abs(bx) <= worldHalfW && Math.abs(bz) <= worldHalfD) {
-                        const { sx: bsx, sy: bsy } = world2sm(bx, bz);
-                        if (mapData.editedVerticesPaint && mapData.editedVerticesPaint.has(bsx + ',' + bsy)) continue;
-                        const bh = smpHeight(bx, bz);
-                        if (bh < bankMinH) bankMinH = bh;
-                    }
+              const p = smoothPts[i];
+              let dx, dz;
+              if (i === 0) {
+                dx = smoothPts[i + 1].x - p.x;
+                dz = smoothPts[i + 1].z - p.z;
+              } else if (i === pathLen - 1) {
+                dx = p.x - smoothPts[i - 1].x;
+                dz = p.z - smoothPts[i - 1].z;
+              } else {
+                dx = smoothPts[i + 1].x - smoothPts[i - 1].x;
+                dz = smoothPts[i + 1].z - smoothPts[i - 1].z;
+              }
+              const nlen = Math.hypot(dx, dz) || 1;
+              const nx = -dz / nlen,
+                nz = dx / nlen;
+              for (const side of [-1, 1]) {
+                const bx = p.x + side * nx * (hw + 1);
+                const bz = p.z + side * nz * (hw + 1);
+                if (Math.abs(bx) <= worldHalfW && Math.abs(bz) <= worldHalfD) {
+                  const { sx: bsx, sy: bsy } = world2sm(bx, bz);
+                  if (
+                    mapData.editedVerticesPaint &&
+                    mapData.editedVerticesPaint.has(bsx + ',' + bsy)
+                  )
+                    continue;
+                  const bh = smpHeight(bx, bz);
+                  if (bh < bankMinH) bankMinH = bh;
                 }
+              }
             }
-            const waterLevel = bankMinH - 3;  // 水面 = 河岸最低 - 3m
+            const waterLevel = bankMinH - 3; // 水面 = 河岸最低 - 3m
 
-            console.log('🌊 [河流] 地图最低='+mapMinH.toFixed(2)+' 河床='+bedH.toFixed(2)+
-                ' 河岸最低='+bankMinH.toFixed(2)+' 水面='+waterLevel.toFixed(2)+
-                ' (水面比河床深'+(waterLevel-bedH).toFixed(1)+'m) 半宽='+hw.toFixed(1));
+            console.log(
+              '🌊 [河流] 地图最低=' +
+                mapMinH.toFixed(2) +
+                ' 河床=' +
+                bedH.toFixed(2) +
+                ' 河岸最低=' +
+                bankMinH.toFixed(2) +
+                ' 水面=' +
+                waterLevel.toFixed(2) +
+                ' (水面比河床深' +
+                (waterLevel - bedH).toFixed(1) +
+                'm) 半宽=' +
+                hw.toFixed(1)
+            );
 
             // 3. 走廊雕刻：河床统一 + 边缘平滑过渡
             const segWaterLevels = new Float32Array(pathLen - 1);
             segWaterLevels.fill(waterLevel);
             waterBaseLevel = waterLevel;
 
-            let minWx = Infinity, maxWx = -Infinity, minWz = Infinity, maxWz = -Infinity;
+            let minWx = Infinity,
+              maxWx = -Infinity,
+              minWz = Infinity,
+              maxWz = -Infinity;
             for (const p of smoothPts) {
-                if (p.x < minWx) minWx = p.x; if (p.x > maxWx) maxWx = p.x;
-                if (p.z < minWz) minWz = p.z; if (p.z > maxWz) maxWz = p.z;
+              if (p.x < minWx) minWx = p.x;
+              if (p.x > maxWx) maxWx = p.x;
+              if (p.z < minWz) minWz = p.z;
+              if (p.z > maxWz) maxWz = p.z;
             }
-            const padW = hw + hmStepW, padD = hw + hmStepD;
+            const padW = hw + hmStepW,
+              padD = hw + hmStepD;
             const minSx = Math.max(0, Math.floor((minWx - padW + worldHalfW) / hmStepW));
             const maxSx = Math.min(hmResW - 1, Math.ceil((maxWx + padW + worldHalfW) / hmStepW));
             const minSy = Math.max(0, Math.floor((minWz - padD + worldHalfD) / hmStepD));
@@ -1536,52 +2583,72 @@ window.addEventListener('mouseup', (e) => {
             let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
-                for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
-                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
-                    let minDist = Infinity;
-                    for (let i = 0; i < smoothPts.length - 1; i++) {
-                        const d = pointToSegmentDist(cx, cz, smoothPts[i].x, smoothPts[i].z, smoothPts[i+1].x, smoothPts[i+1].z);
-                        if (d < minDist) { minDist = d; if (minDist <= hw) break; }
-                    }
-                    if (minDist <= hw) {
-                        const idx = sy * hmResW + sx;
-                        // 端点方向裁剪：防止起点/终点形成半圆形深坑
-                        const dx0 = cx - smoothPts[0].x, dz0 = cz - smoothPts[0].z;
-                        if (Math.hypot(dx0, dz0) <= hw) {
-                            const tdx0 = smoothPts[1].x - smoothPts[0].x;
-                            const tdz0 = smoothPts[1].z - smoothPts[0].z;
-                            if (dx0 * tdx0 + dz0 * tdz0 < 0) continue; // 起点后方跳过
-                        }
-                        const lastPt = pathLen - 1;
-                        const dxn = cx - smoothPts[lastPt].x, dzn = cz - smoothPts[lastPt].z;
-                        if (Math.hypot(dxn, dzn) <= hw) {
-                            const tdxn = smoothPts[lastPt].x - smoothPts[lastPt-1].x;
-                            const tdzn = smoothPts[lastPt].z - smoothPts[lastPt-1].z;
-                            if (dxn * tdxn + dzn * tdzn > 0) continue; // 终点前方跳过
-                        }
-                        const origH = mapData.heightmap[idx];
-                        // 边缘平滑：内圈50%平坦河床 + 外圈50% smoothstep 渐变至水面以下
-                        const nr = minDist / hw;
-                        const edgeT = nr <= 0.5 ? 0 : (nr - 0.5) / 0.5;
-                        const smoothEdge = edgeT * edgeT * (3 - 2 * edgeT);
-                        const maxEdgeH = Math.min(origH, waterLevel - 0.3);
-                        const edgeTarget = bedH + (maxEdgeH - bedH) * smoothEdge;
-                        const targetH = origH > bedH ? edgeTarget : origH;
-                        const finalH = targetH;
-                        if (finalH < origH - 0.01 || finalH > origH + 0.01) {
-                            mapData.heightmap[idx] = finalH;
-                            mapData.editedVerticesPaint.add(sx + ',' + sy);
-                        }
-                        cellsCarved++;
-                    }
+              for (let sx = minSx; sx <= maxSx; sx++) {
+                const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                const cz = (sy + 0.5) * hmStepD - worldHalfD;
+                let minDist = Infinity;
+                for (let i = 0; i < smoothPts.length - 1; i++) {
+                  const d = pointToSegmentDist(
+                    cx,
+                    cz,
+                    smoothPts[i].x,
+                    smoothPts[i].z,
+                    smoothPts[i + 1].x,
+                    smoothPts[i + 1].z
+                  );
+                  if (d < minDist) {
+                    minDist = d;
+                    if (minDist <= hw) break;
+                  }
                 }
+                if (minDist <= hw) {
+                  const idx = sy * hmResW + sx;
+                  // 端点方向裁剪：防止起点/终点形成半圆形深坑
+                  const dx0 = cx - smoothPts[0].x,
+                    dz0 = cz - smoothPts[0].z;
+                  if (Math.hypot(dx0, dz0) <= hw) {
+                    const tdx0 = smoothPts[1].x - smoothPts[0].x;
+                    const tdz0 = smoothPts[1].z - smoothPts[0].z;
+                    if (dx0 * tdx0 + dz0 * tdz0 < 0) continue; // 起点后方跳过
+                  }
+                  const lastPt = pathLen - 1;
+                  const dxn = cx - smoothPts[lastPt].x,
+                    dzn = cz - smoothPts[lastPt].z;
+                  if (Math.hypot(dxn, dzn) <= hw) {
+                    const tdxn = smoothPts[lastPt].x - smoothPts[lastPt - 1].x;
+                    const tdzn = smoothPts[lastPt].z - smoothPts[lastPt - 1].z;
+                    if (dxn * tdxn + dzn * tdzn > 0) continue; // 终点前方跳过
+                  }
+                  const origH = mapData.heightmap[idx];
+                  // 边缘平滑：内圈50%平坦河床 + 外圈50% smoothstep 渐变至水面以下
+                  const nr = minDist / hw;
+                  const edgeT = nr <= 0.5 ? 0 : (nr - 0.5) / 0.5;
+                  const smoothEdge = edgeT * edgeT * (3 - 2 * edgeT);
+                  const maxEdgeH = Math.min(origH, waterLevel - 0.3);
+                  const edgeTarget = bedH + (maxEdgeH - bedH) * smoothEdge;
+                  const targetH = origH > bedH ? edgeTarget : origH;
+                  const finalH = targetH;
+                  if (finalH < origH - 0.01 || finalH > origH + 0.01) {
+                    mapData.heightmap[idx] = finalH;
+                    mapData.editedVerticesPaint.add(sx + ',' + sy);
+                  }
+                  cellsCarved++;
+                }
+              }
             }
 
             console.log('🌊 [河流] 雕刻:', cellsCarved, '单元格');
 
             const center = smoothPts[Math.floor(pathLen / 2)];
-            addWaterRecord('river', { x: center.x, z: center.z }, null, smoothPts, waterLevel, brushRadius * 2, segWaterLevels);
+            addWaterRecord(
+              'river',
+              { x: center.x, z: center.z },
+              null,
+              smoothPts,
+              waterLevel,
+              brushRadius * 2,
+              segWaterLevels
+            );
 
             // 河流交叉检测：交汇处统一水面（取最低水位，保证水面连续）
             const newRiver = mapData.waters[mapData.waters.length - 1];
@@ -1589,202 +2656,291 @@ window.addEventListener('mouseup', (e) => {
             const newPts = samplePathSmoothDense(newRiver.points, 3.0);
             const connected = [newRiver];
             for (const w of mapData.waters) {
-                if (w === newRiver || w.type !== 'river') continue;
-                const wHw = (w.width || brushRadius * 2) * 0.5;
-                const wPts = samplePathSmoothDense(w.points, 3.0);
-                // 两线最近距离 < 半宽之和 → 交叉
-                let minD = Infinity;
-                for (const np of newPts) {
-                    for (const wp of wPts) {
-                        const d = Math.hypot(np.x - wp.x, np.z - wp.z);
-                        if (d < minD) { minD = d; if (minD < newHw + wHw) break; }
-                    }
+              if (w === newRiver || w.type !== 'river') continue;
+              const wHw = (w.width || brushRadius * 2) * 0.5;
+              const wPts = samplePathSmoothDense(w.points, 3.0);
+              // 两线最近距离 < 半宽之和 → 交叉
+              let minD = Infinity;
+              for (const np of newPts) {
+                for (const wp of wPts) {
+                  const d = Math.hypot(np.x - wp.x, np.z - wp.z);
+                  if (d < minD) {
+                    minD = d;
                     if (minD < newHw + wHw) break;
+                  }
                 }
-                if (minD < newHw + wHw) {
-                    connected.push(w);
-                }
+                if (minD < newHw + wHw) break;
+              }
+              if (minD < newHw + wHw) {
+                connected.push(w);
+              }
             }
             if (connected.length > 1) {
-                const unifiedWL = Math.min(...connected.map(w => w.waterLevel));
-                connected.forEach(w => {
-                    w.waterLevel = unifiedWL;
-                    if (w.waterLevels) w.waterLevels.fill(unifiedWL);
-                });
-                waterBaseLevel = unifiedWL;
-                console.log('🌊 [交汇] ' + connected.length + '条河流交汇，统一水面=' + unifiedWL.toFixed(2));
+              const unifiedWL = Math.min(...connected.map((w) => w.waterLevel));
+              connected.forEach((w) => {
+                w.waterLevel = unifiedWL;
+                if (w.waterLevels) w.waterLevels.fill(unifiedWL);
+              });
+              waterBaseLevel = unifiedWL;
+              console.log(
+                '🌊 [交汇] ' + connected.length + '条河流交汇，统一水面=' + unifiedWL.toFixed(2)
+              );
             }
 
-            overlayInfo.textContent = '✅ 河流已创建 (宽'+brushRadius+'m | 水位'+waterLevel.toFixed(1)+'m | '+cellsCarved+'单元格)';
-
-        } else {
+            overlayInfo.textContent =
+              '✅ 河流已创建 (宽' +
+              brushRadius +
+              'm | 水位' +
+              waterLevel.toFixed(1) +
+              'm | ' +
+              cellsCarved +
+              '单元格)';
+          } else {
             // ===== 湖泊径向法 =====
             const p = waterDragPoints[0] || { x: 0, z: 0 };
             const R = brushRadius;
-            const pondSurface = waterBaseLevel - brushStrength * 0.3;  // 与河流统一0.3
+            const pondSurface = waterBaseLevel - brushStrength * 0.3; // 与河流统一0.3
 
             const minSx = Math.max(0, Math.floor((p.x - R - hmStepW + worldHalfW) / hmStepW));
-            const maxSx = Math.min(hmResW - 1, Math.ceil((p.x + R + hmStepW + worldHalfW) / hmStepW));
+            const maxSx = Math.min(
+              hmResW - 1,
+              Math.ceil((p.x + R + hmStepW + worldHalfW) / hmStepW)
+            );
             const minSy = Math.max(0, Math.floor((p.z - R - hmStepD + worldHalfD) / hmStepD));
-            const maxSy = Math.min(hmResD - 1, Math.ceil((p.z + R + hmStepD + worldHalfD) / hmStepD));
+            const maxSy = Math.min(
+              hmResD - 1,
+              Math.ceil((p.z + R + hmStepD + worldHalfD) / hmStepD)
+            );
             let cellsCarved = 0;
 
             for (let sy = minSy; sy <= maxSy; sy++) {
-                for (let sx = minSx; sx <= maxSx; sx++) {
-                    const cx = (sx + 0.5) * hmStepW - worldHalfW;
-                    const cz = (sy + 0.5) * hmStepD - worldHalfD;
-                    const dist = Math.hypot(cx - p.x, cz - p.z);
-                    if (dist <= R) {
-                        const t = 1 - dist / R;              // 0=湖岸, 1=湖心
-                        const falloff = t * (2 - t);          // ease-out二次: 湖岸渐变更宽
-                        const depth = brushStrength * falloff;
-                        const idx = sy * hmResW + sx;
-                        const origH = mapData.heightmap[idx];
-                        mapData.heightmap[idx] = Math.min(origH - depth, pondSurface - 0.3);
-                        mapData.editedVerticesPaint.add(sx + ',' + sy);
-                        if (falloff > 0.08) {
-                            mapData.splatMap[idx] = 1;
-                            affectedBlocks.add(sx + ',' + sy);
-                            dirtyTex = true;
-                        }
-                        cellsCarved++;
-                    }
+              for (let sx = minSx; sx <= maxSx; sx++) {
+                const cx = (sx + 0.5) * hmStepW - worldHalfW;
+                const cz = (sy + 0.5) * hmStepD - worldHalfD;
+                const dist = Math.hypot(cx - p.x, cz - p.z);
+                if (dist <= R) {
+                  const t = 1 - dist / R; // 0=湖岸, 1=湖心
+                  const falloff = t * (2 - t); // ease-out二次: 湖岸渐变更宽
+                  const depth = brushStrength * falloff;
+                  const idx = sy * hmResW + sx;
+                  const origH = mapData.heightmap[idx];
+                  mapData.heightmap[idx] = Math.min(origH - depth, pondSurface - 0.3);
+                  mapData.editedVerticesPaint.add(sx + ',' + sy);
+                  if (falloff > 0.08) {
+                    mapData.splatMap[idx] = 1;
+                    affectedBlocks.add(sx + ',' + sy);
+                    dirtyTex = true;
+                  }
+                  cellsCarved++;
                 }
+              }
             }
 
-
             addWaterRecord('pond', { x: p.x, z: p.z }, R, null, pondSurface);
-            overlayInfo.textContent = '✅ 湖泊已创建 (半径:'+R+'m | 水位:'+pondSurface.toFixed(1)+'m | 单元格'+cellsCarved+')';
-        }
-        // 清除水体范围内的建筑和树木（在清空之前保存副本）
-        const savedWaterPts = [...waterDragPoints];
-        waterDragPoints = [];
-        waterDragBaseLevels = [];
-        if (savedWaterPts.length > 0) {
+            overlayInfo.textContent =
+              '✅ 湖泊已创建 (半径:' +
+              R +
+              'm | 水位:' +
+              pondSurface.toFixed(1) +
+              'm | 单元格' +
+              cellsCarved +
+              ')';
+          }
+          // 清除水体范围内的建筑和树木（在清空之前保存副本）
+          const savedWaterPts = [...waterDragPoints];
+          waterDragPoints = [];
+          waterDragBaseLevels = [];
+          if (savedWaterPts.length > 0) {
             const wpts = samplePathSmooth(savedWaterPts);
             clearObstaclesOnPath(wpts, brushRadius);
+          }
+          // 重建地面和水体
+          createGround();
+          renderHeightmapCanvas();
+          createWaterLayer();
+          refreshEntityList();
         }
-        // 重建地面和水体
-        createGround();
-        renderHeightmapCanvas();
-        createWaterLayer();
-        refreshEntityList();
-    }
-    if (isRoadPainting) {
-        isRoadPainting = false;
-        if (roadDragPoints.length >= 2) {
+        if (isRoadPainting) {
+          isRoadPainting = false;
+          if (roadDragPoints.length >= 2) {
             // 提高CatmullRom采样密度（每1m一个采样点，消除折线段锯齿）
             const saveDist = 2; // 临时覆盖samplePathSmooth里的2m间距
             const smoothPts = samplePathSmoothDense(roadDragPoints, 1.0);
             for (let i = 1; i < smoothPts.length; i++) {
-                drawRoadLine(smoothPts[i-1].x, smoothPts[i-1].z, smoothPts[i].x, smoothPts[i].z, roadWidth, roadType);
+              drawRoadLine(
+                smoothPts[i - 1].x,
+                smoothPts[i - 1].z,
+                smoothPts[i].x,
+                smoothPts[i].z,
+                roadWidth,
+                roadType
+              );
             }
             detectAndBuildBridges(smoothPts);
             clearObstaclesOnPath(smoothPts, roadWidth);
             createGround();
             renderHeightmapCanvas();
             refreshEntityList();
-            overlayInfo.textContent = '🛣️ 道路已绘制 — '+smoothPts.length+'点 | '+roadTypeNames[roadType]+' '+roadWidth+'m';
-        } else {
+            overlayInfo.textContent =
+              '🛣️ 道路已绘制 — ' +
+              smoothPts.length +
+              '点 | ' +
+              roadTypeNames[roadType] +
+              ' ' +
+              roadWidth +
+              'm';
+          } else {
             overlayInfo.textContent = '⚠️ 至少需拖拽2个点才能画路';
+          }
+          roadDragPoints = [];
         }
-        roadDragPoints = [];
-    }
-});
+      });
 
-function updateMouseWorldPos(e) {
-    const pt = getWorldPos(e);
-    const inWorld = Math.abs(pt.x) <= worldHalfW && Math.abs(pt.z) <= worldHalfD;
-    if (inWorld) {
-        const h = smpHeight(pt.x, pt.z);
-        const inPlay = Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD;
-        statusMouse.textContent = 'X:'+pt.x.toFixed(1)+' Z:'+pt.z.toFixed(1)+' H:'+h.toFixed(2)+(inPlay?'':' (外围)');
-    } else { statusMouse.textContent = '地图外'; }
-}
+      function updateMouseWorldPos(e) {
+        const pt = getWorldPos(e);
+        const inWorld = Math.abs(pt.x) <= worldHalfW && Math.abs(pt.z) <= worldHalfD;
+        if (inWorld) {
+          const h = smpHeight(pt.x, pt.z);
+          const inPlay = Math.abs(pt.x) <= playHalfW && Math.abs(pt.z) <= playHalfD;
+          statusMouse.textContent =
+            'X:' +
+            pt.x.toFixed(1) +
+            ' Z:' +
+            pt.z.toFixed(1) +
+            ' H:' +
+            h.toFixed(2) +
+            (inPlay ? '' : ' (外围)');
+        } else {
+          statusMouse.textContent = '地图外';
+        }
+      }
 
-// 树木类型选择
-document.querySelectorAll('#entity-sel-tree .entity-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-        document.querySelectorAll('#entity-sel-tree .entity-swatch').forEach(s => s.classList.remove('active'));
-        sw.classList.add('active');
-        treeType = sw.dataset.ttype;
-    });
-});
+      // 树木类型选择
+      document.querySelectorAll('#entity-sel-tree .entity-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          document
+            .querySelectorAll('#entity-sel-tree .entity-swatch')
+            .forEach((s) => s.classList.remove('active'));
+          sw.classList.add('active');
+          treeType = sw.dataset.ttype;
+        });
+      });
 
-// 建筑类型选择
-document.querySelectorAll('#entity-sel-building .entity-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-        document.querySelectorAll('#entity-sel-building .entity-swatch').forEach(s => s.classList.remove('active'));
-        sw.classList.add('active');
-        bldgType = sw.dataset.btype;
-    });
-});
+      // 建筑类型选择
+      document.querySelectorAll('#entity-sel-building .entity-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          document
+            .querySelectorAll('#entity-sel-building .entity-swatch')
+            .forEach((s) => s.classList.remove('active'));
+          sw.classList.add('active');
+          bldgType = sw.dataset.btype;
+        });
+      });
 
-// 道路类型选择
-document.querySelectorAll('#road-sel .road-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-        roadType = parseInt(sw.dataset.rtype);
-        document.querySelectorAll('#road-sel .road-swatch').forEach(s => s.classList.remove('active'));
-        sw.classList.add('active');
-        overlayInfo.textContent = '🛣️ 道路模式 — '+roadTypeNames[roadType]+' '+roadWidth+'m';
-    });
-});
-// 道路宽度预设
-document.querySelectorAll('#road-sel .road-width-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        roadWidth = parseInt(btn.dataset.rw);
-        document.querySelectorAll('#road-sel .road-width-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        overlayInfo.textContent = '🛣️ 道路模式 — '+roadTypeNames[roadType]+' '+roadWidth+'m';
-    });
-});
-// 敌人类型选择
-document.querySelectorAll('#entity-sel-enemy .entity-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-        document.querySelectorAll('#entity-sel-enemy .entity-swatch').forEach(s => s.classList.remove('active'));
-        sw.classList.add('active');
-        entityType = sw.dataset.etype;
-    });
-});
+      // 道路类型选择
+      document.querySelectorAll('#road-sel .road-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          roadType = parseInt(sw.dataset.rtype);
+          document
+            .querySelectorAll('#road-sel .road-swatch')
+            .forEach((s) => s.classList.remove('active'));
+          sw.classList.add('active');
+          overlayInfo.textContent =
+            '🛣️ 道路模式 — ' + roadTypeNames[roadType] + ' ' + roadWidth + 'm';
+        });
+      });
+      // 道路宽度预设
+      document.querySelectorAll('#road-sel .road-width-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          roadWidth = parseInt(btn.dataset.rw);
+          document
+            .querySelectorAll('#road-sel .road-width-btn')
+            .forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          overlayInfo.textContent =
+            '🛣️ 道路模式 — ' + roadTypeNames[roadType] + ' ' + roadWidth + 'm';
+        });
+      });
+      // 敌人类型选择
+      document.querySelectorAll('#entity-sel-enemy .entity-swatch').forEach((sw) => {
+        sw.addEventListener('click', () => {
+          document
+            .querySelectorAll('#entity-sel-enemy .entity-swatch')
+            .forEach((s) => s.classList.remove('active'));
+          sw.classList.add('active');
+          entityType = sw.dataset.etype;
+        });
+      });
 
-chkGrid.addEventListener('change', () => { gridHelper.visible = chkGrid.checked; });
-chkWireframe.addEventListener('change', () => {
-    groundWireframe.visible = chkWireframe.checked;
-    if (groundPlane) groundPlane.material.wireframe = chkWireframe.checked;
-});
+      chkGrid.addEventListener('change', () => {
+        gridHelper.visible = chkGrid.checked;
+      });
+      chkWireframe.addEventListener('change', () => {
+        groundWireframe.visible = chkWireframe.checked;
+        if (groundPlane) groundPlane.material.wireframe = chkWireframe.checked;
+      });
 
-// 新建地图
-btnNewMap.addEventListener('click', () => {
-    const name = prompt('地图名称:', 'test_map_editor'); if (!name) return;
-    mapData.name = name;
-    mapData.heightmap.fill(0); mapData.splatMap.fill(0);
-    // 清理所有实体
-    Object.values(entityMarkers).forEach(m => { scene.remove(m); disposeGroup(m); });
-    Object.keys(entityMarkers).forEach(k => delete entityMarkers[k]);
-    Object.values(patrolLines).forEach(l => { scene.remove(l); l.geometry.dispose(); l.material.dispose(); });
-    Object.keys(patrolLines).forEach(k => delete patrolLines[k]);
-    Object.values(bridgeMeshes).forEach(m => { scene.remove(m); m.traverse(c => { if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); }); });
-    Object.keys(bridgeMeshes).forEach(k => delete bridgeMeshes[k]);
-    mapData.entities = []; selectedEntityIds.clear(); mapData.groups = []; entityIdCounter = 1;
-    mapData.waters = []; mapData.bridges = [];
-    mapData.editedVerticesPaint = new Set();
-    if (groundPlane) { groundPlane.geometry.dispose(); createGround(); renderHeightmapCanvas(); }
-    mapNameLabel.textContent = name + '.map.json';
-    setBrushMode('cursor'); entityMode = null;
-    refreshEntityList();
-    clearUndoStack();  // 新地图清空历史，推初始快照
-    pushSnapshot();
-    overlayInfo.textContent = '地图已重置';
-});
+      // 新建地图
+      btnNewMap.addEventListener('click', () => {
+        const name = prompt('地图名称:', 'test_map_editor');
+        if (!name) return;
+        mapData.name = name;
+        mapData.heightmap.fill(0);
+        mapData.splatMap.fill(0);
+        // 清理所有实体
+        Object.values(entityMarkers).forEach((m) => {
+          scene.remove(m);
+          disposeGroup(m);
+        });
+        Object.keys(entityMarkers).forEach((k) => delete entityMarkers[k]);
+        Object.values(patrolLines).forEach((l) => {
+          scene.remove(l);
+          l.geometry.dispose();
+          l.material.dispose();
+        });
+        Object.keys(patrolLines).forEach((k) => delete patrolLines[k]);
+        Object.values(bridgeMeshes).forEach((m) => {
+          scene.remove(m);
+          m.traverse((c) => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material) c.material.dispose();
+          });
+        });
+        Object.keys(bridgeMeshes).forEach((k) => delete bridgeMeshes[k]);
+        mapData.entities = [];
+        selectedEntityIds.clear();
+        mapData.groups = [];
+        entityIdCounter = 1;
+        mapData.waters = [];
+        mapData.bridges = [];
+        mapData.editedVerticesPaint = new Set();
+        if (groundPlane) {
+          groundPlane.geometry.dispose();
+          createGround();
+          renderHeightmapCanvas();
+        }
+        mapNameLabel.textContent = name + '.map.json';
+        setBrushMode('cursor');
+        entityMode = null;
+        refreshEntityList();
+        clearUndoStack(); // 新地图清空历史，推初始快照
+        pushSnapshot();
+        overlayInfo.textContent = '地图已重置';
+      });
 
-// 窗口大小调整（resize 在 editor_data.js 中定义，绑定移到 init 脚本）
-</script>
-<script src="js/editor_genStatus.js"></script>
-<script src="js/editor_terrainGen.js"></script>
-<script src="js/editor_terrainPaint.js"></script>
-<script src="js/editor_entities.js"></script>
-<script src="js/editor_data.js"></script>
-<script src="js/editor_waterBridge.js"></script>
-<script>window.addEventListener('resize', resize); init(); pushSnapshot(); animate(performance.now());</script>
-</body>
+      // 窗口大小调整（resize 在 editor_data.js 中定义，绑定移到 init 脚本）
+    </script>
+    <script src="js/editor_genStatus.js"></script>
+    <script src="js/editor_terrainGen.js"></script>
+    <script src="js/editor_terrainPaint.js"></script>
+    <script src="js/editor_entities.js"></script>
+    <script src="js/editor_data.js"></script>
+    <script src="js/editor_waterBridge.js"></script>
+    <script>
+      window.addEventListener('resize', resize);
+      init();
+      pushSnapshot();
+      animate(performance.now());
+    </script>
+  </body>
 </html>

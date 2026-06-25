@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.65.4
+# CODEBUDDY.md — v0.65.5
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -71,6 +71,14 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 每次追加新版本后，如果条目数 > 5，裁剪最旧的一条。保持格式为 `<div class="cl-title">图标 vX.Y.Z 类型 — 简短描述</div>`，一行一条。
 
 **Git 提交格式**: `git commit -m "vX.Y.Z: 描述"`
+
+## 尺度标定 (v0.65.5)
+
+- **`METERS_PER_UNIT = 1.3` 米/单位**（`js/engine.js:248`）。标定：真实 T-34/85 高 2.6m（Tanks Encyclopedia）÷ 坦克模型渲染高 1.99 单位（MCP Box3 实测）= 1.306，取干净值 1.3。旧值 `8/1.7≈4.706` 偏大 3.6 倍，导致"3m 配置的树只渲染 0.64 单位 = 坦克 32%，像草"。
+- **渲染公式**：障碍物渲染高度（单位）= `targetHeightM / METERS_PER_UNIT`，与 ud.height/baseHeight 无关（scale 抵消）。仅 `js/obstacles.js` 4 处使用此系数。
+- **各障碍物新 targetHeightMinM/MaxM（米）**：conical 2~4.2 | spherical 2~3.9 | oak 2.5~5 | bungalow 2.5~3.3 | villa 3~5.5 | apartment 4.2~9.7 | windmill 2.8~5.5（草丛 0.2~1.0m 直接米制不经系数）。
+- **裸单位参数不变**：worldHalfW=150、engageDist=50、fog、阴影、MAX_SPEED=8 等保持原值。新系数下 1 单位=1.3m，米含义自动正确（旧 4.706 曾导致 viewDist=470m、MAX_SPEED=164km/h 等荒谬值）。
+- **地图编辑器 UI 米显示**（×1.3）：info-size / overlayInfo / 尺寸滑块（dim-worldW 等 min/max/value 均米化，读取 ÷1.3，同步 ×1.3）。
 
 ## 核心架构
 

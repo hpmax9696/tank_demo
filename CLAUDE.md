@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.5
 
 ## 运行
 
@@ -55,7 +55,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ├── combat/            # AI状态机 + 积分系统
 │   ├── enemyAI.js     # AI状态机 (~1280行)：巡逻→追击→绕圈+六足ENGAGE+武器优先级
 │   └── scoreSystem.js # 积分系统 (~127行)
-├── docs/              # 协作文档
+├── docs/              # 协作文档（perf_optimization_plan / ai-search-design / obstacle_conventions）
 └── CODEBUDDY.md       # 详细架构/参数/已知问题/待办 → 查阅细节时读它
 ```
 
@@ -97,6 +97,15 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 核心全局变量
 
 `scene`, `players[]`, `bullets[]`, `explosions[]`, `obstacles[]`, `currentMapData`, `cameraYaw`
+
+## 尺度标定 (v0.65.5)
+
+- **`METERS_PER_UNIT = 1.3` 米/单位**（`engine.js:248`）。标定：真实 T-34/85 高 2.6m ÷ 坦克模型渲染高 1.99 单位 = 1.306，取干净值 1.3（旧值 4.706 偏大 3.6 倍，导致"3m 树像草"）。
+- **障碍物渲染高度公式**：`targetHeightM / METERS_PER_UNIT`（与 ud.height/baseHeight 无关，scale 抵消）。仅 `obstacles.js` 4 处使用此系数。
+- **各障碍物 targetHeightMinM/MaxM（米）**：conical 2~4.2 | spherical 2~3.9 | oak 2.5~5 | bungalow 2.5~3.3 | villa 3~5.5 | apartment 4.2~9.7 | windmill 2.8~5.5（草丛 0.2~1.0m 直接米制不经系数）。
+- **裸单位参数数值不变**：worldHalfW=150、AI 距离、fog、阴影、坦克速度等保持原值，米含义基于 1 单位=1.3m（比旧系数合理：viewDist 470m→131m、MAX_SPEED 164km/h→37km/h）。
+- **地图编辑器 UI 显示米**（×1.3）：info-size/overlayInfo/尺寸滑块均显示米，内部仍存单位。
+- 详见 `docs/obstacle_conventions.md`。
 
 ## 生成管线（v0.51.0 新增）
 
@@ -249,6 +258,8 @@ legGroup (Y旋转=水平摆角)
 ## 详细文档
 
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
+
+查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
 
@@ -471,6 +482,55 @@ legGroup (Y旋转=水平摆角)
 **实测对比（map01a 单人，MCP run_js）**: bld-im 141→**18**(-87%) | 窗户材质 IM 56→3 | 三角面 1.58M→1.23M(-22%) | 建筑 shadow caster 141→18 | 控制台 0 错误 | 视觉零损失(截图分析确认) | 3 次进出地图材质正常(dispose 安全验证)
 
 **注**: 主通道 DC 311→308 基本持平——因 frustum culling，之前 141 个小 IM 多被视野剔除，实际渲染 DC 本就 ~18；真实收益在三角面(-22%,GPU 填充率)+阴影 caster(-87%,阴影 pass 减负)+IM 对象数(-87%,CPU 场景遍历/矩阵更新)。跨 category 共享通用材质(18→~15 IM)留作后续可选优化。
+
+---
+
+## v0.65.5 本次会话变更 (2026-06-25)
+
+### 树冠阴影透明 proxy（推翻 v0.65.4 物理遮挡方案）
+
+- **背景**: v0.65.4 用"物理遮挡藏小 proxy"（缩到核心球簇 r=0.13），阴影只剩树冠一半像树干影
+- **根因**: v0.65.4 踩坑只测了 `layers`/`colorWrite`，未测 `transparent+opacity=0` 方案
+- **修复**: proxy 改透明——`proxyMat = MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false})` + `castShadow=true`。主通道透明看不见，阴影 pass 用独立 DepthMaterial 只看几何不看材质透明度，照常投阴影。proxy 放大到 r=0.22 覆盖整个树冠投完整树荫
+- **原理**: Three.js 两遍渲染，主 pass 看材质（opacity=0 不可见），阴影 pass 看几何（DepthMaterial 不读透明度），互不干扰
+- spherical/oak 用透明 proxy（r=0.22, y压扁0.72/0.85）；conical 保持直接 castShadow（448三角质量最好，不适合球proxy）
+
+### proxy 生命周期修复（摧毁后阴影残留）
+
+- **根因**: obstacleData 只存 imTrunk/imCrown，disposeTreeInstance 隐藏时漏 proxy → 树摧毁后 proxy 阴影残留地面
+- **修复**: spherical/oak 的 obstacleData 加 `imProxy` 字段 + disposeTreeInstance 同步隐藏 proxy 实例（一处覆盖全部 5 个调用点）
+
+### 环境对象开发规范文档
+
+- 新增 `docs/obstacle_conventions.md`：新增建筑/树木种类的规范（3铁律：IM强制/材质全局化/dispose分级 + 建筑 checklist + 树木 checklist含阴影决策树 + 生命周期同步 + 8条反面清单）
+- CLAUDE.md 文件结构 + 详细文档段加索引
+
+### 尺度标定（METERS_PER_UNIT 4.706→1.3）
+
+- **根因**: `METERS_PER_UNIT=8/1.7≈4.706` 偏大 3.6 倍，障碍物"米"配置被压缩（3m 树渲染 0.64 单位 = 坦克 32%，像草）
+- **标定**: 真实 T-34/85 高 2.6m（Tanks Encyclopedia）÷ 坦克渲染 1.99 单位（MCP 实测）= 1.306，取 1.3
+- **策略（保持视觉，不全局放大）**: METERS_PER_UNIT→1.3；障碍物 targetHeightMinM/MaxM 改真实米数（新值=旧渲染单位×1.3，保持视觉），下限"像草"的调高到坦克 75%+
+  - conical 3~15→2~4.2 | spherical 3~14→2~3.9 | oak 4~18→2.5~5 | bungalow 2~12→2.5~3.3 | villa 6~20→3~5.5 | apartment 15~35→4.2~9.7 | windmill 10~20→2.8~5.5
+- 裸单位参数（地图/AI/fog/阴影/速度）数值不变，米含义基于 1 单位=1.3m 自动正确
+- 地图编辑器尺寸 UI 显示米（×1.3）：info-size/overlayInfo/4滑块 min/max/value 米化，内部仍存单位
+
+### 关键文件变更
+
+| 文件                                                      | 改动                                                                              |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `js/obstacles.js`                                         | 透明 proxy（proxyMat+makeCrownProxy r=0.22）+ imProxy 生命周期 + conical 注释修正 |
+| `js/engine.js`                                            | METERS_PER_UNIT = 1.3（标定注释）                                                 |
+| `models/buildings.js`/`trees.js`/`windmill.js`            | 7 处 targetHeightMinM/MaxM 真实米数                                               |
+| `map_editor.html`                                         | 尺寸 UI 米显示（info-size/overlayInfo/滑块米化）                                  |
+| `docs/obstacle_conventions.md`                            | 新建环境对象规范文档                                                              |
+| `CLAUDE.md`/`CODEBUDDY.md`/`.trae/rules/project_rules.md` | 尺度标定段 + 规范索引                                                             |
+
+### 已知问题（更新）
+
+1. avg fps 41.5 仍非稳定60(剩余GC 20ms来自未池化spawn)，待P-burst-3续做
+2. 坡地一头翘起一头陷地(坦克/敌人偶发)
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确(待校准)
 
 ---
 

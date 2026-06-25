@@ -244,8 +244,9 @@ let player1 = null,
   player2 = null; // 双人模式玩家
 const TANK_HALF_W = 1.2;
 const ENEMY_HALF_W = 0.85; // 装甲突击车含履带/铲斗实际半宽
-// 坦克模型车体长 1.70 单位 = 8 米 → 1 单位 = 8/1.70 米
-const METERS_PER_UNIT = 8 / 1.7;
+// 标定基准：真实 T-34/85 高 2.6m / 坦克模型渲染高 1.99 单位 = 1.306 m/单位
+// 取 1.3（误差 0.46%，肉眼不可辨，便于手算渲染高度 = targetHeightM / 1.3）
+const METERS_PER_UNIT = 1.3;
 let obstacleMeshes = [],
   obstacleData = [];
 window.obstacleMeshes = obstacleMeshes; // 供六足加特林子弹碰撞检测

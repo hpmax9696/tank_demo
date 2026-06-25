@@ -123,13 +123,16 @@ function disposeTreeInstance(od, isOcclusion = false) {
   if (!od.type || od.type === 'building' || od.imIndex == null) return;
   const imTrunk = od.imTrunk,
     imCrown = od.imCrown,
+    imProxy = od.imProxy,
     idx = od.imIndex;
   const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
   hideMat.setPosition(0, -999, 0);
   if (imTrunk) imTrunk.setMatrixAt(idx, hideMat);
   if (imCrown) imCrown.setMatrixAt(idx, hideMat);
+  if (imProxy) imProxy.setMatrixAt(idx, hideMat);
   if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
   if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
+  if (imProxy) imProxy.instanceMatrix.needsUpdate = true;
   if (!isOcclusion) {
     od.destroyed = true;
   } else {
@@ -575,17 +578,29 @@ function createObstacles(targetScene = scene) {
 
   window._treeIMs = [];
   const dummy = new THREE.Object3D();
-  // 树冠阴影 proxy：极简低面数球(20面)，castShadow 投影出树冠影子。
-  // proxy 球缩小到 0.8 藏入树冠内部，靠不透明的精细树冠遮挡（主通道看不见），但阴影仍投影。
-  // 不用 layers（实测 r160 下阴影相机看不到 layer1 物体），也不用 colorWrite=false（会连带跳过阴影 pass）。
-  const proxyMat = new THREE.MeshBasicMaterial({ color: 0x1a3d0a }); // 深绿(树冠色)，藏树冠内被遮挡
-  function makeCrownProxy(tm, count) {
-    tm.crownGeo.computeBoundingSphere();
-    const im = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(tm.crownGeo.boundingSphere.radius * 0.8, 0),
-      proxyMat,
-      count
-    );
+  // 树冠阴影 proxy：低面数球(80面) 覆盖整个树冠，castShadow 投出完整树荫。
+  // ✅ 核心技巧：proxy 材质 transparent+opacity=0+depthWrite=false → 主通道完全透明看不见，
+  //    但阴影 pass 用独立的 DepthMaterial(只看几何不看材质透明度)，仍正常投阴影。
+  //    （Three.js 两遍渲染：主pass看材质，阴影pass看几何，互不干扰。r160 MCP 实测确认。）
+  // ⚠️ v0.65.4 踩坑：曾试 layers(阴影相机也看不见→不投阴影) 和 colorWrite=false(连带跳过阴影pass)，
+  //    都失败；唯独 transparent+opacity=0 方案可行——它只影响主pass不影响阴影pass。
+  // 半径取覆盖树冠主体(r≈0.22)，y压扁匹配扁平树冠形态(阴影形状更贴树冠)。
+  // 不用 layers/colorWrite=false（见上）。透明 proxy 不需藏入树冠，可放大覆盖，阴影完整。
+  const proxyMat = new THREE.MeshBasicMaterial({
+    color: 0x1a3d0a,
+    transparent: true, // 主pass透明
+    opacity: 0, // 完全不可见
+    depthWrite: false, // 不写深度，避免遮挡树冠/地面(Z-fighting)
+  });
+  function makeCrownProxy(count, radius, flattenY) {
+    const geo = new THREE.IcosahedronGeometry(radius, 1); // detail=1(80面)，阴影轮廓圆滑
+    if (flattenY !== 1) {
+      // y 方向压扁，匹配扁平树冠形态，让阴影形状贴合树冠(而非正圆)
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) pos.array[i * 3 + 1] *= flattenY;
+      pos.needsUpdate = true;
+    }
+    const im = new THREE.InstancedMesh(geo, proxyMat, count);
     im.castShadow = true;
     im.receiveShadow = false;
     return im;
@@ -597,7 +612,8 @@ function createObstacles(targetScene = scene) {
     trunkIM.castShadow = true;
     trunkIM.receiveShadow = true;
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, conePts.length);
-    // conical 树冠是扁平三角棱柱(仅448三角/棵)，藏不住球 proxy → 直接 castShadow 投影(开销小，448×100≈4.5万阴影三角)
+    // conical 树冠仅448三角/棵(5层锥盘+尖锥)，面数少 → 直接 castShadow 投真实锥形多层阴影(质量最佳)。
+    // 不用 proxy：锥形树冠用球 proxy 阴影会变圆形(形状失真)，且直接投影开销本就小(spherical 树冠5000+三角才需 proxy)。
     crownIM.castShadow = true;
     crownIM.receiveShadow = true;
 
@@ -647,7 +663,8 @@ function createObstacles(targetScene = scene) {
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, spherePts.length);
     crownIM.castShadow = false;
     crownIM.receiveShadow = true;
-    const crownProxyIM = makeCrownProxy(tm, spherePts.length);
+    // spherical 树冠扁平(y压扁0.75)，proxy 大球 r=0.22 覆盖树冠主体 + y压扁0.72 匹配扁平形态
+    const crownProxyIM = makeCrownProxy(spherePts.length, 0.22, 0.72);
 
     for (let i = 0; i < spherePts.length; i++) {
       const p = spherePts[i];
@@ -678,6 +695,7 @@ function createObstacles(targetScene = scene) {
         type: 'spherical',
         imTrunk: trunkIM,
         imCrown: crownIM,
+        imProxy: crownProxyIM,
         imIndex: i,
       });
     }
@@ -697,7 +715,8 @@ function createObstacles(targetScene = scene) {
     const crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, oakPts.length);
     crownIM.castShadow = false;
     crownIM.receiveShadow = true;
-    const crownProxyIM = makeCrownProxy(tm, oakPts.length);
+    // oak 树冠较高瘦(y跨-0.18~0.16)，proxy 大球 r=0.22 覆盖树冠主体 + 轻压扁0.85
+    const crownProxyIM = makeCrownProxy(oakPts.length, 0.22, 0.85);
 
     for (let i = 0; i < oakPts.length; i++) {
       const p = oakPts[i];
@@ -728,6 +747,7 @@ function createObstacles(targetScene = scene) {
         type: 'oak',
         imTrunk: trunkIM,
         imCrown: crownIM,
+        imProxy: crownProxyIM,
         imIndex: i,
       });
     }
