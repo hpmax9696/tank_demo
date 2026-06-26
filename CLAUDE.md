@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.5
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.6
 
 ## 运行
 
@@ -482,6 +482,18 @@ legGroup (Y旋转=水平摆角)
 **实测对比（map01a 单人，MCP run_js）**: bld-im 141→**18**(-87%) | 窗户材质 IM 56→3 | 三角面 1.58M→1.23M(-22%) | 建筑 shadow caster 141→18 | 控制台 0 错误 | 视觉零损失(截图分析确认) | 3 次进出地图材质正常(dispose 安全验证)
 
 **注**: 主通道 DC 311→308 基本持平——因 frustum culling，之前 141 个小 IM 多被视野剔除，实际渲染 DC 本就 ~18；真实收益在三角面(-22%,GPU 填充率)+阴影 caster(-87%,阴影 pass 减负)+IM 对象数(-87%,CPU 场景遍历/矩阵更新)。跨 category 共享通用材质(18→~15 IM)留作后续可选优化。
+
+---
+
+## v0.65.6 本次会话变更 (2026-06-26)
+
+### 建筑朝向基础（地图 yaw 传递 + 编辑器朝向标识 + R 键旋转）
+
+- **根因**: mapLoader 转建筑时丢 yaw（只取 x/z/type），obstacles 读错字段名（angle vs yaw）→ 所有建筑同朝向
+- **修复**: `mapLoader.js:222` 补传 `yaw: e.yaw||0` + `obstacles.js:821` 用 `bld.yaw`
+- **编辑器 marker 加门**: `editor_entities.js` createBuildingMarker 三种建筑 +Z 面加亮黄门（薄盒外突），对称低模朝向可辨识
+- **R 键旋转 UI**: `map_editor.html` 选中建筑 R 键步进 15°（Shift 反向），更新 ent.yaw + marker.rotation.y
+- **推后**: 村落生成器 `_findClosestRoadAngle` 朝向差 90°（让 +X 朝道路，门窗在 +Z）→ 建筑门未精确朝道路，待修
 
 ---
 

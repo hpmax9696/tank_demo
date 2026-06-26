@@ -1989,6 +1989,36 @@
             [...selectedEntityIds].forEach((id) => deleteEntity(id));
           }
         }
+        // R键旋转选中建筑（Shift+R 反向，步进15°）—— marker 有 +Z 亮门，旋转可见朝向
+        if (e.key.toLowerCase() === 'r' && selectedEntityIds.size > 0) {
+          const tag = document.activeElement && document.activeElement.tagName;
+          if (
+            tag !== 'INPUT' &&
+            tag !== 'TEXTAREA' &&
+            document.activeElement.contentEditable !== 'true'
+          ) {
+            e.preventDefault();
+            const step = e.shiftKey ? -Math.PI / 12 : Math.PI / 12;
+            let rotated = 0,
+              lastYaw = 0;
+            selectedEntityIds.forEach((id) => {
+              const ent = mapData.entities.find((x) => x.id === id);
+              if (ent && ent.type === 'building') {
+                ent.yaw = (ent.yaw || 0) + step;
+                const mk = entityMarkers[id];
+                if (mk) mk.rotation.y = ent.yaw;
+                rotated++;
+                lastYaw = ent.yaw;
+              }
+            });
+            if (rotated > 0) {
+              let deg = ((lastYaw * 180) / Math.PI) % 360;
+              if (deg < 0) deg += 360;
+              overlayInfo.textContent =
+                '🔄 旋转 ' + rotated + ' 个建筑 → ' + deg.toFixed(0) + '° (R 步进15°, Shift 反向)';
+            }
+          }
+        }
       });
 
       function createGround() {

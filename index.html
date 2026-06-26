@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.5</title>
+    <title>坦克运动demo v0.65.6</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.5</div>
+      <div class="menu-version">v0.65.6</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -816,6 +816,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏠 v0.65.6 建筑朝向基础 —
+          mapLoader转建筑补传yaw(修地图朝向丢失)+编辑器marker加+Z亮门(低模朝向标识)+R键旋转选中建筑(Shift反向15°)。推后:村落生成器朝向差90°(门未精确朝道路)
+        </div>
+        <div class="cl-title">
           📐 v0.65.5 树冠透明proxy + 尺度标定 —
           proxy改透明(opacity=0+castShadow)主通道不见但阴影pass照投(推翻v0.65.4物理遮挡)+proxy生命周期修复(摧毁后阴影残留)+METERS_PER_UNIT
           4.706→1.3(标定T-34/85高2.6m/坦克1.99单位),障碍物米数标对+下限调高不再像草+地图编辑器尺寸显示米
@@ -833,10 +837,6 @@
           ⚡ v0.65.2 地面射线高度图+建筑分类+阴影 —
           updateAiming用getGroundHeight步进取代131k三角brute-force raycast(14ms→0.1ms,单人fps
           30→48)+建筑category+castShadow+P0-1建筑IM合并根因定位
-        </div>
-        <div class="cl-title">
-          🐛 v0.65.1 坦克AI对峙/出界修复 + 对攻性能优化 —
-          updateChase超距离直线追(修侧向推坦克出地图进虚空)+moveEnemyToward边界clamp+碎片对象池+炮弹临时向量复用(最坏帧-67%/GC-46%)
         </div>
       </div>
     </div>

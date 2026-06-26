@@ -818,7 +818,8 @@ function createObstacles(targetScene = scene) {
       group.scale.setScalar(s);
       const obsY = getTerrainHeight(bld.x, bld.z);
       group.position.set(bld.x, obsY, bld.z);
-      group.rotation.y = (bld.angle || 0) + (Math.random() - 0.5) * 0.2;
+      // 建筑朝向：地图数据(编辑器/村落生成器设的 yaw，朝道路)则用，否则随机(0~2π)
+      group.rotation.y = typeof bld.yaw === 'number' ? bld.yaw : Math.random() * Math.PI * 2;
       group.visible = false;
       group.name = `bld-${bldIdx++}`;
       tempBldGroups.push({ group, bld, ud, s, obsY });
