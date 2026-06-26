@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.6
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.7
 
 ## 运行
 
@@ -494,6 +494,41 @@ legGroup (Y旋转=水平摆角)
 - **编辑器 marker 加门**: `editor_entities.js` createBuildingMarker 三种建筑 +Z 面加亮黄门（薄盒外突），对称低模朝向可辨识
 - **R 键旋转 UI**: `map_editor.html` 选中建筑 R 键步进 15°（Shift 反向），更新 ent.yaw + marker.rotation.y
 - **推后**: 村落生成器 `_findClosestRoadAngle` 朝向差 90°（让 +X 朝道路，门窗在 +Z）→ 建筑门未精确朝道路，待修
+
+---
+
+## 地面纹理改进方案调研 (2026-06-26)
+
+### 道路/广场马赛克 3 大根因（已定位）
+
+1. **splatMap 整数硬切**（`mapLoader.js:413`）：每 cell 单类型，边界像素级锯齿、无羽化。草地笔触随机掩盖硬切，asphalt/concrete/brick 图案规整 → 强马赛克
+2. **2048 合成贴图 + 规整重复**（`mapLoader.js:562/600`）：`texTile=worldSize/8≈25m`，同一 256px tile 每 25m 原样重复 → aliasing
+3. **主路浮空单色 strip**（`obstacles.js:186` `_roadMat` 纯色 `#4a4a4a`；`:330` `mainOff` 浮空）：与地面沥青割裂
+
+### splat shader 软混合方案（一期，治本）
+
+- **从"1 张 2048 合成贴图"改为"6 张高频 tile + splatMap DataTexture + onBeforeCompile 注入"**
+- **手动双线性采样 splatMap** → 4 邻域 cell 按权重混合 → 软边界（根治硬切）
+- **tile UV 高频平铺 + hash 随机旋转**（0/90/180/270°）→ 消除规整重复 aliasing
+- **编辑器+运行时共享** `applySplatShader()` 函数 → 所见即所得
+- **兼容 vertexColors**（编辑器水体）、PBR 光照/阴影/雾不动
+
+### 主路拱顶倒角管道 + 标线方案（一期）
+
+- **buildRoadStrip 截面泛化**：矩形截面 → 路拱顶（crown=0.08m）+ 边缘埋地倒角（-0.4m 吸收地形起伏）
+- **去浮空贴地**：roadCenterY = getTerrainHeight()，边缘埋地容差 ~0.4m
+- **标线**：路径 UV（U=弧长, V=横向）→ 中线虚线 + 边线实线，随拱微弯（真实道路排水造型）
+- **parallel transport**：复用现有 `-dz/segLen,dx/segLen` 稳定 up 向量法
+
+### 路口扩展可行性（预留，一期不做）
+
+- **路段(segment)+路口(junction)两层架构**：管道扫掠路段+路口平整 patch，不相冲
+- **数据结构预留**：`roadSystem.roads` 数组、手画路路径持久化（当前路径画 splatMap 即丢）
+- **路口检测**：线段相交 O(n²) + 路口区域多边形 + 停止线/斑马线 → 全确定性几何
+
+### 一期实现计划
+
+详见 `~/.claude/plans/quirky-hatching-rainbow.md` | 范围：splat shader + mainRoad 管道标线 + 路径预留 | 留 milestone：手画路管道/路口/路面整形
 
 ---
 

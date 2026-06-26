@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.65.6
+# CODEBUDDY.md — v0.65.7
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -393,6 +393,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 | 20  | ~~敌坦克坡地倾斜方向错~~ **v0.64.0已修**       | 前向公式(-cos,sin)与模型朝向差90°                                                                                                                                                              | `engine.js`:3276+3288                                                               |
 | 21  | ~~爆炸火光粒子残留~~ **v0.64.0已修**           | dispose()只释放GPU资源不调scene.remove()                                                                                                                                                       | `fireSmokeParticles.js`:391+561                                                     |
 | 22  | ~~敌六足不受水体/障碍物碰撞~~ **v0.64.0已修**  | 敌六足只有空气墙钳制无checkCollision                                                                                                                                                           | `engine.js`:3258+3128                                                               |
+| 23  | **道路/广场纹理马赛克感重**                    | splatMap整数硬切、2048合成贴图规整重复、主路浮空单色strip。方案已调研：splat shader软混合+拱顶管道标线，一期计划见 `.claude/plans/quirky-hatching-rainbow.md`                                  | `js/mapLoader.js`:generateCompositeGroundTexture; `js/obstacles.js`:buildRoadStrip  |
 | 1   | 模型工厂撤销一键回到初始状态                   | Ctrl+Z一次性回到初始而非逐步回退                                                                                                                                                               | model_factory.html                                                                  |
 | 2   | 桥梁两端地形高低差                             | 编辑器addBridge引道雕刻不完善，坦克上桥有阻                                                                                                                                                    | map_editor.html→addBridge                                                           |
 | 3   | 编辑器虚空拖拽偶发贴边河段/路段                | 鼠标在边界外拖拽时，CatmullRom插值+钳制产生贴边冗余段                                                                                                                                          | map_editor.html→mousemove钳制逻辑                                                   |
