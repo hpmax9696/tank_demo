@@ -1,22 +1,24 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.7
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.8
 
 ## 运行
 
 ```bash
-python -m http.server 8080 --bind 127.0.0.1
+python server.py
 ```
 
 访问 `http://127.0.0.1:8080`（必须 127.0.0.1，禁止 localhost）
+
+`server.py` 提供静态文件服务 + `/api/solidify` 固化端点（模型工厂 Ctrl+S 直接写源文件）。
 
 提供 `preview_url` 前：先杀残留 Python 进程，再启动单一服务，确认就绪后才调用。
 
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏框架 (~1034行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~7543行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── index.html         # 核心游戏框架 (~1035行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~7544行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
 ├── js/                # 游戏模块（12个）
 │   ├── waters.js      # 水体模块 (~326行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -47,10 +49,11 @@ python -m http.server 8080 --bind 127.0.0.1
 │   ├── editor_waterBridge.js # 水体桥梁 (~659行)：水面+河床+桥梁检测
 │   ├── editor_data.js        # 数据持久化 (~504行)：蓝图+JSON+init
 │   └── editor_terrainPaint.js # 地形绘制 (~335行)：笔刷+高度图画布
-├── model_factory.html # 程序化模型编辑器 (~4158行)
+├── model_factory.html # 程序化模型编辑器 (~4051行)
 ├── models/            # 模型文件 (GLB主力 + 程序化兜底)
 │   ├── enemies.js     # 敌方单位模型 (~1324行)：装甲突击车+程序化丧尸
 │   └── buildings.js   # 建筑模型 (~364行)：3种建筑+category分类+阴影
+├── server.py          # 开发服务器 (~145行)：静态文件 + POST /api/solidify 固化端点
 ├── maps/              # .map.json 地图配置
 ├── combat/            # AI状态机 + 积分系统
 │   ├── enemyAI.js     # AI状态机 (~1280行)：巡逻→追击→绕圈+六足ENGAGE+武器优先级
@@ -494,6 +497,46 @@ legGroup (Y旋转=水平摆角)
 - **编辑器 marker 加门**: `editor_entities.js` createBuildingMarker 三种建筑 +Z 面加亮黄门（薄盒外突），对称低模朝向可辨识
 - **R 键旋转 UI**: `map_editor.html` 选中建筑 R 键步进 15°（Shift 反向），更新 ent.yaw + marker.rotation.y
 - **推后**: 村落生成器 `_findClosestRoadAngle` 朝向差 90°（让 +X 朝道路，门窗在 +Z）→ 建筑门未精确朝道路，待修
+
+---
+
+## v0.65.8 本次会话变更 (2026-06-29)
+
+### 模型工厂固化一键保存
+
+- **server.py**：自定义 HTTP 服务器，基于 `http.server.SimpleHTTPRequestHandler`，新增 `POST /api/solidify` 端点
+- **固化端点**：接收 `{modelType, config}` JSON，括号匹配定位源文件中 `const XXX_CONFIG = {...};` 并替换，支持 tiger_v16/tank_v16/hexapod 三种模型
+- **Ctrl+S 三合一**：`_doSave()` 函数同时执行 ①POST 固化到源文件 ②存 localStorage ③下载 JSON 备份
+- **启动方式**：`python server.py`（替代 `python -m http.server`）
+- **涉及文件**：`server.py`（新建 145 行）、`model_factory.html`（`_doSave()` + 2 处调用）、`CLAUDE.md`（运行命令更新）
+
+### 虎式坦克调试着色（模型工厂）
+
+- **彩色材质**：扩展 `getMaterial()` hexapod 条件到 `tiger_v16`，新增虎式专用色：`camo_green`→亮绿 `#77DD44`、`camo_dark`→暗绿 `#558833`、`wood`→木棕 `#DD9944`。复用已有 `dark_steel`(蓝)、`barrel_steel`(红)、`steel`(紫)
+- **部件轮廓线框**：`rebuildModel()` 线框创建从六足专用块分离为独立条件块（hexapod + tiger_v16 共享），网格编辑更新时同步重建
+- **涉及文件**：`model_factory.html`（3 处条件扩展）
+
+### 切换模型六足 UI 自动清理
+
+- **`toggleHexTurnTest()` 守卫修复**：modelType 守卫从函数顶部移到 turn-ON 路径内（对齐 `toggleWeaponCalibrate()` 模式），turn-OFF 始终可用
+- **`rebuildModel()` 清理顺序**：在移除旧模型**之前**统一清理 IK 测试+转弯验证+射击校准（确保 pivot/nodeMap 引用有效时执行场景清理）
+- **`updateAnimButton()` 加固**：turn test 加 active 检查 + 直接隐藏 `weaponcal-panel`/`anim-list`/`anim-status` 面板
+- **`ModelRegistry` 防御**：加 `if (window.ModelRegistry)` 守卫，防模型工厂页面未加载 registry 时报错
+- **涉及文件**：`js/hexapod_factory.js`（守卫后移+暴露 `_hexTurnActive`）、`model_factory.html`（`rebuildModel()` + `updateAnimButton()`）
+
+### UI 精简
+
+- **移除冗余按钮**：📋 输出姿态、💾 应用到 Config、📥 导出JSON固化、📂 加载（共 4 个），全局操作只剩 撤销/保存/重置
+- **BoxHelper 默认关闭**：`showHelpersGlobal = false`，按钮仍可手动开启
+
+### 关键文件变更
+
+| 文件                          | 改动                                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| `server.py`                   | 新建 — 开发服务器+固化端点                                                             |
+| `model_factory.html`          | `_doSave()` 保存函数 + 虎式着色(3处) + 六足UI清理(2处) + 删冗余按钮 + BoxHelper 默认关 |
+| `js/hexapod_factory.js`       | `toggleHexTurnTest()` 守卫修复 + `_hexTurnActive` 暴露                                 |
+| `models/tiger_v16_builder.js` | `TIGER_I_V16_CONFIG` 固化（用户手动调整）+ `ModelRegistry` 防御                        |
 
 ---
 

@@ -477,6 +477,7 @@
     </script>
 
     <script src="models/hexapod_config.js"></script>
+    <script src="models/tiger_v16_builder.js"></script>
     <script src="models/model_configs.js"></script>
     <script type="module">
       // ============================================================
@@ -586,8 +587,8 @@
       let currentCamoType = 'jungle';
 
       function getMaterial(matId) {
-        // 六足战车：彩色调试材质，部件清晰可辨
-        if (currentModelType === 'hexapod') {
+        // 六足战车+虎式坦克：彩色调试材质，部件清晰可辨
+        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
           var hexColors = {
             armor_dark: '#44CC44',
             armor_light: '#66EE66',
@@ -595,6 +596,10 @@
             barrel_steel: '#FF3333',
             steel: '#BB44FF',
             warning_yellow: '#FF8800',
+            // 虎式坦克专用
+            camo_green: '#77DD44',
+            camo_dark: '#558833',
+            wood: '#DD9944',
           };
           if (hexColors[matId]) {
             return new THREE.MeshStandardMaterial({
@@ -1581,6 +1586,60 @@
         if (cfg.children) for (const c of cfg.children) syncConfigFromScene(c);
       }
 
+      // ── 保存：同步场景→config → POST 固化到源文件 → 回退 localStorage + 下载备份
+      function _doSave() {
+        syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
+        var cfg = MODEL_CONFIGS[currentModelType];
+        var saveData = {
+          modelType: currentModelType,
+          config: JSON.parse(JSON.stringify(cfg)),
+          timestamp: Date.now(),
+        };
+
+        // 始终存 localStorage（离线可用 + 自动加载）
+        localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+
+        // 尝试直接固化到源文件
+        var modelLabel =
+          currentModelType === 'hexapod'
+            ? '六足战车'
+            : currentModelType === 'tank_v16'
+              ? '坦克v1.6'
+              : currentModelType === 'tiger_v16'
+                ? '虎式坦克'
+                : currentModelType;
+
+        fetch('/api/solidify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modelType: currentModelType, config: saveData.config }),
+        })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            throw new Error('HTTP ' + r.status);
+          })
+          .then(function (result) {
+            console.log('✅ 已固化到源文件: ' + result.file);
+          })
+          .catch(function (err) {
+            console.log('⚠️ 固化失败（服务器未运行？已存 localStorage）: ' + err.message);
+          });
+
+        // 同时下载 JSON 备份
+        var json = JSON.stringify(saveData.config, null, 2);
+        var blob = new Blob([json], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = modelLabel + '_配置_固化.json';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        console.log(
+          '💾 已保存: ' + modelLabel + ' (' + new Date(saveData.timestamp).toLocaleString() + ')'
+        );
+      }
+
       // 快照：先同步 3D→config，再深拷贝 config。一次拖拽只产生一个快照
       let _snapshotLock = false;
 
@@ -1688,8 +1747,19 @@
         if (currentModelType !== 'hexapod') {
           if (window.toggleHexIKTest && window._hexIKActive && window._hexIKActive())
             window.toggleHexIKTest();
-          if (window.toggleHexTurnTest) window.toggleHexTurnTest();
+          if (window.toggleHexTurnTest && window._hexTurnActive && window._hexTurnActive())
+            window.toggleHexTurnTest();
           if (window.toggleWeaponCalibrate) window.toggleWeaponCalibrate();
+          // 隐藏六足专用面板（防止toggle函数因modelType守卫未执行清理）
+          var wcp = document.getElementById('weaponcal-panel');
+          if (wcp) wcp.style.display = 'none';
+          var al = document.getElementById('anim-list');
+          if (al) {
+            al.innerHTML = '';
+            al.style.display = 'none';
+          }
+          var ast = document.getElementById('anim-status');
+          if (ast) ast.style.display = 'none';
         }
       }
 
@@ -2180,8 +2250,10 @@
         _camoDesertTex = null;
         // 关闭动画展台
         if (animShowcase) toggleAnimShowcase();
-        // 关闭IK测试（模块管理）
+        // 关闭六足专用功能（必须在清理旧模型之前，确保 pivot/nodeMap 引用有效）
         if (window._hexIKActive && window._hexIKActive()) window.toggleHexIKTest();
+        if (window._hexTurnActive && window._hexTurnActive()) window.toggleHexTurnTest();
+        if (window.toggleWeaponCalibrate) window.toggleWeaponCalibrate();
 
         // 清理旧模型
         if (modelRoot) {
@@ -2207,23 +2279,22 @@
         scene.add(modelRoot);
         modelRoot.updateMatrixWorld(true);
 
-        // 六足战车：贴地+线框+彩色部件
+        // 六足战车：贴地
         if (currentModelType === 'hexapod') {
-          // 找到六足战车的根Group（modelRoot的直接子节点）
           var hexRoot = null;
           modelRoot.children.forEach(function (c) {
             if (c.name === '六足战车') hexRoot = c;
           });
           if (hexRoot) {
-            // 先重置根节点位置，用局部包围盒算偏移
             hexRoot.position.y = 0;
             hexRoot.updateMatrixWorld(true);
             var hbox = new THREE.Box3().setFromObject(hexRoot);
-            // 把六足战车根节点上移，使脚底贴地
             hexRoot.position.y = -hbox.min.y;
             hexRoot.updateMatrixWorld(true);
           }
-          // 线框
+        }
+        // 六足战车+虎式坦克：部件轮廓线框
+        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
           modelRoot.traverse(function (ch) {
             if (ch.isMesh && ch.geometry && ch.parent) {
               try {
@@ -2549,7 +2620,7 @@
         });
       }
 
-      let showHelpersGlobal = true;
+      let showHelpersGlobal = false;
 
       function updateTriCount() {
         document.getElementById('triCount').textContent = countTriangles(modelRoot);
@@ -2601,13 +2672,13 @@
         }
         mesh.geometry = geo;
 
-        // 更新六足战车线框
+        // 更新部件轮廓线框（六足+虎式）
         if (mesh.userData._wireLine) {
           mesh.userData._wireLine.geometry.dispose();
           mesh.remove(mesh.userData._wireLine);
           mesh.userData._wireLine = null;
         }
-        if (currentModelType === 'hexapod') {
+        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
           try {
             var _eg = new THREE.EdgesGeometry(geo, 15);
             var _ln = new THREE.LineSegments(_eg, new THREE.LineBasicMaterial({ color: 0x111111 }));
@@ -2824,6 +2895,7 @@
         const modelFolder = gui.addFolder('📦 模型切换');
         const modelOptions = {
           'T-34/85 (v1.6 AI版)': 'tank_v16',
+          '🐅 虎式坦克 (v1.0)': 'tiger_v16',
           '🏠 建筑': 'building',
           '👾 敌人': 'enemy',
           '🦗 六足战车': 'hexapod',
@@ -3079,59 +3151,7 @@
           )
           .name('↩ 撤销 (Ctrl+Z)');
         // 保存
-        globalF
-          .add(
-            {
-              save: () => {
-                const cfg = MODEL_CONFIGS[currentModelType];
-                const saveData = {
-                  modelType: currentModelType,
-                  config: JSON.parse(JSON.stringify(cfg)),
-                  timestamp: Date.now(),
-                };
-                localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-                console.log(
-                  '💾 已保存到本地存储 (' + new Date(saveData.timestamp).toLocaleString() + ')'
-                );
-              },
-            },
-            'save'
-          )
-          .name('💾 保存 (Ctrl+S)');
-        // 加载
-        globalF
-          .add(
-            {
-              load: () => {
-                const raw = localStorage.getItem(SAVE_KEY);
-                if (!raw) {
-                  console.log('⚠️ 没有找到已保存的数据');
-                  return;
-                }
-                try {
-                  const data = JSON.parse(raw);
-                  currentModelType = data.modelType || 'hexapod';
-                  if (!MODEL_CONFIGS[currentModelType]) {
-                    console.warn('⚠️ 不支持的模型类型:' + data.modelType + '，已删除旧数据');
-                    currentModelType = 'hexapod';
-                    localStorage.removeItem(SAVE_KEY);
-                    rebuildModel();
-                    return;
-                  }
-                  const cfg = MODEL_CONFIGS[currentModelType];
-                  deepRestore(cfg, data.config);
-                  rebuildModel();
-                  console.log(
-                    '📂 已从本地存储加载 (' + new Date(data.timestamp).toLocaleString() + ')'
-                  );
-                } catch (e) {
-                  console.error('加载失败:', e);
-                }
-              },
-            },
-            'load'
-          )
-          .name('📂 加载');
+        globalF.add({ save: _doSave }, 'save').name('💾 保存并固化 (Ctrl+S)');
         // 重置
         globalF
           .add(
@@ -3143,126 +3163,6 @@
             'reset'
           )
           .name('🔄 重置');
-        // 输出
-        globalF
-          .add(
-            {
-              log: () => {
-                function collect(cfg) {
-                  const r = [];
-                  const n = nodeMap.get(cfg.name);
-                  if (n && cfg.type !== 'Group') {
-                    const cc = n.group.userData.appliedComp || [0, 0, 0];
-                    r.push({
-                      name: cfg.name,
-                      type: cfg.type,
-                      position: [
-                        n.group.position.x - cc[0],
-                        n.group.position.y - cc[1],
-                        n.group.position.z - cc[2],
-                      ].map((v) => +v.toFixed(4)),
-                      rotation: [
-                        n.rotTarget.rotation.x,
-                        n.rotTarget.rotation.y,
-                        n.rotTarget.rotation.z,
-                      ].map((v) => +v.toFixed(4)),
-                      size: cfg.size?.map((v) => +v.toFixed(4)),
-                      segments: cfg.segments,
-                      materialId: cfg.materialId,
-                      color: cfg.color,
-                    });
-                  }
-                  if (cfg.children) for (const c of cfg.children) r.push(...collect(c));
-                  return r;
-                }
-                const parts = collect(MODEL_CONFIGS[currentModelType]);
-                console.log('📋 === 当前模型姿态 ===');
-                console.log(JSON.stringify(parts, null, 2));
-                console.log(
-                  '%c💡 推荐: 点"📥 导出JSON固化"下载文件，然后把文件路径告诉Trae固化',
-                  'background:#333;color:#ffd;padding:2px 8px;border-radius:3px'
-                );
-              },
-            },
-            'log'
-          )
-          .name('📋 输出姿态');
-        // 应用到Config
-        globalF
-          .add(
-            {
-              apply: () => {
-                function applyState(cfg) {
-                  const n = nodeMap.get(cfg.name);
-                  if (n && cfg.type !== 'Group') {
-                    const cc = n.group.userData.appliedComp || [0, 0, 0];
-                    cfg.position = [
-                      n.group.position.x - cc[0],
-                      n.group.position.y - cc[1],
-                      n.group.position.z - cc[2],
-                    ].map((v) => +v.toFixed(4));
-                    cfg.rotation = [
-                      n.rotTarget.rotation.x,
-                      n.rotTarget.rotation.y,
-                      n.rotTarget.rotation.z,
-                    ].map((v) => +v.toFixed(4));
-                    cfg.visible = n.group.visible;
-                  }
-                  if (cfg.children) for (const c of cfg.children) applyState(c);
-                }
-                applyState(MODEL_CONFIGS[currentModelType]);
-                console.log('✅ Config 已应用');
-              },
-            },
-            'apply'
-          )
-          .name('💾 应用到 Config');
-        // 导出完整配置到JSON文件
-        globalF
-          .add(
-            {
-              export: () => {
-                function applyState(cfg) {
-                  const n = nodeMap.get(cfg.name);
-                  if (n && cfg.type !== 'Group') {
-                    const cc = n.group.userData.appliedComp || [0, 0, 0];
-                    cfg.position = [
-                      n.group.position.x - cc[0],
-                      n.group.position.y - cc[1],
-                      n.group.position.z - cc[2],
-                    ].map((v) => +v.toFixed(4));
-                    cfg.rotation = [
-                      n.rotTarget.rotation.x,
-                      n.rotTarget.rotation.y,
-                      n.rotTarget.rotation.z,
-                    ].map((v) => +v.toFixed(4));
-                    cfg.visible = n.group.visible;
-                  }
-                  if (cfg.children) for (const c of cfg.children) applyState(c);
-                }
-                applyState(MODEL_CONFIGS[currentModelType]);
-                // 先同步3D状态到config，防止丢失未保存的调整
-                syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
-                const json = JSON.stringify(MODEL_CONFIGS[currentModelType], null, 2);
-                const blob = new Blob([json], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                var modelLabel =
-                  currentModelType === 'hexapod'
-                    ? '六足战车'
-                    : currentModelType === 'tank_v16'
-                      ? '坦克v1.6'
-                      : currentModelType;
-                a.download = modelLabel + '_配置_固化.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                console.log('📥 配置JSON已下载: ' + a.download);
-              },
-            },
-            'export'
-          )
-          .name('📥 导出JSON固化');
         globalF.open();
 
         // --- 递归添加部件 UI ---
@@ -3998,14 +3898,7 @@
         }
         if (e.key === 's' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
           e.preventDefault();
-          const cfg = MODEL_CONFIGS[currentModelType];
-          const saveData = {
-            modelType: currentModelType,
-            config: JSON.parse(JSON.stringify(cfg)),
-            timestamp: Date.now(),
-          };
-          localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-          console.log('💾 已保存 (' + new Date(saveData.timestamp).toLocaleString() + ')');
+          _doSave();
         }
         // Delete — 隐藏选中部件
         if (e.key === 'Delete' && selectedParts.size > 0) {

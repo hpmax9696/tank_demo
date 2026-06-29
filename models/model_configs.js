@@ -27,10 +27,10 @@ const ENEMY_CONFIG = {
   ]
 };
 
-const MODEL_CONFIGS = { tank_v16:T34_85_V16_CONFIG, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG, hexapod:(window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {} };
+const MODEL_CONFIGS = { tank_v16:T34_85_V16_CONFIG, tiger_v16:(window.TigerIBuilder && window.TigerIBuilder.TIGER_I_V16_CONFIG) || {}, building:BUILDING_CONFIG, enemy:ENEMY_CONFIG, hexapod:(window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {} };
 let currentModelType
 
-window.ModelConfigs = { T34_85_V16_CONFIG, BUILDING_CONFIG, ENEMY_CONFIG, get HEXAPOD_CONFIG() { return (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {}; }, MODEL_CONFIGS };
+window.ModelConfigs = { T34_85_V16_CONFIG, BUILDING_CONFIG, ENEMY_CONFIG, get TIGER_I_V16_CONFIG() { return (window.TigerIBuilder && window.TigerIBuilder.TIGER_I_V16_CONFIG) || {}; }, get HEXAPOD_CONFIG() { return (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {}; }, MODEL_CONFIGS };
 window.ModelConfigs.currentModelType = 'hexapod';
 
 })();
