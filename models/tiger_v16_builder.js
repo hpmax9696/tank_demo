@@ -37,9 +37,9 @@
           "size": [
             2.415,
             0.5,
-            5.8,
+            4.905,
             2.605,
-            5.8,
+            5.195,
             0,
             0
           ],
@@ -58,16 +58,20 @@
         },
         {
           "name": "上车体",
-          "type": "Box",
+          "type": "TaperedBox",
           "size": [
-            2.89,
-            0.6,
-            5.2
+            2.79,
+            0.55,
+            4.5,
+            2.595,
+            4.8,
+            null,
+            -0.255
           ],
           "position": [
             0,
             1.5,
-            0
+            -0.5
           ],
           "materialId": "camo_green",
           "visible": true,
@@ -81,19 +85,19 @@
           "name": "首上装甲",
           "type": "Box",
           "size": [
-            2.2,
-            0.4,
+            2.6,
+            0.8,
             0.06
           ],
           "position": [
             0,
-            1,
-            2.9
+            1.25,
+            2.2
           ],
           "materialId": "camo_green",
           "visible": true,
           "rotation": [
-            0,
+            -1.2043,
             0,
             0
           ]
@@ -109,12 +113,12 @@
           "position": [
             0,
             0.68,
-            2.95
+            2.88
           ],
           "materialId": "camo_green",
           "visible": true,
           "rotation": [
-            0,
+            0.3665,
             0,
             0
           ]
@@ -234,7 +238,7 @@
           ],
           "position": [
             -1.55,
-            1.3,
+            4.3,
             0.05
           ],
           "materialId": "camo_green",
@@ -242,7 +246,7 @@
           "rotation": [
             0,
             0,
-            0
+            0.1745
           ]
         },
         {
@@ -255,7 +259,7 @@
           ],
           "position": [
             1.55,
-            1.3,
+            4.3,
             0.05
           ],
           "materialId": "camo_green",
@@ -263,7 +267,7 @@
           "rotation": [
             0,
             0,
-            0
+            -0.1745
           ]
         },
         {
@@ -276,13 +280,13 @@
           ],
           "position": [
             -1.58,
-            1.3,
+            4.3,
             2.55
           ],
           "rotation": [
             0.3,
             0,
-            0
+            0.1745
           ],
           "materialId": "camo_green",
           "visible": true
@@ -297,13 +301,13 @@
           ],
           "position": [
             1.58,
-            1.3,
+            4.3,
             2.55
           ],
           "rotation": [
             0.3,
             0,
-            0
+            -0.1745
           ],
           "materialId": "camo_green",
           "visible": true
@@ -367,7 +371,7 @@
           "position": [
             -0.7,
             1.584,
-            -2.65
+            -3
           ],
           "materialId": "dark_steel",
           "visible": true,
@@ -391,7 +395,7 @@
           "position": [
             0.7,
             1.584,
-            -2.65
+            -3
           ],
           "materialId": "dark_steel",
           "visible": true,
@@ -487,7 +491,7 @@
         16
       ],
       "position": [
-        -1.35,
+        -2.302,
         0.85,
         1.7
       ],
@@ -511,7 +515,7 @@
         16
       ],
       "position": [
-        -1.05,
+        -2.002,
         0.85,
         1.25
       ],
@@ -535,7 +539,7 @@
         16
       ],
       "position": [
-        -1.35,
+        -2.302,
         0.85,
         0.57
       ],
@@ -559,7 +563,7 @@
         16
       ],
       "position": [
-        -1.05,
+        -2.002,
         0.85,
         0.12
       ],
@@ -583,7 +587,7 @@
         16
       ],
       "position": [
-        -1.35,
+        -2.302,
         0.85,
         -0.57
       ],
@@ -607,7 +611,7 @@
         16
       ],
       "position": [
-        -1.05,
+        -2.002,
         0.85,
         -1.02
       ],
@@ -631,7 +635,7 @@
         16
       ],
       "position": [
-        -1.35,
+        -2.302,
         0.85,
         -1.7
       ],
@@ -655,7 +659,7 @@
         16
       ],
       "position": [
-        -1.05,
+        -2.002,
         0.85,
         -2.15
       ],
@@ -679,7 +683,7 @@
         16
       ],
       "position": [
-        1.35,
+        2.299,
         0.85,
         1.7
       ],
@@ -703,7 +707,7 @@
         16
       ],
       "position": [
-        1.05,
+        1.999,
         0.85,
         1.25
       ],
@@ -727,7 +731,7 @@
         16
       ],
       "position": [
-        1.35,
+        2.299,
         0.85,
         0.57
       ],
@@ -751,7 +755,7 @@
         16
       ],
       "position": [
-        1.05,
+        1.999,
         0.85,
         0.12
       ],
@@ -775,7 +779,7 @@
         16
       ],
       "position": [
-        1.35,
+        2.299,
         0.85,
         -0.57
       ],
@@ -799,7 +803,7 @@
         16
       ],
       "position": [
-        1.05,
+        1.999,
         0.85,
         -1.02
       ],
@@ -823,7 +827,7 @@
         16
       ],
       "position": [
-        1.35,
+        2.299,
         0.85,
         -1.7
       ],
@@ -847,7 +851,7 @@
         16
       ],
       "position": [
-        1.05,
+        1.999,
         0.85,
         -2.15
       ],
@@ -863,17 +867,17 @@
       "name": "左诱导轮",
       "type": "Cylinder",
       "size": [
-        0.28,
+        0.48,
         0.08,
-        0.28
+        0.48
       ],
       "segments": [
         16
       ],
       "position": [
-        -1.35,
-        0.88,
-        2.9
+        -2.15,
+        1.15,
+        2.5
       ],
       "rotation": [
         0,
@@ -887,17 +891,17 @@
       "name": "右诱导轮",
       "type": "Cylinder",
       "size": [
-        0.28,
+        0.48,
         0.08,
-        0.28
+        0.48
       ],
       "segments": [
         16
       ],
       "position": [
-        1.35,
-        0.88,
-        2.9
+        2.15,
+        1.15,
+        2.5
       ],
       "rotation": [
         0,
@@ -911,17 +915,17 @@
       "name": "左主动轮",
       "type": "Cylinder",
       "size": [
-        0.32,
+        0.45,
         0.1,
-        0.32
+        0.45
       ],
       "segments": [
         16
       ],
       "position": [
-        -1.35,
+        -2.15,
         0.9,
-        -2.95
+        -2.9
       ],
       "rotation": [
         0,
@@ -935,17 +939,17 @@
       "name": "右主动轮",
       "type": "Cylinder",
       "size": [
-        0.32,
+        0.45,
         0.1,
-        0.32
+        0.45
       ],
       "segments": [
         16
       ],
       "position": [
-        1.35,
+        2.15,
         0.9,
-        -2.95
+        -2.9
       ],
       "rotation": [
         0,
@@ -959,18 +963,22 @@
       "name": "左履带",
       "type": "TrackChain",
       "position": [
-        -1.35,
+        -2.15,
         0.3,
         0
       ],
       "trackParams": {
-        "wheelCenterYFront": 0.58,
+        "wheelCenterZFront": 2.5,
+        "wheelCenterYFront": 0.85,
+        "wheelRadiusFront": 0.48,
+        "wheelCenterZRear": -2.9,
         "wheelCenterYRear": 0.6,
-        "wheelRadiusFront": 0.28,
-        "wheelRadiusRear": 0.32,
-        "wheelCenterZFront": 2.9,
-        "wheelCenterZRear": -2.95,
-        "count": 110,
+        "wheelRadiusRear": 0.45,
+        "roadWheelFrontZ": 1.7,
+        "roadWheelRearZ": -1.7,
+        "roadWheelY": 0.55,
+        "roadWheelRadius": 0.48,
+        "count": 124,
         "plateWidth": 0.5,
         "plateHeight": 0.06,
         "plateDepth": 0.08
@@ -987,18 +995,22 @@
       "name": "右履带",
       "type": "TrackChain",
       "position": [
-        1.35,
+        2.15,
         0.3,
         0
       ],
       "trackParams": {
-        "wheelCenterYFront": 0.58,
+        "wheelCenterZFront": 2.5,
+        "wheelCenterYFront": 0.85,
+        "wheelRadiusFront": 0.48,
+        "wheelCenterZRear": -2.9,
         "wheelCenterYRear": 0.6,
-        "wheelRadiusFront": 0.28,
-        "wheelRadiusRear": 0.32,
-        "wheelCenterZFront": 2.9,
-        "wheelCenterZRear": -2.95,
-        "count": 110,
+        "wheelRadiusRear": 0.45,
+        "roadWheelFrontZ": 1.7,
+        "roadWheelRearZ": -1.7,
+        "roadWheelY": 0.55,
+        "roadWheelRadius": 0.48,
+        "count": 124,
         "plateWidth": 0.5,
         "plateHeight": 0.06,
         "plateDepth": 0.08
@@ -1025,12 +1037,12 @@
           "type": "Box",
           "size": [
             1.6,
-            1,
+            0.7,
             2
           ],
           "position": [
             0,
-            0.7,
+            0.55,
             -0.15
           ],
           "materialId": "camo_dark",
@@ -1046,12 +1058,12 @@
           "type": "Box",
           "size": [
             1.5,
-            0.8,
+            0.6,
             0.06
           ],
           "position": [
             0,
-            0.7,
+            0.55,
             0.88
           ],
           "materialId": "camo_dark",
@@ -1067,12 +1079,12 @@
           "type": "Box",
           "size": [
             1.24,
-            0.8,
+            0.6,
             0.34
           ],
           "position": [
             0,
-            0.72,
+            0.57,
             -1.1
           ],
           "materialId": "camo_dark",
@@ -1096,7 +1108,7 @@
           ],
           "position": [
             0.363,
-            1.2,
+            0.94,
             0.26
           ],
           "materialId": "camo_dark",
@@ -1120,7 +1132,7 @@
           ],
           "position": [
             0.363,
-            1.25,
+            0.99,
             0.26
           ],
           "materialId": "dark_steel",
@@ -1136,7 +1148,7 @@
           "type": "Cylinder",
           "size": [
             0.3,
-            0.015,
+            0.03,
             0.3
           ],
           "segments": [
@@ -1144,7 +1156,7 @@
           ],
           "position": [
             -0.405,
-            1.2,
+            0.91,
             0.25
           ],
           "materialId": "dark_steel",
@@ -1168,7 +1180,7 @@
           ],
           "position": [
             0.363,
-            1.3,
+            1.04,
             0.25
           ],
           "rotation": [
@@ -1192,7 +1204,7 @@
           ],
           "position": [
             -0.405,
-            1.7,
+            1.55,
             -0.405
           ],
           "materialId": "dark_steel",
@@ -1216,17 +1228,17 @@
               "name": "炮盾",
               "type": "Cylinder",
               "size": [
-                0.22,
-                0.08,
-                0.22
+                0.1,
+                0.5,
+                0.15
               ],
               "segments": [
                 18
               ],
               "position": [
                 0,
-                0,
-                0
+                -0.15,
+                0.51
               ],
               "rotation": [
                 1.5708,
@@ -1273,7 +1285,7 @@
               ],
               "position": [
                 0,
-                0,
+                -0.15,
                 1.2
               ],
               "rotation": [
@@ -1288,17 +1300,17 @@
               "name": "抽烟器",
               "type": "Cylinder",
               "size": [
-                0.058,
-                0.08,
-                0.058
+                0.07,
+                1,
+                0.07
               ],
               "segments": [
                 18
               ],
               "position": [
                 0,
-                0,
-                0.58
+                -0.15,
+                0.7
               ],
               "rotation": [
                 1.5708,
@@ -1312,17 +1324,17 @@
               "name": "炮口制退器",
               "type": "Cylinder",
               "size": [
-                0.055,
-                0.12,
-                0.058
+                0.07,
+                0.3,
+                0.08
               ],
               "segments": [
                 16
               ],
               "position": [
                 0,
-                0,
-                1.5
+                -0.15,
+                3.6
               ],
               "rotation": [
                 1.5708,
@@ -1386,7 +1398,7 @@
               ],
               "position": [
                 0.513,
-                0.06,
+                -0.2,
                 0.15
               ],
               "rotation": [
@@ -1407,7 +1419,7 @@
               ],
               "position": [
                 0.513,
-                0.03,
+                -0.23,
                 0.05
               ],
               "materialId": "dark_steel",
@@ -1438,7 +1450,7 @@
   "visible": true
 };
 
-// ─── 暴露 ───
+  // ─── 暴露 ───
   window.TigerIBuilder = {
     buildAnimatedTigerI: function (options) {
       const camoColor = (options && options.camoColor) || 'green';

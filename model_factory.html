@@ -23,6 +23,8 @@
         padding: 10px 16px;
         border-radius: 6px;
         font-size: 13px;
+        line-height: 1.7;
+        max-width: 340px;
         pointer-events: none;
         z-index: 10;
       }
@@ -363,10 +365,11 @@
   <body>
     <div id="info">
       🏭 <b>模型工厂</b> v0.4 — 通用程序化模型编辑器<br />
-      按住左键旋转 · 滚轮缩放 · 右键平移<br />
-      <span style="color: #ffd866"
-        >单击选中 · Ctrl+点击多选 · 全选按钮 · Delete隐藏 · Ctrl+Z撤销 · Ctrl+S保存</span
-      >
+      <span style="color: #aaa">视角: 左键旋转 · 滚轮缩放 · 右键平移</span><br />
+      <span style="color: #ffd866">选择: 单击选中 · Ctrl+点击多选</span><br />
+      <span style="color: #4ecdc4">框选: Ctrl+拖拽</span>
+      <span style="color: #ffa94d">· Shift+Ctrl+拖拽增选</span><br />
+      <span style="color: #aaa">Delete隐藏 · Ctrl+Z撤销 · Ctrl+S保存</span>
     </div>
     <div id="stats">面数: <span id="triCount">0</span> tris</div>
     <div id="view-toolbar">
@@ -961,12 +964,11 @@
           zR = tp.wheelCenterZRear;
 
         // r21: 6点+2弧精确几何模型（用户设计的理想拓扑）
-        const zR1 = 1.4; // 负重轮1 Z (固定)
-        const zR2 = 0.39; // 负重轮2 Z (l1=2份边距: 1.40-0.80-0.214)
-        const zR3 = -0.74; // 负重轮3 Z (l2=3份边距, 最大间隙)
-        const zR4 = -1.64; // 负重轮4 Z (l3=1份边距)
-        const zR5 = -2.55; // 负重轮5 Z (l4=1份边距, 固定)
-        const wheelR = 0.4; // ⚠️ 修正：Cylinder size[0]=半径=0.4（不是直径！）
+        // 负重轮参数（可配置；缺省=T-34 值，保证 T-34 零回归）
+        const zR1 = tp.roadWheelFrontZ !== undefined ? tp.roadWheelFrontZ : 1.4; // 首负重轮 Z
+        const zR5 = tp.roadWheelRearZ !== undefined ? tp.roadWheelRearZ : -2.55; // 尾负重轮 Z
+        const wheelR = tp.roadWheelRadius !== undefined ? tp.roadWheelRadius : 0.4; // 负重轮半径
+        const wheelY = tp.roadWheelY !== undefined ? tp.roadWheelY : 0.4; // 负重轮中心 Y
 
         // 6个关键点坐标（与 getTrackPlateTransform 保持完全一致）
         // ⚠️ 注意：Z轴在屏幕上方向与数学X轴相反（左=Z+），所以Z分量需取负
@@ -976,10 +978,10 @@
         const pC = { z: zF - rF * Math.cos(angleC), y: cyF + rF * Math.sin(angleC) }; // C: a1轮7点
         // D: b1轮6.5点钟位置(约-105°, 在轮子边沿的6点和7点之间)
         const angleD = (-105 * Math.PI) / 180; // -105° (6点半位置)
-        const pD = { z: zR1 - wheelR * Math.cos(angleD), y: 0.4 + wheelR * Math.sin(angleD) }; // D: b1轮6.5点(边沿)
+        const pD = { z: zR1 - wheelR * Math.cos(angleD), y: wheelY + wheelR * Math.sin(angleD) }; // D: b1轮6.5点(边沿)
         // E: b5轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
         const angleE = (-75 * Math.PI) / 180; // -75° (5点半)
-        const pE = { z: zR5 - wheelR * Math.cos(angleE), y: 0.4 + wheelR * Math.sin(angleE) }; // E: b5轮5.5点(边沿)
+        const pE = { z: zR5 - wheelR * Math.cos(angleE), y: wheelY + wheelR * Math.sin(angleE) }; // E: b5轮5.5点(边沿)
         // F: c1轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
         const angleF = (-75 * Math.PI) / 180; // -75° (5点半)
         const pF = { z: zR - rR * Math.cos(angleF), y: cyR + rR * Math.sin(angleF) }; // F: c1轮5.5点(边沿)
@@ -1048,9 +1050,11 @@
         const zF = tp.wheelCenterZFront,
           zR = tp.wheelCenterZRear;
 
-        const zR1 = 1.4; // 负重轮1 Z
-        const zR5 = -2.55; // 负重轮5 Z
-        const wheelR = 0.4; // ⚠️ 修正：Cylinder size[0]=半径=0.4（不是直径！）
+        // 负重轮参数（可配置；缺省=T-34 值，保证 T-34 零回归）
+        const zR1 = tp.roadWheelFrontZ !== undefined ? tp.roadWheelFrontZ : 1.4; // 首负重轮 Z
+        const zR5 = tp.roadWheelRearZ !== undefined ? tp.roadWheelRearZ : -2.55; // 尾负重轮 Z
+        const wheelR = tp.roadWheelRadius !== undefined ? tp.roadWheelRadius : 0.4; // 负重轮半径
+        const wheelY = tp.roadWheelY !== undefined ? tp.roadWheelY : 0.4; // 负重轮中心 Y
 
         // ========== 6个关键点的精确坐标（基于用户确认的拓扑）==========
         // ⚠️ Z轴修正：屏幕左边=Z+，所以 Z = center.z - r*cos(angle)
@@ -1063,10 +1067,10 @@
         const pC = { z: zF - rF * Math.cos(angleC), y: cyF + rF * Math.sin(angleC) };
         // D: 第1负重轮(b1)边沿切点 (6.5点钟位置, -105°)
         const angleD = (-105 * Math.PI) / 180; // -105° (6点半)
-        const pD = { z: zR1 - wheelR * Math.cos(angleD), y: 0.4 + wheelR * Math.sin(angleD) }; // D: b1轮6.5点(边沿)
+        const pD = { z: zR1 - wheelR * Math.cos(angleD), y: wheelY + wheelR * Math.sin(angleD) }; // D: b1轮6.5点(边沿)
         // E: 第5负重轮(b5)底部切点 (6点, 正下方)
         const angleE = (-75 * Math.PI) / 180; // -75° (5点半, 在5-6点之间)
-        const pE = { z: zR5 - wheelR * Math.cos(angleE), y: 0.4 + wheelR * Math.sin(angleE) }; // E: b5轮5.5点(边沿)
+        const pE = { z: zR5 - wheelR * Math.cos(angleE), y: wheelY + wheelR * Math.sin(angleE) }; // E: b5轮5.5点(边沿)
         // F: c1轮5.5点钟位置(约-75°, 在轮子边沿的5点和6点之间)
         const angleF = (-75 * Math.PI) / 180; // -75° (5点半)
         const pF = { z: zR - rR * Math.cos(angleF), y: cyR + rR * Math.sin(angleF) }; // F: c1轮5.5点(边沿)
@@ -1586,7 +1590,7 @@
         if (cfg.children) for (const c of cfg.children) syncConfigFromScene(c);
       }
 
-      // ── 保存：同步场景→config → POST 固化到源文件 → 回退 localStorage + 下载备份
+      // ── 保存：同步场景→config → POST 固化到源文件 + localStorage 备份
       function _doSave() {
         syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
         var cfg = MODEL_CONFIGS[currentModelType];
@@ -1624,16 +1628,6 @@
           .catch(function (err) {
             console.log('⚠️ 固化失败（服务器未运行？已存 localStorage）: ' + err.message);
           });
-
-        // 同时下载 JSON 备份
-        var json = JSON.stringify(saveData.config, null, 2);
-        var blob = new Blob([json], { type: 'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = modelLabel + '_配置_固化.json';
-        a.click();
-        URL.revokeObjectURL(url);
 
         console.log(
           '💾 已保存: ' + modelLabel + ' (' + new Date(saveData.timestamp).toLocaleString() + ')'
@@ -1681,6 +1675,7 @@
       }
       let batchGuiFolder = null; // 批量编辑面板引用
       let batchInfoObj = null; // 批量编辑计数对象引用
+      let batchState = null; // 批量滑块状态(累积式偏移/旋转): {batchPos,_prevBatch,batchRot,_prevRot,ctrls}
 
       // --- 自动快照（参数变化前保存）---
       let autoSnapshot = true;
@@ -2437,6 +2432,7 @@
         // 展开选中节点到根节点的路径
         expandToNode(name);
         focusPanel(name);
+        resetBatchSliders();
         updateBatchPanel();
         updateBreadcrumb();
         refreshPartTree();
@@ -2485,9 +2481,22 @@
       function deselectAll() {
         removeAllHighlights();
         selectedParts.clear();
+        resetBatchSliders();
         updateBatchPanel();
         updateBreadcrumb();
         refreshPartTree();
+      }
+
+      // 选择切换(换一批部件)时重置批量编辑的累积滑块, 避免上一批的 ΔX/ΔY/ΔZ/旋转残留到新批次
+      // 注意: toggleSelect(追加/移除单个) 不调用, 保留对同一批的连续编辑
+      function resetBatchSliders() {
+        if (!batchState) return;
+        const s = batchState;
+        s.batchPos.dx = s.batchPos.dy = s.batchPos.dz = 0;
+        s._prevBatch.dx = s._prevBatch.dy = s._prevBatch.dz = 0;
+        s.batchRot.drx = s.batchRot.dry = s.batchRot.drz = 0;
+        s._prevRot.drx = s._prevRot.dry = s._prevRot.drz = 0;
+        s.ctrls.forEach((c) => c.updateDisplay());
       }
 
       function focusPanel(name) {
@@ -2552,7 +2561,7 @@
         return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
       }
 
-      function boxSelect(sx, sy, ex, ey) {
+      function boxSelect(sx, sy, ex, ey, additive) {
         const selRect = {
           minX: Math.min(sx, ex),
           minY: Math.min(sy, ey),
@@ -2565,15 +2574,23 @@
           const bbox = getScreenBBox(info.mesh);
           if (bbox && rectsOverlap(selRect, bbox)) names.push(name);
         });
-        // 清空旧选择，添加新选择
         removeAllHighlights();
-        selectedParts.clear();
+        if (!additive) {
+          // 替换模式: 清空旧选择 + 重置累积滑块(增选模式保留连续编辑)
+          selectedParts.clear();
+          resetBatchSliders();
+        }
         for (const n of names) {
           selectedParts.add(n);
         }
         createHighlight('');
         updateBatchPanel();
-        console.log('📦 框选了 ' + selectedParts.size + ' 个部件');
+        console.log(
+          '📦 框选 ' +
+            names.length +
+            ' 个部件' +
+            (additive ? ' (增选, 共 ' + selectedParts.size + ' 个)' : '')
+        );
       }
 
       // 点击选择
@@ -2604,19 +2621,92 @@
         }
       }
 
-      // 点击选择（不拦截拖拽，OrbitControls 正常旋转场景）
+      // 点击选择 + Ctrl+左键框选 / Shift+Ctrl+左键增选（不拦截普通拖拽，OrbitControls 正常旋转场景）
       function setupRaycaster() {
         const canvas = renderer.domElement;
+        let boxEl = null; // 选择框 div
+        let boxStart = null; // 框选起点 {x,y}
+        let boxActive = false; // 已进入框选(拖拽超过阈值)
+        let maybeBox = false; // Ctrl+左键按下, 待判定是点击还是框选
+        let boxAdditive = false; // Shift+Ctrl = 增选(追加不清空)
+
         canvas.addEventListener('pointerdown', (e) => {
           clickStart = { x: e.clientX, y: e.clientY };
+          if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+            // Ctrl+左键: 可能框选, 立即暂停 OrbitControls 防止旋转
+            maybeBox = true;
+            boxAdditive = !!e.shiftKey; // Shift+Ctrl = 增选模式
+            boxStart = { x: e.clientX, y: e.clientY };
+            if (controls) controls.enabled = false;
+          }
         });
+
+        canvas.addEventListener('pointermove', (e) => {
+          // 超过 4px 阈值: 从"可能的点击"转为框选, 创建选择框 div
+          if (maybeBox && !boxActive && boxStart) {
+            const dx = e.clientX - boxStart.x;
+            const dy = e.clientY - boxStart.y;
+            if (dx * dx + dy * dy > 16) {
+              boxActive = true;
+              boxEl = document.createElement('div');
+              boxEl.id = '_boxselect_rect';
+              // 增选=橙色, 普通框选=青色
+              const col = boxAdditive ? '#ffa94d' : '#4ecdc4';
+              boxEl.style.cssText =
+                'position:fixed;border:1px solid ' +
+                col +
+                ';background:' +
+                col +
+                '22;pointer-events:none;z-index:9999;' +
+                'font-size:11px;color:' +
+                col +
+                ';padding:1px 4px;';
+              boxEl.textContent = boxAdditive ? '增选 (Shift+Ctrl)' : '框选 (Ctrl)';
+              document.body.appendChild(boxEl);
+            }
+          }
+          if (boxActive && boxEl) {
+            boxEl.style.left = Math.min(boxStart.x, e.clientX) + 'px';
+            boxEl.style.top = Math.min(boxStart.y, e.clientY) + 'px';
+            boxEl.style.width = Math.abs(e.clientX - boxStart.x) + 'px';
+            boxEl.style.height = Math.abs(e.clientY - boxStart.y) + 'px';
+          }
+        });
+
+        const cleanupBox = () => {
+          if (boxEl) {
+            boxEl.remove();
+            boxEl = null;
+          }
+          if (controls) controls.enabled = true;
+          boxActive = false;
+          maybeBox = false;
+          boxAdditive = false;
+          boxStart = null;
+        };
+
         canvas.addEventListener('pointerup', (e) => {
+          if (boxActive) {
+            // 框选完成: 用起止点调用 boxSelect
+            const sx = boxStart.x,
+              sy = boxStart.y,
+              ex = e.clientX,
+              ey = e.clientY,
+              additive = boxAdditive;
+            cleanupBox();
+            boxSelect(sx, sy, ex, ey, additive);
+            return;
+          }
+          cleanupBox();
+          // 这是点击而非拖拽(普通点击单选 / Ctrl+点击切换多选)
           const dx = e.clientX - clickStart.x;
           const dy = e.clientY - clickStart.y;
-          if (Math.sqrt(dx * dx + dy * dy) < 4) {
-            // 这是点击而非拖拽
-            onClickSelect(e);
-          }
+          if (Math.sqrt(dx * dx + dy * dy) < 4) onClickSelect(e);
+        });
+
+        // 框选中鼠标移出 canvas: 取消(避免挂起 controls.enabled=false)
+        canvas.addEventListener('pointerleave', () => {
+          if (boxActive || maybeBox) cleanupBox();
         });
       }
 
@@ -2931,6 +3021,7 @@
               selectAll: () => {
                 removeAllHighlights();
                 selectedParts.clear();
+                resetBatchSliders();
                 nodeMap.forEach((info, name) => {
                   if (info.mesh && info.group.visible) selectedParts.add(name);
                 });
@@ -2948,9 +3039,10 @@
         batchGuiFolder = gui.addFolder('📦 批量编辑 (选中≥2时展开)');
         batchInfoObj = { count: selectedParts.size };
         batchGuiFolder.add(batchInfoObj, 'count').name('已选部件数').disable();
-        // 位置偏移（累积式：滑块不归零，数值显示累计偏移）
+        // 位置偏移（累积式：滑块当摇杆, 拖动增量应用到选中部件）
         const batchPos = { dx: 0, dy: 0, dz: 0 };
         const _prevBatch = { dx: 0, dy: 0, dz: 0 };
+        const _batchCtrls = []; // 累积滑块 controller 引用(选择切换时重置用)
         function applyDelta(axis, batchKey, newValue) {
           if (!isFinite(newValue)) return;
           const delta = newValue - _prevBatch[batchKey];
@@ -2963,28 +3055,34 @@
           _prevBatch[batchKey] = newValue;
           updateAllHelpers();
         }
-        batchGuiFolder
-          .add(batchPos, 'dx', -2, 2, 0.001)
-          .name('ΔX')
-          .onChange((v) => {
-            saveUndo('batchDX');
-            applyDelta('x', 'dx', v);
-          });
-        batchGuiFolder
-          .add(batchPos, 'dy', -2, 2, 0.001)
-          .name('ΔY')
-          .onChange((v) => {
-            saveUndo('batchDY');
-            applyDelta('y', 'dy', v);
-          });
-        batchGuiFolder
-          .add(batchPos, 'dz', -2, 2, 0.001)
-          .name('ΔZ')
-          .onChange((v) => {
-            saveUndo('batchDZ');
-            applyDelta('z', 'dz', v);
-          });
-        // 重置偏移
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchPos, 'dx', -2, 2, 0.001)
+            .name('ΔX')
+            .onChange((v) => {
+              saveUndo('batchDX');
+              applyDelta('x', 'dx', v);
+            })
+        );
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchPos, 'dy', -2, 2, 0.001)
+            .name('ΔY')
+            .onChange((v) => {
+              saveUndo('batchDY');
+              applyDelta('y', 'dy', v);
+            })
+        );
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchPos, 'dz', -2, 2, 0.001)
+            .name('ΔZ')
+            .onChange((v) => {
+              saveUndo('batchDZ');
+              applyDelta('z', 'dz', v);
+            })
+        );
+        // 重置偏移零点
         batchGuiFolder
           .add(
             {
@@ -2995,6 +3093,7 @@
                 _prevBatch.dx = 0;
                 _prevBatch.dy = 0;
                 _prevBatch.dz = 0;
+                _batchCtrls.forEach((c) => c.updateDisplay());
               },
             },
             'resetOffset'
@@ -3016,27 +3115,33 @@
           _prevRot[batchKey] = newValue;
           updateAllHelpers();
         }
-        batchGuiFolder
-          .add(batchRot, 'drx', -180, 180, 1)
-          .name('ΔRX (°)')
-          .onChange((v) => {
-            saveUndo('batchRX');
-            applyRotDelta('x', 'drx', v);
-          });
-        batchGuiFolder
-          .add(batchRot, 'dry', -180, 180, 1)
-          .name('ΔRY (°)')
-          .onChange((v) => {
-            saveUndo('batchRY');
-            applyRotDelta('y', 'dry', v);
-          });
-        batchGuiFolder
-          .add(batchRot, 'drz', -180, 180, 1)
-          .name('ΔRZ (°)')
-          .onChange((v) => {
-            saveUndo('batchRZ');
-            applyRotDelta('z', 'drz', v);
-          });
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchRot, 'drx', -180, 180, 1)
+            .name('ΔRX (°)')
+            .onChange((v) => {
+              saveUndo('batchRX');
+              applyRotDelta('x', 'drx', v);
+            })
+        );
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchRot, 'dry', -180, 180, 1)
+            .name('ΔRY (°)')
+            .onChange((v) => {
+              saveUndo('batchRY');
+              applyRotDelta('y', 'dry', v);
+            })
+        );
+        _batchCtrls.push(
+          batchGuiFolder
+            .add(batchRot, 'drz', -180, 180, 1)
+            .name('ΔRZ (°)')
+            .onChange((v) => {
+              saveUndo('batchRZ');
+              applyRotDelta('z', 'drz', v);
+            })
+        );
         batchGuiFolder
           .add(
             {
@@ -3047,11 +3152,14 @@
                 _prevRot.drx = 0;
                 _prevRot.dry = 0;
                 _prevRot.drz = 0;
+                _batchCtrls.forEach((c) => c.updateDisplay());
               },
             },
             'resetRot'
           )
           .name('🔄 重置旋转零点');
+        // 暴露给 resetBatchSliders(选择切换时重置累积滑块, 避免上一批的偏移残留到新批次)
+        batchState = { batchPos, _prevBatch, batchRot, _prevRot, ctrls: _batchCtrls };
         // 颜色批量
         const batchColor = { color: '#4a5c2e' };
         batchGuiFolder
@@ -3801,22 +3909,23 @@
       // 11. 构建并初始化（自动加载上次保存）
       // ============================================================
       (function autoLoad() {
+        // 只恢复"上次选的模型类型"; 配置内容始终以源文件为准。
+        // 源文件经 /api/solidify 固化是 source of truth;
+        // 之前用 localStorage 覆盖配置会导致"改了源文件不生效"(localStorage 旧值盖回)。
         const raw = localStorage.getItem(SAVE_KEY);
         if (!raw) return;
         try {
           const data = JSON.parse(raw);
-          currentModelType = data.modelType || 'hexapod';
-          if (!MODEL_CONFIGS[currentModelType]) {
-            console.warn('⚠️ 自动加载: 不支持的类型 ' + data.modelType + '，已清除旧数据');
+          const mt = data.modelType;
+          if (mt && MODEL_CONFIGS[mt]) {
+            currentModelType = mt;
+            console.log('📂 恢复上次模型: ' + mt + ' (配置用源文件)');
+          } else {
             localStorage.removeItem(SAVE_KEY);
-            currentModelType = 'hexapod';
-            return;
           }
-          const cfg = MODEL_CONFIGS[currentModelType];
-          Object.keys(cfg).forEach((k) => delete cfg[k]);
-          Object.assign(cfg, data.config);
-          console.log('📂 自动加载上次保存 (' + new Date(data.timestamp).toLocaleString() + ')');
-        } catch (e) {}
+        } catch (e) {
+          localStorage.removeItem(SAVE_KEY);
+        }
       })();
       rebuildModel();
       // 激活点击选择

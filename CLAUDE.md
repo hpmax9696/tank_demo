@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.8
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.9
 
 ## 运行
 
@@ -105,7 +105,7 @@ python server.py
 
 - **`METERS_PER_UNIT = 1.3` 米/单位**（`engine.js:248`）。标定：真实 T-34/85 高 2.6m ÷ 坦克模型渲染高 1.99 单位 = 1.306，取干净值 1.3（旧值 4.706 偏大 3.6 倍，导致"3m 树像草"）。
 - **障碍物渲染高度公式**：`targetHeightM / METERS_PER_UNIT`（与 ud.height/baseHeight 无关，scale 抵消）。仅 `obstacles.js` 4 处使用此系数。
-- **各障碍物 targetHeightMinM/MaxM（米）**：conical 2~4.2 | spherical 2~3.9 | oak 2.5~5 | bungalow 2.5~3.3 | villa 3~5.5 | apartment 4.2~9.7 | windmill 2.8~5.5（草丛 0.2~1.0m 直接米制不经系数）。
+- **各障碍物 targetHeightMinM/MaxM（米）**：conical 2~~4.2 | spherical 2~~3.9 | oak 2.5~~5 | bungalow 2.5~~3.3 | villa 3~~5.5 | apartment 4.2~~9.7 | windmill 2.8~~5.5（草丛 0.2~~1.0m 直接米制不经系数）。
 - **裸单位参数数值不变**：worldHalfW=150、AI 距离、fog、阴影、坦克速度等保持原值，米含义基于 1 单位=1.3m（比旧系数合理：viewDist 470m→131m、MAX_SPEED 164km/h→37km/h）。
 - **地图编辑器 UI 显示米**（×1.3）：info-size/overlayInfo/尺寸滑块均显示米，内部仍存单位。
 - 详见 `docs/obstacle_conventions.md`。
@@ -245,11 +245,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项   | 可选值                                                      |
+| 配置项 | 可选值 |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方     | 坦克、六足(灰色不可选)                                      |
-| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
+| 我方 | 坦克、六足(灰色不可选) |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -500,6 +500,54 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
+## v0.65.9 本次会话变更 (2026-06-30)
+
+### 模型工厂框选交互 + 批量滑块 bug 修复
+
+- **Ctrl+左键框选**：`setupRaycaster` 加框选模式（maybeBox→拖拽>4px 转 boxActive），Ctrl+down 立即暂停 OrbitControls，青色选择框；绑定已存在但从未调用的 `boxSelect()`
+- **Shift+Ctrl+左键增选**：橙色选择框，追加不清空、不重置滑块；Ctrl+框选=替换+重置滑块；Ctrl+点击(未拖)=toggle 保留
+- **批量滑块切换重置修复**：累积式滑块(ΔX/Y/Z + ΔRX/RY/RZ)的 `_prevBatch/_prevRot` 在 `buildGUI` 闭包不随选择重置 → 换一批部件后 Δy 残留上次值需填双倍。**修复**：模块级 `batchState` + `resetBatchSliders()`（清 6 值 + updateDisplay），在单选/框选/全选/清空调用；Ctrl+点击追加不调（保留连续编辑）
+- **左上角 #info 操作提示区**：重组 4 行（视角/选择/框选/快捷键），颜色对应交互（框选青/增选橙），max-width:340px
+- **改动**：`model_factory.html`（setupRaycaster 重写 + boxSelect additive + resetBatchSliders + #info）
+
+### tank-track-fit 履带绕紧 skill（可复用）
+
+- **新建** `.claude/skills/tank-track-fit/`：SKILL.md(6 段封闭路径模型图解) + `compute_track_params.py`(自动算 trackParams) + `verify_track_fit.py`(Playwright 截图 + PIL 像素验证)
+- **流程**：读轮子位置 → node eval 解析配置(兼容 JSON/JS 字面量, 格式化器转换) → 转履带组局部坐标 → 复现 6 段周长算 count → `--apply` 写回 → 像素测间隙(<3px=紧贴, 避免肉眼/AI 视觉误判)
+- **触发**："绕紧履带/调整履带/履带脱空"。任意"诱导轮前+主动轮后+等高负重轮"拓扑坦克可用(T-34/虎式/未来新坦克)
+- **踩坑固化进脚本**：格式化器 JSON→JS 字面量(node eval 兼容) / Windows GBK(stdout reconfigure utf-8) / lil-gui select value=显示文本 / 项目用 node playwright(subprocess 调 node)
+
+### TrackChain 几何参数化
+
+- `model_factory.html` `buildTrackChain`/`getTrackPlateTransform` 加 `roadWheel*` 参数(roadWheelFrontZ/RearZ/Y/Radius)，**默认值=T-34 原值(零回归)**
+- 虎式 trackParams 改真实轮子坐标(诱导轮 Z=2.5/Y=0.85/r=0.4，主动轮 Z=-2.9/Y=0.6/r=0.45，负重轮 Z=±1.7/Y=0.55/r=0.48)，履带组局部系
+
+### 缓存 & localStorage 覆盖根治
+
+- **server.py no-cache 头**：`end_headers` override 发 `Cache-Control:no-store`（`SimpleHTTPRequestHandler` 默认不发, 浏览器启发式缓存 .js 导致 Ctrl+F5 都难清）
+- **autoLoad 不再覆盖文件**：之前 localStorage 旧配置 `Object.assign` 覆盖文件新值("改文件不生效"真凶, Ctrl+F5/no-cache 都管不到 localStorage)；改为只恢复"上次模型类型", 配置以源文件为准
+- **\_doSave 去 JSON 下载**：固化(/api/solidify)正常, 移除下载备份(避免下载文件夹堆同名文件)
+- **多 python 残留**：两个进程同 LISTENING 8080 导致连到旧进程(无 no-cache 头)→ 杀光残留起单一服务
+
+### 关键文件变更
+
+| 文件                             | 改动                                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `model_factory.html`             | setupRaycaster 框选/增选 + boxSelect additive + resetBatchSliders + #info + autoLoad + _doSave |
+| `server.py`                      | end_headers override 加 no-cache 头                                                            |
+| `js/engine.js`                   | console.log 版本号                                                                             |
+| `models/tiger_v16_builder.js`    | TIGER_I_V16_CONFIG trackParams 固化(诱导轮/主动轮真实坐标)                                     |
+| `.claude/skills/tank-track-fit/` | 新建 skill(SKILL.md + 2 脚本)                                                                  |
+
+### 已知问题（更新）
+
+1. avg fps 41.5 仍非稳定60(剩余GC 20ms)，待P-burst-3续做
+2. 坡地一头翘起一头陷地(坦克/敌人偶发)
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确(待校准)
+
+---
+
 ## v0.65.8 本次会话变更 (2026-06-29)
 
 ### 模型工厂固化一键保存
@@ -600,7 +648,7 @@ legGroup (Y旋转=水平摆角)
 - **根因**: `METERS_PER_UNIT=8/1.7≈4.706` 偏大 3.6 倍，障碍物"米"配置被压缩（3m 树渲染 0.64 单位 = 坦克 32%，像草）
 - **标定**: 真实 T-34/85 高 2.6m（Tanks Encyclopedia）÷ 坦克渲染 1.99 单位（MCP 实测）= 1.306，取 1.3
 - **策略（保持视觉，不全局放大）**: METERS_PER_UNIT→1.3；障碍物 targetHeightMinM/MaxM 改真实米数（新值=旧渲染单位×1.3，保持视觉），下限"像草"的调高到坦克 75%+
-  - conical 3~15→2~4.2 | spherical 3~14→2~3.9 | oak 4~18→2.5~5 | bungalow 2~12→2.5~3.3 | villa 6~20→3~5.5 | apartment 15~35→4.2~9.7 | windmill 10~20→2.8~5.5
+  - conical 3~~15→2~~4.2 | spherical 3~~14→2~~3.9 | oak 4~~18→2.5~~5 | bungalow 2~~12→2.5~~3.3 | villa 6~~20→3~~5.5 | apartment 15~~35→4.2~~9.7 | windmill 10~~20→2.8~~5.5
 - 裸单位参数（地图/AI/fog/阴影/速度）数值不变，米含义基于 1 单位=1.3m 自动正确
 - 地图编辑器尺寸 UI 显示米（×1.3）：info-size/overlayInfo/4滑块 min/max/value 米化，内部仍存单位
 
@@ -727,7 +775,7 @@ legGroup (Y旋转=水平摆角)
 
 ### 性能优化
 
-- **CCD矩阵局部化**: `_ccdLeg` 迭代内 `root.updateMatrixWorld(true)`（全六足树~50节点）→ 首次全树 + 后续仅本腿子树（~5节点），节点访问量降~12倍；IK 耗时从 22ms→9ms，fps +54%
+- **CCD矩阵局部化**: `_ccdLeg` 迭代内 `root.updateMatrixWorld(true)`（全六足树~50节点）→ 首次全树 + 后续仅本腿子树（~~5节点），节点访问量降~~12倍；IK 耗时从 22ms→9ms，fps +54%
 - **子弹碰撞空间网格**: 玩家加特林子弹 `Raycaster.intersectObjects(obsMeshes)` → `window.checkCollision(pos, 0.15)`（空间网格 O(1)），raycast 7.6ms→~3ms
 - **树冠+建筑阴影优化**: 三类树冠+建筑IM `castShadow=false`（树干保留），减少阴影caster
 - **HEX_CCD_SCALE开关**: `hexapod_core.js` stepGait 加全局缩放因子（默认1.0保持原质量），工厂页面设 `window.HEX_CCD_SCALE=1.0`

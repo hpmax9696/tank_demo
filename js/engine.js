@@ -7489,7 +7489,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.8 | 模型工厂固化一键保存+虎式调试着色+UI清理');
+console.log('🎮 坦克运动demo v0.65.9 | 模型工厂框选交互+履带绕紧skill+缓存根治');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

@@ -126,6 +126,14 @@ class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def end_headers(self):
+        # 开发服务器: 禁用缓存, 保证 Ctrl+F5 / 普通刷新都拿到最新文件
+        # (SimpleHTTPRequestHandler 默认不发 Cache-Control, 浏览器启发式缓存 .js 导致改了不生效)
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+
     def log_message(self, format, *args):
         # 精简日志：只显示 POST solidify
         if 'POST' in str(args):
