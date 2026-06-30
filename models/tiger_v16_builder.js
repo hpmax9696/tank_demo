@@ -4,1451 +4,661 @@
   'use strict';
 
   const TIGER_I_V16_CONFIG = {
-  "name": "虎式坦克 v1.0",
-  "type": "Group",
-  "position": [
-    0,
-    -0.15,
-    0
-  ],
-  "rotation": [
-    0,
-    0,
-    0
-  ],
-  "scale": [
-    0.5,
-    0.5,
-    0.5
-  ],
-  "children": [
-    {
-      "name": "车体",
-      "type": "Group",
-      "position": [
-        0,
-        0,
-        0
-      ],
-      "children": [
-        {
-          "name": "下车体",
-          "type": "TaperedBox",
-          "size": [
-            2.415,
-            0.5,
-            4.905,
-            2.605,
-            5.195,
-            0,
-            0
-          ],
-          "position": [
-            0,
-            0.95,
-            0
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "上车体",
-          "type": "TaperedBox",
-          "size": [
-            2.79,
-            0.55,
-            4.5,
-            2.595,
-            4.8,
-            null,
-            -0.255
-          ],
-          "position": [
-            0,
-            1.5,
-            -0.5
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "首上装甲",
-          "type": "Box",
-          "size": [
-            2.6,
-            0.8,
-            0.06
-          ],
-          "position": [
-            0,
-            1.25,
-            2.2
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            -1.2043,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "首下装甲",
-          "type": "Box",
-          "size": [
-            2.2,
-            0.3,
-            0.06
-          ],
-          "position": [
-            0,
-            0.68,
-            2.88
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            0.3665,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "发动机舱盖",
-          "type": "Box",
-          "size": [
-            2.4,
-            0.06,
-            1.2
-          ],
-          "position": [
-            0,
-            1.816,
-            -1.8
-          ],
-          "materialId": "camo_dark",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "格栅1",
-          "type": "Box",
-          "size": [
-            2,
-            0.01,
-            0.02
-          ],
-          "position": [
-            0,
-            1.856,
-            -1.8
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "格栅2",
-          "type": "Box",
-          "size": [
-            2,
-            0.01,
-            0.02
-          ],
-          "position": [
-            0,
-            1.856,
-            -1.65
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "格栅3",
-          "type": "Box",
-          "size": [
-            2,
-            0.01,
-            0.02
-          ],
-          "position": [
-            0,
-            1.856,
-            -1.5
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "格栅4",
-          "type": "Box",
-          "size": [
-            2,
-            0.01,
-            0.02
-          ],
-          "position": [
-            0,
-            1.856,
-            -1.35
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "左翼子板",
-          "type": "Box",
-          "size": [
-            0.3,
-            0.05,
-            5
-          ],
-          "position": [
-            -1.55,
-            4.3,
-            0.05
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0.1745
-          ]
-        },
-        {
-          "name": "右翼子板",
-          "type": "Box",
-          "size": [
-            0.3,
-            0.05,
-            5
-          ],
-          "position": [
-            1.55,
-            4.3,
-            0.05
-          ],
-          "materialId": "camo_green",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            -0.1745
-          ]
-        },
-        {
-          "name": "左前挡泥板",
-          "type": "Box",
-          "size": [
-            0.28,
-            0.04,
-            0.12
-          ],
-          "position": [
-            -1.58,
-            4.3,
-            2.55
-          ],
-          "rotation": [
-            0.3,
-            0,
-            0.1745
-          ],
-          "materialId": "camo_green",
-          "visible": true
-        },
-        {
-          "name": "右前挡泥板",
-          "type": "Box",
-          "size": [
-            0.28,
-            0.04,
-            0.12
-          ],
-          "position": [
-            1.58,
-            4.3,
-            2.55
-          ],
-          "rotation": [
-            0.3,
-            0,
-            -0.1745
-          ],
-          "materialId": "camo_green",
-          "visible": true
-        },
-        {
-          "name": "航向机枪口",
-          "type": "Cylinder",
-          "size": [
-            0.01,
-            0.3,
-            0.01
-          ],
-          "position": [
-            -0.65,
-            1.5,
-            2.75
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            1.5708,
-            0,
-            0
-          ],
-          "segments": [
-            6
-          ]
-        },
-        {
-          "name": "驾驶员观察口",
-          "type": "Box",
-          "size": [
-            0.2,
-            0.04,
-            0.16
-          ],
-          "position": [
-            0.65,
-            1.5,
-            2.55
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "左排气管",
-          "type": "Cylinder",
-          "size": [
-            0.07,
-            0.35,
-            0.07
-          ],
-          "segments": [
-            8
-          ],
-          "position": [
-            -0.7,
-            1.584,
-            -3
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "右排气管",
-          "type": "Cylinder",
-          "size": [
-            0.07,
-            0.35,
-            0.07
-          ],
-          "segments": [
-            8
-          ],
-          "position": [
-            0.7,
-            1.584,
-            -3
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "左工具1",
-          "type": "Box",
-          "size": [
-            0.012,
-            0.03,
-            0.35
-          ],
-          "position": [
-            -1.5,
-            1.5,
-            -0.2
-          ],
-          "rotation": [
-            0,
-            0,
-            0.1
-          ],
-          "materialId": "wood",
-          "visible": true
-        },
-        {
-          "name": "右工具1",
-          "type": "Box",
-          "size": [
-            0.012,
-            0.028,
-            0.4
-          ],
-          "position": [
-            1.5,
-            1.5,
-            0.4
-          ],
-          "rotation": [
-            0,
-            0,
-            -0.05
-          ],
-          "materialId": "wood",
-          "visible": true
-        },
-        {
-          "name": "前牵引缆绳",
-          "type": "Torus",
-          "size": [
-            0.2,
-            0.018
-          ],
-          "segments": [
-            6,
-            14
-          ],
-          "position": [
-            0,
-            1,
-            2.95
-          ],
-          "rotation": [
-            1.5708,
-            0,
-            0
-          ],
-          "materialId": "dark_steel",
-          "visible": true
-        }
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "visible": true
-    },
-    {
-      "name": "左负重轮1",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.302,
-        0.85,
-        1.7
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左内轮1",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.002,
-        0.85,
-        1.25
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左负重轮2",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.302,
-        0.85,
-        0.57
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左内轮2",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.002,
-        0.85,
-        0.12
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左负重轮3",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.302,
-        0.85,
-        -0.57
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左内轮3",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.002,
-        0.85,
-        -1.02
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左负重轮4",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.302,
-        0.85,
-        -1.7
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左内轮4",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.002,
-        0.85,
-        -2.15
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右负重轮1",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.299,
-        0.85,
-        1.7
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右内轮1",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        1.999,
-        0.85,
-        1.25
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右负重轮2",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.299,
-        0.85,
-        0.57
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右内轮2",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        1.999,
-        0.85,
-        0.12
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右负重轮3",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.299,
-        0.85,
-        -0.57
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右内轮3",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        1.999,
-        0.85,
-        -1.02
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右负重轮4",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.299,
-        0.85,
-        -1.7
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "右内轮4",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.09,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        1.999,
-        0.85,
-        -2.15
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "steel",
-      "visible": true
-    },
-    {
-      "name": "左诱导轮",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.08,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.15,
-        1.15,
-        2.5
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "dark_steel",
-      "visible": true
-    },
-    {
-      "name": "右诱导轮",
-      "type": "Cylinder",
-      "size": [
-        0.48,
-        0.08,
-        0.48
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.15,
-        1.15,
-        2.5
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "dark_steel",
-      "visible": true
-    },
-    {
-      "name": "左主动轮",
-      "type": "Cylinder",
-      "size": [
-        0.45,
-        0.1,
-        0.45
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        -2.15,
-        0.9,
-        -2.9
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "dark_steel",
-      "visible": true
-    },
-    {
-      "name": "右主动轮",
-      "type": "Cylinder",
-      "size": [
-        0.45,
-        0.1,
-        0.45
-      ],
-      "segments": [
-        16
-      ],
-      "position": [
-        2.15,
-        0.9,
-        -2.9
-      ],
-      "rotation": [
-        0,
-        0,
-        1.5708
-      ],
-      "materialId": "dark_steel",
-      "visible": true
-    },
-    {
-      "name": "左履带",
-      "type": "TrackChain",
-      "position": [
-        -2.15,
-        0.3,
-        0
-      ],
-      "trackParams": {
-        "wheelCenterZFront": 2.5,
-        "wheelCenterYFront": 0.85,
-        "wheelRadiusFront": 0.48,
-        "wheelCenterZRear": -2.9,
-        "wheelCenterYRear": 0.6,
-        "wheelRadiusRear": 0.45,
-        "roadWheelFrontZ": 1.7,
-        "roadWheelRearZ": -1.7,
-        "roadWheelY": 0.55,
-        "roadWheelRadius": 0.48,
-        "count": 124,
-        "plateWidth": 0.5,
-        "plateHeight": 0.06,
-        "plateDepth": 0.08
+    name: '虎式坦克 v1.0',
+    type: 'Group',
+    position: [0, -0.15, 0],
+    rotation: [0, 0, 0],
+    scale: [0.5, 0.5, 0.5],
+    children: [
+      {
+        name: '车体',
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          {
+            name: '下车体',
+            type: 'TaperedBox',
+            size: [2.415, 0.5, 5.6, 2.605, 6.2, 0, 0],
+            position: [0, 0.95, -0.2],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '上车体',
+            type: 'TaperedBox',
+            size: [2.415, 0.8, 5.8, 2.225, 6.3, null, -0.255],
+            position: [0, 1.61, -0.7],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '首上装甲',
+            type: 'Box',
+            size: [2.4, 0.8, 0.06],
+            position: [0, 1.4, 2.65],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [-1.0472, 0, 0],
+          },
+          {
+            name: '首下装甲',
+            type: 'Box',
+            size: [2.4, 0.6, 0.06],
+            position: [0, 0.95, 2.8],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [0.5236, 0, 0],
+          },
+          {
+            name: '发动机舱盖',
+            type: 'Box',
+            size: [2.1, 0.06, 1.2],
+            position: [0, 2.03, -3],
+            materialId: 'camo_dark',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '格栅1',
+            type: 'Box',
+            size: [2, 0.01, 0.02],
+            position: [0, 2.07, -3.05],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '格栅2',
+            type: 'Box',
+            size: [2, 0.01, 0.02],
+            position: [0, 2.07, -2.9],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '格栅3',
+            type: 'Box',
+            size: [2, 0.01, 0.02],
+            position: [0, 2.07, -2.75],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '格栅4',
+            type: 'Box',
+            size: [2, 0.01, 0.02],
+            position: [0, 2.07, -2.6],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '左翼子板',
+            type: 'Box',
+            size: [0.7, 0.05, 5.95],
+            position: [-1.35, 1.55, -0.525],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [-0.0349, 0, 0.1745],
+          },
+          {
+            name: '右翼子板',
+            type: 'Box',
+            size: [0.7, 0.05, 5.95],
+            position: [1.35, 1.55, -0.525],
+            materialId: 'camo_green',
+            visible: true,
+            rotation: [-0.0349, 0, -0.1745],
+          },
+          {
+            name: '左前挡泥板',
+            type: 'Box',
+            size: [0.7, 0.04, 0.7],
+            position: [-1.35, 1.5, 2.75],
+            rotation: [0.4363, 0, 0],
+            materialId: 'camo_green',
+            visible: true,
+          },
+          {
+            name: '右前挡泥板',
+            type: 'Box',
+            size: [0.7, 0.04, 0.7],
+            position: [1.35, 1.5, 2.75],
+            rotation: [0.4363, 0, 0],
+            materialId: 'camo_green',
+            visible: true,
+          },
+          {
+            name: '航向机枪口',
+            type: 'Cylinder',
+            size: [0.01, 0.3, 0.01],
+            position: [-0.6, 1.683, 2.58],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [1.5708, 0, 0],
+            segments: [6],
+          },
+          {
+            name: '驾驶员观察口',
+            type: 'Box',
+            size: [0.2, 0.04, 0.16],
+            position: [0.6, 1.683, 2.4],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '左排气管',
+            type: 'Cylinder',
+            size: [0.07, 0.35, 0.07],
+            segments: [8],
+            position: [-0.7, 1.522, -3.624],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [-0.5585, 0, 0],
+          },
+          {
+            name: '右排气管',
+            type: 'Cylinder',
+            size: [0.07, 0.35, 0.07],
+            segments: [8],
+            position: [0.7, 1.522, -3.624],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [-0.5585, 0, 0],
+          },
+          {
+            name: '左工具1',
+            type: 'Box',
+            size: [0.012, 0.03, 0.35],
+            position: [-1.145, 1.718, -0.2],
+            rotation: [0, 0, 0.1],
+            materialId: 'wood',
+            visible: true,
+          },
+          {
+            name: '右工具1',
+            type: 'Box',
+            size: [0.012, 0.028, 0.4],
+            position: [1.145, 1.718, 0.4],
+            rotation: [0, 0, -0.05],
+            materialId: 'wood',
+            visible: true,
+          },
+          {
+            name: '前牵引缆绳',
+            type: 'Torus',
+            size: [0.2, 0.018],
+            segments: [6, 14],
+            position: [0, 1, 2.8],
+            rotation: [1.5708, 0, 0],
+            materialId: 'dark_steel',
+            visible: true,
+          },
+        ],
+        rotation: [0, 0, 0],
+        visible: true,
       },
-      "materialId": "dark_steel",
-      "visible": true,
-      "rotation": [
-        0,
-        0,
-        0
-      ]
-    },
-    {
-      "name": "右履带",
-      "type": "TrackChain",
-      "position": [
-        2.15,
-        0.3,
-        0
-      ],
-      "trackParams": {
-        "wheelCenterZFront": 2.5,
-        "wheelCenterYFront": 0.85,
-        "wheelRadiusFront": 0.48,
-        "wheelCenterZRear": -2.9,
-        "wheelCenterYRear": 0.6,
-        "wheelRadiusRear": 0.45,
-        "roadWheelFrontZ": 1.7,
-        "roadWheelRearZ": -1.7,
-        "roadWheelY": 0.55,
-        "roadWheelRadius": 0.48,
-        "count": 124,
-        "plateWidth": 0.5,
-        "plateHeight": 0.06,
-        "plateDepth": 0.08
+      {
+        name: '左负重轮1',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.602, 0.85, 1.7],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
       },
-      "materialId": "dark_steel",
-      "visible": true,
-      "rotation": [
-        0,
-        0,
-        0
-      ]
-    },
-    {
-      "name": "炮塔总成",
-      "type": "Group",
-      "position": [
-        0,
-        1.6,
-        0.23
-      ],
-      "children": [
-        {
-          "name": "炮塔主体",
-          "type": "Box",
-          "size": [
-            1.6,
-            0.7,
-            2
-          ],
-          "position": [
-            0,
-            0.55,
-            -0.15
-          ],
-          "materialId": "camo_dark",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
+      {
+        name: '左内轮1',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.302, 0.85, 1.25],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左负重轮2',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.602, 0.85, 0.57],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左内轮2',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.302, 0.85, 0.12],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左负重轮3',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.602, 0.85, -0.57],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左内轮3',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.302, 0.85, -1.02],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左负重轮4',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.602, 0.85, -1.7],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左内轮4',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [-1.302, 0.85, -2.15],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右负重轮1',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.599, 0.85, 1.7],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右内轮1',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.299, 0.85, 1.25],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右负重轮2',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.599, 0.85, 0.57],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右内轮2',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.299, 0.85, 0.12],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右负重轮3',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.599, 0.85, -0.57],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右内轮3',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.299, 0.85, -1.02],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右负重轮4',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.599, 0.85, -1.7],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '右内轮4',
+        type: 'Cylinder',
+        size: [0.48, 0.09, 0.48],
+        segments: [16],
+        position: [1.299, 0.85, -2.15],
+        rotation: [0, 0, 1.5708],
+        materialId: 'steel',
+        visible: true,
+      },
+      {
+        name: '左诱导轮',
+        type: 'Cylinder',
+        size: [0.48, 0.08, 0.48],
+        segments: [16],
+        position: [-1.45, 1.05, 2.4],
+        rotation: [0, 0, 1.5708],
+        materialId: 'dark_steel',
+        visible: true,
+      },
+      {
+        name: '右诱导轮',
+        type: 'Cylinder',
+        size: [0.48, 0.08, 0.48],
+        segments: [16],
+        position: [1.45, 1.05, 2.4],
+        rotation: [0, 0, 1.5708],
+        materialId: 'dark_steel',
+        visible: true,
+      },
+      {
+        name: '左主动轮',
+        type: 'Cylinder',
+        size: [0.45, 0.1, 0.45],
+        segments: [16],
+        position: [-1.45, 0.9, -2.9],
+        rotation: [0, 0, 1.5708],
+        materialId: 'dark_steel',
+        visible: true,
+      },
+      {
+        name: '右主动轮',
+        type: 'Cylinder',
+        size: [0.45, 0.1, 0.45],
+        segments: [16],
+        position: [1.45, 0.9, -2.9],
+        rotation: [0, 0, 1.5708],
+        materialId: 'dark_steel',
+        visible: true,
+      },
+      {
+        name: '左履带',
+        type: 'TrackChain',
+        position: [-1.45, 0.3, 0],
+        trackParams: {
+          wheelCenterZFront: 2.4,
+          wheelCenterYFront: 0.75,
+          wheelRadiusFront: 0.48,
+          wheelCenterZRear: -2.9,
+          wheelCenterYRear: 0.6,
+          wheelRadiusRear: 0.45,
+          roadWheelFrontZ: 1.7,
+          roadWheelRearZ: -1.7,
+          roadWheelY: 0.55,
+          roadWheelRadius: 0.48,
+          count: 122,
+          plateWidth: 0.5,
+          plateHeight: 0.06,
+          plateDepth: 0.08,
         },
-        {
-          "name": "炮塔前板",
-          "type": "Box",
-          "size": [
-            1.5,
-            0.6,
-            0.06
-          ],
-          "position": [
-            0,
-            0.55,
-            0.88
-          ],
-          "materialId": "camo_dark",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
+        materialId: 'dark_steel',
+        visible: true,
+        rotation: [0, 0, 0],
+      },
+      {
+        name: '右履带',
+        type: 'TrackChain',
+        position: [1.45, 0.3, 0],
+        trackParams: {
+          wheelCenterZFront: 2.4,
+          wheelCenterYFront: 0.75,
+          wheelRadiusFront: 0.48,
+          wheelCenterZRear: -2.9,
+          wheelCenterYRear: 0.6,
+          wheelRadiusRear: 0.45,
+          roadWheelFrontZ: 1.7,
+          roadWheelRearZ: -1.7,
+          roadWheelY: 0.55,
+          roadWheelRadius: 0.48,
+          count: 122,
+          plateWidth: 0.5,
+          plateHeight: 0.06,
+          plateDepth: 0.08,
         },
-        {
-          "name": "炮塔尾舱",
-          "type": "Box",
-          "size": [
-            1.24,
-            0.6,
-            0.34
-          ],
-          "position": [
-            0,
-            0.57,
-            -1.1
-          ],
-          "materialId": "camo_dark",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "指挥塔基座",
-          "type": "Cylinder",
-          "size": [
-            0.32,
-            0.06,
-            0.32
-          ],
-          "segments": [
-            12
-          ],
-          "position": [
-            0.363,
-            0.94,
-            0.26
-          ],
-          "materialId": "camo_dark",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "指挥塔舱盖",
-          "type": "Cylinder",
-          "size": [
-            0.3,
-            0.02,
-            0.3
-          ],
-          "segments": [
-            12
-          ],
-          "position": [
-            0.363,
-            0.99,
-            0.26
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "装填手舱盖",
-          "type": "Cylinder",
-          "size": [
-            0.3,
-            0.03,
-            0.3
-          ],
-          "segments": [
-            12
-          ],
-          "position": [
-            -0.405,
-            0.91,
-            0.25
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "防空机枪架",
-          "type": "Torus",
-          "size": [
-            0.33,
-            0.015
-          ],
-          "segments": [
-            8,
-            20
-          ],
-          "position": [
-            0.363,
-            1.04,
-            0.25
-          ],
-          "rotation": [
-            1.5708,
-            0,
-            0
-          ],
-          "materialId": "dark_steel",
-          "visible": true
-        },
-        {
-          "name": "天线基座",
-          "type": "Cylinder",
-          "size": [
-            0.01,
-            1.5,
-            0.01
-          ],
-          "segments": [
-            8
-          ],
-          "position": [
-            -0.405,
-            1.55,
-            -0.405
-          ],
-          "materialId": "dark_steel",
-          "visible": true,
-          "rotation": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "炮管总成",
-          "type": "Group",
-          "position": [
-            0,
-            0.7,
-            0.65
-          ],
-          "children": [
-            {
-              "name": "炮盾",
-              "type": "Cylinder",
-              "size": [
-                0.1,
-                0.5,
-                0.15
-              ],
-              "segments": [
-                18
-              ],
-              "position": [
-                0,
-                -0.15,
-                0.51
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "dark_steel",
-              "visible": true
-            },
-            {
-              "name": "炮管根部",
-              "type": "Cylinder",
-              "size": [
-                0.06,
-                0.12,
-                0.06
-              ],
-              "segments": [
-                14
-              ],
-              "position": [
-                0,
-                0,
-                0.06
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "barrel_steel",
-              "visible": true
-            },
-            {
-              "name": "主炮管",
-              "type": "Cylinder",
-              "size": [
-                0.055,
-                4.8,
-                0.065
-              ],
-              "segments": [
-                16
-              ],
-              "position": [
-                0,
-                -0.15,
-                1.2
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "barrel_steel",
-              "visible": true
-            },
-            {
-              "name": "抽烟器",
-              "type": "Cylinder",
-              "size": [
-                0.07,
-                1,
-                0.07
-              ],
-              "segments": [
-                18
-              ],
-              "position": [
-                0,
-                -0.15,
-                0.7
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "barrel_steel",
-              "visible": true
-            },
-            {
-              "name": "炮口制退器",
-              "type": "Cylinder",
-              "size": [
-                0.07,
-                0.3,
-                0.08
-              ],
-              "segments": [
-                16
-              ],
-              "position": [
-                0,
-                -0.15,
-                3.6
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "barrel_steel",
-              "visible": true
-            },
-            {
-              "name": "同轴机枪",
-              "type": "Cylinder",
-              "size": [
-                0.01,
-                0.25,
-                0.01
-              ],
-              "segments": [
-                6
-              ],
-              "position": [
-                0.08,
-                0,
-                0.28
-              ],
-              "rotation": [
-                1.5708,
-                0,
-                0
-              ],
-              "materialId": "dark_steel",
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        },
-        {
-          "name": "高射机枪",
-          "type": "Group",
-          "position": [
-            -0.4,
-            1.32,
-            0.4
-          ],
-          "children": [
-            {
-              "name": "机枪管",
-              "type": "Cylinder",
-              "size": [
-                0.008,
-                0.3,
-                0.008
-              ],
-              "segments": [
-                6
-              ],
-              "position": [
-                0.513,
-                -0.2,
-                0.15
-              ],
-              "rotation": [
-                1,
-                0,
-                0
-              ],
-              "materialId": "dark_steel",
-              "visible": true
-            },
-            {
-              "name": "机枪身",
-              "type": "Box",
-              "size": [
-                0.03,
-                0.02,
-                0.1
-              ],
-              "position": [
-                0.513,
-                -0.23,
-                0.05
-              ],
-              "materialId": "dark_steel",
-              "visible": true,
-              "rotation": [
-                0,
-                0,
-                0
-              ]
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        }
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "visible": true
-    }
-  ],
-  "visible": true
-};
+        materialId: 'dark_steel',
+        visible: true,
+        rotation: [0, 0, 0],
+      },
+      {
+        name: '炮塔总成',
+        type: 'Group',
+        position: [0, 0.65, 0.23],
+        children: [
+          {
+            name: '炮塔主体',
+            type: 'ProfiledExtrude',
+            shape: [
+              ['line', 0.7, 0.85],
+              ['line', -0.7, 0.85],
+              ['line', -0.75, -0.35],
+              ['arc', 0, -0.35, 0.75, 3.14159, 0],
+              ['line', 0.7, 0.85],
+            ],
+            roofProfile: [
+              [0.85, 0.45],
+              [0.0, 0.65],
+              [-1.1, 0.65],
+            ],
+            segments: [24],
+            position: [0, 1.764, -0.15],
+            rotation: [-1.5708, 0, 0],
+            materialId: 'camo_dark',
+            visible: true,
+          },
+          {
+            name: '炮塔前板',
+            type: 'Box',
+            size: [1.5, 0.6, 0.06],
+            position: [0, 1.764, 0.88],
+            materialId: 'camo_dark',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '炮塔尾舱',
+            type: 'Box',
+            size: [1.24, 0.6, 0.34],
+            position: [0, 1.784, -1.1],
+            materialId: 'camo_dark',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '指挥塔基座',
+            type: 'Cylinder',
+            size: [0.32, 0.06, 0.32],
+            segments: [12],
+            position: [0.363, 2.154, 0.26],
+            materialId: 'camo_dark',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '指挥塔舱盖',
+            type: 'Cylinder',
+            size: [0.3, 0.02, 0.3],
+            segments: [12],
+            position: [0.363, 2.204, 0.26],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '装填手舱盖',
+            type: 'Cylinder',
+            size: [0.3, 0.03, 0.3],
+            segments: [12],
+            position: [-0.405, 2.124, 0.25],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '防空机枪架',
+            type: 'Torus',
+            size: [0.33, 0.015],
+            segments: [8, 20],
+            position: [0.363, 2.254, 0.25],
+            rotation: [1.5708, 0, 0],
+            materialId: 'dark_steel',
+            visible: true,
+          },
+          {
+            name: '天线基座',
+            type: 'Cylinder',
+            size: [0.01, 1.5, 0.01],
+            segments: [8],
+            position: [-0.405, 2.764, -0.405],
+            materialId: 'dark_steel',
+            visible: true,
+            rotation: [0, 0, 0],
+          },
+          {
+            name: '炮管总成',
+            type: 'Group',
+            position: [0, 0.7, 0.65],
+            children: [
+              {
+                name: '炮盾',
+                type: 'Cylinder',
+                size: [0.1, 0.5, 0.15],
+                segments: [18],
+                position: [0, 1.064, 0.51],
+                rotation: [1.5708, 0, 0],
+                materialId: 'dark_steel',
+                visible: true,
+              },
+              {
+                name: '炮管根部',
+                type: 'Cylinder',
+                size: [0.06, 0.12, 0.06],
+                segments: [14],
+                position: [0, 1.214, 0.06],
+                rotation: [1.5708, 0, 0],
+                materialId: 'barrel_steel',
+                visible: true,
+              },
+              {
+                name: '主炮管',
+                type: 'Cylinder',
+                size: [0.055, 4.8, 0.065],
+                segments: [16],
+                position: [0, 1.064, 1.2],
+                rotation: [1.5708, 0, 0],
+                materialId: 'barrel_steel',
+                visible: true,
+              },
+              {
+                name: '抽烟器',
+                type: 'Cylinder',
+                size: [0.07, 1, 0.07],
+                segments: [18],
+                position: [0, 1.064, 0.7],
+                rotation: [1.5708, 0, 0],
+                materialId: 'barrel_steel',
+                visible: true,
+              },
+              {
+                name: '炮口制退器',
+                type: 'Cylinder',
+                size: [0.07, 0.3, 0.08],
+                segments: [16],
+                position: [0, 1.064, 3.6],
+                rotation: [1.5708, 0, 0],
+                materialId: 'barrel_steel',
+                visible: true,
+              },
+              {
+                name: '同轴机枪',
+                type: 'Cylinder',
+                size: [0.01, 0.25, 0.01],
+                segments: [6],
+                position: [0.08, 1.214, 0.28],
+                rotation: [1.5708, 0, 0],
+                materialId: 'dark_steel',
+                visible: true,
+              },
+            ],
+            rotation: [0, 0, 0],
+            visible: true,
+          },
+          {
+            name: '高射机枪',
+            type: 'Group',
+            position: [-0.4, 1.32, 0.4],
+            children: [
+              {
+                name: '机枪管',
+                type: 'Cylinder',
+                size: [0.008, 0.3, 0.008],
+                segments: [6],
+                position: [0.513, 1.014, 0.15],
+                rotation: [1, 0, 0],
+                materialId: 'dark_steel',
+                visible: true,
+              },
+              {
+                name: '机枪身',
+                type: 'Box',
+                size: [0.03, 0.02, 0.1],
+                position: [0.513, 0.984, 0.05],
+                materialId: 'dark_steel',
+                visible: true,
+                rotation: [0, 0, 0],
+              },
+            ],
+            rotation: [0, 0, 0],
+            visible: true,
+          },
+          {
+            name: '炮塔座圈',
+            type: 'Cylinder',
+            size: [0.7, 0.1, 0.7],
+            position: [0, 1.35, -0.2],
+            materialId: 'default',
+            rotation: [0, 0, 0],
+            visible: true,
+            segments: [12],
+          },
+        ],
+        rotation: [0, 0, 0],
+        visible: true,
+      },
+    ],
+    visible: true,
+  };
 
   // ─── 暴露 ───
   window.TigerIBuilder = {

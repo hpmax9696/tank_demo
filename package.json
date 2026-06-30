@@ -5,5 +5,8 @@
   "description": "3D 坦克对战游戏 — Three.js r160 浏览器游戏",
   "devDependencies": {
     "prettier": "^3.4.0"
+  },
+  "dependencies": {
+    "playwright": "^1.61.1"
   }
 }

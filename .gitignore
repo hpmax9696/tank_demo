@@ -24,3 +24,11 @@ _*.mjs
 # Dependencies
 node_modules/
 screenshots/
+__pycache__/
+*.pyc
+
+# Temp test files
+test-*-debug.html
+test-*-proc.html
+view-*.html
+compare_*.png

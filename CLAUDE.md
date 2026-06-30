@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.9
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.10
 
 ## 运行
 
@@ -245,11 +245,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项 | 可选值 |
+| 配置项   | 可选值                                                      |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
+| 我方     | 坦克、六足(灰色不可选)                                      |
+| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -500,6 +500,44 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
+## v0.65.10 本次会话变更 (2026-06-30)
+
+### 新增 ProfiledExtrude 几何类型（第 11 种）
+
+- **`buildProfiledExtrude(shapeDef, roofProfile, arcSegments)`**：XY 轮廓 + roofProfile 沿 Z 变高拉伸。算法：THREE.Shape 解析 shape（line→lineTo / arc→absarc）→ roofH(y) 线性插值 → 侧面独立 quad strip → ShapeGeometry 三角化底面 + 翻转索引屋顶 → 合并 + computeVertexNormals
+- **shape 格式**：`['line', x, y]` + `['arc', cx, cy, r, startAngle, endAngle]` 数组，支持任意凹多边形轮廓
+- **roofProfile 格式**：`[[y_position, z_height], ...]` 沿 Y 轴（前后）定义可变高度，自动排序+插值
+- `createGeometry` 新增 `case 'ProfiledExtrude'` 分支（L1048-1061）；GUI 面板（圆弧分段滑块 + Shape JSON + 屋顶剖面 JSON）
+
+### 虎式炮塔马蹄形建模
+
+- **炮塔主体**（`models/tiger_v16_builder.js`）：Box → ProfiledExtrude，马蹄形俯视轮廓（前脸 1.4 + 后方弧 r=0.75）+ 两段屋顶（前斜面 0.45→转折 0.65→后水平 0.65），rotation [-π/2,0,0] 转 Y-up 站立
+
+### 法线保障（4 项机制）
+
+| 机制               | 说明                                         |
+| ------------------ | -------------------------------------------- |
+| quad 独立顶点      | 每个 quad 不复用相邻 segment 顶点 → 侧面硬边 |
+| cap Z ±0.0001 偏移 | 破坏与侧面顶点 hash 匹配 → cap/side 接缝硬边 |
+| 屋顶翻转索引       | roof cap 每 3 个索引逆序 → 法线朝 +Z（外）   |
+| winding 验证       | 所有面 winding 经推导确认 → FrontSide 即正常 |
+
+### 关键文件变更
+
+| 文件                          | 改动                                                           |
+| ----------------------------- | -------------------------------------------------------------- |
+| `model_factory.html`          | +buildProfiledExtrude(~95 行) + createGeometry case + GUI 面板 |
+| `models/tiger_v16_builder.js` | 炮塔主体 Box→ProfiledExtrude + 12 参数                         |
+
+### 已知问题（同 v0.65.9）
+
+1. avg fps 41.5 仍非稳定60(剩余GC 20ms)，待P-burst-3续做
+2. 坡地一头翘起一头陷地(坦克/敌人偶发)
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确(待校准)
+
+---
+
 ## v0.65.9 本次会话变更 (2026-06-30)
 
 ### 模型工厂框选交互 + 批量滑块 bug 修复
@@ -531,13 +569,13 @@ legGroup (Y旋转=水平摆角)
 
 ### 关键文件变更
 
-| 文件                             | 改动                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `model_factory.html`             | setupRaycaster 框选/增选 + boxSelect additive + resetBatchSliders + #info + autoLoad + _doSave |
-| `server.py`                      | end_headers override 加 no-cache 头                                                            |
-| `js/engine.js`                   | console.log 版本号                                                                             |
-| `models/tiger_v16_builder.js`    | TIGER_I_V16_CONFIG trackParams 固化(诱导轮/主动轮真实坐标)                                     |
-| `.claude/skills/tank-track-fit/` | 新建 skill(SKILL.md + 2 脚本)                                                                  |
+| 文件                             | 改动                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `model_factory.html`             | setupRaycaster 框选/增选 + boxSelect additive + resetBatchSliders + #info + autoLoad + \_doSave |
+| `server.py`                      | end_headers override 加 no-cache 头                                                             |
+| `js/engine.js`                   | console.log 版本号                                                                              |
+| `models/tiger_v16_builder.js`    | TIGER_I_V16_CONFIG trackParams 固化(诱导轮/主动轮真实坐标)                                      |
+| `.claude/skills/tank-track-fit/` | 新建 skill(SKILL.md + 2 脚本)                                                                   |
 
 ### 已知问题（更新）
 

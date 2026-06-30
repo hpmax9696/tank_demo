@@ -6860,7 +6860,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.65.4  ' +
+    'v0.65.10  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7489,7 +7489,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.9 | 模型工厂框选交互+履带绕紧skill+缓存根治');
+console.log('🎮 坦克运动demo v0.65.10 | ProfiledExtrude几何类型+虎式炮塔马蹄形建模+法线保障');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
