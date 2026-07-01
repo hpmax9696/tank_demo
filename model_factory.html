@@ -369,6 +369,7 @@
       <span style="color: #ffd866">选择: 单击选中 · Ctrl+点击多选</span><br />
       <span style="color: #4ecdc4">框选: Ctrl+拖拽</span>
       <span style="color: #ffa94d">· Shift+Ctrl+拖拽增选</span><br />
+      <span style="color: #95d5b2">Shift+拖滑块=精细</span><br />
       <span style="color: #aaa">Delete隐藏 · Ctrl+Z撤销 · Ctrl+S保存</span>
     </div>
     <div id="stats">面数: <span id="triCount">0</span> tris</div>
@@ -482,6 +483,7 @@
     <script src="models/hexapod_config.js"></script>
     <script src="models/tiger_v16_builder.js"></script>
     <script src="models/model_configs.js"></script>
+    <script src="js/pe_shape_editor.js"></script>
     <script type="module">
       // ============================================================
       // 1. 默认材质字典
@@ -846,6 +848,47 @@
         return geo;
       }
 
+      // ProfiledExtrude 预设形状库（俯视轮廓：x=左右, y=前后；应用后可在"高级 JSON"微调）
+      const PE_SHAPE_PRESETS = {
+        马蹄形虎式: [
+          ['line', -0.55, 0.85],
+          ['line', -0.75, -0.35],
+          ['arc', 0, -0.35, 0.75, Math.PI, 0],
+          ['line', 0.75, -0.35],
+          ['line', 0.55, 0.85],
+        ],
+        矩形: [
+          ['line', -0.7, 0.8],
+          ['line', -0.7, -0.8],
+          ['line', 0.7, -0.8],
+          ['line', 0.7, 0.8],
+        ],
+        梯形前窄后宽: [
+          ['line', -0.45, 0.85],
+          ['line', -0.75, -0.35],
+          ['line', 0.75, -0.35],
+          ['line', 0.45, 0.85],
+        ],
+        半圆前突: [
+          ['line', -0.6, -0.4],
+          ['arc', 0, -0.4, 0.6, Math.PI, 0],
+          ['line', 0.6, -0.4],
+        ],
+        六边形: [
+          ['line', -0.4, 0.8],
+          ['line', -0.7, 0],
+          ['line', -0.4, -0.5],
+          ['line', 0.4, -0.5],
+          ['line', 0.7, 0],
+          ['line', 0.4, 0.8],
+        ],
+        扇环尾舱: [
+          // 环形扇区：外弧(逆时针)+内弧(顺时针)。两条径向边由 absarc 自动 lineTo + closePath 生成
+          ['arc', 0, 0, 0.65, Math.PI * 0.25, Math.PI * 0.75],
+          ['arc', 0, 0, 0.42, Math.PI * 0.75, Math.PI * 0.25, true],
+        ],
+      };
+
       // ProfiledExtrude — 可变高度拉伸 (XY轮廓 + roofProfile沿Z变高)
       function buildProfiledExtrude(shapeDef, roofProfile, arcSegments) {
         // 1. 构建 THREE.Shape
@@ -853,12 +896,12 @@
         let first = true;
         for (const seg of shapeDef) {
           if (seg[0] === 'arc') {
-            const [, cx, cy, radius, startAngle, endAngle] = seg;
+            const [, cx, cy, radius, startAngle, endAngle, clockwise] = seg;
             if (first) {
               shape.moveTo(cx + radius * Math.cos(startAngle), cy + radius * Math.sin(startAngle));
               first = false;
             }
-            shape.absarc(cx, cy, radius, startAngle, endAngle, false);
+            shape.absarc(cx, cy, radius, startAngle, endAngle, clockwise === true);
           } else if (seg[0] === 'line') {
             const [, x, y] = seg;
             if (first) {
@@ -1046,13 +1089,23 @@
             });
           }
           case 'ProfiledExtrude': {
-            const shape = node.shape || [
+            const rawShape = node.shape || [
               ['line', -0.55, 0.85],
               ['line', -0.75, -0.35],
               ['arc', 0, -0.35, 0.75, Math.PI, 0],
               ['line', 0.75, -0.35],
               ['line', 0.55, 0.85],
             ];
+            const sc = node.shapeScale || [1, 1];
+            // 应用轮廓缩放：line 坐标×scale，arc 圆心×scale + 半径按 X/Y 平均
+            const shape = rawShape.map((s) => {
+              if (s[0] === 'line') return ['line', s[1] * sc[0], s[2] * sc[1]];
+              if (s[0] === 'arc') {
+                const r = s[3] * ((Math.abs(sc[0]) + Math.abs(sc[1])) / 2);
+                return ['arc', s[1] * sc[0], s[2] * sc[1], r, s[4], s[5], s[6]];
+              }
+              return s.slice();
+            });
             const roof = node.roofProfile || [
               [0.85, 0.48],
               [-0.35, 0.65],
@@ -1212,7 +1265,9 @@
 
         const totalLen = lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
 
-        let pos = { x: 0, y: 0, z: 0 };
+        // 兜底 pos = 路径终点 pA：最后一块 plate 的 dist=totalLen 经 5 次 d-=lenXX 后浮点累积
+        // 误差会略大于 lenFA，6 段条件全不满足而落到此兜底；应回到起点 pA（履带闭合），而非原点
+        let pos = { x: 0, y: pA.y, z: pA.z };
         let rot = { x: 0, y: 0, z: 0 };
         let d = dist;
 
@@ -1790,6 +1845,52 @@
         _snapshotLock = false;
       });
 
+      // Shift+拖拽滑块 = 精细微调（速度 1/10）。capture 阶段拦截，阻止 lil-gui 绝对映射改用相对增量
+      document.addEventListener(
+        'pointerdown',
+        (e) => {
+          if (!e.shiftKey) return;
+          const widget = e.target.closest('.hasSlider');
+          if (!widget) return;
+          // lazy 反查 controller（rebuild GUI 后旧 domElement 失效，新 widget 自动重填）
+          let ctrl = widget.__peCtrl;
+          if (!ctrl && gui) {
+            ctrl = gui.controllersRecursive().find((c) => c.domElement === widget);
+            if (ctrl) widget.__peCtrl = ctrl;
+          }
+          if (!ctrl) return;
+          const slider = widget.querySelector('.slider');
+          if (!slider) return;
+          // 操作开始前拍照（capture 阶段 stopImmediatePropagation 会屏蔽下方 bubble 阶段的快照监听，此处补偿）
+          if (modelRoot && autoSnapshot) {
+            syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
+            const clone = JSON.parse(JSON.stringify(MODEL_CONFIGS[currentModelType]));
+            undoStack.push(clone);
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            _snapshotLock = true;
+          }
+          e.stopImmediatePropagation(); // 阻止 lil-gui 的 slider 绝对映射 mouseDown
+          e.preventDefault();
+          const startX = e.clientX;
+          const startVal = ctrl.getValue();
+          const rect = slider.getBoundingClientRect();
+          const range = ctrl._max - ctrl._min;
+          const perPx = (range / rect.width) * 0.1; // 比原生拖动慢 10x
+          const move = (ev) => {
+            let nv = startVal + (ev.clientX - startX) * perPx;
+            nv = Math.max(ctrl._min, Math.min(ctrl._max, nv)); // 手动 clamp
+            ctrl.setValue(nv);
+          };
+          const up = () => {
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+          };
+          document.addEventListener('pointermove', move);
+          document.addEventListener('pointerup', up);
+        },
+        true
+      ); // capture 阶段，先于 lil-gui（其监听在 .slider 元素 target 阶段）
+
       function flushUndo() {
         /* 空函数，保留防止调用报错 */
       }
@@ -2340,12 +2441,13 @@
           const size = wheelInfo.configNode.size;
           const radius = size[0] || 0.4;
           const thickness = size[1] || 0.12;
-          const isLeft =
-            wheelInfo.configNode &&
-            wheelInfo.configNode.name &&
-            wheelInfo.configNode.name.indexOf('左') === 0;
+          // 按世界 X 判左右（驾驶员视角 x>0=左），不依赖 name — name 调换后螺栓方向仍正确
+          const _boltWP = new THREE.Vector3();
+          mesh.getWorldPosition(_boltWP);
+          const isLeft = _boltWP.x > 0;
           const boltR = radius * 0.55;
-          const boltY = isLeft ? thickness / 2 + 0.015 : -(thickness / 2 + 0.015);
+          // 轮子 rotation.z=π/2，局部+Y→世界-X；isLeft(左轮 x>0)螺栓朝外侧(+X)需局部-Y，故反号
+          const boltY = isLeft ? -(thickness / 2 + 0.015) : thickness / 2 + 0.015;
 
           for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2;
@@ -2545,6 +2647,13 @@
         if (batchInfoObj) batchInfoObj.count = count;
         if (count >= 2) {
           batchGuiFolder.open();
+          // 多选时自动滚动到批量面板，免手动翻找
+          try {
+            const el = batchGuiFolder.domElement;
+            if (el && el.scrollIntoView) {
+              setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+            }
+          } catch (e) {}
         } else {
           batchGuiFolder.close();
         }
@@ -3048,6 +3157,20 @@
           extrudeDepth: 0.3,
           bevelThickness: 0.02,
         },
+        ProfiledExtrude: {
+          size: [1],
+          shape: [
+            ['line', -0.4, 0.4],
+            ['line', -0.4, -0.4],
+            ['line', 0.4, -0.4],
+            ['line', 0.4, 0.4],
+          ],
+          roofProfile: [
+            [0.4, 0.3],
+            [-0.4, 0.3],
+          ],
+          segments: [24],
+        },
         Group: {},
       };
 
@@ -3079,23 +3202,29 @@
             ]),
           ];
         if (d.shape !== undefined)
-          node.shape = [
-            ...(d.shape || [
-              [-0.15, -0.1],
-              [0.15, -0.1],
-              [0.15, 0.1],
-              [-0.15, 0.1],
-            ]),
-          ];
+          // 深拷贝（PE shape 是命令数组，浅拷贝会污染 TYPE_DEFAULTS）
+          node.shape = JSON.parse(
+            JSON.stringify(
+              d.shape || [
+                [-0.15, -0.1],
+                [0.15, -0.1],
+                [0.15, 0.1],
+                [-0.15, 0.1],
+              ]
+            )
+          );
         if (d.extrudeDepth !== undefined) node.extrudeDepth = d.extrudeDepth;
         if (d.bevelThickness !== undefined) node.bevelThickness = d.bevelThickness;
+        if (d.roofProfile !== undefined)
+          node.roofProfile = JSON.parse(JSON.stringify(d.roofProfile));
         // 清理旧类型的专属字段
         if (newType !== 'Lathe') delete node.profile;
-        if (newType !== 'Extrude') {
+        if (newType !== 'Extrude' && newType !== 'ProfiledExtrude') {
           delete node.shape;
           delete node.extrudeDepth;
           delete node.bevelThickness;
         }
+        if (newType !== 'ProfiledExtrude') delete node.roofProfile;
         deselectAll();
         rebuildModel();
         console.log('🔄 已切换: ' + nodeName + ' → ' + newType);
@@ -3952,7 +4081,119 @@
                   configNode.segments[0] = v;
                   rebuild();
                 });
-              // Shape 编辑
+              // 📐 轮廓预设（一键应用俯视形状）
+              const presetNames = Object.keys(PE_SHAPE_PRESETS);
+              const shpSel = { preset: presetNames[0] };
+              geoF
+                .add(shpSel, 'preset', presetNames)
+                .name('📐 轮廓预设')
+                .onChange((name) => {
+                  saveUndo('PEShapePreset');
+                  configNode.shape = JSON.parse(JSON.stringify(PE_SHAPE_PRESETS[name]));
+                  rebuild();
+                });
+              // 📏 轮廓缩放（整体放大/缩小；arc 半径按 X/Y 平均缩放）
+              const sc = configNode.shapeScale || (configNode.shapeScale = [1, 1]);
+              const scBox = { x: sc[0], y: sc[1] };
+              geoF
+                .add(scBox, 'x', 0.1, 5, 0.01)
+                .name('📏 轮廓 X缩放')
+                .onChange((v) => {
+                  sc[0] = v;
+                  saveUndo('PEScaleX');
+                  rebuild();
+                });
+              geoF
+                .add(scBox, 'y', 0.1, 5, 0.01)
+                .name('📏 轮廓 Y缩放')
+                .onChange((v) => {
+                  sc[1] = v;
+                  saveUndo('PEScaleY');
+                  rebuild();
+                });
+              geoF
+                .add(
+                  {
+                    double: () => {
+                      sc[0] = +(sc[0] * 2).toFixed(3);
+                      sc[1] = +(sc[1] * 2).toFixed(3);
+                      saveUndo('PEScale2x');
+                      rebuild();
+                    },
+                  },
+                  'double'
+                )
+                .name('⚡ 一键×2');
+              // ✏️ 可视化编辑轮廓（弹出 2D 画布拖拽控制点）
+              geoF
+                .add(
+                  {
+                    edit: () => {
+                      if (window.PEShapeEditor) window.PEShapeEditor.open(configNode, rebuild);
+                    },
+                  },
+                  'edit'
+                )
+                .name('✏️ 可视化编辑轮廓');
+              // 🔺 屋顶剖面点（可增删的控制点滑块，每个点 [y=前后位置, h=高度]）
+              const roofFolder = geoF.addFolder('🔺 屋顶剖面点');
+              function rebuildRoofCtrls() {
+                roofFolder.controllersRecursive().forEach((c) => c.destroy());
+                const rp =
+                  configNode.roofProfile ||
+                  (configNode.roofProfile = [
+                    [0.85, 0.48],
+                    [-0.35, 0.65],
+                    [-1.1, 0.65],
+                  ]);
+                rp.forEach((pt, i) => {
+                  const box = { y: pt[0], h: pt[1] };
+                  roofFolder
+                    .add(box, 'y', -2, 2, 0.01)
+                    .name('点' + (i + 1) + ' 前后y')
+                    .onChange((v) => {
+                      pt[0] = v;
+                      saveUndo('PERoofY');
+                      rebuild();
+                    });
+                  roofFolder
+                    .add(box, 'h', 0, 2.5, 0.01)
+                    .name('点' + (i + 1) + ' 高度h')
+                    .onChange((v) => {
+                      pt[1] = v;
+                      saveUndo('PERoofH');
+                      rebuild();
+                    });
+                  roofFolder
+                    .add(
+                      {
+                        del: () => {
+                          saveUndo('PERoofDel');
+                          configNode.roofProfile.splice(i, 1);
+                          rebuild();
+                        },
+                      },
+                      'del'
+                    )
+                    .name('✖ 删点' + (i + 1));
+                });
+                roofFolder
+                  .add(
+                    {
+                      add: () => {
+                        saveUndo('PERoofAdd');
+                        configNode.roofProfile.push([0, 0.5]);
+                        rebuild();
+                      },
+                    },
+                    'add'
+                  )
+                  .name('➕ 添加点');
+              }
+              rebuildRoofCtrls();
+              // ⚙ 高级（原始 JSON，折叠）— 供预设无法覆盖的特殊形状使用
+              const advF = geoF.addFolder('⚙ 高级(原始JSON)');
+              advF.close();
               const shpPE = configNode.shape || [
                 ['line', -0.55, 0.85],
                 ['line', -0.75, -0.35],
@@ -3961,7 +4202,7 @@
                 ['line', 0.55, 0.85],
               ];
               const sStrPE = { txt: JSON.stringify(shpPE) };
-              geoF
+              advF
                 .add(sStrPE, 'txt')
                 .name('Shape [cmd,...]')
                 .onChange((v) => {
@@ -3972,14 +4213,13 @@
                     rebuild();
                   } catch (e) {}
                 });
-              // 屋顶剖面编辑
               const rpPE = configNode.roofProfile || [
                 [0.85, 0.48],
                 [-0.35, 0.65],
                 [-1.1, 0.65],
               ];
               const rpStrPE = { txt: JSON.stringify(rpPE) };
-              geoF
+              advF
                 .add(rpStrPE, 'txt')
                 .name('屋顶剖面 [y,h]')
                 .onChange((v) => {
@@ -4049,6 +4289,7 @@
               'Torus',
               'Lathe',
               'Extrude',
+              'ProfiledExtrude',
             ];
             editF
               .add({ type: configNode.type }, 'type', typeList)

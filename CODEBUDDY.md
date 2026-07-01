@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.65.10
+# CODEBUDDY.md — v0.65.11
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -211,79 +211,79 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 关键参数（v0.44.0 — 灵活地图尺寸 + 矩形地图支持）
 
-| 参数                      | 值                                                                                     | 位置                                                                      |
+| 参数 | 值 | 位置 |
 | ------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------- | -------------------- |
-| 世界大小                  | 可配置（默认300×300, 空气墙200×200）                                                   | `map_editor.html` worldWidth/worldDepth/playWidth/playDepth + `.map.json` |
-| 障碍物数量                | 350                                                                                    | `OBSTACLE_COUNT`                                                          |
-| 障碍物可见半径            | 55 单位                                                                                | `OBS_RADIUS`                                                              |
-| 坦克最高速度              | 4.0 单位/秒                                                                            | `MAX_SPEED`                                                               |
-| 炮弹初速                  | 33.0 单位/秒                                                                           | `SHELL_SPEED`                                                             |
-| 炮弹重力                  | 1.0 单位/秒²                                                                           | `SHELL_GRAVITY`                                                           |
-| 装填时间                  | 2.0 秒                                                                                 | `RELOAD_TIME`                                                             |
-| 炮塔旋转速度              | ~30°/s (0.5236 rad/s)                                                                  | `turretAngVel`                                                            |
-| 炮管俯仰速度              | ~20°/s (0.3491 rad/s)                                                                  | `barrelAngVel`                                                            |
-| 炮管俯仰范围              | -10° ~ +25°                                                                            | `maxUp`/`maxDown`                                                         |
-| 准星有效射程              | 150 单位                                                                               | `updateAiming()`                                                          |
-| 准星判定                  | 四阶段（障碍物射线→抛物线地形采样→shellR 0.18m体积→目标跳回）                          | —                                                                         |
-| 弹道预测线                | 全模式启用 + 抛物线 + 地形截断 + shellR边缘 + 敌人 + 丧尸                              | —                                                                         |
-| 手柄模式                  | 粘滞切换（WASD/鼠标才回键鼠）+ 双轴映射(axes[2/4]=X, [3/5]=Y)                          | —                                                                         |
-| 伤害值                    | 20 HP                                                                                  | `SHELL_DAMAGE`                                                            |
-| 殉爆半径                  | 3.5 米                                                                                 | `CHAIN_RADIUS`                                                            |
-| 摄像机远截面              | 300                                                                                    | `camera.far`                                                              |
-| 雾色                      | #8899aa (蓝灰)                                                                         | `addLightingTo()`                                                         |
-| 雾距                      | near 70 / far 110                                                                      | `Fog`                                                                     |
-| 天空                      | 已移除（v0.24.5，陡视角不可见）                                                        | —                                                                         |
-| 地面                      | 300×300                                                                                | `createGround()` 地形 + 纹理混合                                          |
-| 丧尸模型                  | ZOMBIE_CONFIG 24节点 ~~458 tris                                                        | `models/enemies.js` buildZombieFromConfig                                 |
-| 丧尸动画                  | 6动作 (Idle/Hit/Attack/Walk/Run/Die)                                                   | AnimationSystem 手动插值，v0.28.1 支持3层LOD                              |
-| 丧尸LOD                   | near<30m全帧/medium30~~70m冻结骨架/far>70m圆柱占位                                     | index.html 5m滞后带                                                       |
-| 丧尸身高                  | 1.0m                                                                                   | Box3 包围盒自动缩放                                                       |
-| 丧尸AI                    | 8状态机 (IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD)                         | `combat/enemyAI.js` ZS 枚举                                               |
-| 近防机枪                  | 射速10发/秒 伤害2 射程25m 过热6s                                                       | `index.html` MG\_\* 常量                                                  |
-| 修理箱模型                | 程序化倒角红箱 ~2.5K tris                                                              | `models/pickups.js` makeToolboxProcedural                                 |
-| 03a地图                   | 装甲突击车 ×2                                                                          | PvE 战斗地图                                                              |
-| 04a地图                   | 程序化丧尸 ×30                                                                         | 5×6网格集群，2层仇恨连锁                                                  |
-| 地图编辑器                | `map_editor.html` ~2900行                                                              | 7阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成+**灵活尺寸**     |
-| 编辑器世界                | worldWidth×worldDepth (playWidth×playDepth)                                            | 独立X/Z尺寸，支持任意矩形；`WORLD_SIZE/PLAY_SIZE` 已废弃                  |
-| 高度图精度                | 256×256 Float32Array                                                                   | HM_RES                                                                    |
-| 纹理预览                  | 2048×2048 Canvas2D                                                                     | TEX_RES                                                                   |
-| UndoManager               | 50步快照栈，~~320KB/步                                                                 | `pushSnapshot()`/`undo()`/`redo()`                                        |
-| 编辑器限帧                | 30fps                                                                                  | `animate()` FRAME_MS=1000/30                                              |
-| 蓝图存储                  | localStorage `tank_map_editor_blueprints`                                              | CRUD + 导入/导出 JSON                                                     |
-| 编辑器→主游戏             | `convertBlueprintToMapConfig()`                                                        | 离散高度图双线性插值 + `loadMapConfig()` 动态注入                         |
-| 模型工厂光照(v1.6)        | 5灯栈                                                                                  | Ambient(0.8)+Hemisphere(0.3)+Dir主(2.0)+左补(0.3)+后补(0.4)               |
-| TaperedBox flatShading    | DoubleSide 兜底                                                                        | flatShading时自动启用，防止侧面黑面                                       |
-| emissive自发光            | dark_steel 0.30 / barrel_steel 0.20 / rubber 0.25                                      | 暗部保留轮廓                                                              |
-| 水体走廊法                | 河床/湖底走廊法雕刻 + ease-out falloff                                                 | `carveRiverCorridor` / `carvePondBasin` (mouseup中)                       |
-| 分段水面剖面              | 每段水面 = min(前段, 本地形-strength×0.3)，单调不增                                    | `segWaterLevels[]` + `waterLevels` 记录                                   |
-| 网格单元水面              | 河流+湖泊统一用高度图网格四边形构建平坦水面                                            | `createWaterLayer()` cellSet → 每个单元格独立 surfaceLevel                |
-| 端点削波                  | 路径起点/终点 hw 范围内深度线性归零                                                    | `taper = min(startTaper, endTaper)`                                       |
-| 炮弹速度                  | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50)                                                  | shells.js                                                                 |
-| 斜坡桥面 → 水平桥面       | 改回水平 BoxGeometry，引道用 BufferGeometry 斜坡面板                                   | `createBridgeMesh()`                                                      |
-| 加载画面                  | 黑色底+渐变色进度条+状态文字，全地图覆盖                                               | `showLoading()`/`updateLoadingProgress()`/`hideLoading()`                 |
-| 编辑器地图对接            | splatMap纹理+waterLevel水位+riverColliders空气墙+巡逻分散                              | `convertBlueprintToMapConfig()` + `createRiverWater()`                    |
-| 敌人批量属性编辑          | 多选敌人时属性面板批量写入HP/速度/视野等                                               | `syncEnemyConfigPanel()` (map_editor.html)                                |
-| 实体列表分类折叠          | 建筑/树木默认折叠，出生点/敌人展开                                                     | `collapsedCategories` Set                                                 |
-| TrackChain 负重轮半径     | wheelR=0.40                                                                            | `model_factory.html` T34_85_V16_CONFIG                                    |
-| TrackChain 主动轮/诱导轮Y | cyF=0.58, cyR=0.50                                                                     | `model_factory.html` T34_85_V16_CONFIG                                    |
-| 负重轮zR1~~zR5坐标(Z轴)   | 1.40, 0.39, -0.74, -1.64, -2.55                                                        | `model_factory.html` T34_85_V16_CONFIG                                    |
-| 模型工厂视图              | 透视视图相机pos [5.0,3.5,6.0]                                                          | `model_factory.html`                                                      |
-| 固化脚本                  | `固化.ps1` — 一行命令 JSON→源码 替换                                                   | 项目根目录                                                                |
-| 六足腿结构                | 4DOF: legGroup.Y+thigh.X+shin.X+ankle.X，三节腿(大腿L1≈0.7+小腿L2≈0.55)+尖刺足(h=0.28) | `models/hexapod_config.js`                                                |
-| 六足尖刺足                | Cylinder(rTop=0.055, rBottom≈0, h=0.28), 锥尖单点接地，内勾11°，踝球r=0.05             | `models/hexapod_config.js`                                                |
-| 六足IK测试                | 3模式(Y下蹲/X左右/Z前后)×3腿型(前/中/后)，CCD 3关节+踝锁死，锥尖靶点固定               | `js/hexapod_anim.js`                                                      |
-| 六足动画                  | **23个** (21步态+踉跄+死亡), stride/stepH数组驱动, 步态周期                            | ω                                                                         | 钳位公式 | `js/hexapod_anim.js` |
-| 六足转弯系统              | direction+turnRate正交, CCD damp=0.8/0.5, \_initFootDist固定脚距防漂移                 | `js/hexapod_anim.js`                                                      |
-| 六足武器限位              | 加特林[-17°,+20°], 导弹[-60°,+30°]                                                     | `model_factory.html` `hexapod_anim.js`                                    |
-| 六足髋Y限位               | 中腿±0.7rad, 前后腿±0.45rad                                                            | `hexapod_anim.js` `_ccdLeg`                                               |
-| 训练场模式                | 敌我T-34坦克对战+配置面板+无限重生                                                     | `index.html` `js/engine.js`                                               |
-| 六足城市迷彩              | 亮灰底色+深浅灰斑纹, 观瞄保留纯色                                                      | `enemies.js`                                                              |
-| 地形坡度适应              | 装甲突击车俯仰+侧倾, 六足独立管理(hexapod_anim)                                        | `engine.js` `hexapod_anim.js`                                             |
-| 转弯验证                  | toggleHexTurnTest: 极慢0.3rad/s旋转, 三角步态, bodyC/plantPos/swingTarget可视化        | `js/hexapod_anim.js`                                                      |
-| 受击踉跄                  | triggerHexStagger(dir,force): 4阶段CCD驱动, 反方向腿跺地, 身体倾斜                     | `js/hexapod_anim.js`                                                      |
-| 死亡瘫倒                  | triggerHexDeath(): 昂首→瘫软→触地, damp 0.85→0.03, 6腿各异伸展                         | `js/hexapod_anim.js`                                                      |
-| 武器校准                  | toggleWeaponCalibrate: 双滑块控制俯仰, 瞄准线OK, 旋转有bug                             | `js/hexapod_anim.js`                                                      |
-| 导出JSON固化按钮          | 一键下载完整嵌套配置JSON                                                               | `model_factory.html`                                                      |
+| 世界大小 | 可配置（默认300×300, 空气墙200×200） | `map_editor.html` worldWidth/worldDepth/playWidth/playDepth + `.map.json` |
+| 障碍物数量 | 350 | `OBSTACLE_COUNT` |
+| 障碍物可见半径 | 55 单位 | `OBS_RADIUS` |
+| 坦克最高速度 | 4.0 单位/秒 | `MAX_SPEED` |
+| 炮弹初速 | 33.0 单位/秒 | `SHELL_SPEED` |
+| 炮弹重力 | 1.0 单位/秒² | `SHELL_GRAVITY` |
+| 装填时间 | 2.0 秒 | `RELOAD_TIME` |
+| 炮塔旋转速度 | ~30°/s (0.5236 rad/s) | `turretAngVel` |
+| 炮管俯仰速度 | ~20°/s (0.3491 rad/s) | `barrelAngVel` |
+| 炮管俯仰范围 | -10° ~ +25° | `maxUp`/`maxDown` |
+| 准星有效射程 | 150 单位 | `updateAiming()` |
+| 准星判定 | 四阶段（障碍物射线→抛物线地形采样→shellR 0.18m体积→目标跳回） | — |
+| 弹道预测线 | 全模式启用 + 抛物线 + 地形截断 + shellR边缘 + 敌人 + 丧尸 | — |
+| 手柄模式 | 粘滞切换（WASD/鼠标才回键鼠）+ 双轴映射(axes[2/4]=X, [3/5]=Y) | — |
+| 伤害值 | 20 HP | `SHELL_DAMAGE` |
+| 殉爆半径 | 3.5 米 | `CHAIN_RADIUS` |
+| 摄像机远截面 | 300 | `camera.far` |
+| 雾色 | #8899aa (蓝灰) | `addLightingTo()` |
+| 雾距 | near 70 / far 110 | `Fog` |
+| 天空 | 已移除（v0.24.5，陡视角不可见） | — |
+| 地面 | 300×300 | `createGround()` 地形 + 纹理混合 |
+| 丧尸模型 | ZOMBIE_CONFIG 24节点 ~~458 tris | `models/enemies.js` buildZombieFromConfig |
+| 丧尸动画 | 6动作 (Idle/Hit/Attack/Walk/Run/Die) | AnimationSystem 手动插值，v0.28.1 支持3层LOD |
+| 丧尸LOD | near<30m全帧/medium30~~70m冻结骨架/far>70m圆柱占位 | index.html 5m滞后带 |
+| 丧尸身高 | 1.0m | Box3 包围盒自动缩放 |
+| 丧尸AI | 8状态机 (IDLE/PATROL/ALERT/PURSUIT/SEARCH/ATTACK/STAGGER/DEAD) | `combat/enemyAI.js` ZS 枚举 |
+| 近防机枪 | 射速10发/秒 伤害2 射程25m 过热6s | `index.html` MG\_\* 常量 |
+| 修理箱模型 | 程序化倒角红箱 ~2.5K tris | `models/pickups.js` makeToolboxProcedural |
+| 03a地图 | 装甲突击车 ×2 | PvE 战斗地图 |
+| 04a地图 | 程序化丧尸 ×30 | 5×6网格集群，2层仇恨连锁 |
+| 地图编辑器 | `map_editor.html` ~2900行 | 7阶段完成：地形+纹理+实体+JSON+水体+桥梁+撤销+主游戏集成+**灵活尺寸** |
+| 编辑器世界 | worldWidth×worldDepth (playWidth×playDepth) | 独立X/Z尺寸，支持任意矩形；`WORLD_SIZE/PLAY_SIZE` 已废弃 |
+| 高度图精度 | 256×256 Float32Array | HM_RES |
+| 纹理预览 | 2048×2048 Canvas2D | TEX_RES |
+| UndoManager | 50步快照栈，~~320KB/步 | `pushSnapshot()`/`undo()`/`redo()` |
+| 编辑器限帧 | 30fps | `animate()` FRAME_MS=1000/30 |
+| 蓝图存储 | localStorage `tank_map_editor_blueprints` | CRUD + 导入/导出 JSON |
+| 编辑器→主游戏 | `convertBlueprintToMapConfig()` | 离散高度图双线性插值 + `loadMapConfig()` 动态注入 |
+| 模型工厂光照(v1.6) | 5灯栈 | Ambient(0.8)+Hemisphere(0.3)+Dir主(2.0)+左补(0.3)+后补(0.4) |
+| TaperedBox flatShading | DoubleSide 兜底 | flatShading时自动启用，防止侧面黑面 |
+| emissive自发光 | dark_steel 0.30 / barrel_steel 0.20 / rubber 0.25 | 暗部保留轮廓 |
+| 水体走廊法 | 河床/湖底走廊法雕刻 + ease-out falloff | `carveRiverCorridor` / `carvePondBasin` (mouseup中) |
+| 分段水面剖面 | 每段水面 = min(前段, 本地形-strength×0.3)，单调不增 | `segWaterLevels[]` + `waterLevels` 记录 |
+| 网格单元水面 | 河流+湖泊统一用高度图网格四边形构建平坦水面 | `createWaterLayer()` cellSet → 每个单元格独立 surfaceLevel |
+| 端点削波 | 路径起点/终点 hw 范围内深度线性归零 | `taper = min(startTaper, endTaper)` |
+| 炮弹速度 | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50) | shells.js |
+| 斜坡桥面 → 水平桥面 | 改回水平 BoxGeometry，引道用 BufferGeometry 斜坡面板 | `createBridgeMesh()` |
+| 加载画面 | 黑色底+渐变色进度条+状态文字，全地图覆盖 | `showLoading()`/`updateLoadingProgress()`/`hideLoading()` |
+| 编辑器地图对接 | splatMap纹理+waterLevel水位+riverColliders空气墙+巡逻分散 | `convertBlueprintToMapConfig()` + `createRiverWater()` |
+| 敌人批量属性编辑 | 多选敌人时属性面板批量写入HP/速度/视野等 | `syncEnemyConfigPanel()` (map_editor.html) |
+| 实体列表分类折叠 | 建筑/树木默认折叠，出生点/敌人展开 | `collapsedCategories` Set |
+| TrackChain 负重轮半径 | wheelR=0.40 | `model_factory.html` T34_85_V16_CONFIG |
+| TrackChain 主动轮/诱导轮Y | cyF=0.58, cyR=0.50 | `model_factory.html` T34_85_V16_CONFIG |
+| 负重轮zR1~~zR5坐标(Z轴) | 1.40, 0.39, -0.74, -1.64, -2.55 | `model_factory.html` T34_85_V16_CONFIG |
+| 模型工厂视图 | 透视视图相机pos [5.0,3.5,6.0] | `model_factory.html` |
+| 固化脚本 | `固化.ps1` — 一行命令 JSON→源码 替换 | 项目根目录 |
+| 六足腿结构 | 4DOF: legGroup.Y+thigh.X+shin.X+ankle.X，三节腿(大腿L1≈0.7+小腿L2≈0.55)+尖刺足(h=0.28) | `models/hexapod_config.js` |
+| 六足尖刺足 | Cylinder(rTop=0.055, rBottom≈0, h=0.28), 锥尖单点接地，内勾11°，踝球r=0.05 | `models/hexapod_config.js` |
+| 六足IK测试 | 3模式(Y下蹲/X左右/Z前后)×3腿型(前/中/后)，CCD 3关节+踝锁死，锥尖靶点固定 | `js/hexapod_anim.js` |
+| 六足动画 | **23个** (21步态+踉跄+死亡), stride/stepH数组驱动, 步态周期 | ω | 钳位公式 | `js/hexapod_anim.js` |
+| 六足转弯系统 | direction+turnRate正交, CCD damp=0.8/0.5, \_initFootDist固定脚距防漂移 | `js/hexapod_anim.js` |
+| 六足武器限位 | 加特林[-17°,+20°], 导弹[-60°,+30°] | `model_factory.html` `hexapod_anim.js` |
+| 六足髋Y限位 | 中腿±0.7rad, 前后腿±0.45rad | `hexapod_anim.js` `_ccdLeg` |
+| 训练场模式 | 敌我T-34坦克对战+配置面板+无限重生 | `index.html` `js/engine.js` |
+| 六足城市迷彩 | 亮灰底色+深浅灰斑纹, 观瞄保留纯色 | `enemies.js` |
+| 地形坡度适应 | 装甲突击车俯仰+侧倾, 六足独立管理(hexapod_anim) | `engine.js` `hexapod_anim.js` |
+| 转弯验证 | toggleHexTurnTest: 极慢0.3rad/s旋转, 三角步态, bodyC/plantPos/swingTarget可视化 | `js/hexapod_anim.js` |
+| 受击踉跄 | triggerHexStagger(dir,force): 4阶段CCD驱动, 反方向腿跺地, 身体倾斜 | `js/hexapod_anim.js` |
+| 死亡瘫倒 | triggerHexDeath(): 昂首→瘫软→触地, damp 0.85→0.03, 6腿各异伸展 | `js/hexapod_anim.js` |
+| 武器校准 | toggleWeaponCalibrate: 双滑块控制俯仰, 瞄准线OK, 旋转有bug | `js/hexapod_anim.js` |
+| 导出JSON固化按钮 | 一键下载完整嵌套配置JSON | `model_factory.html` |
 
 ## 常见修复模式
 
@@ -481,45 +481,45 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 已修复问题（v0.45.0 — 水体/桥梁/出生点数据对接修复）
 
-| #   | 修复内容                                                                             | 版本    |
+| # | 修复内容 | 版本 |
 | --- | ------------------------------------------------------------------------------------ | ------- | -------- | ------- |
-| 1   | 编辑器-游戏Float32Array序列化对接（saveBlueprints TypedArray replacer）              | v0.45.0 |
-| 2   | 编辑器exportMapJson始终含heightmap+河流+桥端点（不再被features吞掉）                 | v0.45.0 |
-| 3   | 矩形地图纹理坐标修复（generateSplatMap/CompositeGroundTexture独立halfX/halfZ）       | v0.45.0 |
-| 4   | 多河流支持（convertBlueprintToMapConfig→terrainExtra.rivers数组）                    | v0.45.0 |
-| 5   | 河流交叉水面统一（取最低水位）+ 河床基准排除已挖水体                                 | v0.45.0 |
-| 6   | 游戏端水面弯曲平滑（2-pass移动平均+40°阈值）                                         | v0.45.0 |
-| 7   | 水面NaN防护（Float32Array→JSON序列化waterLevels.length丢失）                         | v0.45.0 |
-| 8   | 重复河面消除（buildScene去水+创建时机统一+参数化代码穿透修复）                       | v0.45.0 |
-| 9   | 桥面渲染重写（编辑器中桥定向+deckY高度+游戏端isOnBridge支持任意朝向）                | v0.45.0 |
-| 10  | 桥头空气墙修复（桥面区域跳过riverColliders+护栏方向修正）                            | v0.45.0 |
-| 11  | 坦克出生点修复（4处硬编码→读取spawnPoints.p1+编辑器出生点唯一性）                    | v0.45.0 |
-| 12  | 出生点避水（原点在水中→螺旋搜索干地）                                                | v0.45.0 |
-| 13  | 坦克速度翻倍（MAX_SPEED 4→8 m/s）                                                    | v0.45.0 |
-| 14  | 池塘水面数据完整性校验（cx/rx不为null才创建）                                        | v0.45.0 |
-| 15  | 弯道缩窄公式修复（effHw = hw\*cos(dAng/2)替代无效的min(1,1/cos)）                    | v0.45.0 |
-| 16  | 河岸钳制多距离采样（effHw+2/+4/+6替代effHw+1，避免被河道过渡区污染）                 | v0.45.0 |
-| 17  | 村落重复生成桥恢复后立即createGround                                                 | v0.45.0 |
-| 18  | isPointInWater河流半宽从硬编码4→(w.width                                             |         | 40)\*0.5 | v0.45.0 |
-| 19  | 编辑器桥deckY存储到蓝图                                                              | v0.45.0 |
-| 20  | maploader.js模块拆分（~190行，loadMapConfig+convertBlueprint+loadMapsFromDirectory） | v0.45.0 |
+| 1 | 编辑器-游戏Float32Array序列化对接（saveBlueprints TypedArray replacer） | v0.45.0 |
+| 2 | 编辑器exportMapJson始终含heightmap+河流+桥端点（不再被features吞掉） | v0.45.0 |
+| 3 | 矩形地图纹理坐标修复（generateSplatMap/CompositeGroundTexture独立halfX/halfZ） | v0.45.0 |
+| 4 | 多河流支持（convertBlueprintToMapConfig→terrainExtra.rivers数组） | v0.45.0 |
+| 5 | 河流交叉水面统一（取最低水位）+ 河床基准排除已挖水体 | v0.45.0 |
+| 6 | 游戏端水面弯曲平滑（2-pass移动平均+40°阈值） | v0.45.0 |
+| 7 | 水面NaN防护（Float32Array→JSON序列化waterLevels.length丢失） | v0.45.0 |
+| 8 | 重复河面消除（buildScene去水+创建时机统一+参数化代码穿透修复） | v0.45.0 |
+| 9 | 桥面渲染重写（编辑器中桥定向+deckY高度+游戏端isOnBridge支持任意朝向） | v0.45.0 |
+| 10 | 桥头空气墙修复（桥面区域跳过riverColliders+护栏方向修正） | v0.45.0 |
+| 11 | 坦克出生点修复（4处硬编码→读取spawnPoints.p1+编辑器出生点唯一性） | v0.45.0 |
+| 12 | 出生点避水（原点在水中→螺旋搜索干地） | v0.45.0 |
+| 13 | 坦克速度翻倍（MAX_SPEED 4→8 m/s） | v0.45.0 |
+| 14 | 池塘水面数据完整性校验（cx/rx不为null才创建） | v0.45.0 |
+| 15 | 弯道缩窄公式修复（effHw = hw\*cos(dAng/2)替代无效的min(1,1/cos)） | v0.45.0 |
+| 16 | 河岸钳制多距离采样（effHw+2/+4/+6替代effHw+1，避免被河道过渡区污染） | v0.45.0 |
+| 17 | 村落重复生成桥恢复后立即createGround | v0.45.0 |
+| 18 | isPointInWater河流半宽从硬编码4→(w.width | | 40)\*0.5 | v0.45.0 |
+| 19 | 编辑器桥deckY存储到蓝图 | v0.45.0 |
+| 20 | maploader.js模块拆分（~190行，loadMapConfig+convertBlueprint+loadMapsFromDirectory） | v0.45.0 |
 
 ## 已修复问题（v0.44.0 — 地图拆分+桥梁修复+编辑器增强）
 
-| #   | 修复内容                                                                  | 版本                                  |
+| # | 修复内容 | 版本 |
 | --- | ------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------- | ------- |
-| 1   | 地图数据从index.html拆分到maps/目录动态加载（\_index.json manifest）      | v0.44.0                               |
-| 2   | 炮弹速度                                                                  | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50) | shells.js重写：平整区+内陆斜坡+\_carvedCells可撤销，修复重复生成凹坑 | v0.44.0 |
-| 3   | 蓝色纹理修复：桥梁雕琢不移入editedVerticesPaint，避免vertexColors水体蓝染 | v0.44.0                               |
-| 4   | 河流生成重构：水面=河岸最低-3m，河床=地图最低-10m，自动计算               | v0.44.0                               |
-| 5   | 编辑器蓝图加载尺寸变量同步（worldHalfW/D, playHalfW/D等）                 | v0.44.0                               |
-| 6   | 弹道预测线重建修复（rebuildMapAsync清理trajLine/trajDot）                 | v0.44.0                               |
-| 7   | 多段河流穿越detectAndBuildBridges改为进入/退出状态机                      | v0.44.0                               |
-| 8   | 小地图村落规模自适应（scaleF缩放+广场位置动态调整）                       | v0.44.0                               |
-| 9   | WORLD_SIZE/WORLD_HALF残余清理（~25处改为独立X/Z尺寸）                     | v0.44.0                               |
-| 10  | 编辑器3D视口Ctrl多选+Shift框选+Delete删除+实体列表排序分色                | v0.44.0                               |
-| 11  | 随机生成面板从弹窗移到右侧面板                                            | v0.44.0                               |
-| 12  | 树木InstancedMesh加入obstacleMeshes                                       | v0.39.1                               |
+| 1 | 地图数据从index.html拆分到maps/目录动态加载（\_index.json manifest） | v0.44.0 |
+| 2 | 炮弹速度 | SHELL_SPEED=50.0 m/s (v0.59.2: 33→50) | shells.js重写：平整区+内陆斜坡+\_carvedCells可撤销，修复重复生成凹坑 | v0.44.0 |
+| 3 | 蓝色纹理修复：桥梁雕琢不移入editedVerticesPaint，避免vertexColors水体蓝染 | v0.44.0 |
+| 4 | 河流生成重构：水面=河岸最低-3m，河床=地图最低-10m，自动计算 | v0.44.0 |
+| 5 | 编辑器蓝图加载尺寸变量同步（worldHalfW/D, playHalfW/D等） | v0.44.0 |
+| 6 | 弹道预测线重建修复（rebuildMapAsync清理trajLine/trajDot） | v0.44.0 |
+| 7 | 多段河流穿越detectAndBuildBridges改为进入/退出状态机 | v0.44.0 |
+| 8 | 小地图村落规模自适应（scaleF缩放+广场位置动态调整） | v0.44.0 |
+| 9 | WORLD_SIZE/WORLD_HALF残余清理（~25处改为独立X/Z尺寸） | v0.44.0 |
+| 10 | 编辑器3D视口Ctrl多选+Shift框选+Delete删除+实体列表排序分色 | v0.44.0 |
+| 11 | 随机生成面板从弹窗移到右侧面板 | v0.44.0 |
+| 12 | 树木InstancedMesh加入obstacleMeshes | v0.39.1 |
 
 | #   | 修复内容                                                                    | 版本    |
 | --- | --------------------------------------------------------------------------- | ------- |
@@ -537,17 +537,17 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ## 📋 待完成任务（截至 v0.51.0）
 
-| #   | 任务                                  |                           优先级                            | 计划版本                               | 详情                                              |
+| # | 任务 | 优先级 | 计划版本 | 详情 |
 | --- | ------------------------------------- | :---------------------------------------------------------: | -------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
-| 1   | **敌人重生稳定性**                    |                          🔴 进行中                          | v0.60.0                                | 上坡/多次复活后偶发失败，根因待定位               | 23动画可用, 踉跄+死亡就绪, 武器校准/反曲/贴地修复 |
-| 2   | PvE Phase 5：清空积分UI按钮 + 局内HUD |                           🔴 近期                           | 未分配                                 | 局内显示HP/弹药/分数 + 菜单清空积分按钮           |
-| 4   | 编辑器虚空拖拽贴边河段修复            |                           🟡 近期                           | 未分配                                 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
-| 5   | 同轴机枪功能                          |                           🟡 中期                           | 未分配                                 | Space键 + 手柄LT 预留，与近防机枪共用MG\_\*参数   |
-| 6   | 状态面板在CDP生成时显示               |   ✅ v0.51.0 删除硬编码重复panel+setProperty('important')   | editor_genStatus.js + map_editor.html  |
-| 7   | CDP标签页回收                         | ✅ v0.51.0 cdp_verify.py进程级清理替代/json/close，100%可靠 | cdp_verify.py                          |
-| 8   | PvE Phase 6：精英单位 + Boss 炮舰     |                           🔵 远期                           | 未分配                                 | 导弹发射车/重型坦克/Boss多阶段战斗                |
-| 9   | 草丛 InstancedMesh 合并 + 材质优化    |                         ✅ v0.60.4                          | draw calls 48~192→3, Lambert+FrontSide |
-| 10  | 村落间距检查放宽                      |      ✅ v0.51.0 自适应间距min(80,maxDim\*0.1)+多轮选址      | editor_terrainGen.js                   |
+| 1 | **敌人重生稳定性** | 🔴 进行中 | v0.60.0 | 上坡/多次复活后偶发失败，根因待定位 | 23动画可用, 踉跄+死亡就绪, 武器校准/反曲/贴地修复 |
+| 2 | PvE Phase 5：清空积分UI按钮 + 局内HUD | 🔴 近期 | 未分配 | 局内显示HP/弹药/分数 + 菜单清空积分按钮 |
+| 4 | 编辑器虚空拖拽贴边河段修复 | 🟡 近期 | 未分配 | CatmullRom插值+钳制偶发贴边段，需更稳健的裁剪方案 |
+| 5 | 同轴机枪功能 | 🟡 中期 | 未分配 | Space键 + 手柄LT 预留，与近防机枪共用MG\_\*参数 |
+| 6 | 状态面板在CDP生成时显示 | ✅ v0.51.0 删除硬编码重复panel+setProperty('important') | editor_genStatus.js + map_editor.html |
+| 7 | CDP标签页回收 | ✅ v0.51.0 cdp_verify.py进程级清理替代/json/close，100%可靠 | cdp_verify.py |
+| 8 | PvE Phase 6：精英单位 + Boss 炮舰 | 🔵 远期 | 未分配 | 导弹发射车/重型坦克/Boss多阶段战斗 |
+| 9 | 草丛 InstancedMesh 合并 + 材质优化 | ✅ v0.60.4 | draw calls 48~192→3, Lambert+FrontSide |
+| 10 | 村落间距检查放宽 | ✅ v0.51.0 自适应间距min(80,maxDim\*0.1)+多轮选址 | editor_terrainGen.js |
 
 ---
 
@@ -685,3 +685,133 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 | 导弹最短距离   | 15m (太近打不中)                                 |
 | 导弹最远距离   | 50m                                              |
 | 加特林过热停转 | ai.\_overheated → spinRPS=0                      |
+
+---
+
+## ☁️ v0.65.x 新增 (2026-06-23~30)
+
+### 坦克AI托管完整修复 (v0.65.0)
+
+| 问题               | 修复                                                             |
+| ------------------ | ---------------------------------------------------------------- |
+| player1无.position | 加Object3D兼容接口(position/rotation/userData引用group)          |
+| 朝向约定           | 加enemyForward/enemyTargetYaw/enemyIsTank helper按cfg.type选约定 |
+| 玩家不开炮         | 新增firePlayerTrainingShell + 玩家AI块开炮                       |
+| 炮塔不转           | AI托管跳过gameLoop的turretPivot覆盖(让aimTurretAt独占)           |
+| 视角跟车体         | cameraYaw=atan2(barrelDir.z, barrelDir.x)                        |
+| 敌人侧滑           | updateEngage改转向后重算enemyForward(履带式先转再走)             |
+| 车头90°/炮击低     | 删敌方模型-90°旋转; CHASE→ENGAGE改全向π                          |
+| 玩家不动           | enterTrainingMode设group.position/rotation.y(出生点/朝敌方)      |
+| 复活后不动         | kill函数加hp=0; PATROL→CHASE改距离only; 玩家复活朝向=π/2-yaw     |
+| 复活远卡住         | 敌方复活设玩家ai.state=chase+target+lastSeenPlayerPos            |
+
+### 坦克AI远距离对峙/出界修复 (v0.65.1)
+
+| 问题             | 修复                                                |
+| ---------------- | --------------------------------------------------- |
+| 远距离对峙       | updateChase: dist>viewDist直线追近(不再侧向)        |
+| 地形遮挡侧推     | 视野内遮挡时侧向目标朝玩家(pp+侧向×10, 既靠近又绕)  |
+| 推出地图         | moveEnemyToward加worldHalfW/D硬限制(任何情况推不出) |
+| retreating方向反 | radialW>0.3→< -0.3(太近才后退, 太远应前进)          |
+
+### 性能优化 (v0.65.1~v0.65.2)
+
+| 优化                   | 收入                                 |
+| ---------------------- | ------------------------------------ |
+| P-burst-1 炮弹循环缓冲 | 战斗阶段burst 29.48→13ms, 最坏帧-67% |
+| P-burst-2 碎片对象池   | GC停顿37→20ms(-46%), 碎片池复用59个  |
+| 地面射线高度图优化     | 131072三角brute-force 14ms→二分1-7ms |
+
+### 建筑IM碎片化合并修复 (v0.65.3)
+
+| 问题             | 修复                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| 真实根因         | obstacles.js外层遍历每个子mesh(非唯一材质) + buildings.js每次create都new材质 → 同材质重复建IM |
+| 材质全局化       | buildings.js 3个create函数材质提升为18个模块级全局常量                                        |
+| 按material去重   | obstacles.js外层循环加seenMat Set, 每个唯一材质只建1个IM                                      |
+| 实测(map01a单人) | bld-im 141→18(-87%), 窗户材质IM 56→3, 三角面1.58M→1.23M(-22%), 视觉零损失                     |
+
+### 树冠阴影恢复 (v0.65.4)
+
+| 树种          | 方案                                                |
+| ------------- | --------------------------------------------------- |
+| spherical/oak | 极简proxy IM(Icosahedron 20面球, 藏树冠内投阴影)    |
+| conical       | 扁平三角棱柱(448三角/棵)直接crownIM.castShadow=true |
+
+### 树冠阴影透明proxy (v0.65.5, 推翻v0.65.4)
+
+| 树种          | 方案                                                                                     |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| spherical/oak | proxy改透明(opacity=0, depthWrite=false) + castShadow=true; 主pass看不见, 阴影pass投阴影 |
+| proxy生命周期 | obstacleData加imProxy字段 + disposeTreeInstance同步隐藏proxy实例                         |
+| conical       | 保持直接castShadow=true(448三角质量最好, 不适合球proxy)                                  |
+
+### 尺度标定 (v0.65.5)
+
+| 参数            | 值                                 | 说明                                                                    |
+| --------------- | ---------------------------------- | ----------------------------------------------------------------------- |
+| METERS_PER_UNIT | 1.3 米/单位                        | 真实T-34/85高2.6m ÷ 坦克渲染1.99单位 = 1.306, 取1.3; 旧值4.706偏大3.6倍 |
+| 渲染公式        | targetHeightM / METERS_PER_UNIT    | 与ud.height/baseHeight无关(scale抵消)                                   |
+| conicular高度   | 2~~4.2米                           | 新值=旧渲染单位×1.3, 保持视觉                                           |
+| spherical高度   | 2~~3.9米                           | 同上                                                                    |
+| oak高度         | 2.5~~5米                           | 同上                                                                    |
+| 建筑高度        | bungalow 2.5~~3.3 / villa 3~~5.5米 | 同上                                                                    |
+| 地图编辑器UI    | info-size/overlayInfo/尺寸滑块×1.3 | 显示米, 内部仍存单位                                                    |
+
+### 环境对象开发规范 (v0.65.5)
+
+| 规范          | 说明                                                           |
+| ------------- | -------------------------------------------------------------- |
+| 3铁律         | IM强制 / 材质全局化 / dispose分级                              |
+| 建筑checklist | 程序化生成 / category分类 / 阴影决策树 / 生命周期同步          |
+| 树木checklist | 阴影决策树(448三角以上直接投 / 否则proxy透明投) / 生命周期同步 |
+| 生命周期同步  | obstacleData加imProxy字段; dispose时同步隐藏所有IM实例         |
+| 8条反面清单   | 禁每new材质 / 禁每建IM / 禁共享geometry未dispose / 等          |
+
+### 建筑朝向基础 (v0.65.6)
+
+| 问题             | 修复                                                                        |
+| ---------------- | --------------------------------------------------------------------------- |
+| mapLoader丢yaw   | mapLoader.js:222补传yaw: e.yaw\|\|0                                         |
+| obstacles字段错  | obstacles.js:821用bld.yaw(原读angle字段)                                    |
+| 编辑器marker加门 | createBuildingMarker三种建筑+Z面加亮黄门(薄盒外突), 对称低模朝向可辨识      |
+| R键旋转UI        | map_editor.html选中建筑R键步进15°(Shift反向), 更新ent.yaw+marker.rotation.y |
+
+### 模型工厂固化一键保存 (v0.65.8)
+
+| 功能         | 说明                                                                     |
+| ------------ | ------------------------------------------------------------------------ |
+| server.py    | 自定义HTTP服务器 + POST /api/solidify端点(括号匹配定位源文件const并替换) |
+| Ctrl+S三合一 | POST固化到源文件 + 存localStorage + 下载JSON备份                         |
+| 虎式调试着色 | 扩展getMaterial() hexapod条件到tiger_v16, 新增camo_green/camo_dark/wood  |
+| 六足UI清理   | toggleHexTurnTest守卫后移 + rebuildModel清理顺序 + updateAnimButton加固  |
+| UI精简       | 移除4个冗余按钮(输出姿态/应用/导出/加载); BoxHelper默认关                |
+
+### 模型工厂框选交互 (v0.65.9)
+
+| 功能            | 说明                                                               |
+| --------------- | ------------------------------------------------------------------ |
+| Ctrl+左键框选   | setupRaycaster加框选模式(maybeBox→拖拽>4px转boxActive), 青色选择框 |
+| Shift+Ctrl增选  | 橙色选择框, 追加不清空、不重置滑块                                 |
+| 批量滑块修复    | 模块级batchState + resetBatchSliders(清6值+updateDisplay)          |
+| #info操作提示区 | 重组4行(视角/选择/框选/快捷键), 颜色对应交互, max-width:340px      |
+
+### 履带绕紧skill (v0.65.9)
+
+| 功能                    | 说明                                                                   |
+| ----------------------- | ---------------------------------------------------------------------- |
+| 技能目录                | .claude/skills/tank-track-fit/(SKILL.md + 2脚本)                       |
+| compute_track_params.py | 读轮子位置 → node eval解析配置 → 转履带组局部坐标 → 复现6段周长算count |
+| verify_track_fit.py     | Playwright截图 + PIL像素验证(<3px=紧贴, 避免肉眼/AI误判)               |
+| TrackChain参数化        | buildTrackChain/getTrackPlateTransform加roadWheel*参数(默认T-34原值)   |
+
+### 新增ProfiledExtrude几何类型 + 虎式炮塔马蹄形建模 (v0.65.10)
+
+| 几何类型        | buildProfiledExtrude(shapeDef, roofProfile, arcSegments)                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 算法            | XY轮廓 + roofProfile沿Z变高拉伸; THREE.Shape解析 → roofH(y)插值 → 侧面独立quad strip → ShapeGeometry三角化底面 + 翻转索引屋顶 → 合并+computeVertexNormals |
+| shape格式       | ['line', x, y] + ['arc', cx, cy, r, startAngle, endAngle]数组, 支持任意凹多边形                                                                           |
+| roofProfile格式 | [[y_position, z_height], ...]沿Y轴(前后)定义可变高度, 自动排序+插值                                                                                       |
+| GUI面板         | 圆弧分段滑块 + Shape JSON + 屋顶剖面JSON                                                                                                                  |
+| 虎式炮塔        | 炮塔主体Box→ProfiledExtrude, 马蹄形俯视轮廓(前脸1.4+后方弧r=0.75) + 两段屋顶(前斜面0.45→转折0.65→后水平0.65), rotation[-π/2,0,0]转Y-up站立                |
+| 法线保障4机制   | quad独立顶点(侧面硬边) / cap Z±0.0001偏移(cap/side接缝硬边) / 屋顶翻转索引(法线朝+Z) / winding验证(FrontSide即正常)                                       |

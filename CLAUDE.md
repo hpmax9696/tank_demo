@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.10
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.11
 
 ## 运行
 
@@ -245,11 +245,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项   | 可选值                                                      |
+| 配置项 | 可选值 |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方     | 坦克、六足(灰色不可选)                                      |
-| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
+| 我方 | 坦克、六足(灰色不可选) |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -497,6 +497,45 @@ legGroup (Y旋转=水平摆角)
 - **编辑器 marker 加门**: `editor_entities.js` createBuildingMarker 三种建筑 +Z 面加亮黄门（薄盒外突），对称低模朝向可辨识
 - **R 键旋转 UI**: `map_editor.html` 选中建筑 R 键步进 15°（Shift 反向），更新 ent.yaw + marker.rotation.y
 - **推后**: 村落生成器 `_findClosestRoadAngle` 朝向差 90°（让 +X 朝道路，门窗在 +Z）→ 建筑门未精确朝道路，待修
+
+---
+
+## v0.65.11 本次会话变更 (2026-07-01)
+
+### 模型工厂 UX 改进
+
+- **Shift 减速滑块**：Shift+拖滑块=精细 1/10，capture 劫持 lil-gui slider 绝对映射改用相对增量
+- **多选→自动滚动**：框选 ≥2 部件右侧面板 scrollIntoView 到 📦批量编辑
+- **PE 预设+控制点+arc clockwise**：shape 预设下拉 6 种（马蹄形/矩形/梯形/半圆/六边形/扇环）+ roofProfile 增删滑块 + arc 命令扩展 clockwise
+- **PE shape 缩放**：X/Y 缩放 + ⚡一键×2，createGeometry 内应用 shapeScale
+
+### PE 2D 可视化拖拽编辑器
+
+- **`js/pe_shape_editor.js`**：独立模块，overlay+canvas 渲染 shape + 3 类控制点（蓝■line端点/绿●arc圆心/黄●半径/角度），拖拽改 shape 后 rAF 节流 rebuild
+- **typeList 加 ProfiledExtrude**：形状下拉含 PE，switchType + TYPE_DEFAULTS 默认参数注入
+
+### 虎式 + T-34 左右命名调换（驾驶员视角 x>0=左）
+
+- 虎式 name 调换 30 个（翼子板/履带/负重轮/诱导轮/主动轮等），plateWidth 0.5→0.85
+- T-34 name 调换 32 个（同 + 油箱/排气管/履带链/扶手/烟雾弹架），游戏引擎不受影响（按 position 收集轮子）
+- **螺栓朝外侧**：`isLeft` 改按世界 position.x 判断 + `boltY` 反号（轮子 rotation.z=π/2 局部+Y→世界-X）
+- **履带修复**：最后一块 plate 浮点累积落原点（getTrackPlateTransform 兜底 pos→pA）
+
+### 关键文件
+
+| 文件                          | 改动                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `model_factory.html`          | Shift减速+多选滚动+PE预设/控制点/缩放/2D编辑+typeListPE+boltY+履带兜底 |
+| `js/pe_shape_editor.js`       | 新建 2D 拖拽编辑器                                                     |
+| `models/tiger_v16_builder.js` | plateWidth 0.85 + name调换30                                           |
+| `models/t34_v16_builder.js`   | name调换32 + boltY反号                                                 |
+
+### 已知问题
+
+1. avg fps 41.5 仍非稳定60（剩余GC 20ms），待P-burst-3续做
+2. 坡地一头翘起一头陷地（坦克/敌人偶发）
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确（待校准）
 
 ---
 

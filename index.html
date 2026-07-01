@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.10</title>
+    <title>坦克运动demo v0.65.11</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.10</div>
+      <div class="menu-version">v0.65.11</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -816,6 +816,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🔧 v0.65.11 PE编辑器+左右命名修复+螺栓外侧 —
+          PE预设/控制点/缩放+2D拖拽编辑器+Shift减速+多选滚动+虎式T34左右name调换(驾驶员视角)+螺栓朝外侧+履带板宽0.85+最后板原点修复
+        </div>
+        <div class="cl-title">
           🏭 v0.65.10 新增ProfiledExtrude几何类型 + 虎式炮塔马蹄形建模 —
           ProfiledExtrude:XY轮廓(直线+圆弧)+roofProfile沿Z变高(前半斜面+后半水平);底面翻转索引(法线-
           Z)/屋顶保持原索引(法线+Z);每个quad独立顶点(硬边)+cap顶点Z偏移(防computeVertexNormals混合);虎式炮塔主体Box→ProfiledExtrude(马蹄形俯视+倾斜屋顶)
@@ -835,10 +839,6 @@
           定位道路广场马赛克3大根因(splatMap整数硬切/2048合成tile规整重复/主路浮空单色strip);调研splat
           shader软混合方案(手动双线性+高频平铺+hash抗重复);设计主路拱顶倒角管道标线(埋地倒角贴地+路径UV
           dash标线);预留路口扩展数据结构(roads[])
-        </div>
-        <div class="cl-title">
-          🏠 v0.65.6 建筑朝向基础 —
-          mapLoader转建筑补传yaw(修地图朝向丢失)+编辑器marker加+Z亮门(低模朝向标识)+R键旋转选中建筑(Shift反向15°)。推后:村落生成器朝向差90°(门未精确朝道路)
         </div>
       </div>
     </div>
