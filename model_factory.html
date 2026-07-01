@@ -528,11 +528,13 @@
       };
 
       let _camoJungleTex = null,
-        _camoDesertTex = null;
+        _camoDesertTex = null,
+        _camoTropicalDesertTex = null;
 
       function generateCamoTexture(type) {
         if (type === 'jungle' && _camoJungleTex) return _camoJungleTex;
         if (type === 'desert' && _camoDesertTex) return _camoDesertTex;
+        if (type === 'tropical_desert' && _camoTropicalDesertTex) return _camoTropicalDesertTex;
         const size = 512;
         const cv = document.createElement('canvas');
         cv.width = size;
@@ -544,6 +546,11 @@
           c1 = '#d4b88e';
           c2 = '#c4a458';
           c3 = '#efe0c0';
+        } else if (type === 'tropical_desert') {
+          bg = '#e0d898';
+          c1 = '#f0e8a8';
+          c2 = '#d8d090';
+          c3 = '#c8c078';
         } else {
           bg = '#9aab70';
           c1 = '#8c9e66';
@@ -569,7 +576,8 @@
         ctx.globalAlpha = 1;
         count = 10 + Math.floor(Math.random() * 10);
         for (var i = 0; i < count; i++) {
-          ctx.fillStyle = type === 'desert' ? '#b49658' : '#708048';
+          ctx.fillStyle =
+            type === 'desert' ? '#b49658' : type === 'tropical_desert' ? '#786050' : '#708048';
           ctx.globalAlpha = 0.5 + Math.random() * 0.3;
           ctx.beginPath();
           var cx = Math.random() * size,
@@ -585,15 +593,19 @@
         tex.wrapT = THREE.RepeatWrapping;
         tex.colorSpace = THREE.SRGBColorSpace;
         if (type === 'jungle') _camoJungleTex = tex;
+        else if (type === 'tropical_desert') _camoTropicalDesertTex = tex;
         else _camoDesertTex = tex;
         return tex;
       }
 
-      let currentCamoType = 'jungle';
+      let currentCamoType;
 
       function getMaterial(matId) {
-        // 六足战车+虎式坦克：彩色调试材质，部件清晰可辨
-        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
+        // 六足战车始终调试色；虎式仅在"调试色"模式下彩色，切入迷彩则走正常材质+纹理
+        if (
+          currentModelType === 'hexapod' ||
+          (currentModelType === 'tiger_v16' && currentCamoType === 'debug')
+        ) {
           var hexColors = {
             armor_dark: '#44CC44',
             armor_light: '#66EE66',
@@ -618,9 +630,11 @@
         const mat = new THREE.MeshStandardMaterial({ ...def });
         if (
           currentCamoType &&
+          currentCamoType !== 'debug' &&
           (matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert')
         ) {
           mat.map = generateCamoTexture(currentCamoType);
+          mat.color.set(0x808080); // 中间灰，不过亮不过暗
         }
         return mat;
       }
@@ -941,22 +955,24 @@
         let vi = 0;
 
         // Quad 辅助 — 每个 quad 独立顶点, 不复用, 保证硬边
-        function addQuad(a, b, c, d) {
+        function addQuad(a, b, c, d, u0, u1) {
           verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
-          uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+          uvs.push(u0, 0, u1, 0, u1, 1, u0, 1);
           idxArr.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
           vi += 4;
         }
 
-        // 4. 侧面 quad strip — 每个分段独立顶点
+        // 4. 侧面 quad strip — 每个分段独立顶点, UV 沿周长 U + 高度 V
         for (let i = 0; i < N; i++) {
           const j = (i + 1) % N;
           const pi = bpts[i],
             pj = bpts[j];
           const hi = roofH(pi.y),
             hj = roofH(pj.y);
+          const u0 = i / N,
+            u1 = (i + 1) / N;
           // 四边形: floor_i, floor_j, roof_j, roof_i → 法线朝外 (CCW 从外侧看)
-          addQuad([pi.x, pi.y, 0], [pj.x, pj.y, 0], [pj.x, pj.y, hj], [pi.x, pi.y, hi]);
+          addQuad([pi.x, pi.y, 0], [pj.x, pj.y, 0], [pj.x, pj.y, hj], [pi.x, pi.y, hi], u0, u1);
         }
 
         // 5. 底面 cap — ShapeGeometry 三角化, Z 偏移避免与侧面顶点 hash 合并
@@ -1524,6 +1540,7 @@
       const HEXAPOD_CONFIG = window.ModelConfigs.HEXAPOD_CONFIG;
       const MODEL_CONFIGS = window.ModelConfigs.MODEL_CONFIGS;
       let currentModelType = window.ModelConfigs.currentModelType;
+      currentCamoType = currentModelType === 'tiger_v16' ? 'debug' : 'jungle';
 
       // ============================================================
       // 7. Three.js 初始化
@@ -2472,6 +2489,7 @@
       function rebuildModel() {
         _camoJungleTex = null;
         _camoDesertTex = null;
+        _camoTropicalDesertTex = null;
         // 关闭动画展台
         if (animShowcase) toggleAnimShowcase();
         // 关闭六足专用功能（必须在清理旧模型之前，确保 pivot/nodeMap 引用有效）
@@ -2517,8 +2535,11 @@
             hexRoot.updateMatrixWorld(true);
           }
         }
-        // 六足战车+虎式坦克：部件轮廓线框
-        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
+        // 六足战车始终线框；虎式仅在调试色模式显示轮廓线
+        if (
+          currentModelType === 'hexapod' ||
+          (currentModelType === 'tiger_v16' && currentCamoType === 'debug')
+        ) {
           modelRoot.traverse(function (ch) {
             if (ch.isMesh && ch.geometry && ch.parent) {
               try {
@@ -3004,7 +3025,10 @@
           mesh.remove(mesh.userData._wireLine);
           mesh.userData._wireLine = null;
         }
-        if (currentModelType === 'hexapod' || currentModelType === 'tiger_v16') {
+        if (
+          currentModelType === 'hexapod' ||
+          (currentModelType === 'tiger_v16' && currentCamoType === 'debug')
+        ) {
           try {
             var _eg = new THREE.EdgesGeometry(geo, 15);
             var _ln = new THREE.LineSegments(_eg, new THREE.LineBasicMaterial({ color: 0x111111 }));
@@ -3246,28 +3270,54 @@
           '👾 敌人': 'enemy',
           '🦗 六足战车': 'hexapod',
         };
+        let _camoCtrl = null;
+        function _buildCamoCtrl(folder) {
+          if (_camoCtrl) {
+            _camoCtrl.destroy();
+            _camoCtrl = null;
+          }
+          // 虎式：调试色默认 + 热带沙漠；其他：丛林 + 沙漠
+          var camoOpts =
+            currentModelType === 'tiger_v16'
+              ? { '🔧 调试色（高亮轮廓）': 'debug', '🏜 热带沙漠迷彩': 'tropical_desert' }
+              : { '🌿 丛林迷彩': 'jungle', '🏜 沙漠迷彩': 'desert' };
+          // 切模型时重置为对应默认
+          if (
+            currentModelType === 'tiger_v16' &&
+            currentCamoType !== 'debug' &&
+            currentCamoType !== 'tropical_desert'
+          ) {
+            currentCamoType = 'debug';
+          } else if (
+            currentModelType !== 'tiger_v16' &&
+            (currentCamoType === 'debug' || currentCamoType === 'tropical_desert')
+          ) {
+            currentCamoType = 'jungle';
+          }
+          _camoCtrl = folder
+            .add({ camo: currentCamoType }, 'camo', camoOpts)
+            .name('迷彩类型')
+            .onChange((v) => {
+              currentCamoType = v;
+              _camoJungleTex = null;
+              _camoDesertTex = null;
+              _camoTropicalDesertTex = null;
+              rebuildModel();
+            });
+        }
+
         modelFolder
           .add({ model: currentModelType }, 'model', modelOptions)
           .name('选择模型')
           .onChange((v) => {
             saveUndo('model');
             currentModelType = v;
+            _buildCamoCtrl(modelFolder);
             rebuildModel();
           });
         modelFolder.open();
 
-        modelFolder
-          .add({ camo: currentCamoType }, 'camo', {
-            '🌿 丛林迷彩': 'jungle',
-            '🏜 沙漠迷彩': 'desert',
-          })
-          .name('迷彩类型')
-          .onChange((v) => {
-            currentCamoType = v;
-            _camoJungleTex = null;
-            _camoDesertTex = null;
-            rebuildModel();
-          });
+        _buildCamoCtrl(modelFolder);
 
         // --- 全选（独立按钮）---
         const selectAllFolder = gui.addFolder('✅ 全选部件');
@@ -4337,6 +4387,8 @@
           const mt = data.modelType;
           if (mt && MODEL_CONFIGS[mt]) {
             currentModelType = mt;
+            // 恢复模型后同步迷彩默认：虎式→调试色，其他→丛林
+            currentCamoType = mt === 'tiger_v16' ? 'debug' : 'jungle';
             console.log('📂 恢复上次模型: ' + mt + ' (配置用源文件)');
           } else {
             localStorage.removeItem(SAVE_KEY);
