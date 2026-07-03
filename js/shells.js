@@ -113,8 +113,9 @@ function disposeShellMesh(mesh) {
 function fireShell(player) {
   if (!player && player1) player = player1;
   if (player.reloadTimer > 0 || player.dead) return;
-  player.reloadTimer = RELOAD_TIME;
-  player.recoilPitch = RECOIL_PITCH;
+  const sp = player.spec || TANK_SPECS.t34;
+  player.reloadTimer = sp.reloadTime;
+  player.recoilPitch = sp.recoil;
   playFireSound();
 
   const barrelTipLocal = player._barrelTipLocal || new THREE.Vector3(0, 0, 3.72);
@@ -185,12 +186,23 @@ function fireShell(player) {
   glowTail.material.depthTest = true;
   scene.add(glowTail);
 
+  const shellSpeed = sp.shellSpeed;
   const vel = new THREE.Vector3(
-    forward.x * SHELL_SPEED,
-    forward.y * SHELL_SPEED,
-    forward.z * SHELL_SPEED
+    forward.x * shellSpeed,
+    forward.y * shellSpeed,
+    forward.z * shellSpeed
   );
-  shells.push({ mesh: shellGroup, vel, owner: player, glowTail, type: currentShellType });
+  shells.push({
+    mesh: shellGroup,
+    vel,
+    owner: player,
+    glowTail,
+    type: currentShellType,
+    damage: sp.shellDamage,
+    heDamage: sp.heDamage,
+    heSplash: sp.heSplash,
+    explosionRadius: sp.explosionRadius,
+  });
 }
 
 function spawnFragments(pos, color) {

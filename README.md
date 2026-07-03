@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.65.12** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.65.13** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,13 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.65.13 — 虎式动画展台+展台回归修复（2026-07-02）
+
+- **虎式动画展台**: 炮塔360°旋转+炮管俯仰-8~~15°(真实88mm KwK36 L/56)+MG34高射机枪绕MG枢轴支柱顶端防空旋转(-5~~80°)+履带前进/后退
+- **\_TANK_PROFILE**: T-34/虎式共用_tank*框架, 按模型差异化(履带名/MG支柱名/MG旋转部件/俯仰角/MG旋转参数), 复用非重写
+- **展台回归修复**: 补回缺失的computeTrackTotalLen/updateTrackPlates两函数(v0.65.9履带绕紧重构遗漏, 致T-34/虎式点展台collectRefs抛ReferenceError→animPhase不置1→不播放)
+- **MG轴心**: pivot用支柱完整坐标(x,y+H/2,z), 虎式支柱偏离mgGroup原点(0.68,_,-0.81)枪管不再绕车体中心甩飞; T-34支柱在原点零回归
 
 ### v0.65.12 — 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+UV修复（2026-07-01）
 
@@ -1342,20 +1349,20 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.65.12）
+### 代码规模（截至 v0.65.13）
 
-| 分类             | 文件                                                                                                                                                                        |      行数      |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
-| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                               |  1037 + 7544   |
-| 游戏模块 (12个)  | waters(326) bridges(165) debugcolliders(122) obstacles(878) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271)                      |      3497      |
-| 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                       |      2973      |
-| 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                            |      1530      |
-| 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                             |      5036      |
-| 模型工厂         | `model_factory.html`                                                                                                                                                        |      4160      |
-| 模型系统 (13个)  | enemies(1324) t34-85(628) v16_builder(488) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) configs(36) hexapod_config(70) |      3793      |
-| 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                              |      1407      |
-| 地图加载         | `maploader.js`                                                                                                                                                              |      191       |
-| **总计**         | **49 个源文件**                                                                                                                                                             | **~31,098 行** |
+| 分类             | 文件                                                                                                                                                                                                          |      行数      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
+| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                                 |  1047 + 7631   |
+| 游戏模块 (12个)  | waters(326) bridges(165) debugcolliders(122) obstacles(878) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271)                                                        |      3497      |
+| 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                                         |      2973      |
+| 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                              |      1530      |
+| 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                               |      5036      |
+| 模型工厂         | `model_factory.html`                                                                                                                                                                                          |      4758      |
+| 模型系统 (15个)  | enemies(1324) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) configs(36) hexapod_config(70) profiled_extrude(116) |      5766      |
+| 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                                |      1407      |
+| 地图加载         | `maploader.js`                                                                                                                                                                                                |      191       |
+| **总计**         | **52 个源文件**                                                                                                                                                                                               | **~33,836 行** |
 
 ---
 

@@ -255,6 +255,7 @@
 
   // ── PATROL: 沿路径点移动 ──
   function updatePatrol(enemy, ai, cfg, dt) {
+    if (cfg.passive) return; // 不反击模式: 完全不动(停留出生点, 不前进)
     if (!cfg.patrolPath || cfg.patrolPath.length === 0) {
       // 搜寻模式: 朝最后见敌位置找回; 到达清除→朝当前朝向探索(遍历), 不原地卡死
       var _tx, _tz;
@@ -338,7 +339,12 @@
       // 视线畅通: 直追
       moveEnemyToward(enemy, pp.x, pp.z, (cfg.speed || 5.0) * 1.3, dt);
     }
-    ai._turretAimed = aimTurretAt(enemy, pp, dt, 1.0);
+    ai._turretAimed = aimTurretAt(
+      enemy,
+      pp,
+      dt,
+      (cfg.spec && cfg.spec.enemyTurretTurnSpeed) || 1.0
+    );
     ai.lastSeenPlayerPos = pp.clone();
   }
 
@@ -423,7 +429,7 @@
     }
 
     // 3. 炮塔独立瞄准玩家
-    const aimed = aimTurretAt(enemy, pp, dt, 1.0); // 炮塔转速
+    const aimed = aimTurretAt(enemy, pp, dt, (cfg.spec && cfg.spec.enemyTurretTurnSpeed) || 1.0); // 炮塔转速(虎式0.5慢)
     ai._turretAimed = aimed; // 训练场用: 炮塔是否已对准
 
     // 喷火器开火

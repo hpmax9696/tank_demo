@@ -594,7 +594,7 @@
               {
                 name: '主炮管',
                 type: 'Cylinder',
-                size: [0.055, 4.8, 0.065],
+                size: [0.08, 4.8, 0.09],
                 segments: [16],
                 position: [0, -1.4716, 2.1969],
                 rotation: [1.5708, 0, 0],
@@ -604,7 +604,7 @@
               {
                 name: '抽烟器',
                 type: 'Cylinder',
-                size: [0.07, 1, 0.07],
+                size: [0.095, 1, 0.095],
                 segments: [18],
                 position: [0, -1.4716, 1.6969],
                 rotation: [1.5708, 0, 0],
@@ -614,7 +614,7 @@
               {
                 name: '炮口制退器',
                 type: 'Cylinder',
-                size: [0.07, 0.3, 0.08],
+                size: [0.095, 0.3, 0.105],
                 segments: [16],
                 position: [0, -1.4716, 4.5969],
                 rotation: [1.5708, 0, 0],

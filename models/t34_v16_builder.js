@@ -343,7 +343,29 @@
           s[6] || 0
         );
       case 'RoundedBox':
+        // 游戏运行时无 RoundedBoxGeometry(three addons, 仅模型工厂 import) → fallback BoxGeometry
+        if (typeof RoundedBoxGeometry === 'undefined')
+          return new THREE.BoxGeometry(s[0], s[1] || s[0], s[2] || s[0]);
         return new RoundedBoxGeometry(s[0], s[1] || s[0], s[2] || s[0], seg[0] || 3, s[3] || 0.08);
+      case 'ProfiledExtrude': {
+        // 虎式马蹄形炮塔/尾舱: XY轮廓+roofProfile拉伸 + shapeScale缩放 (共享 js/profiled_extrude.js)
+        const sc = node.shapeScale || [1, 1];
+        const peShape = (node.shape || []).map((ss) => {
+          if (ss[0] === 'line') return ['line', ss[1] * sc[0], ss[2] * sc[1]];
+          if (ss[0] === 'arc') {
+            const r = ss[3] * ((Math.abs(sc[0]) + Math.abs(sc[1])) / 2);
+            return ['arc', ss[1] * sc[0], ss[2] * sc[1], r, ss[4], ss[5], ss[6]];
+          }
+          return ss.slice();
+        });
+        if (window.buildProfiledExtrude && peShape.length)
+          return window.buildProfiledExtrude(
+            peShape,
+            node.roofProfile,
+            (node.segments && node.segments[0]) || 24
+          );
+        return new THREE.BoxGeometry(s[0] || 1, s[1] || 1, s[2] || 1);
+      }
       case 'Cylinder':
         return new THREE.CylinderGeometry(
           s[0],

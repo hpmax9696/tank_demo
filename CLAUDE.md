@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.12
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.65.13
 
 ## 运行
 
@@ -17,8 +17,8 @@ python server.py
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏框架 (~1035行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~7544行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── index.html         # 核心游戏框架 (~1047行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~7631行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
 ├── js/                # 游戏模块（12个）
 │   ├── waters.js      # 水体模块 (~326行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -31,7 +31,9 @@ python server.py
 │   ├── bars.js        # UI 血条/装填条 (~85行)
 │   ├── input.js       # 输入处理 (~74行)：WASD+手柄5段力度
 │   ├── spatialGrid.js # 空间网格 (~110行)
-│   └── sky.js         # 动态天空系统 (~271行)：渐变穹顶+噪声云层+太阳光晕
+│   ├── sky.js         # 动态天空系统 (~271行)：渐变穹顶+噪声云层+太阳光晕
+│   ├── profiled_extrude.js # ProfiledExtrude 几何类型 (~116行)：XY轮廓+roofProfile拉伸
+│   └── tank_specs.js  # 坦克规格参数 (~96行)：历史数据查询
 ├── js/hexapod_aimLine.js     # 六足加特林瞄准线 (~295行)：双段着色+5层碰撞+颜色状态机
 ├── models/hexapod_config.js  # 六足战车共享模型配置 (~70行)：ANIM_TABLE(23项)+腿配置
 ├── js/hexapod_core.js        # 六足CCD IK核心模块 (~1188行)：纯计算层，模型工厂+游戏共享，hipAxis/bodyWriter参数化
@@ -49,10 +51,12 @@ python server.py
 │   ├── editor_waterBridge.js # 水体桥梁 (~659行)：水面+河床+桥梁检测
 │   ├── editor_data.js        # 数据持久化 (~504行)：蓝图+JSON+init
 │   └── editor_terrainPaint.js # 地形绘制 (~335行)：笔刷+高度图画布
-├── model_factory.html # 程序化模型编辑器 (~4051行)
+├── model_factory.html # 程序化模型编辑器 (~4758行)
 ├── models/            # 模型文件 (GLB主力 + 程序化兜底)
 │   ├── enemies.js     # 敌方单位模型 (~1324行)：装甲突击车+程序化丧尸
-│   └── buildings.js   # 建筑模型 (~364行)：3种建筑+category分类+阴影
+│   ├── t34_v16_builder.js # T-34/85 v1.6 坦克构建器 (~1441行)：\_TANK_PROFILE 共享动画框架
+│   ├── tiger_v16_builder.js # 虎式 I 坦克构建器 (~904行)：MG34+马蹄形炮塔+沙漠迷彩
+│   └── buildings.js   # 建筑模型 (~385行)：3种建筑+category分类+阴影
 ├── server.py          # 开发服务器 (~145行)：静态文件 + POST /api/solidify 固化端点
 ├── maps/              # .map.json 地图配置
 ├── combat/            # AI状态机 + 积分系统
@@ -245,11 +249,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项   | 可选值                                                      |
+| 配置项 | 可选值 |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方     | 坦克、六足(灰色不可选)                                      |
-| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
+| 我方 | 坦克、六足(灰色不可选) |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -497,6 +501,41 @@ legGroup (Y旋转=水平摆角)
 - **编辑器 marker 加门**: `editor_entities.js` createBuildingMarker 三种建筑 +Z 面加亮黄门（薄盒外突），对称低模朝向可辨识
 - **R 键旋转 UI**: `map_editor.html` 选中建筑 R 键步进 15°（Shift 反向），更新 ent.yaw + marker.rotation.y
 - **推后**: 村落生成器 `_findClosestRoadAngle` 朝向差 90°（让 +X 朝道路，门窗在 +Z）→ 建筑门未精确朝道路，待修
+
+---
+
+## v0.65.13 本次会话变更 (2026-07-02)
+
+### 虎式坦克动画展台实装
+
+- **5 个动画**: 炮塔360°旋转 / 炮管俯仰 / MG34高射机枪旋转俯仰 / 履带前进 / 履带后退
+- **真实炮管俯仰角**: -8° ~ +15°(真实虎式88mm KwK 36 L/56, Wikipedia查证), 替代T-34原25°/-10°随意值
+- **MG34防空旋转**: 以`MG枢轴支柱`顶端为轴心(实测pivot位置[0.68,-1.182,-0.81]=支柱position+H/2), 水平360°+俯仰-5°~80°(能朝天)
+- **\_TANK_PROFILE 差异化**: T-34/虎式共用`_tank*`框架(collectRefs/updateFrame/reset/destroy), 按模型差异化: 履带名(左履带链/左履带)、MG支柱名(MG枪座支柱/MG枢轴支柱)、MG旋转部件(5/8个)、炮管俯仰角、MG旋转参数
+
+### 展台回归修复(前置 Bug)
+
+- **根因**: `model_factory.html`中`computeTrackTotalLen`/`updateTrackPlates`两函数**只有调用零定义**(v0.65.9履带绕紧重构遗漏, 履带总长逻辑被内联进buildTrackChain/getTrackPlateTransform但未抽成函数)
+- **现象**: T-34/虎式点展台→collectRefs执行到履带处理抛ReferenceError→`animPhase=1`不执行→updateAnimShowcase首行`animPhase===0`早退→**不播放**
+- **修复**: 从getTrackPlateTransform抽取6段长度公式补回computeTrackTotalLen; 新增updateTrackPlates(沿路径环形取模平移履带板)。修复后T-34/六足展台均恢复(实测0错误, anim-item 5/5/23)
+
+### 关键坑
+
+- **MG pivot 位置**: 旧`pivot.position.set(0, pivotY, 0)`写死X/Z=0, T-34支柱在mgGroup原点侥幸成立; 虎式支柱在(0.68,_,-0.81), 沿用会让枪管绕车体中心半径0.9大圆甩飞。改用支柱完整坐标(x, y+H/2, z), T-34零回归(支柱x/z=0等价旧值)
+- **炮管俯仰轴心**: 用户要求=炮盾与炮塔前板接触面中心。旧用炮盾中心(mantletWorld)偏前半个炮盾厚度。改用"炮塔前板前端面"(前板中心z+厚/2, 虎式实测[0,-0.772,1.907]=接触面); T-34无"炮塔前板"→fallback炮盾中心(零回归)。虎式炮盾是Cylinder(沿Z h=0.5)、T-34炮盾是Sphere(scale[1,0.7,0.6])几何不同, 故用前板更稳
+- **nodeMap 结构**: 叶子mesh的`info.group`是包装Group直接挂父Group, `info.group.position`=配置position(mgGroup无pivot则pivotComp=[0,0,0]); MG部件迁移逻辑对虎式同样成立
+
+### 验证(Playwright + nodeMap userData 诊断)
+
+- 虎式切对(MG枢轴支柱=true) + 三动画在转: case1 turretRotY=2.657rad, case3 MG yaw=2.436rad/pitch=74.5°, case2 炮管pitch=10.6°(均在真实范围)
+- MG pivot 实测[0.68,-1.182,-0.81]=支柱顶端 ✓; 0 console错误
+- **注意**: `window._animRefs` 是 stale 副本(_tankCollectRefs里`animRefs={}`重置闭包变量未同步window), 诊断pivot要用`nodeMap.get(name).group.userData.animXxxPivot`
+
+### 关键文件变更
+
+| 文件                 | 改动                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `model_factory.html` | 补computeTrackTotalLen/updateTrackPlates + _TANK_PROFILE + tiger_v16注册 + _tankCollectRefs/UpdateFrame用profile + MG pivot完整坐标 |
 
 ---
 

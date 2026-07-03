@@ -56,7 +56,8 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ' && gameMode !== 'menu') {
     currentShellType = currentShellType === 'ap' ? 'he' : 'ap';
     playSwitchSound();
-    if (player1 && !player1.dead) player1.reloadTimer = RELOAD_TIME;
+    if (player1 && !player1.dead)
+      player1.reloadTimer = player1.spec ? player1.spec.reloadTime : RELOAD_TIME;
     console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
   }
   if (e.code === 'Escape') {
@@ -226,6 +227,8 @@ function createPlayer(camoColor, startX, startZ, startYaw, isP1) {
     shellLabel: null,
     camoColor,
     isP1,
+    tankModel: 't34',
+    spec: null,
     fireReady: true,
   };
 }
@@ -1069,11 +1072,21 @@ function clearGrass() {
 // ==================== 坦克模型（程序化 v1.6 构建器） ====================
 
 function createPlayerTank(player) {
-  const result = T34V16Builder.buildAnimatedT34_85({
-    camoColor: player.camoColor || 'green',
-    position: { x: player.state.x, y: 0, z: player.state.z },
-    yaw: player.state.yaw,
-  });
+  player.tankModel = player.tankModel || 't34';
+  player.spec = (window.TANK_SPECS && TANK_SPECS[player.tankModel]) || TANK_SPECS.t34;
+  // 按 tankModel 分派 builder（T-34 / 虎式 返回结构同形）
+  const isTiger = player.tankModel === 'tiger';
+  const result = isTiger
+    ? TigerIBuilder.buildAnimatedTigerI({
+        camoColor: player.camoColor || 'green',
+        position: { x: player.state.x, y: 0, z: player.state.z },
+        yaw: player.state.yaw,
+      })
+    : T34V16Builder.buildAnimatedT34_85({
+        camoColor: player.camoColor || 'green',
+        position: { x: player.state.x, y: 0, z: player.state.z },
+        yaw: player.state.yaw,
+      });
 
   player.group = result.group;
   player.hull = player.group;
@@ -1083,6 +1096,11 @@ function createPlayerTank(player) {
   player.leftWheels = result.leftWheels;
   player.rightWheels = result.rightWheels;
   player._barrelTipLocal = result.barrelTipLocal;
+  // 按 spec 设 hp/maxHp（虎式 160 / T-34 100）
+  player.hp = player.spec.hp;
+  player.maxHp = player.spec.hp;
+  player.userData = player.userData || {};
+  player.userData.maxHp = player.spec.hp;
 
   scene.add(player.group);
 
@@ -1091,7 +1109,15 @@ function createPlayerTank(player) {
     leftWheels = player1.leftWheels;
     rightWheels = player1.rightWheels;
   }
-  console.log('🏭 T-34/85 v1.6 程序化模型已构建');
+  console.log(
+    '🏭 ' +
+      (isTiger ? '虎式 Tiger I' : 'T-34/85 v1.6') +
+      ' 模型已构建 (hp=' +
+      player.spec.hp +
+      ' speed=' +
+      player.spec.maxSpeed +
+      ')'
+  );
 }
 
 // createBarsForPlayer → bars.js
@@ -1371,14 +1397,19 @@ function getBarrelWorldDir(player) {
 function updateAiming(player, dt) {
   if (!player || player.dead || !player.turretPivot || !player.barrelPivot) return;
 
+  // ── 按坦克 spec 取炮塔/炮管转速 + 俯仰角（虎式慢炮塔/真实俯仰）──
+  const _sp = player.spec || TANK_SPECS.t34;
+  const turretAngVel = _sp.turretAngVel; // 局部覆盖全局 let
+  const barrelAngVel = _sp.barrelAngVel;
+
   // ── 世界空间炮塔: 首帧从局部 turretYaw 惰性初始化 ──
   const hullYaw = player.state.yaw;
   if (player.worldTurretYaw === undefined) {
     player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
   }
 
-  const maxDown = (25 * Math.PI) / 180;
-  const maxUp = (-10 * Math.PI) / 180;
+  const maxDown = (_sp.gunDepression * Math.PI) / 180;
+  const maxUp = (-_sp.gunElevation * Math.PI) / 180;
 
   const gp = getGamepad();
   const now = performance.now();
@@ -1848,7 +1879,7 @@ function gameLoop() {
       var _sm2 = document.getElementById('sniper-minimap');
       if (_sm2 && _sm2.style.display !== 'none') _sm2.style.display = 'none';
     }
-    updateReloadRing(reloadTimer, RELOAD_TIME);
+    updateReloadRing(reloadTimer, player1.spec ? player1.spec.reloadTime : RELOAD_TIME);
     visibilityTimer += dt;
     // ── 训练场重生处理 ──
     if (isTrainingMode) _processTrainingRespawn(dt);
@@ -1920,7 +1951,7 @@ function gameLoop() {
         var _pt = player1.ai._tankFireTimer || 0;
         _pt -= dt;
         if (_pt <= 0 && player1.ai._turretAimed && _nearD !== Infinity && _nearD > 10) {
-          _pt = 2.5 + Math.random() * 1.0;
+          _pt = (player1.spec ? player1.spec.reloadTime : 2.5) + Math.random() * 0.5;
           firePlayerTrainingShell(player1);
         }
         player1.ai._tankFireTimer = _pt;
@@ -2048,36 +2079,39 @@ function gameLoop() {
         }
       }
       var brakeMul = window._brakeActive ? 2.0 : 1.0;
-      // ── 履带速度缓动（加速 / 制动 / 惯性滑行）──
+      // ── 履带速度缓动（加速 / 制动 / 惯性滑行）── 按坦克 spec（虎式慢速/慢加速/独立倒车）
+      const _spec = player1.spec || TANK_SPECS.t34;
       // 左履带
       if (targetLeft !== 0) {
-        const tgt = targetLeft * MAX_SPEED;
+        const _maxS = targetLeft < 0 ? _spec.reverseSpeed : _spec.maxSpeed;
+        const tgt = targetLeft * _maxS;
         const dirFlip = Math.sign(targetLeft) !== Math.sign(prevTargetLeft) && prevTargetLeft !== 0;
         const sameDir =
           !dirFlip && (Math.sign(tgt) === Math.sign(currentLeftSpeed) || currentLeftSpeed === 0);
-        const rate = sameDir ? TRACK_ACCEL * dt : TRACK_DECEL * brakeMul * dt;
+        const rate = sameDir ? _spec.trackAccel * dt : _spec.trackDecel * brakeMul * dt;
         currentLeftSpeed = moveToward(currentLeftSpeed, tgt, rate);
       } else {
-        currentLeftSpeed = moveToward(currentLeftSpeed, 0, TRACK_COAST * brakeMul * dt);
+        currentLeftSpeed = moveToward(currentLeftSpeed, 0, _spec.trackCoast * brakeMul * dt);
       }
       // 右履带
       if (targetRight !== 0) {
-        const tgt = targetRight * MAX_SPEED;
+        const _maxS = targetRight < 0 ? _spec.reverseSpeed : _spec.maxSpeed;
+        const tgt = targetRight * _maxS;
         const dirFlip =
           Math.sign(targetRight) !== Math.sign(prevTargetRight) && prevTargetRight !== 0;
         const sameDir =
           !dirFlip && (Math.sign(tgt) === Math.sign(currentRightSpeed) || currentRightSpeed === 0);
-        const rate = sameDir ? TRACK_ACCEL * dt : TRACK_DECEL * brakeMul * dt;
+        const rate = sameDir ? _spec.trackAccel * dt : _spec.trackDecel * brakeMul * dt;
         currentRightSpeed = moveToward(currentRightSpeed, tgt, rate);
       } else {
-        currentRightSpeed = moveToward(currentRightSpeed, 0, TRACK_COAST * brakeMul * dt);
+        currentRightSpeed = moveToward(currentRightSpeed, 0, _spec.trackCoast * brakeMul * dt);
       }
       if (targetLeft !== 0) prevTargetLeft = targetLeft;
       if (targetRight !== 0) prevTargetRight = targetRight;
 
       // ── 差速驱动 ──
       const v = (currentLeftSpeed + currentRightSpeed) / 2;
-      const omega = (currentLeftSpeed - currentRightSpeed) / TRACK_SPACING;
+      const omega = (currentLeftSpeed - currentRightSpeed) / _spec.trackSpacing;
 
       // 引擎/履带音效（用最快履带速度，确保原地旋转也有音效）
       updateEngineSound(Math.max(Math.abs(currentLeftSpeed), Math.abs(currentRightSpeed)));
@@ -2314,7 +2348,8 @@ function gameLoop() {
           _gpRbPressed = true;
           currentShellType = currentShellType === 'ap' ? 'he' : 'ap';
           playSwitchSound();
-          if (player1 && !player1.dead) player1.reloadTimer = RELOAD_TIME;
+          if (player1 && !player1.dead)
+            player1.reloadTimer = player1.spec ? player1.spec.reloadTime : RELOAD_TIME;
           console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
         }
       } else {
@@ -2658,7 +2693,7 @@ function gameLoop() {
         var edy2 = s.mesh.position.y - (player1.group.position.y + 1.0);
         var ed2 = Math.sqrt(edx2 * edx2 + edz2 * edz2 + edy2 * edy2);
         if (ed2 < 2.5) {
-          player1.hp -= 20;
+          player1.hp -= s.damage || 20;
           if (player1.hp < 0) player1.hp = 0;
           hit = true;
           player1.ai = player1.ai || {};
@@ -3185,7 +3220,10 @@ function gameLoop() {
           var et = enemy.ai._tankFireTimer || 0;
           et -= dt;
           if (et <= 0 && enemy.ai.state === 'engage' && ed > 10 && enemy.ai._turretAimed) {
-            et = 2.5 + Math.random() * 1.0;
+            var _es = enemy.cfg && enemy.cfg.spec;
+            et =
+              (_es ? _es.enemyReloadMin : 2.5) +
+              Math.random() * ((_es ? _es.enemyReloadMax : 3.5) - (_es ? _es.enemyReloadMin : 2.5));
             fireEnemyTrainingShell(enemy);
           }
           enemy.ai._tankFireTimer = et;
@@ -4242,14 +4280,19 @@ function getInputForPlayer(pNum) {
 function updateAimingForVs(p, dt) {
   if (!p || p.dead || !p.turretPivot || !p.barrelPivot) return;
 
+  // ── 按坦克 spec 取炮塔/炮管转速 + 俯仰角（虎式慢炮塔/真实俯仰）──
+  const _sp = p.spec || TANK_SPECS.t34;
+  const turretAngVel = _sp.turretAngVel; // 局部覆盖全局 let
+  const barrelAngVel = _sp.barrelAngVel;
+
   // ── 世界空间炮塔: 首帧惰性初始化 ──
   const hullYaw = p.state.yaw;
   if (p.worldTurretYaw === undefined) {
     p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
   }
 
-  const maxDown = (25 * Math.PI) / 180;
-  const maxUp = (-10 * Math.PI) / 180;
+  const maxDown = (_sp.gunDepression * Math.PI) / 180;
+  const maxUp = (-_sp.gunElevation * Math.PI) / 180;
 
   if (p === player2) {
     const gp = getGamepad();
@@ -4365,23 +4408,34 @@ function updatePlayerPhysics(p, dt, tL, tR) {
   }
   p._prevTL = p._prevTL || 0;
   p._prevTR = p._prevTR || 0;
+  const _spec = p.spec || TANK_SPECS.t34;
   if (tL !== 0) {
-    const tg = tL * MAX_SPEED;
+    const _maxS = tL < 0 ? _spec.reverseSpeed : _spec.maxSpeed;
+    const tg = tL * _maxS;
     const df = Math.sign(tL) !== Math.sign(p._prevTL) && p._prevTL !== 0;
     const sd = !df && (Math.sign(tg) === Math.sign(p.currentLeftSpeed) || p.currentLeftSpeed === 0);
-    p.currentLeftSpeed = mt(p.currentLeftSpeed, tg, (sd ? TRACK_ACCEL : TRACK_DECEL) * dt);
-  } else p.currentLeftSpeed = mt(p.currentLeftSpeed, 0, TRACK_COAST * dt);
+    p.currentLeftSpeed = mt(
+      p.currentLeftSpeed,
+      tg,
+      (sd ? _spec.trackAccel : _spec.trackDecel) * dt
+    );
+  } else p.currentLeftSpeed = mt(p.currentLeftSpeed, 0, _spec.trackCoast * dt);
   if (tR !== 0) {
-    const tg = tR * MAX_SPEED;
+    const _maxS = tR < 0 ? _spec.reverseSpeed : _spec.maxSpeed;
+    const tg = tR * _maxS;
     const df = Math.sign(tR) !== Math.sign(p._prevTR) && p._prevTR !== 0;
     const sd =
       !df && (Math.sign(tg) === Math.sign(p.currentRightSpeed) || p.currentRightSpeed === 0);
-    p.currentRightSpeed = mt(p.currentRightSpeed, tg, (sd ? TRACK_ACCEL : TRACK_DECEL) * dt);
-  } else p.currentRightSpeed = mt(p.currentRightSpeed, 0, TRACK_COAST * dt);
+    p.currentRightSpeed = mt(
+      p.currentRightSpeed,
+      tg,
+      (sd ? _spec.trackAccel : _spec.trackDecel) * dt
+    );
+  } else p.currentRightSpeed = mt(p.currentRightSpeed, 0, _spec.trackCoast * dt);
   if (tL !== 0) p._prevTL = tL;
   if (tR !== 0) p._prevTR = tR;
   const v = (p.currentLeftSpeed + p.currentRightSpeed) / 2;
-  const om = (p.currentLeftSpeed - p.currentRightSpeed) / TRACK_SPACING;
+  const om = (p.currentLeftSpeed - p.currentRightSpeed) / _spec.trackSpacing;
   p.state.yaw += om * dt;
   const fx = Math.cos(p.state.yaw),
     fz = Math.sin(p.state.yaw);
@@ -5249,6 +5303,7 @@ function spawnHexapodMissile(enemy, player1, ai) {
 
 // ─── 训练场炮弹创建（共享：炮口位置+方向+阵营+散布）───
 function _spawnTrainingShell(muzzlePos, aimDir, owner, isEnemy, spread) {
+  var sp = (owner && owner.spec) || (owner && owner.cfg && owner.cfg.spec) || TANK_SPECS.t34;
   var dir = aimDir.clone();
   if (spread) {
     dir.x += (Math.random() - 0.5) * spread;
@@ -5308,11 +5363,12 @@ function _spawnTrainingShell(muzzlePos, aimDir, owner, isEnemy, spread) {
   scene.add(tracerLight);
   shells.push({
     mesh: shellGroup,
-    vel: dir.clone().multiplyScalar(SHELL_SPEED),
+    vel: dir.clone().multiplyScalar(sp.shellSpeed),
     type: 'ap',
     tracerLight: tracerLight,
     glowTail: glowTail,
     owner: owner,
+    damage: isEnemy ? sp.enemyShellDamage : sp.shellDamage,
     prevPos: null,
     isEnemyShell: !!isEnemy,
   });
@@ -5335,7 +5391,13 @@ function fireEnemyTrainingShell(enemy) {
     muzzlePos.y += 1.5;
     barrelDir = new THREE.Vector3().subVectors(player1.group.position, muzzlePos).normalize();
   }
-  _spawnTrainingShell(muzzlePos, barrelDir, enemy, true, 0.07);
+  _spawnTrainingShell(
+    muzzlePos,
+    barrelDir,
+    enemy,
+    true,
+    enemy.cfg && enemy.cfg.spec ? enemy.cfg.spec.enemySpread : 0.07
+  );
 }
 
 // ─── 训练场玩家坦克炮击（AI托管：朝最近敌方，无散布）───
@@ -5365,7 +5427,7 @@ function firePlayerTrainingShell(player) {
     muzzlePos.y += 1.5;
     barrelDir = new THREE.Vector3().subVectors(target.position, muzzlePos).normalize();
   }
-  _spawnTrainingShell(muzzlePos, barrelDir, player1, false, 0);
+  _spawnTrainingShell(muzzlePos, barrelDir, player1, false, player1.spec ? player1.spec.spread : 0);
 }
 
 // ─── 训练场敌人MG曳光弹 ──
@@ -5471,7 +5533,7 @@ function _processTrainingRespawn(dt) {
         // ── 坦克复活 ──
         player1.group.position.set(trainingPlayerSpawn.x, gy, trainingPlayerSpawn.z);
         player1.group.visible = true;
-        player1.hp = 100;
+        player1.hp = player1.spec ? player1.spec.hp : 100;
         player1.dead = false;
         if (trainingPlayerAI && player1.ai) player1.ai.state = 'chase'; // 复活后立即追击(不等视野)
         player1.state.x = trainingPlayerSpawn.x;
@@ -5969,7 +6031,11 @@ function versusGameLoop() {
     }
   }
   crosshairEl.style.color = p1AimValid ? '#00ff00' : '#ff3333';
-  if (player1) updateReloadRing(player1.reloadTimer || 0, RELOAD_TIME);
+  if (player1)
+    updateReloadRing(
+      player1.reloadTimer || 0,
+      player1.spec ? player1.spec.reloadTime : RELOAD_TIME
+    );
   updateTrajectoryLine(player2);
   updateShellsFragsMuzzle(dt);
   if (visibilityTimer > 0.3) {
@@ -6400,7 +6466,8 @@ function updateShellsFragsMuzzle(dt) {
         var edx2 = s.mesh.position.x - player1.group.position.x;
         var edz2 = s.mesh.position.z - player1.group.position.z;
         if (Math.sqrt(edx2 * edx2 + edz2 * edz2) < 5.0) {
-          player1.hp -= 7;
+          player1.hp -=
+            s.owner && s.owner.cfg && s.owner.cfg.spec ? s.owner.cfg.spec.enemySplashDamage : 7;
           if (player1.hp < 0) player1.hp = 0;
           player1.ai = player1.ai || {};
           player1.ai.hitFlash = 0.15;
@@ -6675,7 +6742,7 @@ async function enterGame() {
       player1.pitch = 0;
       player1.recoilPitch = 0;
       player1.reloadTimer = 0;
-      player1.hp = 100;
+      player1.hp = player1.spec ? player1.spec.hp : 100;
       player1.dead = false;
       if (player1.group) {
         player1.group.visible = true;
@@ -6996,6 +7063,7 @@ function returnToMenu() {
 // ==================== 训练场系统 ====================
 const trainingConfig = document.getElementById('training-config');
 const tcPlayerOpts = document.getElementById('tc-player-opts');
+const tcPlayerModelOpts = document.getElementById('tc-player-model-opts');
 const tcEnemyOpts = document.getElementById('tc-enemy-opts');
 const tcBehaviorOpts = document.getElementById('tc-behavior-opts');
 const tcAioptsOpts = document.getElementById('tc-aiopts-opts');
@@ -7004,6 +7072,7 @@ const btnTrainingCancel = document.getElementById('btn-training-cancel');
 
 let trainingPlayerType = 'tank';
 let trainingEnemyType = 'tank';
+let trainingPlayerModel = 't34'; // 玩家坦克型号（t34/tiger），与 trainingPlayerType 正交（六足走 PCM）
 let trainingBehavior = 'reactive'; // 'active' | 'reactive' | 'passive'
 let trainingPlayerAI = true; // 玩家坦克/六足AI托管: 自动攻击敌方单位
 
@@ -7021,6 +7090,11 @@ let trainingPlayerAI = true; // 玩家坦克/六足AI托管: 自动攻击敌方�
   setupToggle(tcPlayerOpts, (v) => {
     trainingPlayerType = v;
   });
+  if (tcPlayerModelOpts) {
+    setupToggle(tcPlayerModelOpts, (v) => {
+      trainingPlayerModel = v;
+    });
+  }
   setupToggle(tcEnemyOpts, (v) => {
     trainingEnemyType = v;
   });
@@ -7142,6 +7216,7 @@ async function enterTrainingMode() {
       hintBar.textContent = 'WASD 移动 | 鼠标转向 | ESC 返回菜单';
     } else if (player1) {
       // ── 坦克 (默认角色) ──
+      player1.tankModel = trainingPlayerModel || 't34';
       // 清理六足模式残留的 PCM 状态 (ESC退出六足时可能未deactivate, 导致gameLoop仍走六足分支)
       if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
         window.PlayerControllerManager.deactivate();
@@ -7149,13 +7224,15 @@ async function enterTrainingMode() {
       // 若 player1 被六足模式污染(group变六足root/turretPivot被清空), 重建坦克模型+全局引用
       var _polluted =
         !player1.turretPivot ||
+        !player1.spec ||
+        player1.spec !== TANK_SPECS[player1.tankModel] ||
         (player1.group && player1.group.userData && player1.group.userData.enemyType === 'hexapod');
       if (_polluted) {
         if (player1.group && player1.group.parent) player1.group.parent.remove(player1.group);
         player1 = createPlayer('green', playerSpawnX, playerSpawnZ, Math.PI, true);
+        player1.tankModel = trainingPlayerModel || 't34'; // createPlayer 默认 t34, 重建后需重新设型号
         player1.userData = player1.userData || {};
-        player1.userData.maxHp = 100;
-        createPlayerTank(player1);
+        createPlayerTank(player1); // 内部按 spec 设 hp/userData.maxHp
         createBarsForPlayer(player1);
         tankGroup = player1.group;
         leftWheels = player1.leftWheels;
@@ -7177,7 +7254,7 @@ async function enterTrainingMode() {
       player1.pitch = 0;
       player1.recoilPitch = 0;
       player1.reloadTimer = 0;
-      player1.hp = 100;
+      player1.hp = player1.spec ? player1.spec.hp : 100;
       player1.dead = false;
       if (player1.group) {
         player1.group.visible = true;
@@ -7255,45 +7332,53 @@ async function enterTrainingMode() {
     // 创建训练场敌人: enemySpawnX/Z 已在函数顶部定义
     const enemyGy = getGroundHeight(enemySpawnX, enemySpawnZ);
     const realEnemyType = trainingEnemyType;
-    const enemyHP =
-      realEnemyType === 'tank'
-        ? 100
-        : realEnemyType === 'assault-vehicle'
-          ? 60
-          : realEnemyType === 'zombie'
-            ? 40
-            : realEnemyType === 'hexapod'
-              ? 250
-              : 60;
-    const enemySpeed =
-      realEnemyType === 'tank'
-        ? 6.0
-        : realEnemyType === 'assault-vehicle'
-          ? 5.0
-          : realEnemyType === 'zombie'
+    // 坦克类(T-34/虎式)按 TANK_SPECS 取 HP/speed；其他类型原三元
+    var _enemyVariant =
+      realEnemyType === 'tiger' ? 'tiger' : realEnemyType === 'tank' ? 't34' : null;
+    var _enemySpec = _enemyVariant ? TANK_SPECS[_enemyVariant] : null;
+    const enemyHP = _enemySpec
+      ? _enemySpec.enemyHp
+      : realEnemyType === 'assault-vehicle'
+        ? 60
+        : realEnemyType === 'zombie'
+          ? 40
+          : realEnemyType === 'hexapod'
+            ? 250
+            : 60;
+    const enemySpeed = _enemySpec
+      ? _enemySpec.enemySpeed
+      : realEnemyType === 'assault-vehicle'
+        ? 5.0
+        : realEnemyType === 'zombie'
+          ? 2.5
+          : realEnemyType === 'hexapod'
             ? 2.5
-            : realEnemyType === 'hexapod'
-              ? 2.5
-              : 5.0;
+            : 5.0;
 
     let enemyModel;
-    if (realEnemyType === 'tank') {
-      var t34result = T34V16Builder.buildAnimatedT34_85({
-        camoColor: 'desert',
-        position: { x: 0, y: 0, z: 0 },
-        yaw: 0,
-      });
-      t34result.group.position.set(0, 0, 0);
-      t34result.group.rotation.set(0, 0, 0);
-      // 切勿旋转子节点: T34V16Builder 车头已 +Z(同玩家 createPlayerTank / tankState.yaw=π/2 "朝向+Z")。
-      // 原 -90° 旋转会把车头 +Z→+X, 与 AI enemyForward/aimTurretAt 的 +Z 约定差 90°,
-      // 导致模型侧滑(车头+X但AI沿+Z移动)+炮塔朝侧面开炮。
-      enemyModel = t34result.group;
+    if (realEnemyType === 'tank' || realEnemyType === 'tiger') {
+      // T-34/虎式 共用坦克管线; 虎式用 TigerIBuilder(返回结构同 T-34, 含 turretPivot/barrelPivot/mgGroup)
+      var _tkRes =
+        realEnemyType === 'tiger'
+          ? TigerIBuilder.buildAnimatedTigerI({
+              camoColor: 'desert',
+              position: { x: 0, y: 0, z: 0 },
+              yaw: 0,
+            })
+          : T34V16Builder.buildAnimatedT34_85({
+              camoColor: 'desert',
+              position: { x: 0, y: 0, z: 0 },
+              yaw: 0,
+            });
+      _tkRes.group.position.set(0, 0, 0);
+      _tkRes.group.rotation.set(0, 0, 0);
+      // 切勿旋转子节点: 车头已 +Z(同玩家 createPlayerTank). AI enemyForward/aimTurretAt 用 +Z 约定
+      enemyModel = _tkRes.group;
       enemyModel.group = enemyModel;
       enemyModel.userData = {
-        turretPivot: t34result.turretPivot,
-        barrelPivot: t34result.barrelPivot,
-        mgGroup: t34result.mgGroup,
+        turretPivot: _tkRes.turretPivot,
+        barrelPivot: _tkRes.barrelPivot,
+        mgGroup: _tkRes.mgGroup,
       };
     } else if (realEnemyType === 'assault-vehicle') {
       enemyModel = window.EnemyModels.createAssaultVehicle();
@@ -7316,14 +7401,16 @@ async function enterTrainingMode() {
     enemyModel.position.set(enemySpawnX, enemyGy, enemySpawnZ); // 六足由HexapodEnemy.init()自动抬升
     enemyModel.rotation.set(0, 0, 0); // rotation.y=0 → fwd=-X → 面朝玩家
     enemyModel.rotation.order = 'YXZ'; // 确保地形俯仰/侧倾正确
-    var isTankEnemy = realEnemyType === 'tank';
+    var isTankEnemy = realEnemyType === 'tank' || realEnemyType === 'tiger';
     var isHexEnemy = realEnemyType === 'hexapod';
     enemyModel.cfg = {
-      type: realEnemyType,
+      type: realEnemyType === 'tiger' ? 'tank' : realEnemyType, // 虎式复用坦克 AI/开火/装甲; tankVariant 区分参数
+      tankVariant: _enemyVariant, // 't34'/'tiger'/null
+      spec: _enemySpec, // TANK_SPECS[variant] (虎式/ T-34), 供硬编码点读取
       id: 'training_enemy',
       hp: enemyHP || 60,
-      speed: isTankEnemy ? 6.0 : isHexEnemy ? 4.5 : enemySpeed || 5.0,
-      viewDist: 80,
+      speed: _enemySpec ? _enemySpec.enemySpeed : isHexEnemy ? 4.5 : enemySpeed || 5.0,
+      viewDist: _enemySpec ? _enemySpec.viewDist : 80,
       attackDamage: 15,
       attackCooldown: realEnemyType === 'zombie' ? 1.5 : isHexEnemy ? 0.1 : 3.0,
       dropRate: 0,
@@ -7331,8 +7418,8 @@ async function enterTrainingMode() {
       reactive: trainingBehavior !== 'active',
       aggressive: trainingBehavior === 'active',
       passive: trainingBehavior === 'passive',
-      engageDist: isTankEnemy ? 50 : isHexEnemy ? 30 : 20,
-      flameRange: isTankEnemy || isHexEnemy ? 55 : 12,
+      engageDist: _enemySpec ? _enemySpec.engageDist : isHexEnemy ? 30 : 20,
+      flameRange: _enemySpec ? _enemySpec.flameRange : isHexEnemy ? 55 : 12,
       canFlee: false,
       // 六足专属参数（非六足敌人忽略）
       turnRate: isHexEnemy ? 2.0 : undefined,
@@ -7489,7 +7576,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.10 | ProfiledExtrude几何类型+虎式炮塔马蹄形建模+法线保障');
+console.log('🎮 坦克运动demo v0.65.13 | 虎式动画展台(炮塔360°+炮管-8~15°+MG34防空)+展台回归修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

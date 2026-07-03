@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.12</title>
+    <title>坦克运动demo v0.65.13</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.12</div>
+      <div class="menu-version">v0.65.13</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -777,12 +777,20 @@
           </div>
         </div>
         <div class="tc-row">
+          <span class="tc-label">🛡 型号</span>
+          <div class="tc-options" id="tc-player-model-opts">
+            <button class="tc-btn selected" data-val="t34">T-34/85</button>
+            <button class="tc-btn" data-val="tiger">🐅 虎式</button>
+          </div>
+        </div>
+        <div class="tc-row">
           <span class="tc-label">👾 敌方</span>
           <div class="tc-options" id="tc-enemy-opts">
-            <button class="tc-btn selected" data-val="tank">坦克</button>
+            <button class="tc-btn selected" data-val="tank">T-34/85</button>
             <button class="tc-btn" data-val="hexapod">🦗 六足</button>
             <button class="tc-btn" data-val="assault-vehicle">突击车</button>
             <button class="tc-btn" data-val="zombie">丧尸</button>
+            <button class="tc-btn" data-val="tiger">🐅 虎式</button>
           </div>
         </div>
         <div class="tc-row">
@@ -816,6 +824,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🎬 v0.65.13 虎式动画展台 + 展台回归修复 —
+          虎式接入模型工厂动画展台(炮塔360°+炮管俯仰-8~15°真实KwK36值+MG34绕支柱顶端防空旋转-5~80°)+_TANK_PROFILE差异化(T-34/虎式)+修复computeTrackTotalLen/updateTrackPlates缺失致T-34/虎式展台不播放的回归
+        </div>
+        <div class="cl-title">
           🐅 v0.65.12 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+轮廓UV修复 — MG34
           9部件(环形导轨/枢轴支柱/机匣/散热套管/枪管尖/双鼓弹匣/握把/环形瞄具)+热带沙漠迷彩(橄榄绿底+黄棕斑块,截图取色)+中间灰底色防暗色相乘+ProfiledExtrude侧面UV周长递增+炮管总成/舱盖/排气管/挡泥板/座圈覆盖迷彩+非调试色取消轮廓线
         </div>
@@ -834,11 +846,8 @@
           skill(自动算trackParams+像素验证)+TrackChain参数化(roadWheel*)+server.py
           no-cache头+autoLoad不再localStorage覆盖文件+_doSave去JSON下载
         </div>
-        <div class="cl-title">
-          🔧 v0.65.8 模型工厂固化一键保存 + 虎式调试着色 + UI清理 —
-          模型工厂Ctrl+S直接写源文件(server.py固化端点)+虎式坦克彩色材质+部件轮廓线框(对标六足)+切换坦克自动关闭六足专用UI(转弯验证/射击校准/动画列表)+移除冗余按钮(加载/输出姿态/应用到Config/导出JSON固化)+BoxHelper默认关闭
-        </div>
       </div>
+      <!-- changelog 裁剪：保留最近 5 条 (v0.65.13~v0.65.9)，v0.65.8 已移除 -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
@@ -1005,6 +1014,9 @@
     <!-- 模型系统 -->
     <script src="models/modelRegistry.js"></script>
     <script src="models/t34_v16_builder.js"></script>
+    <script src="models/tiger_v16_builder.js"></script>
+    <script src="js/tank_specs.js"></script>
+    <script src="js/profiled_extrude.js"></script>
     <script src="models/tank.js"></script>
     <script src="models/t34-85.js"></script>
     <script src="models/buildings.js"></script>

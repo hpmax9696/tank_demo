@@ -41,10 +41,10 @@ python -m http.server 8080 --bind 127.0.0.1
 
 | 文件                                    | 行数  | 核心内容                                                        |
 | --------------------------------------- | :---: | --------------------------------------------------------------- |
-| `index.html`                            | ~1034 | 主游戏框架（UI+菜单+脚本加载+训练配置）                         |
-| `js/engine.js`                          | ~7543 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）         |
+| `index.html`                            | ~1047 | 主游戏框架（UI+菜单+脚本加载+训练配置）                         |
+| `js/engine.js`                          | ~7631 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）         |
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                               |
-| `model_factory.html`                    | ~4158 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试） |
+| `model_factory.html`                    | ~4758 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试） |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                               |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）    |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                 |
@@ -52,7 +52,8 @@ python -m http.server 8080 --bind 127.0.0.1
 | `js/editor_waterBridge.js`              | ~659  | 水体桥梁（水面+河床+桥梁检测）                                  |
 | `js/editor_data.js`                     | ~504  | 数据持久化（蓝图+JSON+init）                                    |
 | `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                     |
-| `models/t34_v16_builder.js`             | ~488  | T-34/85 v1.6 动画坦克构建器                                     |
+| `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）       |
+| `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                   |
 | `models/enemies.js`                     | ~1324 | 装甲突击车 + 程序化丧尸                                         |
 | `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                  |
 | `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                             |
@@ -238,7 +239,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.65.12 — 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+UV修复）
+## 当前版本（v0.65.13 — 虎式动画展台+展台回归修复）
 
 ### 关键参数
 
@@ -246,9 +247,9 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | 世界尺寸        | worldWidth×worldDepth（可配置，默认300×300）                                                   |
 | 游玩尺寸        | playWidth×playDepth（空气墙，默认200×200）                                                     |
-| index.html 行数 | ~1034 行                                                                                       |
-| engine.js 行数  | ~7543 行                                                                                       |
-| 总源码行数      | ~31,092 行（49 个源文件）                                                                      |
+| index.html 行数 | ~1047 行                                                                                       |
+| engine.js 行数  | ~7631 行                                                                                       |
+| 总源码行数      | ~33,800 行（52 个源文件）                                                                      |
 | 编辑器模块      | 6个：terrainGen(914)+genStatus(181)+entities(653)+waterBridge(659)+data(504)+terrainPaint(335) |
 | 六足系统        | core(1188)+factory(884)+enemy(328)+probe(208)+aimLine(295)+config(70)                          |
 | 坦克速度        | MAX_SPEED=8.0 m/s                                                                              |
@@ -264,7 +265,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.65.9)
+### 已知问题 (v0.65.13)
 
 | #   | 问题                                     | 状态           |
 | --- | ---------------------------------------- | -------------- |
