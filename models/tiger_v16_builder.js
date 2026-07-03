@@ -752,8 +752,9 @@
   // ─── 暴露 ───
   window.TigerIBuilder = {
     buildAnimatedTigerI: function (options) {
-      const camoColor = (options && options.camoColor) || 'green';
-      const isDesert = camoColor === 'desert';
+      const camoColor = (options && options.camoColor) || 'desert';
+      // 虎式迷彩映射: green→丛林调试, desert→虎式专属热带沙漠, tropical_desert→显式指定
+      const camoType = camoColor === 'green' ? 'jungle' : 'tropical_desert';
       const config = JSON.parse(JSON.stringify(TIGER_I_V16_CONFIG));
 
       const tankRoot = new THREE.Group();
@@ -761,7 +762,7 @@
       const wheelList = [];
 
       if (window.T34V16Builder && T34V16Builder.buildFromConfig) {
-        T34V16Builder.buildFromConfig(config, tankRoot, wheelList, isDesert);
+        T34V16Builder.buildFromConfig(config, tankRoot, wheelList, camoType);
       }
 
       tankRoot.updateMatrixWorld();
@@ -821,6 +822,34 @@
         }
 
         mgGroup = findGroupByName(turretPivot, '高射机枪');
+
+        // ── MG34 旋转轴心：支柱顶端而非 mgGroup 原点 ──
+        // mgGroup 原点距支柱~1.35单位，直接旋转 mgGroup 会甩飞枪体
+        if (mgGroup) {
+          // MG枢轴支柱在 mgGroup 局部空间: [0.68, -1.2416, -0.81], Cylinder h=0.12, 顶端 Y = -1.2416+0.06 = -1.1816
+          var mgPivotLocal = new THREE.Vector3(0.68, -1.1816, -0.81);
+          var mgParent = mgGroup.parent;
+          // 将 pivot 点从 mgGroup 局部转到其 parent 局部
+          var pivotInParent = mgPivotLocal.clone();
+          // mgGroup 无旋转, pivotInParent = mgGroup.position + mgPivotLocal
+          pivotInParent.add(mgGroup.position);
+          var mgPivot = new THREE.Group();
+          mgPivot.name = 'mgPivot';
+          mgPivot.position.copy(pivotInParent);
+          mgParent.add(mgPivot);
+          // 将 mgGroup 的所有子节点迁移到 pivot
+          while (mgGroup.children.length > 0) {
+            var child = mgGroup.children[0];
+            mgGroup.remove(child);
+            // child 原相对 mgGroup, 现相对 pivot: childPos - pivotOffset
+            child.position.x -= mgPivotLocal.x;
+            child.position.y -= mgPivotLocal.y;
+            child.position.z -= mgPivotLocal.z;
+            mgPivot.add(child);
+          }
+          mgParent.remove(mgGroup);
+          mgGroup = mgPivot; // 用 pivot 替代原 mgGroup
+        }
       }
 
       // 收集轮子（只收负重轮/主动轮/诱导轮，不收履带板）

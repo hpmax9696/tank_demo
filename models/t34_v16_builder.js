@@ -35,11 +35,13 @@
   };
 
   let _camoJungleTex = null,
-    _camoDesertTex = null;
+    _camoDesertTex = null,
+    _camoTropicalDesertTex = null;
 
   function generateCamoTexture(type) {
     if (type === 'jungle' && _camoJungleTex) return _camoJungleTex;
     if (type === 'desert' && _camoDesertTex) return _camoDesertTex;
+    if (type === 'tropical_desert' && _camoTropicalDesertTex) return _camoTropicalDesertTex;
     const size = 512;
     const cv = document.createElement('canvas');
     cv.width = size;
@@ -51,6 +53,11 @@
       c1 = '#d4b88e';
       c2 = '#c4a458';
       c3 = '#efe0c0';
+    } else if (type === 'tropical_desert') {
+      bg = '#e0d898';
+      c1 = '#f0e8a8';
+      c2 = '#d8d090';
+      c3 = '#c8c078';
     } else {
       bg = '#9aab70';
       c1 = '#8c9e66';
@@ -76,11 +83,8 @@
     ctx.globalAlpha = 1;
     count = 10 + Math.floor(Math.random() * 10);
     for (var i = 0; i < count; i++) {
-      if (type === 'desert') {
-        ctx.fillStyle = '#b49658';
-      } else {
-        ctx.fillStyle = '#708048';
-      }
+      ctx.fillStyle =
+        type === 'desert' ? '#b49658' : type === 'tropical_desert' ? '#786050' : '#708048';
       ctx.globalAlpha = 0.5 + Math.random() * 0.3;
       ctx.beginPath();
       var cx = Math.random() * size,
@@ -96,6 +100,7 @@
     tex.wrapT = THREE.RepeatWrapping;
     tex.colorSpace = THREE.SRGBColorSpace;
     if (type === 'jungle') _camoJungleTex = tex;
+    else if (type === 'tropical_desert') _camoTropicalDesertTex = tex;
     else _camoDesertTex = tex;
     return tex;
   }
@@ -105,6 +110,7 @@
     var mat = new THREE.MeshStandardMaterial(Object.assign({}, def));
     if (camoType && (matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert')) {
       mat.map = generateCamoTexture(camoType);
+      mat.color.set(0x808080); // 中间灰，杜绝暗色底与纹理相乘压暗（对齐模型工厂）
     }
     return mat;
   }
@@ -488,7 +494,8 @@
     return { pos, rot };
   }
 
-  function buildTrackChain(node, parentGroup, wheelGroups, isDesert) {
+  function buildTrackChain(node, parentGroup, wheelGroups, camoType) {
+    if (!camoType) camoType = 'jungle';
     const tp = node.trackParams;
     const g = new THREE.Group();
     g.name = node.name;
@@ -521,7 +528,6 @@
     const lenFA = (Math.PI / 2 - angleF) * rR;
     const totalLen = lenAB + lenBC + lenCD + lenDE + lenEF + lenFA;
     const spacing = totalLen / (tp.count - 1);
-    const camoType = isDesert ? 'desert' : 'jungle';
     const matId = node.materialId || 'dark_steel';
     const isCamo = matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert';
     const mat =
@@ -544,7 +550,8 @@
     }
   }
 
-  function buildFromConfig(node, parentObj, wheelList, isDesert) {
+  function buildFromConfig(node, parentObj, wheelList, camoType) {
+    if (!camoType) camoType = 'jungle';
     if (node.type === 'Group') {
       const g = new THREE.Group();
       g.name = node.name;
@@ -555,13 +562,13 @@
       parentObj.add(g);
       if (node.children) {
         for (const c of node.children) {
-          buildFromConfig(c, g, wheelList, isDesert);
+          buildFromConfig(c, g, wheelList, camoType);
         }
       }
       return g;
     }
     if (node.type === 'TrackChain') {
-      buildTrackChain(node, parentObj, wheelList, isDesert);
+      buildTrackChain(node, parentObj, wheelList, camoType);
       return null;
     }
     const geo = createGeometry(node);
@@ -574,7 +581,6 @@
         cz = (box.min.z + box.max.z) / 2;
       geo.translate(-cx, -cy, -cz);
     }
-    const camoType = isDesert ? 'desert' : 'jungle';
     const matId = node.materialId || 'default';
     const isCamo = matId === 'camo_green' || matId === 'camo_dark' || matId === 'camo_desert';
     const mat =
@@ -615,7 +621,13 @@
 
   function buildAnimatedT34_85(options) {
     const camoColor = (options && options.camoColor) || 'green';
-    const isDesert = camoColor === 'desert';
+    // camoColor → camoType: green/未指定=丛林, desert=T-34沙漠, tropical_desert=虎式热带沙漠
+    const camoType =
+      camoColor === 'desert'
+        ? 'desert'
+        : camoColor === 'tropical_desert'
+          ? 'tropical_desert'
+          : 'jungle';
 
     const config = JSON.parse(JSON.stringify(T34_85_V16_CONFIG));
 
@@ -623,7 +635,7 @@
     tankRoot.name = 'T-34/85 v1.6';
     const wheelList = [];
 
-    buildFromConfig(config, tankRoot, wheelList, isDesert);
+    buildFromConfig(config, tankRoot, wheelList, camoType);
 
     // 确保矩阵更新（tankRoot 尚未加入场景）
     tankRoot.updateMatrixWorld();

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.65.13</title>
+    <title>坦克运动demo v0.66.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.65.13</div>
+      <div class="menu-version">v0.66.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,8 +824,9 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
-          🎬 v0.65.13 虎式动画展台 + 展台回归修复 —
-          虎式接入模型工厂动画展台(炮塔360°+炮管俯仰-8~15°真实KwK36值+MG34绕支柱顶端防空旋转-5~80°)+_TANK_PROFILE差异化(T-34/虎式)+修复computeTrackTotalLen/updateTrackPlates缺失致T-34/虎式展台不播放的回归
+          🔍 v0.66.0 碰撞体系统(模型减面+F2可视化)+虎式迷彩+MG枪口 —
+          SimplifyModifier减面生成精确碰撞体(虎式4493→627tris,T-34~4500→698tris),splitX自动分离车体/履带,F2切换camera
+          layer1可视化,虎式热带沙漠迷彩,mgMuzzleOffset替代硬编码枪口位置
         </div>
         <div class="cl-title">
           🐅 v0.65.12 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+轮廓UV修复 — MG34
@@ -847,7 +848,7 @@
           no-cache头+autoLoad不再localStorage覆盖文件+_doSave去JSON下载
         </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.65.13~v0.65.9)，v0.65.8 已移除 -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.66.0~v0.65.9)，v0.65.8 已移除 -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
@@ -1016,12 +1017,14 @@
     <script src="models/t34_v16_builder.js"></script>
     <script src="models/tiger_v16_builder.js"></script>
     <script src="js/tank_specs.js"></script>
+    <script src="js/collisionSystem.js"></script>
     <script src="js/profiled_extrude.js"></script>
     <script src="models/tank.js"></script>
     <script src="models/t34-85.js"></script>
     <script src="models/buildings.js"></script>
     <script src="models/windmill.js"></script>
     <script src="js/BufferGeometryUtils.js"></script>
+    <script src="js/SimplifyModifier.js"></script>
     <script src="models/trees.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>

@@ -48,6 +48,57 @@
       flameRange: 55,
       // 标记
       hasAAMG: false, // 无防空高射机枪
+      mgMuzzleOffset: [0, 0.295, 0.57], // MG枪口制退器顶端 相对mgGroup
+      collision: {
+        // 优先：模型减面（精确匹配轮廓）；兜底：手工 shapes
+        parts: [
+          {
+            parent: 'group',
+            excludeNode: 'turretPivot',
+            splitX: 1.05,
+            tag: 'hull',
+          },
+          { parent: 'turretPivot', targetTris: 120, color: 0x4488ff, tag: 'turret' },
+        ],
+        shapes: [
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [0, 0.55, -0.05],
+            size: [1.45, 0.7, 2.65],
+            tag: 'hull',
+          },
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [-1.05, 0.32, 0],
+            size: [0.22, 0.5, 2.75],
+            tag: 'trackL',
+          },
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [1.05, 0.32, 0],
+            size: [0.22, 0.5, 2.75],
+            tag: 'trackR',
+          },
+          {
+            parent: 'turretPivot',
+            type: 'box',
+            pos: [0, 0.1, 0.12],
+            size: [0.85, 0.42, 1.15],
+            tag: 'turret',
+          },
+          {
+            parent: 'barrelPivot',
+            type: 'cylinder',
+            pos: [0, 0, 1.0],
+            size: [0.12, 2.0],
+            rot: [1.5708, 0, 0],
+            tag: 'barrel',
+          },
+        ],
+      },
     },
 
     // ── 虎式 I（Tiger I）──
@@ -91,6 +142,56 @@
       flameRange: 65, // 88mm 射程远
       // 标记
       hasAAMG: true, // 顶置 MG34 高射（后续实装武器系统）
+      mgMuzzleOffset: [0, 0.0413, 0.5124], // MG枪管尖顶端 相对mgPivot（支柱顶端）
+      collision: {
+        parts: [
+          {
+            parent: 'group',
+            excludeNode: 'turretPivot',
+            splitX: 1.05,
+            tag: 'hull',
+          },
+          { parent: 'turretPivot', targetTris: 120, color: 0x4488ff, tag: 'turret' },
+        ],
+        shapes: [
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [0, 0.55, -0.05],
+            size: [1.6, 0.72, 2.9],
+            tag: 'hull',
+          },
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [-1.15, 0.35, 0],
+            size: [0.28, 0.52, 2.85],
+            tag: 'trackL',
+          },
+          {
+            parent: 'group',
+            type: 'box',
+            pos: [1.15, 0.35, 0],
+            size: [0.28, 0.52, 2.85],
+            tag: 'trackR',
+          },
+          {
+            parent: 'turretPivot',
+            type: 'box',
+            pos: [0, 0.1, 0.15],
+            size: [0.92, 0.45, 1.3],
+            tag: 'turret',
+          },
+          {
+            parent: 'barrelPivot',
+            type: 'cylinder',
+            pos: [0, 0, 1.1],
+            size: [0.14, 2.2],
+            rot: [1.5708, 0, 0],
+            tag: 'barrel',
+          },
+        ],
+      },
     },
   };
 })();

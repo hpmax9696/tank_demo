@@ -36,7 +36,17 @@ let animationId = null;
 // ==================== 键盘输入（事件监听） ====================
 window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
-  // H键：切换阴影开/关（对照实验，测量阴影对渲染耗时的影响）
+  // F2：切换显示渲染模型 / 碰撞体
+  if (e.code === 'F2') {
+    e.preventDefault();
+    if (window.CollisionSystem) {
+      var on = CollisionSystem.toggle();
+      console.log(
+        '🔍 碰撞体显示' + (on ? 'ON — 半透明色块=碰撞体' : 'OFF — 正常渲染模型') + ' (F2切换)'
+      );
+    }
+    return;
+  }
   if (e.code === 'F3') {
     e.preventDefault();
     debugToggleColliders();
@@ -1078,7 +1088,7 @@ function createPlayerTank(player) {
   const isTiger = player.tankModel === 'tiger';
   const result = isTiger
     ? TigerIBuilder.buildAnimatedTigerI({
-        camoColor: player.camoColor || 'green',
+        camoColor: player.camoColor || 'desert',
         position: { x: player.state.x, y: 0, z: player.state.z },
         yaw: player.state.yaw,
       })
@@ -1101,6 +1111,21 @@ function createPlayerTank(player) {
   player.maxHp = player.spec.hp;
   player.userData = player.userData || {};
   player.userData.maxHp = player.spec.hp;
+
+  // ── 碰撞体 ──
+  if (window.CollisionSystem && player.spec && player.spec.collision) {
+    var csNodeMap = {
+      group: player.group,
+      turretPivot: result.turretPivot,
+      barrelPivot: result.barrelPivot,
+    };
+    var csSpec = player.spec.collision;
+    if (csSpec.parts && csSpec.parts.length) {
+      CollisionSystem.buildFromModel(player, csNodeMap, csSpec.parts);
+    } else if (csSpec.shapes) {
+      CollisionSystem.attach(player, csNodeMap, csSpec.shapes);
+    }
+  }
 
   scene.add(player.group);
 
@@ -2499,72 +2524,96 @@ function gameLoop() {
         }
       }
 
-      // ── 炮弹 vs 敌人碰撞 (扫掠球-圆柱) ──
+      // ── 炮弹 vs 敌人碰撞 (碰撞体系统 / 扫掠球-圆柱兜底) ──
       if (!hit) {
-        const prevY2 = prevPos.y,
-          currY2 = s.mesh.position.y;
-        for (let ei = enemies.length - 1; ei >= 0; ei--) {
-          const en = enemies[ei];
-          if (!en || !en.visible || en.dead) continue;
-          const eR =
-            en.cfg && en.cfg.type === 'zombie'
-              ? 0.4
-              : en.cfg && en.cfg.type === 'hexapod'
-                ? 1.0
-                : ENEMY_HALF_W;
-          const eH =
-            en.cfg && en.cfg.type === 'zombie'
-              ? 1.8
-              : en.cfg && en.cfg.type === 'hexapod'
-                ? 2.0
-                : 0.8;
-          const ey = en.position.y,
-            cr = shellR + eR;
-          if (currY2 > ey + eH + 0.3 && prevY2 > ey + eH + 0.3) continue;
-          if (currY2 < ey - 0.3 && prevY2 < ey - 0.3) continue;
-          const ox = en.position.x,
-            oz = en.position.z;
-          const px = prevPos.x,
-            pz = prevPos.z;
-          const vx = s.mesh.position.x - px,
-            vz = s.mesh.position.z - pz;
-          if (vx * vx + vz * vz < 0.0001) continue;
-          const dx0 = px - ox,
-            dz0 = pz - oz;
-          const a2 = vx * vx + vz * vz,
-            b2 = 2 * (dx0 * vx + dz0 * vz),
-            c2 = dx0 * dx0 + dz0 * dz0 - cr * cr;
-          const d2 = b2 * b2 - 4 * a2 * c2;
-          if (d2 >= 0) {
-            const sq2 = Math.sqrt(d2),
-              t1 = (-b2 - sq2) / (2 * a2),
-              t2 = (-b2 + sq2) / (2 * a2);
-            if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1)) {
-              const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
-              const hitY = prevY2 + (currY2 - prevY2) * tHit;
-              if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
-                if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
-                  // 走完整 onEnemyDamaged 流程 (扣HP+踉跄+死亡检测), 替代直接扣HP
-                  window.EnemyAI.onEnemyDamaged(en, s.damage || SHELL_DAMAGE, s.owner || player1);
-                }
-                hit = true;
-                spawnHitSparks(
-                  new THREE.Vector3(
-                    ox + (px + vx * tHit - ox) * 0.5,
-                    hitY,
-                    oz + (pz + vz * tHit - oz) * 0.5
-                  )
-                );
-                playHitSound();
-                if (en.hp <= 0) {
-                  en.dead = true;
-                  spawnFragments(
-                    new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
-                    '#4a5c2e'
+        // 优先：碰撞体系统（精确 Box 组合，自动跟踪炮塔旋转）
+        if (window.CollisionSystem && CollisionSystem.count > 0) {
+          var csHit = CollisionSystem.raycastShell(prevPos, s.mesh.position, s.owner || player1);
+          if (csHit) {
+            var en = csHit.unit;
+            if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
+              window.EnemyAI.onEnemyDamaged(en, s.damage || SHELL_DAMAGE, s.owner || player1);
+            }
+            hit = true;
+            spawnHitSparks(csHit.point);
+            playHitSound();
+            if (en.hp <= 0) {
+              en.dead = true;
+              spawnFragments(
+                new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
+                '#4a5c2e'
+              );
+              playExplosionSound();
+              en.visible = false;
+              if (isTrainingMode) _killEnemyInTraining(en);
+            }
+          }
+        } else {
+          // 兜底：传统扫掠球-圆柱（无碰撞体的单位）
+          const prevY2 = prevPos.y,
+            currY2 = s.mesh.position.y;
+          for (let ei = enemies.length - 1; ei >= 0; ei--) {
+            const en = enemies[ei];
+            if (!en || !en.visible || en.dead) continue;
+            const eR =
+              en.cfg && en.cfg.type === 'zombie'
+                ? 0.4
+                : en.cfg && en.cfg.type === 'hexapod'
+                  ? 1.0
+                  : ENEMY_HALF_W;
+            const eH =
+              en.cfg && en.cfg.type === 'zombie'
+                ? 1.8
+                : en.cfg && en.cfg.type === 'hexapod'
+                  ? 2.0
+                  : 0.8;
+            const ey = en.position.y,
+              cr = shellR + eR;
+            if (currY2 > ey + eH + 0.3 && prevY2 > ey + eH + 0.3) continue;
+            if (currY2 < ey - 0.3 && prevY2 < ey - 0.3) continue;
+            const ox = en.position.x,
+              oz = en.position.z;
+            const px = prevPos.x,
+              pz = prevPos.z;
+            const vx = s.mesh.position.x - px,
+              vz = s.mesh.position.z - pz;
+            if (vx * vx + vz * vz < 0.0001) continue;
+            const dx0 = px - ox,
+              dz0 = pz - oz;
+            const a2 = vx * vx + vz * vz,
+              b2 = 2 * (dx0 * vx + dz0 * vz),
+              c2 = dx0 * dx0 + dz0 * dz0 - cr * cr;
+            const d2 = b2 * b2 - 4 * a2 * c2;
+            if (d2 >= 0) {
+              const sq2 = Math.sqrt(d2),
+                t1 = (-b2 - sq2) / (2 * a2),
+                t2 = (-b2 + sq2) / (2 * a2);
+              if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1)) {
+                const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
+                const hitY = prevY2 + (currY2 - prevY2) * tHit;
+                if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
+                  if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
+                    window.EnemyAI.onEnemyDamaged(en, s.damage || SHELL_DAMAGE, s.owner || player1);
+                  }
+                  hit = true;
+                  spawnHitSparks(
+                    new THREE.Vector3(
+                      ox + (px + vx * tHit - ox) * 0.5,
+                      hitY,
+                      oz + (pz + vz * tHit - oz) * 0.5
+                    )
                   );
-                  playExplosionSound();
-                  en.visible = false;
-                  if (isTrainingMode) _killEnemyInTraining(en);
+                  playHitSound();
+                  if (en.hp <= 0) {
+                    en.dead = true;
+                    spawnFragments(
+                      new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
+                      '#4a5c2e'
+                    );
+                    playExplosionSound();
+                    en.visible = false;
+                    if (isTrainingMode) _killEnemyInTraining(en);
+                  }
                 }
               }
             }
@@ -5436,7 +5485,11 @@ function _spawnEnemyMGTracer(enemy) {
   var mgGroup = enemy.userData && enemy.userData.mgGroup;
   var muzzlePos;
   if (mgGroup) {
-    muzzlePos = new THREE.Vector3(0, 0.32, 0.55); // MG枪口相对MG组
+    var specOff =
+      enemy.cfg && enemy.cfg.spec && enemy.cfg.spec.mgMuzzleOffset
+        ? enemy.cfg.spec.mgMuzzleOffset
+        : [0, 0.295, 0.57];
+    muzzlePos = new THREE.Vector3(specOff[0], specOff[1], specOff[2]);
     mgGroup.localToWorld(muzzlePos);
   } else {
     muzzlePos = enemy.position.clone();
@@ -6282,78 +6335,102 @@ function updateShellsFragsMuzzle(dt) {
         break;
       }
     }
-    // ── 炮弹 vs 敌人碰撞 (扫掠球-圆柱, 防高速跳过) ──
+    // ── 炮弹 vs 敌人碰撞 (碰撞体系统 / 扫掠球-圆柱兜底) ──
     if (!hit) {
-      for (let ei2 = enemies.length - 1; ei2 >= 0; ei2--) {
-        const en = enemies[ei2];
-        if (!en || !en.visible || en.dead) continue;
-        const eR =
-          en.cfg && en.cfg.type === 'zombie'
-            ? 0.4
-            : en.cfg && en.cfg.type === 'hexapod'
-              ? 1.0
-              : ENEMY_HALF_W;
-        const eH =
-          en.cfg && en.cfg.type === 'zombie'
-            ? 1.8
-            : en.cfg && en.cfg.type === 'hexapod'
-              ? 2.0
-              : 0.8;
-        const ey = en.position.y,
-          cR = sR + eR,
-          oTL = ey + eH + 0.3;
-        const prevY = prevPos.y,
-          currY = s.mesh.position.y;
-        if (currY > oTL && prevY > oTL) continue;
-        if (currY < ey - 0.3 && prevY < ey - 0.3) continue;
-        const ox = en.position.x,
-          oz = en.position.z;
-        const px = prevPos.x,
-          pz = prevPos.z;
-        const vx = s.mesh.position.x - px,
-          vz = s.mesh.position.z - pz;
-        if (vx * vx + vz * vz < 0.0001) continue;
-        const dx0 = px - ox,
-          dz0 = pz - oz;
-        const a = vx * vx + vz * vz,
-          b = 2 * (dx0 * vx + dz0 * vz),
-          c = dx0 * dx0 + dz0 * dz0 - cR * cR;
-        const disc = b * b - 4 * a * c;
-        if (disc >= 0) {
-          const sq = Math.sqrt(disc),
-            t1 = (-b - sq) / (2 * a),
-            t2 = (-b + sq) / (2 * a);
-          if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1)) {
-            const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
-            const hitY = prevY + (currY - prevY) * tHit;
-            if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
-              if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
-                en.hp -= s.damage || SHELL_DAMAGE;
-                if (en.hp < 0) en.hp = 0;
-              }
-              hit = true;
-              spawnHitSparks(
-                new THREE.Vector3(
-                  ox + (px + vx * tHit - ox) * 0.5,
-                  hitY,
-                  oz + (pz + vz * tHit - oz) * 0.5
-                )
-              );
-              playHitSound();
-              if (en.hp <= 0) {
-                en.dead = true;
-                spawnFragments(
-                  new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
-                  '#4a5c2e'
+      if (window.CollisionSystem && CollisionSystem.count > 0) {
+        var csHit2 = CollisionSystem.raycastShell(prevPos, s.mesh.position, s.owner || player1);
+        if (csHit2) {
+          var en2 = csHit2.unit;
+          if (!en2._invincibleUntil || performance.now() >= en2._invincibleUntil) {
+            en2.hp -= s.damage || SHELL_DAMAGE;
+            if (en2.hp < 0) en2.hp = 0;
+          }
+          hit = true;
+          spawnHitSparks(csHit2.point);
+          playHitSound();
+          if (en2.hp <= 0) {
+            en2.dead = true;
+            spawnFragments(
+              new THREE.Vector3(en2.position.x, en2.position.y + 1, en2.position.z),
+              '#4a5c2e'
+            );
+            playExplosionSound();
+            en2.visible = false;
+            if (isTrainingMode) _killEnemyInTraining(en2);
+          }
+        }
+      } else {
+        for (let ei2 = enemies.length - 1; ei2 >= 0; ei2--) {
+          const en = enemies[ei2];
+          if (!en || !en.visible || en.dead) continue;
+          const eR =
+            en.cfg && en.cfg.type === 'zombie'
+              ? 0.4
+              : en.cfg && en.cfg.type === 'hexapod'
+                ? 1.0
+                : ENEMY_HALF_W;
+          const eH =
+            en.cfg && en.cfg.type === 'zombie'
+              ? 1.8
+              : en.cfg && en.cfg.type === 'hexapod'
+                ? 2.0
+                : 0.8;
+          const ey = en.position.y,
+            cR = sR + eR,
+            oTL = ey + eH + 0.3;
+          const prevY = prevPos.y,
+            currY = s.mesh.position.y;
+          if (currY > oTL && prevY > oTL) continue;
+          if (currY < ey - 0.3 && prevY < ey - 0.3) continue;
+          const ox = en.position.x,
+            oz = en.position.z;
+          const px = prevPos.x,
+            pz = prevPos.z;
+          const vx = s.mesh.position.x - px,
+            vz = s.mesh.position.z - pz;
+          if (vx * vx + vz * vz < 0.0001) continue;
+          const dx0 = px - ox,
+            dz0 = pz - oz;
+          const a = vx * vx + vz * vz,
+            b = 2 * (dx0 * vx + dz0 * vz),
+            c = dx0 * dx0 + dz0 * dz0 - cR * cR;
+          const disc = b * b - 4 * a * c;
+          if (disc >= 0) {
+            const sq = Math.sqrt(disc),
+              t1 = (-b - sq) / (2 * a),
+              t2 = (-b + sq) / (2 * a);
+            if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1)) {
+              const tHit = Math.max(0, Math.min(1, t1 >= 0 && t1 <= 1 ? t1 : t2));
+              const hitY = prevY + (currY - prevY) * tHit;
+              if (hitY > ey - 0.3 && hitY < ey + eH + 0.3) {
+                if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
+                  en.hp -= s.damage || SHELL_DAMAGE;
+                  if (en.hp < 0) en.hp = 0;
+                }
+                hit = true;
+                spawnHitSparks(
+                  new THREE.Vector3(
+                    ox + (px + vx * tHit - ox) * 0.5,
+                    hitY,
+                    oz + (pz + vz * tHit - oz) * 0.5
+                  )
                 );
-                playExplosionSound();
-                en.visible = false;
-                if (isTrainingMode) _killEnemyInTraining(en);
+                playHitSound();
+                if (en.hp <= 0) {
+                  en.dead = true;
+                  spawnFragments(
+                    new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
+                    '#4a5c2e'
+                  );
+                  playExplosionSound();
+                  en.visible = false;
+                  if (isTrainingMode) _killEnemyInTraining(en);
+                }
               }
             }
           }
         }
-      }
+      } // else 闭合
     }
     if (!hit && gameMode === 'versus' && s.owner) {
       const en = s.owner === player1 ? player2 : player1;
@@ -6963,6 +7040,7 @@ function returnToMenu() {
   isTrainingMode = false;
   trainingRespawnQueued = null;
   gameMode = 'menu';
+  if (window.CollisionSystem) CollisionSystem.clear();
   menuOverlay.classList.remove('hidden');
   gameContainer.classList.remove('active');
   splitLine.style.display = 'none';
@@ -7487,6 +7565,25 @@ async function enterTrainingMode() {
     // 非主动攻击模式: 即使看到玩家也不主动追击 (overwrite update functions later, or use cfg)
     scene.add(enemyModel);
     enemies.push(enemyModel);
+    // ── 碰撞体 ──
+    if (
+      window.CollisionSystem &&
+      enemyModel.cfg &&
+      enemyModel.cfg.spec &&
+      enemyModel.cfg.spec.collision
+    ) {
+      var ecsNodeMap = {
+        group: enemyModel.group || enemyModel,
+        turretPivot: enemyModel.userData && enemyModel.userData.turretPivot,
+        barrelPivot: enemyModel.userData && enemyModel.userData.barrelPivot,
+      };
+      var ecsSpec = enemyModel.cfg.spec.collision;
+      if (ecsSpec.parts && ecsSpec.parts.length) {
+        CollisionSystem.buildFromModel(enemyModel, ecsNodeMap, ecsSpec.parts);
+      } else if (ecsSpec.shapes) {
+        CollisionSystem.attach(enemyModel, ecsNodeMap, ecsSpec.shapes);
+      }
+    }
     createEnemyHpBar(enemyModel);
     if (realEnemyType === 'zombie' || isHexEnemy) createEnemyHitFlashOverlay(enemyModel);
     updateObstacleVisibility();
@@ -7576,7 +7673,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.65.13 | 虎式动画展台(炮塔360°+炮管-8~15°+MG34防空)+展台回归修复');
+console.log('🎮 坦克运动demo v0.66.0 | 碰撞体系统(模型减面+F2可视化)+虎式迷彩+MG枪口修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

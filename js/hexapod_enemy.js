@@ -135,6 +135,16 @@ var HexapodEnemy = (function () {
     ctx._barrelClusters = barrelClusters;
 
     root.userData._hexAnimState = ctx;
+
+    // ── 碰撞体 ──
+    if (window.CollisionSystem && window.HexapodConfig) {
+      if (HexapodConfig.COLLISION_PARTS && HexapodConfig.COLLISION_PARTS.length) {
+        CollisionSystem.buildFromModel(root, { group: root }, HexapodConfig.COLLISION_PARTS);
+      } else if (HexapodConfig.COLLISION_SHAPES) {
+        CollisionSystem.attach(root, { group: root }, HexapodConfig.COLLISION_SHAPES);
+      }
+    }
+
     return ctx;
   }
 
