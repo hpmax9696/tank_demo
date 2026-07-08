@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.66.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.66.1
 
 ## 运行
 
@@ -269,6 +269,16 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.66.1 本次会话变更 (2026-07-08)
+
+### 修复玩家六足 F2 碰撞体可视化蓝灰六棱柱残留
+
+- **现象**: 玩家六足按 F2(碰撞体可视化) OFF 后，场景偶现蓝灰六棱柱(#4b4b62)残留在六足位置并跟随移动
+- **残留物本体**: `models/enemies.js:1247` 的 `_lodCylinder` — LOD 远距替身几何(`CylinderGeometry(0.5,0.7,2.5,6)`=六棱台 + 蓝灰 `0x4a4a5a`，初始 `visible=false`，挂 root 下→跟随移动)。`#4b4b62` 为截图取色(实为 `0x4a4a5a`)
+- **根因**: `collisionSystem._setRenderVisible` 切换渲染模型可见性时，跳过条件只含 `_col_` 前缀；F2 OFF(`vis=true`)时把 `_lodCylinder` 误设 `visible=true`。**玩家六足不进 LOD 循环**(`engine.js:3695` 仅遍历 `enemies[]`)→ 无 LOD 每帧修正 → 永久残留。敌人六足被 LOD 每帧 `cyl.visible=isFar` 修正故不复现(解释了"玩家六足偶现")
+- **修复**: `js/collisionSystem.js:80` `_setRenderVisible` 增加 `_lod` 前缀跳过 — LOD 几何归 `engine.js` LOD 系统自管，碰撞体可视化不再误碰
+- **验证**: Playwright 实测玩家六足 F2 ON→OFF 往返后 `_lodCylinder.visible` 保持 `false`，0 控制台错误
 
 ## v0.60.x 本次会话变更 (2026-06-15)
 

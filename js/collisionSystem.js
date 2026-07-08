@@ -76,7 +76,8 @@
   function _setRenderVisible(root, vis) {
     root.traverse(function (c) {
       if (!c.isMesh) return;
-      if (c.name && c.name.indexOf('_col_') === 0) return;
+      if (c.name && c.name.indexOf('_col_') === 0) return; // 碰撞体（layer 1 由 camera 控制）
+      if (c.name && c.name.indexOf('_lod') === 0) return; // LOD 几何归 engine.js LOD 系统自管，勿误开
       // 不使用材质透明度（会永久污染共享材质），改用 visible 直接隐藏
       // Group 保持可见 → 碰撞体子节点不受影响
       c.visible = vis;

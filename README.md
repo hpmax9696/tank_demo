@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.66.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.66.1** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -253,6 +253,13 @@ fireSmokeParticles.js:
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
 
+### v0.66.1 — 修复玩家六足F2碰撞体可视化蓝灰六棱柱残留（2026-07-08）
+
+- **根因**: 残留物=`models/enemies.js:1247` 的 `_lodCylinder`(LOD远距替身几何,CylinderGeometry(0.5,0.7,2.5,6)=六棱台+蓝灰0x4a4a5a,初始visible=false)。`#4b4b62`为截图取色(实为0x4a4a5a)
+- **触发链**: `collisionSystem._setRenderVisible` 跳过条件只含`_col_`前缀,F2 OFF 时误设`_lodCylinder.visible=true`;玩家六足不进LOD循环(engine.js:3695 仅遍历enemies)→无人修正→永久残留。敌人六足被LOD每帧`cyl.visible=isFar`修正故不复现
+- **修复**: `_setRenderVisible`增加`_lod`前缀跳过(`js/collisionSystem.js:80`),LOD几何归engine.js LOD系统自管,碰撞体可视化不再误碰
+- **验证**: Playwright实测玩家六足 F2 ON→OFF 往返后`_lodCylinder.visible`保持false,0控制台错误
+
 ### v0.66.0 — 碰撞体系统：模型减面+F2可视化切换（2026-07-03）
 
 - **碰撞体系统**: 从简化圆柱→模型减面精确匹配轮廓。SimplifyModifier 按部件减面（虎式4493→627 tris, T-34 ~4500→698 tris），splitX自动分离车体/履带
@@ -260,7 +267,7 @@ fireSmokeParticles.js:
 - **虎式迷彩修复**: T-34 builder `generateCamoTexture` 新增 `tropical_desert`，`getMaterial` color设为中间灰防暗色底压暗纹理
 - **MG枪口位置**: 按 spec `mgMuzzleOffset` 替代硬编码；虎式MG34支柱顶端建 `mgPivot` 替代 mgGroup 原点旋转
 - **新文件**: `js/collisionSystem.js`(碰撞体核心), `js/tank_specs.js`(坦克参数), `js/SimplifyModifier.js`(减面算法), `js/profiled_extrude.js`
-- **已知问题**: 玩家六足 F2 OFF 后偶现蓝灰六棱柱残留(#4b4b62)，原因待查
+- **[已修复] 玩家六足 F2 OFF 蓝灰六棱柱残留(#4b4b62)**: 根因=`models/enemies.js:1247` 的 `_lodCylinder`(LOD远距替身几何,六棱台+蓝灰0x4a4a5a,初始visible=false)被 `collisionSystem._setRenderVisible` 在 F2 OFF 时误设 visible=true;玩家六足不进 LOD 循环→无人修正→残留。修复=`_setRenderVisible` 跳过 `_lod` 前缀 mesh
 
 ### v0.65.13 — 虎式动画展台+展台回归修复（2026-07-02）
 
@@ -1358,7 +1365,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.66.0）
+### 代码规模（截至 v0.66.1）
 
 | 分类             | 文件                                                                                                                                                                                                          |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
