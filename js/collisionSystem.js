@@ -347,6 +347,7 @@
       dir.normalize();
 
       var raycaster = new THREE.Raycaster(prevPos, dir, 0, dist);
+      raycaster.layers.enable(1); // 碰撞体 mesh 在 layer1(F2可视化用), 默认 Raycaster 只测 layer0 会全部漏检
 
       var targets = ignoreUnit
         ? _meshes.filter(function (m) {

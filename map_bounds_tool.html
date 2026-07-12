@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>校园边界框选 + 楼高设置 — 金福园小学</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        font-family: 'Microsoft YaHei', sans-serif;
+        overflow: hidden;
+      }
+      #map {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: calc(100% - 370px);
+      }
+      #sidebar {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 370px;
+        background: #f4f6f8;
+        padding: 12px;
+        overflow-y: auto;
+        border-left: 1px solid #ccc;
+        font-size: 13px;
+      }
+      h2 {
+        font-size: 15px;
+        color: #2c3e50;
+        margin-bottom: 6px;
+      }
+      .hint {
+        font-size: 12px;
+        color: #555;
+        background: #e8f0fe;
+        padding: 8px 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        line-height: 1.6;
+      }
+      .hint b {
+        color: #1a73e8;
+      }
+      .actions {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 7px 11px;
+        border: none;
+        border-radius: 4px;
+        background: #4a90d9;
+        color: white;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      button:hover:not(:disabled) {
+        background: #357abd;
+      }
+      button.danger {
+        background: #d9534f;
+      }
+      button.danger:hover {
+        background: #c9302c;
+      }
+      button.success {
+        background: #5cb85c;
+      }
+      button.success:hover {
+        background: #4cae4c;
+      }
+      button.warn {
+        background: #f0ad4e;
+      }
+      button:disabled {
+        background: #b0b8c0;
+        cursor: not-allowed;
+      }
+      #status {
+        font-size: 12px;
+        color: #333;
+        margin-bottom: 10px;
+        padding: 7px 9px;
+        background: white;
+        border-radius: 4px;
+        border-left: 3px solid #4a90d9;
+        min-height: 18px;
+      }
+      #status.ok {
+        border-left-color: #5cb85c;
+      }
+      #status.err {
+        border-left-color: #d9534f;
+      }
+      .group-title {
+        font-size: 12px;
+        color: #555;
+        margin: 6px 0 4px;
+        font-weight: bold;
+      }
+      .building-item {
+        background: white;
+        padding: 6px 9px;
+        margin-bottom: 4px;
+        border-radius: 4px;
+        font-size: 12px;
+        border-left: 3px solid #5cb85c;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .building-item:hover {
+        background: #f8f9fa;
+      }
+      .building-item.selected {
+        border-left-color: #f0ad4e;
+        background: #fff8e8;
+      }
+      .building-item.ground {
+        border-left-color: #5bc0de;
+      }
+      .bi-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .bi-name {
+        font-weight: 500;
+      }
+      .bi-type {
+        color: #999;
+        font-size: 11px;
+        margin-left: 4px;
+      }
+      .bi-height {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .bi-height input {
+        width: 55px;
+        padding: 2px 4px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+      .bi-area {
+        font-size: 10px;
+        color: #aaa;
+        margin-top: 2px;
+      }
+      #building-list {
+        margin-bottom: 8px;
+      }
+      .export-section {
+        position: sticky;
+        bottom: 0;
+        background: #f4f6f8;
+        padding-top: 8px;
+        border-top: 1px solid #ddd;
+      }
+      .leaflet-control-attribution {
+        font-size: 9px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="sidebar">
+      <h2>🏫 金福园小学 — 数据采集工具</h2>
+      <div class="hint">
+        <b>① 框边界</b>：在地图上点击打点圈出校园（至少3点，顶点可拖动调整）<br />
+        <b>② 拉建筑</b>：点「完成边界」自动获取边界内 OSM 建筑/操场<br />
+        <b>③ 设楼高</b>：点建筑（或右侧列表）输入楼高（米，已按类型给默认值）<br />
+        <b>④ 导出</b>：「导出 JSON」生成地图数据，后续导入游戏
+      </div>
+      <div class="actions">
+        <button id="btn-finish" class="success" disabled>✅ 完成边界</button>
+        <button id="btn-clear" class="danger">🔄 清空</button>
+        <button id="btn-del">🗑️ 删除模式</button>
+      </div>
+      <div id="status">📍 打点中…（至少3个点）</div>
+      <div id="building-list"></div>
+      <div class="export-section">
+        <button
+          id="btn-export"
+          class="success"
+          style="width: 100%; padding: 11px; font-size: 13px"
+          disabled
+        >
+          📥 导出 JSON
+        </button>
+      </div>
+    </div>
+    <script>
+      const SCHOOL = [24.78966, 113.58105];
+      const MIRRORS = [
+        'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+      ];
+      async function fetchOverpass(ql) {
+        let lastErr;
+        for (const url of MIRRORS) {
+          try {
+            const r = await fetch(url, {
+              method: 'POST',
+              body: 'data=' + encodeURIComponent(ql),
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            });
+            if (r.ok) return await r.json();
+            lastErr = url.split('//')[1].split('/')[0] + ': HTTP ' + r.status;
+          } catch (e) {
+            lastErr = url.split('//')[1].split('/')[0] + ': ' + e.message;
+          }
+        }
+        throw new Error(lastErr || '所有镜像失败(检查网络)');
+      }
+      const DEFAULT_H = {
+        school: 12,
+        college: 12,
+        kindergarten: 8,
+        commercial: 6,
+        retail: 4,
+        shop: 5,
+        office: 15,
+        residential: 18,
+        apartments: 21,
+        house: 6,
+        hospital: 15,
+        clinic: 6,
+        industrial: 7,
+        warehouse: 6,
+        civic: 10,
+        public: 10,
+        yes: 8,
+        carport: 3,
+        garage: 3,
+        roof: 3,
+        shed: 3,
+        grandstand: 8,
+        service: 4,
+        toilets: 3,
+      };
+
+      const map = L.map('map', { zoomControl: true }).setView(SCHOOL, 18);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 20,
+          attribution: 'ESRI Imagery © Esri',
+        }
+      ).addTo(map);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 20,
+          opacity: 0.8,
+        }
+      ).addTo(map);
+
+      L.marker(SCHOOL).addTo(map).bindPopup('<b>金福园小学</b><br>OSM POI (college)');
+
+      let points = [];
+      let previewLine = null;
+      const markerLayer = L.layerGroup().addTo(map);
+      let boundaryPoly = null;
+      let buildings = [];
+      let grounds = [];
+      let deleteMode = false;
+      let selected = null;
+      let finished = false;
+
+      function setStatus(txt, kind) {
+        const s = document.getElementById('status');
+        s.textContent = txt;
+        s.className = kind || '';
+      }
+
+      function renderMarkers() {
+        markerLayer.clearLayers();
+        points.forEach((p, i) => {
+          const m = L.marker(p, {
+            draggable: true,
+            icon: L.divIcon({
+              html: `<div style="width:14px;height:14px;background:#4a90d9;border:2px solid #fff;border-radius:50%;box-shadow:0 0 4px #000;"></div>`,
+              className: '',
+              iconSize: [14, 14],
+              iconAnchor: [7, 7],
+            }),
+          })
+            .on('dragend', (e) => {
+              points[i] = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+              updatePreview();
+            })
+            .addTo(markerLayer);
+        });
+        updatePreview();
+      }
+
+      function updatePreview() {
+        if (previewLine) {
+          map.removeLayer(previewLine);
+          previewLine = null;
+        }
+        if (points.length >= 2)
+          previewLine = L.polyline(points, { color: '#1a73e8', weight: 2, dashArray: '6,5' }).addTo(
+            map
+          );
+        document.getElementById('btn-finish').disabled = points.length < 3 || finished;
+      }
+
+      map.on('click', (e) => {
+        if (finished) return;
+        if (deleteMode) return;
+        points.push([e.latlng.lat, e.latlng.lng]);
+        renderMarkers();
+        setStatus(`📍 已打 ${points.length} 个点（可拖动调整，至少3点）`);
+      });
+
+      document.getElementById('btn-finish').onclick = async () => {
+        if (points.length < 3) return;
+        document.getElementById('btn-finish').disabled = true;
+        setStatus('🔄 正在拉取边界内 OSM 建筑/操场（经服务器代理）…');
+        if (previewLine) {
+          map.removeLayer(previewLine);
+          previewLine = null;
+        }
+        boundaryPoly = L.polygon(points, {
+          color: '#d9534f',
+          weight: 2.5,
+          fillColor: '#d9534f',
+          fillOpacity: 0.08,
+        }).addTo(map);
+        markerLayer.clearLayers();
+
+        const poly = points.map((p) => `${p[0].toFixed(6)} ${p[1].toFixed(6)}`).join(' ');
+        const ql = `[out:json][timeout:60];(way["building"](poly:"${poly}");way["leisure"](poly:"${poly}");way["sport"](poly:"${poly}"););out geom;`;
+        try {
+          const j = await fetchOverpass(ql);
+          const ways = j.elements.filter(
+            (e) => e.type === 'way' && e.geometry && e.geometry.length >= 3
+          );
+          const latlngs2xy = (w) => w.geometry.map((g) => [g.lon, g.lat]); // [lng,lat] GeoJSON
+          const latlngs2ll = (w) => w.geometry.map((g) => [g.lat, g.lon]); // [lat,lng] Leaflet
+          buildings = [];
+          grounds = [];
+          ways.forEach((w) => {
+            const tags = w.tags || {};
+            const isBld = !!tags.building;
+            const xy = latlngs2xy(w),
+              ll = latlngs2ll(w);
+            const area = polygonArea(xy);
+            const layer = L.polygon(ll, {
+              color: isBld ? '#2e7d32' : '#0288d1',
+              weight: 1,
+              fillColor: isBld ? '#66bb6a' : '#4fc3f7',
+              fillOpacity: 0.28,
+            }).addTo(map);
+            const obj = {
+              id: 'way/' + w.id,
+              name: tags.name || '',
+              tags,
+              type: isBld ? tags.building || 'yes' : 'leisure:' + tags.leisure,
+              footprint: xy,
+              areaM2: area * 111000 * 111000 * Math.cos((SCHOOL[0] * Math.PI) / 180),
+              layer,
+            };
+            layer.on('click', (e) => {
+              L.DomEvent.stopPropagation(e);
+              onClickObj(isBld ? 'b' : 'g', obj);
+            });
+            (isBld ? buildings : grounds).push(obj);
+          });
+          finished = true;
+          document.getElementById('btn-finish').textContent = '✅ 已完成';
+          setStatus(
+            `✅ 边界内 ${buildings.length} 栋建筑 + ${grounds.length} 个场地。点击设楼高`,
+            'ok'
+          );
+          renderList();
+          document.getElementById('btn-export').disabled = buildings.length === 0;
+        } catch (e) {
+          setStatus('❌ 拉取失败: ' + e.message + '（可重试，或缩小边界）', 'err');
+          document.getElementById('btn-finish').disabled = false;
+          document.getElementById('btn-finish').textContent = '✅ 完成边界';
+        }
+      };
+
+      function polygonArea(xy) {
+        let a = 0;
+        for (let i = 0; i < xy.length; i++) {
+          const j = (i + 1) % xy.length;
+          a += xy[i][0] * xy[j][1] - xy[j][0] * xy[i][1];
+        }
+        return Math.abs(a) / 2;
+      }
+
+      function onClickObj(kind, obj) {
+        if (deleteMode) {
+          map.removeLayer(obj.layer);
+          if (kind === 'b') buildings = buildings.filter((x) => x !== obj);
+          else grounds = grounds.filter((x) => x !== obj);
+          renderList();
+          document.getElementById('btn-export').disabled = buildings.length === 0;
+          return;
+        }
+        if (kind !== 'b') return;
+        if (selected && selected.layer) selected.layer.setStyle({ color: '#2e7d32', weight: 1 });
+        selected = obj;
+        obj.layer.setStyle({ color: '#f57c00', weight: 4 });
+        const el = document.getElementById('item-' + obj.id.replace('/', '-'));
+        if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      function renderList() {
+        const list = document.getElementById('building-list');
+        list.innerHTML = '';
+        if (!buildings.length && !grounds.length) return;
+        const bCap = document.createElement('div');
+        bCap.className = 'group-title';
+        bCap.textContent = `建筑 (${buildings.length}) — 点击设楼高`;
+        list.appendChild(bCap);
+        buildings.forEach((b) => {
+          const defH = DEFAULT_H[b.type] !== undefined ? DEFAULT_H[b.type] : 8;
+          if (b.height === undefined) b.height = defH;
+          const div = document.createElement('div');
+          div.className = 'building-item';
+          div.id = 'item-' + b.id.replace('/', '-');
+          const name = b.name || '(' + b.type + ')';
+          div.innerHTML = `<div class="bi-top"><span><span class="bi-name">${name}</span><span class="bi-type">${b.type}</span></span>
+      <span class="bi-height"><input type="number" min="0" step="0.5" value="${b.height}"> m</span></div>
+      <div class="bi-area">占地≈${b.areaM2.toFixed(0)} m² · 默认${defH}m</div>`;
+          div.onclick = () => onClickObj('b', b);
+          const inp = div.querySelector('input');
+          inp.onclick = (e) => e.stopPropagation();
+          inp.oninput = (e) => {
+            b.height = parseFloat(e.target.value) || 0;
+          };
+          list.appendChild(div);
+        });
+        if (grounds.length) {
+          const gCap = document.createElement('div');
+          gCap.className = 'group-title';
+          gCap.style.marginTop = '8px';
+          gCap.textContent = `场地 (${grounds.length}) — ${grounds
+            .map((g) => g.type.replace('leisure:', ''))
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .join('、')}`;
+          list.appendChild(gCap);
+        }
+      }
+
+      document.getElementById('btn-clear').onclick = () => {
+        points = [];
+        [...buildings, ...grounds].forEach((o) => map.removeLayer(o.layer));
+        buildings = [];
+        grounds = [];
+        if (previewLine) {
+          map.removeLayer(previewLine);
+          previewLine = null;
+        }
+        if (boundaryPoly) {
+          map.removeLayer(boundaryPoly);
+          boundaryPoly = null;
+        }
+        finished = false;
+        selected = null;
+        renderMarkers();
+        renderList();
+        document.getElementById('btn-finish').textContent = '✅ 完成边界';
+        setStatus('📍 打点中…（至少3个点）');
+        document.getElementById('btn-export').disabled = true;
+      };
+
+      document.getElementById('btn-del').onclick = function () {
+        deleteMode = !deleteMode;
+        this.className = deleteMode ? 'warn' : '';
+        this.textContent = deleteMode ? '🚫 退出删除' : '🗑️ 删除模式';
+        if (deleteMode) setStatus('🗑️ 删除模式：点击地图上要删除的建筑/场地', 'err');
+        else setStatus(`✅ 边界内 ${buildings.length} 栋建筑 + ${grounds.length} 个场地`, 'ok');
+      };
+
+      document.getElementById('btn-export').onclick = () => {
+        const data = {
+          school: '韶关市武江区金福园小学',
+          center: { lat: SCHOOL[0], lng: SCHOOL[1] },
+          boundary: points.map((p) => ({ lat: +p[0].toFixed(7), lng: +p[1].toFixed(7) })),
+          buildings: buildings.map((b) => ({
+            id: b.id,
+            name: b.name,
+            type: b.type,
+            height: b.height,
+            areaM2: +b.areaM2.toFixed(1),
+            footprint: b.footprint.map((p) => [+p[0].toFixed(7), +p[1].toFixed(7)]),
+          })),
+          grounds: grounds.map((g) => ({
+            id: g.id,
+            name: g.name,
+            type: g.type.replace('leisure:', ''),
+            footprint: g.footprint.map((p) => [+p[0].toFixed(7), +p[1].toFixed(7)]),
+          })),
+          meta: {
+            note: 'WGS84 经纬度, footprint=[lng,lat], height 单位米, 游戏导入时 ÷1.3 = 单位',
+            source: 'OpenStreetMap (Overpass)',
+            version: 1,
+          },
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'jinfuyuan_school.json';
+        a.click();
+        setStatus(
+          `📥 已导出 ${buildings.length} 栋建筑 + ${grounds.length} 场地 (jinfuyuan_school.json)`,
+          'ok'
+        );
+      };
+
+      renderMarkers();
+    </script>
+  </body>
+</html>

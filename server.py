@@ -8,6 +8,8 @@ import json
 import os
 import re
 import sys
+import urllib.request
+import urllib.parse
 
 PORT = 8080
 BIND = '127.0.0.1'
@@ -84,6 +86,23 @@ def solidify_config(model_type, config_json_str):
     return filepath
 
 
+def overpass_proxy(ql):
+    """用 node fetch 转发 Overpass QL (node fetch 对镜像兼容性优于 python urllib)。
+    镜像列表在 overpass_fetch.js。返回 JSON 文本。"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['node', 'overpass_fetch.js', ql],
+            capture_output=True, timeout=90, text=True, encoding='utf-8')
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('node fetch 超时(90s)')
+    except FileNotFoundError:
+        raise RuntimeError('node 未安装/不在 PATH')
+    if result.returncode != 0:
+        raise RuntimeError('node fetch 失败: ' + (result.stderr or '').strip()[:200])
+    return result.stdout
+
+
 class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
     """静态文件服务 + POST /api/solidify"""
 
@@ -107,6 +126,20 @@ class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
                 self._json_ok({'file': saved_path})
             except Exception as e:
                 self._json_error(500, str(e))
+        elif self.path == '/api/overpass':
+            try:
+                content_len = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_len).decode('utf-8')
+                ql = urllib.parse.unquote(body[5:]) if body.startswith('data=') else body
+                result = overpass_proxy(ql)
+                b = result.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('Content-Length', str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+            except Exception as e:
+                self._json_error(502, 'Overpass 代理失败: ' + str(e))
         else:
             super().do_POST()
 

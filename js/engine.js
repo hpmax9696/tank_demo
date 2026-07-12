@@ -572,7 +572,13 @@ function rebuildMap() {
     if (g.parent) g.parent.remove(g);
     g.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
+      if (c.material && !String(c.name).startsWith('campus-')) {
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          if (m.dispose) m.dispose();
+        }
+      }
     });
   });
   obstacleMeshes = [];
@@ -1265,24 +1271,89 @@ function resetTank() {
 }
 
 // ==================== 碰撞检测 ====================
+// 坦克圆 vs 多边形(校园真实 footprint): 圆心在内→沿最近边推出, 圆心外圆触边→推开。精确贴合斜/L形建筑
+function circleVsPolygon(cx, cz, r, pts) {
+  const n = pts.length;
+  if (n < 3) return null;
+  let inside = false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = pts[i][0],
+      zi = pts[i][1],
+      xj = pts[j][0],
+      zj = pts[j][1];
+    if (zi > cz !== zj > cz && cx < ((xj - xi) * (cz - zi)) / (zj - zi || 1e-9) + xi)
+      inside = !inside;
+  }
+  let bestD = Infinity,
+    bestPx = 0,
+    bestPz = 0;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i],
+      b = pts[(i + 1) % n];
+    const dx = b[0] - a[0],
+      dz = b[1] - a[1];
+    const len2 = dx * dx + dz * dz;
+    let t = len2 > 0 ? ((cx - a[0]) * dx + (cz - a[1]) * dz) / len2 : 0;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    const px = a[0] + dx * t,
+      pz = a[1] + dz * t;
+    const d = Math.sqrt((cx - px) * (cx - px) + (cz - pz) * (cz - pz));
+    if (d < bestD) {
+      bestD = d;
+      bestPx = px;
+      bestPz = pz;
+    }
+  }
+  if (inside) {
+    const nx = bestPx - cx,
+      nz = bestPz - cz,
+      nl = bestD || 0.001;
+    return { px: (nx / nl) * (bestD + r + 0.01), pz: (nz / nl) * (bestD + r + 0.01) };
+  }
+  if (bestD < r) {
+    const nx = cx - bestPx,
+      nz = cz - bestPz,
+      nl = bestD || 0.001;
+    return { px: (nx / nl) * (r - bestD), pz: (nz / nl) * (r - bestD) };
+  }
+  return null;
+}
+
 function checkCollision(x, z, halfW) {
   const hw = halfW !== undefined ? halfW : TANK_HALF_W;
   // 障碍物碰撞 - 使用空间网格优化
   const checkObs = window._obstacleGrid
-    ? window._obstacleGrid.queryByDistance(x, z, hw + 2)
+    ? window._obstacleGrid.queryByDistance(x, z, hw + 30)
     : obstacleData;
   for (const obs of checkObs) {
     if (obs.destroyed) continue;
-    const dx = x - obs.x;
-    const dz = z - obs.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    const minDist = hw + obs.radius;
-    if (dist < minDist) {
-      const nx = dx / (dist || 0.001);
-      const nz = dz / (dist || 0.001);
-      const pushX = nx * (minDist - dist);
-      const pushZ = nz * (minDist - dist);
-      return { hit: true, pushX, pushZ };
+    if (obs.polygon) {
+      const hit = circleVsPolygon(x, z, hw, obs.polygon);
+      if (hit) return { hit: true, pushX: hit.px, pushZ: hit.pz };
+    } else if (obs.box) {
+      // 矩形障碍(校园 footprint 建筑): 坦克圆 vs AABB, 用矩形上最近点判定, 不会外扩弧形
+      const cx = Math.max(obs.box.minX, Math.min(x, obs.box.maxX));
+      const cz = Math.max(obs.box.minZ, Math.min(z, obs.box.maxZ));
+      const dx = x - cx,
+        dz = z - cz;
+      const distSq = dx * dx + dz * dz;
+      if (distSq < hw * hw) {
+        const dist = Math.sqrt(distSq) || 0.001;
+        return { hit: true, pushX: (dx / dist) * (hw - dist), pushZ: (dz / dist) * (hw - dist) };
+      }
+    } else {
+      const dx = x - obs.x;
+      const dz = z - obs.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const minDist = hw + obs.radius;
+      if (dist < minDist) {
+        const nx = dx / (dist || 0.001);
+        const nz = dz / (dist || 0.001);
+        const pushX = nx * (minDist - dist);
+        const pushZ = nz * (minDist - dist);
+        return { hit: true, pushX, pushZ };
+      }
     }
   }
   // 河流碰撞（桥面及桥头引道不阻挡，允许坦克驶上桥梁）
@@ -1791,6 +1862,7 @@ function updateTrajectoryLine(player) {
         : obstacleData;
       for (let ji = checkObs.length - 1; ji >= 0; ji--) {
         const od = checkObs[ji];
+        if (od.polygon || od.box) continue; // footprint建筑/围墙有mesh, 由Raycaster精确命中, 跳过外接圆(偏大提前截断)
         const oX = od.type === 'building' && od.groupRef ? od.groupRef.position.x : od.x;
         const oZ = od.type === 'building' && od.groupRef ? od.groupRef.position.z : od.z;
         const oR = (od.radius || 0.55) + shellR;
@@ -1902,7 +1974,10 @@ function gameLoop() {
       var _ss2 = document.getElementById('sniper-scope');
       if (_ss2 && _ss2.style.display !== 'none') _ss2.style.display = 'none';
       var _sm2 = document.getElementById('sniper-minimap');
-      if (_sm2 && _sm2.style.display !== 'none') _sm2.style.display = 'none';
+      if (window._hullOccluded) {
+        if (_sm2) _sm2.style.display = 'block';
+        drawSniperMinimap();
+      } else if (_sm2 && _sm2.style.display !== 'none') _sm2.style.display = 'none';
     }
     updateReloadRing(reloadTimer, player1.spec ? player1.spec.reloadTime : RELOAD_TIME);
     visibilityTimer += dt;
@@ -2431,15 +2506,33 @@ function gameLoop() {
       // 碰撞检测：炮弹 vs 障碍物（扫掠检测防穿越）
       let hit = false;
       const shellR = 0.18;
+      // 优先: Raycaster vs 校园建筑mesh(精确墙面命中, 替代外接圆圆柱的虚空触发)
+      if (window._campusBuildings && window._campusBuildings.length) {
+        const _sdir = new THREE.Vector3().subVectors(s.mesh.position, prevPos);
+        const _slen = _sdir.length();
+        if (_slen > 0.001) {
+          _sdir.normalize();
+          const _rcS = new THREE.Raycaster(prevPos, _sdir, 0, _slen + 0.5);
+          const _bhits = _rcS.intersectObjects(window._campusBuildings, false);
+          if (_bhits.length > 0) {
+            const _bp = _bhits[0].point.clone();
+            spawnFragments(_bp, '#d4c5a9');
+            spawnHitSparks(_bp);
+            playHitSound();
+            hit = true;
+          }
+        }
+      }
       _shellTmpC.subVectors(s.mesh.position, prevPos);
       const moveVec = _shellTmpC;
       const moveLen = moveVec.length();
       const checkObs = window._obstacleGrid
-        ? window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, moveLen + 2)
+        ? window._obstacleGrid.queryByDistance(s.mesh.position.x, s.mesh.position.z, moveLen + 30)
         : obstacleData;
       for (let j = checkObs.length - 1; j >= 0; j--) {
         const od = checkObs[j];
         if (od.destroyed) continue;
+        if (od.polygon || od.box) continue; // 校园footprint建筑由Raycaster精确墙面检测, 跳过圆柱(外接圆偏大虚空触发)
         if (od.type === 'building' && od.groupRef && !od.groupRef.visible) continue;
         const obsRadius = od.radius || 0.55;
         const combinedR = shellR + obsRadius;
@@ -2491,33 +2584,35 @@ function gameLoop() {
         }
 
         if (horizHit) {
-          const obsWorldPos = new THREE.Vector3(obsX, obsY + obsTop / 2, obsZ);
-          spawnFragments(obsWorldPos, od.color);
-          playExplosionSound();
-          if (od.type === 'building') {
-            if (od.groupRef) {
-              const obs = od.groupRef;
-              obs.parent.remove(obs);
-              obs.traverse((c) => {
-                if (c.geometry) c.geometry.dispose();
-                if (c.material) c.material.dispose();
-              });
-              const meshIdx = obstacleMeshes.indexOf(obs);
-              if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
-            } else if (od.imBuilding) {
-              disposeBuildingInstance(od);
+          const _hitPos = prevPos.clone();
+          spawnFragments(_hitPos, od.color);
+          spawnHitSparks(_hitPos);
+          const _indestructible = od.polygon || od.box || od.type === 'wall';
+          if (!_indestructible) playExplosionSound();
+          if (!_indestructible) {
+            if (od.type === 'building') {
+              if (od.groupRef) {
+                const obs = od.groupRef;
+                obs.parent.remove(obs);
+                obs.traverse((c) => {
+                  if (c.geometry) c.geometry.dispose();
+                  if (c.material) c.material.dispose();
+                });
+                const meshIdx = obstacleMeshes.indexOf(obs);
+                if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+              } else if (od.imBuilding) {
+                disposeBuildingInstance(od);
+              }
+            } else if (od.type && od.type !== 'building') {
+              disposeTreeInstance(od);
             }
-          } else if (od.type && od.type !== 'building') {
-            disposeTreeInstance(od);
-          }
-          // 找到 od 在 obstacleData 中的真实索引并移除
-          const realIdx = obstacleData.indexOf(od);
-          if (realIdx >= 0) {
-            obstacleData.splice(realIdx, 1);
-          }
-          // 从空间网格中移除
-          if (window._obstacleGrid) {
-            window._obstacleGrid.remove(od);
+            const realIdx = obstacleData.indexOf(od);
+            if (realIdx >= 0) {
+              obstacleData.splice(realIdx, 1);
+            }
+            if (window._obstacleGrid) {
+              window._obstacleGrid.remove(od);
+            }
           }
           hit = true;
           break;
@@ -4296,6 +4391,26 @@ function placeCamera() {
     groundY + CAMERA_ABOVE + shakeY,
     _camZ - cfz * CAMERA_BEHIND + shakeZ
   );
+  // 相机避障: 相机→坦克视线被建筑挡时, 相机升高到该建筑顶以上(越过建筑俯视坦克, 不停在墙前)
+  var _cb = window._campusBuildings;
+  window._hullOccluded = false;
+  if (_cb && _cb.length && window.THREE) {
+    var _camPos = camera.position;
+    var _tankPos = new THREE.Vector3(_camX, groundY + 1.5, _camZ);
+    var _rd = new THREE.Vector3().subVectors(_tankPos, _camPos);
+    var _rl = _rd.length();
+    if (_rl > 1) {
+      _rd.normalize();
+      var _ray = new THREE.Raycaster(_camPos, _rd, 0, _rl);
+      var _hh = _ray.intersectObjects(_cb, false);
+      if (_hh.length > 0 && _hh[0].distance < _rl - 1) {
+        window._hullOccluded = true;
+        // 前移到坦克后方3单位(越过中间的建筑, 让建筑落到相机身后不挡视线) + 下降平视(不俯视突兀)
+        camera.position.copy(_tankPos).addScaledVector(_rd, -3);
+        camera.position.y = _tankPos.y + 1.2;
+      }
+    }
+  }
   camera.lookAt(_camX + cfx * 8, groundY + CAMERA_LOOK_Y, _camZ + cfz * 8);
 }
 
@@ -6906,7 +7021,13 @@ async function rebuildMapAsync() {
     if (g.parent) g.parent.remove(g);
     g.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
+      if (c.material && !String(c.name).startsWith('campus-')) {
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          if (m.dispose) m.dispose();
+        }
+      }
     });
   });
   obstacleMeshes = [];
@@ -7673,7 +7794,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.66.1 | 修复玩家六足F2碰撞体可视化蓝灰六棱柱残留');
+console.log('🎮 坦克运动demo v0.67.0 | 金福园小学校园地图+建筑多边形碰撞+炮弹Raycaster墙面检测');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
@@ -7695,7 +7816,7 @@ window.addEventListener('keydown', function (e) {
     const hw = worldHalfW || 150,
       hd = worldHalfD || 150;
     const maxExt = Math.max(hw, hd);
-    camera.position.set(maxExt * 0.1, maxExt * 2.2, maxExt * 0.1);
+    camera.position.set(0, maxExt * 1.3, -maxExt * 0.5);
     camera.up.set(0, 1, 0);
     camera.lookAt(0, 0, 0);
     if (typeof controls !== 'undefined' && controls && controls.target)

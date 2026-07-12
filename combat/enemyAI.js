@@ -215,6 +215,9 @@
 
   // ─── 炮塔瞄准（旋转 turretPivot 使喷火管对准目标） ───
   function aimTurretAt(enemy, targetWorldPos, dt, turnSpeed) {
+    // 瞄准点Y补偿: targetWorldPos 是玩家 group.position(底盘/地面Y), 抬到车身中心
+    // 否则上山时炮管(高位)瞄玩家底盘→dy过大负→炮管过度下俯→炮弹急坠落在玩家前方地面
+    var AIM_BODY_OFFSET = 0.8;
     const tp = enemy.userData && enemy.userData.turretPivot;
     if (!tp) return;
     const turretWorldPos = new THREE.Vector3();
@@ -233,7 +236,7 @@
     if (bp) {
       const barrelWorldPos = new THREE.Vector3();
       bp.getWorldPosition(barrelWorldPos);
-      const dy = targetWorldPos.y - barrelWorldPos.y;
+      const dy = targetWorldPos.y + AIM_BODY_OFFSET - barrelWorldPos.y;
       const hDist = Math.sqrt(dx * dx + dz * dz);
       // 直瞄角度 + 重力补偿: 飞行时间 t=hDist/SHELL_SPEED, 下坠补偿 ≈ 0.5*g*t^2/hDist
       const directPitch = Math.atan2(dy, hDist);

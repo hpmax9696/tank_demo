@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.66.1</title>
+    <title>坦克运动demo v0.67.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.66.1</div>
+      <div class="menu-version">v0.67.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.67.0
+          金福园小学真实校园地图(OSM导入)+建筑多边形碰撞+炮弹Raycaster墙面检测+相机避障+围墙瓷砖地面
+        </div>
+        <div class="cl-title">
           🐛 v0.66.1 修复玩家六足F2 OFF蓝灰六棱柱残留 —
           LOD替身_lodCylinder被collisionSystem._setRenderVisible误设visible,玩家六足不进LOD循环无人修正→残留;修复=_setRenderVisible跳过_lod前缀mesh
         </div>
@@ -840,13 +844,8 @@
           🔧 v0.65.11 PE编辑器+左右命名修复+螺栓外侧 —
           PE预设/控制点/缩放+2D拖拽编辑器+Shift减速+多选滚动+虎式T34左右name调换(驾驶员视角)+螺栓朝外侧+履带板宽0.85+最后板原点修复
         </div>
-        <div class="cl-title">
-          🏭 v0.65.10 新增ProfiledExtrude几何类型 + 虎式炮塔马蹄形建模 —
-          ProfiledExtrude:XY轮廓(直线+圆弧)+roofProfile沿Z变高(前半斜面+后半水平);底面翻转索引(法线-
-          Z)/屋顶保持原索引(法线+Z);每个quad独立顶点(硬边)+cap顶点Z偏移(防computeVertexNormals混合);虎式炮塔主体Box→ProfiledExtrude(马蹄形俯视+倾斜屋顶)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.66.1~v0.66.0)，v0.65.9 已移除 -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.67.0~v0.66.1)，v0.65.10 已移除 -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

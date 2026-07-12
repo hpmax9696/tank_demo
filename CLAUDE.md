@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.66.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.0
 
 ## 运行
 
@@ -269,6 +269,35 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.67.0 本次会话变更 (2026-07-12)
+
+### 金福园小学真实校园地图（OSM 导入）
+
+- **数据采集**: map_bounds_tool.html 边界框选工具(Leaflet卫星图+Overpass OSM)→人工打点框校园+设楼高→导出 jinfuyuan_school.json(WGS84)
+- **转换器**: tools/build_campus_map.js 投影(切平面+居中+÷1.3)→campus.map.json(flat:true + footprintBuildings + grounds + boundary)
+- **建筑渲染**: obstacles.js createFootprintBuildings(ExtrudeGeometry真实footprint拉伸) + createGrounds(操场ShapeGeometry) + createBoundaryWalls(围墙box拆段) + createCampusGround(瓷砖CanvasTexture)
+- **campus 材质**: buildings.js 加 campusWallM/campusRoofM/campusPitchM(全局共享, polygonOffset)
+- **入口**: 单人地图选择(_index.json + type:'single')
+
+### 碰撞系统重构（大物体不用圆/圆柱）
+
+- **坦克碰撞**: checkCollision 加 circleVsPolygon(圆-多边形) + box(AABB) 分支; footprint建筑有 polygon+box 字段
+- **炮弹碰撞**: 加 Raycaster vs _campusBuildings mesh(精确墙面命中); 圆柱检测跳过 polygon/box(避免外接圆虚空触发)
+- **不可摧毁实体**: footprint建筑/围墙炮弹命中只碎片+火花+低沉音(playHitSound), 不移除碰撞; 树/随机建筑可摧毁(playExplosionSound)
+- **弹道线**: 体积检测跳过 polygon/box(避免外接圆提前截断), Raycaster 精确
+- **围墙拆段**: 长墙按12单位拆段(中心密集, queryByDistance 覆盖)
+- **瓷砖地面**: polygonOffset 层叠(草地<瓷砖<操场, 都y=0)
+- **教训**: 大物体(非圆柱/球)碰撞/检测不用圆/圆柱(半径小穿模大虚空触发)→用polygon/box/Raycaster
+
+### 相机避障 + 狙击小地图
+
+- **相机避障**: placeCamera 检测相机→坦克射线 vs _campusBuildings, 被挡时前移到坦克后方3+下降平视(非俯视)
+- **被挡自动小地图**: window._hullOccluded 标志, 第三人称被挡时显示 sniper-minimap(车体线框+车首三角)
+
+### 上帝模式修复
+
+- **F4 相机**: 降到穹顶内(1.3maxExt), 南上方俯瞰(北朝上); 数据层 x 取反补偿右手系东朝左
 
 ## v0.66.1 本次会话变更 (2026-07-08)
 

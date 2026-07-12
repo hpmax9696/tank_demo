@@ -423,6 +423,196 @@ window.getRoadSurfaceY = function (px, pz) {
   return bestH;
 };
 
+// ── 校园 footprint 建筑(真实多边形拉伸) + 操场着色 — v0.67 ──
+// footprint [[x,z]...] 是地面多边形; Shape 用 (x, -z) 因为 ExtrudeGeometry 沿+Z拉伸后
+// rotation.x=-π/2 会使 shape.y → world.−z, 取反才能让 world.z == footprint.z(与碰撞坐标同步)
+function _footprintToShape(fp, flipZ) {
+  const s = new THREE.Shape();
+  s.moveTo(fp[0][0], flipZ ? -fp[0][1] : fp[0][1]);
+  for (let i = 1; i < fp.length; i++) s.lineTo(fp[i][0], flipZ ? -fp[i][1] : fp[i][1]);
+  s.closePath();
+  return s;
+}
+
+function createFootprintBuildings(targetScene, fps) {
+  const M = window.CampusMaterials;
+  if (!M || !THREE.ExtrudeGeometry) return;
+  window._campusBuildings = []; // 收集建筑mesh供 placeCamera 相机避障射线检测
+  for (const fp of fps) {
+    if (!fp.footprint || fp.footprint.length < 3) continue;
+    const shape = _footprintToShape(fp.footprint, true);
+    const h = fp.height || 8; // 单位(米÷1.3)
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+    const mesh = new THREE.Mesh(geo, [M.wall, M.roof]); // [侧面墙, 顶/底 roof]
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = 'campus-bld';
+    targetScene.add(mesh);
+    obstacleMeshes.push(mesh);
+    window._campusBuildings.push(mesh);
+    // 碰撞: footprint 外接圆(用原始 x,z, 与渲染 world.z 同步)
+    let minX = Infinity,
+      maxX = -Infinity,
+      minZ = Infinity,
+      maxZ = -Infinity;
+    for (const p of fp.footprint) {
+      const x = p[0],
+        z = p[1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+    obstacleData.push({
+      x: (minX + maxX) / 2,
+      z: (minZ + maxZ) / 2,
+      radius: (Math.max(maxX - minX, maxZ - minZ) / 2) * 1.05,
+      box: { minX, maxX, minZ, maxZ },
+      polygon: fp.footprint,
+      height: h,
+      type: 'building',
+      groupRef: null,
+    });
+  }
+}
+
+function createGrounds(targetScene, grounds) {
+  const M = window.CampusMaterials;
+  if (!M || !THREE.ShapeGeometry) return;
+  for (const g of grounds) {
+    if (!g.footprint || g.footprint.length < 3) continue;
+    const shape = _footprintToShape(g.footprint, true);
+    const geo = new THREE.ShapeGeometry(shape);
+    const mesh = new THREE.Mesh(geo, M.pitch);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = 0; // =坦克底盘, 用 polygonOffset 盖瓷砖(不盖坦克)
+    mesh.receiveShadow = true;
+    mesh.name = 'campus-ground';
+    targetScene.add(mesh);
+    obstacleMeshes.push(mesh); // 操场不进 obstacleData(可驶入), 只登记 mesh 供清理
+  }
+}
+
+// 沿校园 boundary 建围墙(4m 高, 不可摧毁静态障碍), 坦克被挡在校园内
+function createBoundaryWalls(targetScene, boundary) {
+  const M = window.CampusMaterials;
+  if (!M || !THREE.BoxGeometry || !boundary || boundary.length < 2) return;
+  const WALL_H = 4 / 1.3; // 4米→单位
+  const WALL_T = 0.5; // 墙厚(单位)
+  const SEG = 12; // 每段墙最大长度(单位), 拆短段保证中心密集→checkCollision queryByDistance 覆盖, 防长墙漏检穿墙
+  function addWallSeg(ax, az, bx, bz) {
+    const dx = bx - ax,
+      dz = bz - az;
+    const L = Math.sqrt(dx * dx + dz * dz);
+    if (L < 0.3) return;
+    const mx = (ax + bx) / 2,
+      mz = (az + bz) / 2;
+    const yaw = Math.atan2(dz, dx);
+    const geo = new THREE.BoxGeometry(L, WALL_H, WALL_T);
+    const mesh = new THREE.Mesh(geo, M.roof);
+    mesh.position.set(mx, WALL_H / 2, mz);
+    mesh.rotation.y = -yaw;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = 'campus-wall';
+    targetScene.add(mesh);
+    obstacleMeshes.push(mesh);
+    const nx = -dz / L,
+      nz = dx / L;
+    const t = WALL_T / 2 + 0.3;
+    const poly = [
+      [ax + nx * t, az + nz * t],
+      [bx + nx * t, bz + nz * t],
+      [bx - nx * t, bz - nz * t],
+      [ax - nx * t, az - nz * t],
+    ];
+    obstacleData.push({
+      x: mx,
+      z: mz,
+      radius: L / 2 + t,
+      polygon: poly,
+      height: WALL_H,
+      type: 'wall',
+      groupRef: null,
+    });
+  }
+  for (let i = 0; i < boundary.length; i++) {
+    const a = boundary[i],
+      b = boundary[(i + 1) % boundary.length];
+    const dx = b[0] - a[0],
+      dz = b[1] - a[1];
+    const L = Math.sqrt(dx * dx + dz * dz);
+    if (L < 0.5) continue;
+    const nSeg = Math.max(1, Math.ceil(L / SEG));
+    for (let s = 0; s < nSeg; s++) {
+      const t0 = s / nSeg,
+        t1 = (s + 1) / nSeg;
+      addWallSeg(a[0] + dx * t0, a[1] + dz * t0, a[0] + dx * t1, a[1] + dz * t1);
+    }
+  }
+}
+
+// 围墙内瓷砖地面(除操场外): 大平面 + 程序化瓷砖纹理, y=-0.1(低于操场-0.05, 低于坦克0)
+function createCampusGround(targetScene, boundary) {
+  if (!boundary || boundary.length < 3 || !THREE.PlaneGeometry) return;
+  let minX = Infinity,
+    maxX = -Infinity,
+    minZ = Infinity,
+    maxZ = -Infinity;
+  for (const p of boundary) {
+    const x = p[0],
+      z = p[1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+  const w = maxX - minX,
+    d = maxZ - minZ;
+  if (w <= 0 || d <= 0) return;
+  if (!window._campusTileTex) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#d8d4cc';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#9c988e';
+    ctx.lineWidth = 5;
+    for (let i = 0; i <= 256; i += 64) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 256);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(256, i);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    window._campusTileTex = tex;
+  }
+  const tex = window._campusTileTex.clone();
+  tex.needsUpdate = true;
+  tex.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(d / 3)));
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex,
+    roughness: 0.9,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  const geo = new THREE.PlaneGeometry(w, d);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+  mesh.receiveShadow = true;
+  mesh.name = 'tile-ground';
+  targetScene.add(mesh);
+  obstacleMeshes.push(mesh);
+}
+
 function createObstacles(targetScene = scene) {
   if (window._treeIMs) {
     for (const im of window._treeIMs) {
@@ -446,7 +636,15 @@ function createObstacles(targetScene = scene) {
     if (g.parent) g.parent.remove(g);
     g.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
+      // campus 面材质全局共享(同 bld-im, buildings.js 模块级 const), 不 dispose;
+      // 其他普通 mesh 材质可能是数组, 逐个释放
+      if (c.material && !String(c.name).startsWith('campus-')) {
+        const mats = Array.isArray(c.material) ? c.material : [c.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          if (m.dispose) m.dispose();
+        }
+      }
     });
   });
   obstacleMeshes = [];
@@ -876,8 +1074,10 @@ function createObstacles(targetScene = scene) {
           obstacleMeshes.push(im);
           ims.push(im);
         }
-        // 填充实例矩阵
+        // 填充实例矩阵 + 基于实际渲染boundingBox算碰撞半径
         const dummy = new THREE.Object3D();
+        const _instBB = new THREE.Box3();
+        for (const im of ims) im.geometry.computeBoundingBox();
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
           const g = item.group;
@@ -890,11 +1090,22 @@ function createObstacles(targetScene = scene) {
           for (const im of ims) {
             im.setMatrixAt(i, dummy.matrix);
           }
+          // 碰撞半径基于实例实际渲染boundingBox(覆盖完整建筑含屋顶/栏杆突起),
+          // 原 ud.radius=max(w,d)/2*1.15 仅基于主体w/d, 渲染几何更宽→radius<半宽, 坦克能侵入墙体/穿过
+          let maxHalfW = 0;
+          let maxH = 0;
+          for (const im of ims) {
+            _instBB.copy(im.geometry.boundingBox).applyMatrix4(dummy.matrix);
+            const hw = Math.max(_instBB.max.x - _instBB.min.x, _instBB.max.z - _instBB.min.z) / 2;
+            if (hw > maxHalfW) maxHalfW = hw;
+            const hh = _instBB.max.y - _instBB.min.y;
+            if (hh > maxH) maxH = hh;
+          }
           obstacleData.push({
             x: item.bld.x,
             z: item.bld.z,
-            radius: item.ud.radius * item.s,
-            height: item.ud.height * item.s,
+            radius: maxHalfW * 1.05,
+            height: maxH,
             color: item.ud.color,
             blades: item.ud.blades || null,
             type: 'building',
@@ -917,6 +1128,20 @@ function createObstacles(targetScene = scene) {
         }
       }
     }
+  }
+
+  // ── 校园 footprint 建筑 + 操场(须在 _obstacleGrid.insertAll 前注册碰撞) ──
+  if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
+    createCampusGround(targetScene, obsCfg.boundary);
+  }
+  if (obsCfg && obsCfg.footprintBuildings && obsCfg.footprintBuildings.length) {
+    createFootprintBuildings(targetScene, obsCfg.footprintBuildings);
+  }
+  if (obsCfg && obsCfg.grounds && obsCfg.grounds.length) {
+    createGrounds(targetScene, obsCfg.grounds);
+  }
+  if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
+    createBoundaryWalls(targetScene, obsCfg.boundary);
   }
 
   const totalTrees = conePts.length + spherePts.length + oakPts.length;
