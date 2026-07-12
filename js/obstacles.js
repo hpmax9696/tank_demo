@@ -450,7 +450,6 @@ function createFootprintBuildings(targetScene, fps) {
     mesh.name = 'campus-bld';
     targetScene.add(mesh);
     obstacleMeshes.push(mesh);
-    window._campusBuildings.push(mesh);
     // 碰撞: footprint 外接圆(用原始 x,z, 与渲染 world.z 同步)
     let minX = Infinity,
       maxX = -Infinity,
@@ -464,6 +463,10 @@ function createFootprintBuildings(targetScene, fps) {
       if (z < minZ) minZ = z;
       if (z > maxZ) maxZ = z;
     }
+    // 预存碰撞数据: 足迹多边形(2D射线-多边形求交) + AABB(快速剔除)
+    mesh.userData._polygon = fp.footprint; // [[x,z],...] 世界坐标
+    mesh.userData._wallH = h;
+    window._campusBuildings.push(mesh);
     obstacleData.push({
       x: (minX + maxX) / 2,
       z: (minZ + maxZ) / 2,
@@ -527,6 +530,10 @@ function createBoundaryWalls(targetScene, boundary) {
       [bx - nx * t, bz - nz * t],
       [ax - nx * t, az - nz * t],
     ];
+    // 预存碰撞数据: 墙段多边形(2D射线-多边形求交)
+    mesh.userData._polygon = poly; // [[x,z],...] 世界坐标
+    mesh.userData._wallH = WALL_H;
+    if (window._campusBuildings) window._campusBuildings.push(mesh);
     obstacleData.push({
       x: mx,
       z: mz,

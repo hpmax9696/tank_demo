@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.1
 
 ## 运行
 
@@ -249,11 +249,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项 | 可选值 |
+| 配置项   | 可选值                                                      |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
+| 我方     | 坦克、六足(灰色不可选)                                      |
+| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -270,6 +270,26 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
+## v0.67.1 本次会话变更 (2026-07-13)
+
+### 校园建筑围墙碰撞修复 + 2D 射线-多边形精确求交
+
+- **围墙碰撞检测修复**: 围墙 mesh 推入 `window._campusBuildings` 数组，与建筑统一走碰撞检测流程
+- **2D 射线-多边形精确求交**: 淘汰不可靠的 ExtrudeGeometry 逐三角面 raycast，改为炮弹射线投影到 XZ 平面对 footprint 多边形每条边做射线-线段求交。命中点精确落在建筑墙面（非 AABB 虚空面），边法线驱动焦痕朝向
+- **命中效果对齐地面撞击**: 建筑/围墙命中播放 `playGroundHitSound()`（低沉撞击）+ `spawnGroundDebris()`（泥块飞溅）+ `spawnWallScorchMark(pos, normal)`（墙面焦痕平行于墙面），与炮弹落地效果一致
+- **HE 溅射不可摧毁守卫**: 高爆弹溅射循环加 `if (od.polygon || od.box || od.type === 'wall') continue;`，校园建筑/围墙不可被 HE 摧毁
+- **踩坑**: `Ray.distanceToPoint()` 返回垂直距离（非沿射线距离）→ 交点恰在射线上垂直距离 ≈0 → 所有建筑立即"命中"; `Box3.setFromObject()` 对旋转 ExtrudeGeometry 算出错误包围盒; ExtrudeGeometry 逐三角 raycast 短射线段易从面间缝隙穿过
+- **改动文件**: `js/engine.js`（主循环+vs 模式炮弹碰撞检测重写）+ `js/obstacles.js`（围墙推入 `_campusBuildings` + 预存 `userData._polygon`/`_wallH`）+ `js/shells.js`（新增 `spawnWallScorchMark`）
+
+### 已知问题
+
+1. avg fps 41.5 仍非稳定 60（剩余 GC 20ms），待 P-burst-3
+2. 坡地一头翘起一头陷地（坦克/敌人偶发）
+3. 对山丘目标弹道偏低
+4. 六足武器俯仰旋转轴不正确
+
+---
+
 ## v0.67.0 本次会话变更 (2026-07-12)
 
 ### 金福园小学真实校园地图（OSM 导入）
@@ -278,12 +298,12 @@ legGroup (Y旋转=水平摆角)
 - **转换器**: tools/build_campus_map.js 投影(切平面+居中+÷1.3)→campus.map.json(flat:true + footprintBuildings + grounds + boundary)
 - **建筑渲染**: obstacles.js createFootprintBuildings(ExtrudeGeometry真实footprint拉伸) + createGrounds(操场ShapeGeometry) + createBoundaryWalls(围墙box拆段) + createCampusGround(瓷砖CanvasTexture)
 - **campus 材质**: buildings.js 加 campusWallM/campusRoofM/campusPitchM(全局共享, polygonOffset)
-- **入口**: 单人地图选择(_index.json + type:'single')
+- **入口**: 单人地图选择(\_index.json + type:'single')
 
 ### 碰撞系统重构（大物体不用圆/圆柱）
 
 - **坦克碰撞**: checkCollision 加 circleVsPolygon(圆-多边形) + box(AABB) 分支; footprint建筑有 polygon+box 字段
-- **炮弹碰撞**: 加 Raycaster vs _campusBuildings mesh(精确墙面命中); 圆柱检测跳过 polygon/box(避免外接圆虚空触发)
+- **炮弹碰撞**: 加 Raycaster vs \_campusBuildings mesh(精确墙面命中); 圆柱检测跳过 polygon/box(避免外接圆虚空触发)
 - **不可摧毁实体**: footprint建筑/围墙炮弹命中只碎片+火花+低沉音(playHitSound), 不移除碰撞; 树/随机建筑可摧毁(playExplosionSound)
 - **弹道线**: 体积检测跳过 polygon/box(避免外接圆提前截断), Raycaster 精确
 - **围墙拆段**: 长墙按12单位拆段(中心密集, queryByDistance 覆盖)
@@ -292,8 +312,8 @@ legGroup (Y旋转=水平摆角)
 
 ### 相机避障 + 狙击小地图
 
-- **相机避障**: placeCamera 检测相机→坦克射线 vs _campusBuildings, 被挡时前移到坦克后方3+下降平视(非俯视)
-- **被挡自动小地图**: window._hullOccluded 标志, 第三人称被挡时显示 sniper-minimap(车体线框+车首三角)
+- **相机避障**: placeCamera 检测相机→坦克射线 vs \_campusBuildings, 被挡时前移到坦克后方3+下降平视(非俯视)
+- **被挡自动小地图**: window.\_hullOccluded 标志, 第三人称被挡时显示 sniper-minimap(车体线框+车首三角)
 
 ### 上帝模式修复
 
@@ -560,7 +580,7 @@ legGroup (Y旋转=水平摆角)
 
 ### 关键坑
 
-- **MG pivot 位置**: 旧`pivot.position.set(0, pivotY, 0)`写死X/Z=0, T-34支柱在mgGroup原点侥幸成立; 虎式支柱在(0.68,_,-0.81), 沿用会让枪管绕车体中心半径0.9大圆甩飞。改用支柱完整坐标(x, y+H/2, z), T-34零回归(支柱x/z=0等价旧值)
+- **MG pivot 位置**: 旧`pivot.position.set(0, pivotY, 0)`写死X/Z=0, T-34支柱在mgGroup原点侥幸成立; 虎式支柱在(0.68,\_,-0.81), 沿用会让枪管绕车体中心半径0.9大圆甩飞。改用支柱完整坐标(x, y+H/2, z), T-34零回归(支柱x/z=0等价旧值)
 - **炮管俯仰轴心**: 用户要求=炮盾与炮塔前板接触面中心。旧用炮盾中心(mantletWorld)偏前半个炮盾厚度。改用"炮塔前板前端面"(前板中心z+厚/2, 虎式实测[0,-0.772,1.907]=接触面); T-34无"炮塔前板"→fallback炮盾中心(零回归)。虎式炮盾是Cylinder(沿Z h=0.5)、T-34炮盾是Sphere(scale[1,0.7,0.6])几何不同, 故用前板更稳
 - **nodeMap 结构**: 叶子mesh的`info.group`是包装Group直接挂父Group, `info.group.position`=配置position(mgGroup无pivot则pivotComp=[0,0,0]); MG部件迁移逻辑对虎式同样成立
 
@@ -568,13 +588,13 @@ legGroup (Y旋转=水平摆角)
 
 - 虎式切对(MG枢轴支柱=true) + 三动画在转: case1 turretRotY=2.657rad, case3 MG yaw=2.436rad/pitch=74.5°, case2 炮管pitch=10.6°(均在真实范围)
 - MG pivot 实测[0.68,-1.182,-0.81]=支柱顶端 ✓; 0 console错误
-- **注意**: `window._animRefs` 是 stale 副本(_tankCollectRefs里`animRefs={}`重置闭包变量未同步window), 诊断pivot要用`nodeMap.get(name).group.userData.animXxxPivot`
+- **注意**: `window._animRefs` 是 stale 副本(\_tankCollectRefs里`animRefs={}`重置闭包变量未同步window), 诊断pivot要用`nodeMap.get(name).group.userData.animXxxPivot`
 
 ### 关键文件变更
 
-| 文件                 | 改动                                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `model_factory.html` | 补computeTrackTotalLen/updateTrackPlates + _TANK_PROFILE + tiger_v16注册 + _tankCollectRefs/UpdateFrame用profile + MG pivot完整坐标 |
+| 文件                 | 改动                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `model_factory.html` | 补computeTrackTotalLen/updateTrackPlates + \_TANK_PROFILE + tiger_v16注册 + \_tankCollectRefs/UpdateFrame用profile + MG pivot完整坐标 |
 
 ---
 

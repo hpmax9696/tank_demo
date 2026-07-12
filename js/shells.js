@@ -103,6 +103,27 @@ function spawnScorchMark(pos) {
   scorchMarks.push({ mesh: mark, life: 2.5 + Math.random() * 0.5, maxLife: 3.0 });
 }
 
+// 墙面焦痕：平行于墙面（normal 是墙面的法线方向）
+function spawnWallScorchMark(pos, wallNormal) {
+  var geo = new THREE.CircleGeometry(0.45 + Math.random() * 0.25, 16);
+  var mat = new THREE.MeshBasicMaterial({
+    color: '#1a1a1a',
+    transparent: true,
+    opacity: 0.65,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  var mark = new THREE.Mesh(geo, mat);
+  // CircleGeometry 默认法线 (0,0,1)，用 setFromUnitVectors 转成墙面法线
+  var quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), wallNormal);
+  mark.setRotationFromQuaternion(quat);
+  mark.position.copy(pos).addScaledVector(wallNormal, 0.06);
+  scene.add(mark);
+  scorchMarks.push({ mesh: mark, life: 2.5 + Math.random() * 0.5, maxLife: 3.0 });
+}
+
+window.spawnWallScorchMark = spawnWallScorchMark;
+
 function disposeShellMesh(mesh) {
   mesh.traverse((child) => {
     if (child.geometry) child.geometry.dispose();

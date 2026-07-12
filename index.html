@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.67.0</title>
+    <title>坦克运动demo v0.67.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.67.0</div>
+      <div class="menu-version">v0.67.1</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,10 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🎯 v0.67.1 校园建筑围墙碰撞修复 — 2D射线-多边形精确求交(替代ExtrudeGeometry逐三角raycast)+
+          围墙加入碰撞检测+命中播放地面低沉音效+墙面焦痕平行于墙面+HE溅射不可摧毁守卫
+        </div>
+        <div class="cl-title">
           🏫 v0.67.0
           金福园小学真实校园地图(OSM导入)+建筑多边形碰撞+炮弹Raycaster墙面检测+相机避障+围墙瓷砖地面
         </div>
@@ -840,12 +844,8 @@
           🐅 v0.65.12 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+轮廓UV修复 — MG34
           9部件(环形导轨/枢轴支柱/机匣/散热套管/枪管尖/双鼓弹匣/握把/环形瞄具)+热带沙漠迷彩(橄榄绿底+黄棕斑块,截图取色)+中间灰底色防暗色相乘+ProfiledExtrude侧面UV周长递增+炮管总成/舱盖/排气管/挡泥板/座圈覆盖迷彩+非调试色取消轮廓线
         </div>
-        <div class="cl-title">
-          🔧 v0.65.11 PE编辑器+左右命名修复+螺栓外侧 —
-          PE预设/控制点/缩放+2D拖拽编辑器+Shift减速+多选滚动+虎式T34左右name调换(驾驶员视角)+螺栓朝外侧+履带板宽0.85+最后板原点修复
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.67.0~v0.66.1)，v0.65.10 已移除 -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.67.1~v0.66.1)，v0.65.11 已移除 -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
