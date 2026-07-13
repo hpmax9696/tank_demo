@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.67.1</title>
+    <title>坦克运动demo v0.67.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.67.1</div>
+      <div class="menu-version">v0.67.2</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏟️ v0.67.2 校园地面三层分区(地砖+塑胶跑道+草地) — 东北室内教学区:地砖;
+          西南运动区:用户打点精确多边形跑道(贝塞尔曲线段);
+          运动场内部:TerrainTextures.grass()真实FBM噪声+草叶纹理;
+          修复Shape坐标系Z轴取反(rotation.x=-PI/2矩阵补偿); 顺修window.obstacleMeshes引用断裂
+        </div>
+        <div class="cl-title">
           🎯 v0.67.1 校园建筑围墙碰撞修复 — 2D射线-多边形精确求交(替代ExtrudeGeometry逐三角raycast)+
           围墙加入碰撞检测+命中播放地面低沉音效+墙面焦痕平行于墙面+HE溅射不可摧毁守卫
         </div>
@@ -840,12 +846,8 @@
           SimplifyModifier减面生成精确碰撞体(虎式4493→627tris,T-34~4500→698tris),splitX自动分离车体/履带,F2切换camera
           layer1可视化,虎式热带沙漠迷彩,mgMuzzleOffset替代硬编码枪口位置
         </div>
-        <div class="cl-title">
-          🐅 v0.65.12 虎式MG34高射机枪+热带沙漠迷彩+材质覆盖+轮廓UV修复 — MG34
-          9部件(环形导轨/枢轴支柱/机匣/散热套管/枪管尖/双鼓弹匣/握把/环形瞄具)+热带沙漠迷彩(橄榄绿底+黄棕斑块,截图取色)+中间灰底色防暗色相乘+ProfiledExtrude侧面UV周长递增+炮管总成/舱盖/排气管/挡泥板/座圈覆盖迷彩+非调试色取消轮廓线
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.67.1~v0.66.1)，v0.65.11 已移除 -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.67.2~v0.66.1) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

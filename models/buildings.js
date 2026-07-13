@@ -42,15 +42,24 @@
     roughness: 0.4,
     metalness: 0.3,
   });
-  // 校园(真实 footprint 拉伸建筑 + 操场着色) — v0.67 校园地图用
+  // 校园(真实 footprint 拉伸建筑 + 操场草地/塑胶跑道/地砖) — v0.67 校园地图用
   const campusWallM = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.85 });
   const campusRoofM = new THREE.MeshStandardMaterial({ color: '#8A8A8A', roughness: 0.75 });
-  const campusPitchM = new THREE.MeshStandardMaterial({
-    color: '#B5654D',
-    roughness: 0.9,
+  // 运动场内部: 草地纯色fallback(真正纹理由 createGrounds 懒初始化用 TerrainTextures.grass())
+  const campusGrassM = new THREE.MeshStandardMaterial({
+    color: '#4A8C3F', // 游戏标准草绿(对齐 generateCompositeGroundTexture #4a8c3f)
+    roughness: 0.95,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -4,
+  });
+  // 塑胶跑道底色(砖红) — createSportsTrackZone 程序化纹理兜底色
+  const campusPitchM = new THREE.MeshStandardMaterial({
+    color: '#C23D32',
+    roughness: 0.9,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
   });
 
   function addShadow(g) {
@@ -392,6 +401,11 @@
   window.ModelRegistry.register('buildings', 'bungalow', createBungalow, 10);
   window.ModelRegistry.register('buildings', 'villa', createVilla, 10);
   window.ModelRegistry.register('buildings', 'apartment', createApartment, 7);
-  // 校园地图材质暴露(footprint 拉伸建筑 + 操场用)
-  window.CampusMaterials = { wall: campusWallM, roof: campusRoofM, pitch: campusPitchM };
+  // 校园地图材质暴露(footprint 拉伸建筑 + 操场草地/塑胶跑道用)
+  window.CampusMaterials = {
+    wall: campusWallM,
+    roof: campusRoofM,
+    pitch: campusPitchM,
+    grass: campusGrassM,
+  };
 })();

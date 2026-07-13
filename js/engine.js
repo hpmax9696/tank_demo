@@ -7914,7 +7914,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.67.1 | 校园建筑围墙碰撞修复+2D射线-多边形精确求交');
+console.log('🎮 坦克运动demo v0.67.2 | 校园地面分区(地砖+跑道+草地)+精确打点跑道边界');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

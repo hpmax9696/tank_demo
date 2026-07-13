@@ -480,16 +480,141 @@ function createFootprintBuildings(targetScene, fps) {
   }
 }
 
+// ── 2D凸包 (Andrew's Monotone Chain) ──
+function _convexHull(points) {
+  points = points.slice().sort(function (a, b) {
+    return a[0] - b[0] || a[1] - b[1];
+  });
+  var cross = function (o, a, b) {
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  };
+  var lower = [],
+    upper = [];
+  for (var i = 0; i < points.length; i++) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0
+    )
+      lower.pop();
+    lower.push(points[i]);
+  }
+  for (var j = points.length - 1; j >= 0; j--) {
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], points[j]) <= 0
+    )
+      upper.pop();
+    upper.push(points[j]);
+  }
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
+}
+// 多边形外扩(dist>0=外扩, dist<0=内缩)
+function _expandPolygon(poly, dist) {
+  var expanded = [];
+  for (var i = 0; i < poly.length; i++) {
+    var a = poly[i],
+      b = poly[(i + 1) % poly.length];
+    var dx = b[0] - a[0],
+      dz = b[1] - a[1];
+    var len = Math.sqrt(dx * dx + dz * dz) || 1;
+    var nx = -dz / len,
+      nz = dx / len; // 边法线 (CCW多边形)
+    expanded.push([a[0] + nx * dist, a[1] + nz * dist]);
+  }
+  return expanded;
+}
+
+// ── 西南运动区塑胶跑道(人工打点精确边界, 覆盖 grounds+通道+边缘, 坐落地砖之上/草地之下) ──
+function createSportsTrackZone(targetScene, grounds, boundary) {
+  if (!THREE.ShapeGeometry) return;
+  // 1. 精确边界多边形 (打点工具数据 × Z取反: ShapeY→World-Z 补偿 rotation.x=-PI/2)
+  //    世界路径: F→E(曲线)→D→C→B→A→闭合; Shape坐标=世界(X,-Z)
+  var shape = new THREE.Shape();
+  shape.moveTo(14.81, -11.46); // F world(14.81,11.46)
+  // F→E 贝塞尔曲线(控制点Z取反, 方向反转)
+  shape.quadraticCurveTo(26.55, -13.01, 35.75, -2.97); // CP(26.55,13.01)→E(35.75,2.97)
+  shape.lineTo(69.84, -13.58); // D world(69.84,13.58)
+  shape.lineTo(83.84, 37.77); // C world(83.84,-37.77) 东南角贴边界
+  shape.lineTo(-3.43, 62.1); // B world(-3.43,-62.10) 西南角贴边界
+  shape.lineTo(-22.11, -2.55); // A world(-22.11,2.55) 西北角
+  shape.closePath(); // A→F 闭合
+  // 2. 跑道纹理(砖红+颗粒, 缓存)
+  if (!window._campusTrackTex) {
+    var _tc = document.createElement('canvas');
+    _tc.width = _tc.height = 256;
+    var _tx = _tc.getContext('2d');
+    _tx.fillStyle = '#CC4035';
+    _tx.fillRect(0, 0, 256, 256);
+    for (var _k = 0; _k < 1200; _k++) {
+      var _px = Math.random() * 256,
+        _py = Math.random() * 256;
+      _tx.fillStyle = Math.random() > 0.5 ? 'rgba(225,95,68,0.38)' : 'rgba(145,42,32,0.35)';
+      _tx.fillRect(_px, _py, 1.5, 1.5);
+    }
+    var _ttex = new THREE.CanvasTexture(_tc);
+    _ttex.wrapS = _ttex.wrapT = THREE.RepeatWrapping;
+    window._campusTrackTex = _ttex;
+  }
+  var trackTex = window._campusTrackTex.clone();
+  trackTex.needsUpdate = true;
+  // 3. 精确边界 Shape → ShapeGeometry
+  var geo = new THREE.ShapeGeometry(shape);
+  var mat = new THREE.MeshStandardMaterial({
+    map: trackTex,
+    color: '#ffffff',
+    roughness: 0.9,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.5,
+    polygonOffsetUnits: -2,
+  });
+  var mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0;
+  mesh.receiveShadow = true;
+  mesh.name = 'sports-track';
+  targetScene.add(mesh);
+  obstacleMeshes.push(mesh);
+}
+
 function createGrounds(targetScene, grounds) {
   const M = window.CampusMaterials;
-  if (!M || !THREE.ShapeGeometry) return;
+  if (!M || !THREE.ShapeGeometry || !grounds || !grounds.length) return;
+  // 懒初始化共享草地材质(游戏自带 TerrainTextures.grass() 真实噪声+草叶纹理)
+  var grassMat = null;
+  var getGrassMat = function () {
+    if (grassMat) return grassMat;
+    var tt = window.TerrainTextures;
+    var grassCanvas = tt ? tt.grass() : null;
+    if (grassCanvas) {
+      // TerrainTextures.grass() 返回 raw canvas，需包装为 CanvasTexture
+      var canvasTex = new THREE.CanvasTexture(grassCanvas);
+      canvasTex.wrapS = canvasTex.wrapT = THREE.RepeatWrapping;
+      canvasTex.colorSpace = THREE.SRGBColorSpace;
+      canvasTex.magFilter = THREE.LinearFilter;
+      canvasTex.minFilter = THREE.LinearMipmapLinearFilter;
+      canvasTex.generateMipmaps = true;
+      grassMat = new THREE.MeshStandardMaterial({
+        map: canvasTex,
+        color: '#ffffff',
+        roughness: 0.95,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -4,
+      });
+    } else {
+      grassMat = M.grass; // fallback: buildings.js 纯色草地 #4A8C3F
+    }
+    return grassMat;
+  };
   for (const g of grounds) {
     if (!g.footprint || g.footprint.length < 3) continue;
     const shape = _footprintToShape(g.footprint, true);
     const geo = new THREE.ShapeGeometry(shape);
-    const mesh = new THREE.Mesh(geo, M.pitch);
+    const mesh = new THREE.Mesh(geo, getGrassMat());
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = 0; // =坦克底盘, 用 polygonOffset 盖瓷砖(不盖坦克)
+    mesh.position.y = 0; // =坦克底盘, 用 polygonOffset 盖跑道(不盖坦克)
     mesh.receiveShadow = true;
     mesh.name = 'campus-ground';
     targetScene.add(mesh);
@@ -560,7 +685,7 @@ function createBoundaryWalls(targetScene, boundary) {
   }
 }
 
-// 围墙内瓷砖地面(除操场外): 大平面 + 程序化瓷砖纹理, y=-0.1(低于操场-0.05, 低于坦克0)
+// 围墙内地面(室内教学区·地砖): 大平面 + 程序化地砖纹理
 function createCampusGround(targetScene, boundary) {
   if (!boundary || boundary.length < 3 || !THREE.PlaneGeometry) return;
   let minX = Infinity,
@@ -582,8 +707,10 @@ function createCampusGround(targetScene, boundary) {
     const c = document.createElement('canvas');
     c.width = c.height = 256;
     const ctx = c.getContext('2d');
+    // 室内教学区地砖底色(浅灰)
     ctx.fillStyle = '#d8d4cc';
     ctx.fillRect(0, 0, 256, 256);
+    // 地砖网格线
     ctx.strokeStyle = '#9c988e';
     ctx.lineWidth = 5;
     for (let i = 0; i <= 256; i += 64) {
@@ -1138,14 +1265,18 @@ function createObstacles(targetScene = scene) {
   }
 
   // ── 校园 footprint 建筑 + 操场(须在 _obstacleGrid.insertAll 前注册碰撞) ──
+  // 层叠顺序: 地砖(-1) < 跑道(-1.5) < 草地(-2), polygonOffset 逐层靠前
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
-    createCampusGround(targetScene, obsCfg.boundary);
+    createCampusGround(targetScene, obsCfg.boundary); // 地砖(全校园)
+  }
+  if (obsCfg && obsCfg.grounds && obsCfg.grounds.length) {
+    createSportsTrackZone(targetScene, obsCfg.grounds, obsCfg.boundary); // 塑胶跑道(西南运动区, 外扩+边界裁剪)
   }
   if (obsCfg && obsCfg.footprintBuildings && obsCfg.footprintBuildings.length) {
     createFootprintBuildings(targetScene, obsCfg.footprintBuildings);
   }
   if (obsCfg && obsCfg.grounds && obsCfg.grounds.length) {
-    createGrounds(targetScene, obsCfg.grounds);
+    createGrounds(targetScene, obsCfg.grounds); // 草地(运动场内部, 盖跑道之上)
   }
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
     createBoundaryWalls(targetScene, obsCfg.boundary);
@@ -1162,4 +1293,5 @@ function createObstacles(targetScene = scene) {
 
   updateObstacleVisibility();
   updateGrassVisibility();
+  window.obstacleMeshes = obstacleMeshes; // 同步重赋值后的数组引用到window(供六足加特林碰撞等跨模块)
 }
