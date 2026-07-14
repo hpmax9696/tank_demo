@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.67.3** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.67.4** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,15 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.67.4 — 校园工具旋转对齐+命名+B7双栋数据化（2026-07-14）
+
+- **3工具旋转对齐上帝模式**: building_edge_marker + track_zone_marker 投影改中心式两轴取反(照搬b7_builder w2s/s2w), canvas上北/下南/左东/右西, 与F4上帝视角一致
+- **building_edge_marker 命名功能**: N键命名模式(与外廊R/空调B并列), 面拾取(pointInPoly射线法+b7矩形局部坐标旋转)命名建筑/运动场/B7双栋, 经/api/solidify写回campus.map.json
+- **B7双栋数据化(方案A)**: obstacles.b7_buildings顶层数组(室内运动场vaultH10+车棚vaultH5), obstacles.js dome分支硬编码改读数据(带fallback), 参数逐字取自原硬编码(零回归); B7 footprint name清空
+- **server.py /api/solidify campus分支**: 接收{type:'campus',names,b7_buildings?}写回campus.map.json, 正则内联纯数字数组保持坐标内联格式
+- **b7_builder数据闭环**: 从obstacles.b7_buildings加载初值+保存到地图按钮(saveB7)
+- **改动文件**: server.py + maps/campus.map.json + js/obstacles.js + tools/building_edge_marker.html + tools/track_zone_marker.html + tools/b7_builder.html
 
 ### v0.67.3 — 校园建筑真实化+B7双栋拱顶（2026-07-14）
 
@@ -1400,7 +1409,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.67.3）
+### 代码规模（截至 v0.67.4）
 
 | 分类             | 文件                                                                                                                                                                                                          |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |

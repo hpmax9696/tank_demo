@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.4
 
 ## 运行
 
@@ -269,6 +269,25 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.67.4 本次会话变更 (2026-07-14)
+
+### 校园工具：旋转对齐 + 命名功能 + B7 双栋数据化
+
+- **3 工具旋转对齐上帝模式**: building_edge_marker + track_zone_marker 投影改中心式两轴取反(照搬 b7_builder 已验证的 w2s/s2w), canvas 上北/下南/左东/右西, 与 F4 上帝视角一致。b7_builder 已对齐(不动), map_bounds_tool 是 Leaflet(不动)
+- **building_edge_marker 命名功能**: N 键命名模式(与外廊 R/空调 B 标记模式并列), 面拾取(pointInPoly 射线法 + b7 矩形局部坐标旋转判断)命名建筑/运动场/B7 双栋, 经 /api/solidify 写回 campus.map.json。B7 footprint(dome) 跳过命名(命名落到 b7_buildings)
+- **B7 双栋数据化(方案A)**: obstacles.b7_buildings 顶层数组(室内运动场 vaultH10 + 车棚 vaultH5), obstacles.js dome 分支硬编码 `_b7blds` 改读 `_campusB7Buildings`(带 fallback 硬编码), 参数逐字取自原硬编码(零回归)。B7 footprint name 清空
+- **server.py /api/solidify campus 分支**: solidify_campus 接收 `{type:'campus', names:{buildings/grounds/b7}, b7_buildings?}` 写回 maps/campus.map.json。正则内联纯数字数组(保持原文件坐标内联格式, 避免 json.dump 展开致全文件重排)
+- **b7_builder 数据闭环**: IIFE 从 obstacles.b7_buildings 加载初值(无则 resetDefault) + "保存到地图"按钮(saveB7 POST solidify 整体替换 b7_buildings)
+- **SDD 流程**: 8 任务 subagent-driven(spec→plan→逐任务实现+per-task review), 全部 review clean(T7 一 Critical saveB7 选择器 null→getElementById 已修实测通过)。ledger 见 `.superpowers/sdd/progress.md`
+- **改动文件**: server.py + maps/campus.map.json + js/obstacles.js + tools/building_edge_marker.html + tools/track_zone_marker.html + tools/b7_builder.html
+- **验证**: Playwright 实测 3 工具 0 pageerror + 命名保存落盘重载 + b7_builder wings=2/保存✅反馈; CDP 0 错误
+- **已知遗留(Minor, 非阻塞)**: T2 EOF 缺末尾换行; T3 Prettier 重排 dome 相邻代码; T4 边缘高亮偏移线法向未翻转(纯装饰); T6 nameMode 下 hover 走边缘/空串无法清名
+
+### 数据格式变更(消费者同步)
+
+- 新增字段 `campus.obstacles.b7_buildings`(与 footprintBuildings/grounds 同级); footprintBuildings[].name + grounds[].name 写入值
+- 消费者: js/obstacles.js(dome 分支读 b7_buildings) + tools/building_edge_marker.html(显示/命名) + tools/b7_builder.html(加载/保存) + tools/track_zone_marker.html(仅旋转)
 
 ## v0.67.1 本次会话变更 (2026-07-13)
 

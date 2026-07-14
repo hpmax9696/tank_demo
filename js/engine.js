@@ -7914,7 +7914,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.67.3 | 校园建筑真实化(墙面纹理+外廊+空调)+B7双栋拱顶');
+console.log('🎮 坦克运动demo v0.67.4 | 校园工具旋转对齐+命名+B7双栋数据化');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
