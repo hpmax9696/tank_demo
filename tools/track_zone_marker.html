@@ -166,8 +166,10 @@
       let hoverIdx = -1;
       let hoverSeg = null; // [idxA, idxB]
       let hoverCP = null; // "A-B" 悬停的控制点
-      let viewX = 0,
-        viewZ = 0,
+      let mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
         scale = 1;
 
       function nameOf(i) {
@@ -206,8 +208,10 @@
         const cw = canvas.parentElement.clientWidth,
           ch = canvas.parentElement.clientHeight;
         scale = Math.min(cw / w, ch / h);
-        viewX = -(minX - pad) * scale;
-        viewZ = -(minZ - pad) * scale;
+        mcx = (minX + maxX) / 2;
+        mcz = (minZ + maxZ) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
         canvas.width = cw * devicePixelRatio;
         canvas.height = ch * devicePixelRatio;
         canvas.style.width = cw + 'px';
@@ -216,10 +220,10 @@
       }
 
       function w2c(wx, wz) {
-        return { x: viewX + wx * scale, y: viewZ + wz * scale };
+        return { x: ccx - (wx - mcx) * scale, y: ccy - (wz - mcz) * scale };
       }
       function c2w(cx, cy) {
-        return { x: (cx - viewX) / scale, z: (cy - viewZ) / scale };
+        return { x: mcx - (cx - ccx) / scale, z: mcz - (cy - ccy) / scale };
       }
 
       function drawPoly(poly, fill, stroke, lw) {
