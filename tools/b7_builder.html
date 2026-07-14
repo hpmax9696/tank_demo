@@ -146,6 +146,9 @@
         <div style="display: flex; gap: 4px">
           <button class="btn-r" onclick="addWing()">+ 建筑</button>
           <button class="btn-g" onclick="exportCFG()">导出JSON</button>
+          <button class="btn-g" onclick="saveB7()" style="background: #0d7a3a">
+            💾 保存到地图
+          </button>
           <button class="btn-b" onclick="resetDefault()">默认两栋</button>
         </div>
         <div id="wing-list"></div>
@@ -651,6 +654,33 @@
         b.textContent = '✅已复制';
         setTimeout(() => (b.textContent = '导出JSON'), 1500);
       }
+      async function saveB7() {
+        const payload = wings.map((w) => ({
+          name: w.name || '',
+          cx: +w.cx.toFixed(1),
+          cz: +w.cz.toFixed(1),
+          w: +w.w.toFixed(1),
+          d: +w.d.toFixed(1),
+          ry: +w.ry.toFixed(3),
+          vaultH: +w.vaultH.toFixed(1),
+          archRatio: +w.archRatio.toFixed(2),
+        }));
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'campus', b7_buildings: payload }),
+          });
+          const j = await r.json();
+          const btn = document.querySelector('.btn-g:last-of-type');
+          if (j.ok) {
+            btn.textContent = '✅已保存';
+            setTimeout(() => (btn.textContent = '💾 保存到地图'), 1500);
+          } else alert('保存失败: ' + j.error);
+        } catch (e) {
+          alert('保存失败: ' + e.message);
+        }
+      }
       window.addEventListener('resize', () => {
         if (campus) {
           fit2D();
@@ -663,7 +693,26 @@
         resize3D();
         animate();
         await loadMapRef();
-        resetDefault();
+        // 优先从数据加载, 无数据才 resetDefault
+        const src = (campus.obstacles && campus.obstacles.b7_buildings) || [];
+        if (src.length) {
+          wings = src.map((w, i) => ({
+            name: w.name || WN[i] || 'W' + i,
+            cx: w.cx,
+            cz: w.cz,
+            w: w.w,
+            d: w.d,
+            ry: w.ry,
+            vaultH: w.vaultH,
+            archRatio: w.archRatio,
+          }));
+          sel = 0;
+          updateUI();
+          draw2D();
+          update3D();
+        } else {
+          resetDefault();
+        }
       })();
     </script>
   </body>
