@@ -99,8 +99,8 @@
           [17.196, 47.05],
           [52.545, 55.887]
         ],
-        "height": 8.0,
-        "name": "体育馆",
+        "height": 8,
+        "name": "",
         "type": "gym",
         "roofType": "dome"
       }
@@ -114,7 +114,8 @@
           [41.886, -23.835],
           [46.201, -22.594]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -124,7 +125,8 @@
           [38.497, -11.847],
           [42.811, -10.605]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -134,7 +136,8 @@
           [35.216, -0.244],
           [39.531, 0.998]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -144,7 +147,8 @@
           [54.371, 5.468],
           [65.271, 8.61]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -154,7 +158,8 @@
           [56.766, -18.663],
           [64.229, -16.522]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -164,7 +169,8 @@
           [47.546, -21.532],
           [55.001, -19.383]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -174,7 +180,8 @@
           [41.607, 1.666],
           [52.498, 4.808]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -184,7 +191,8 @@
           [1.594, -26.884],
           [29.339, -19.622]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -194,7 +202,8 @@
           [-4.089, -6.504],
           [23.656, 0.758]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       },
       {
         "footprint": [
@@ -221,7 +230,8 @@
           [29.191, 5.527],
           [33.257, 2.085]
         ],
-        "kind": "pitch"
+        "kind": "pitch",
+        "name": ""
       }
     ],
     "boundary": [
@@ -236,6 +246,28 @@
     "count": 0,
     "minDist": 6,
     "safeRadius": 0,
-    "spawnRadius": 0
+    "spawnRadius": 0,
+    "b7_buildings": [
+      {
+        "name": "室内运动场",
+        "cx": 32.5,
+        "cz": 31.3,
+        "w": 38.3,
+        "d": 22.6,
+        "ry": -1.326,
+        "vaultH": 10,
+        "archRatio": 0.45
+      },
+      {
+        "name": "车棚",
+        "cx": 47.7,
+        "cz": 46,
+        "w": 14,
+        "d": 16.8,
+        "ry": 0.244,
+        "vaultH": 5,
+        "archRatio": 0.6
+      }
+    ]
   }
 }
