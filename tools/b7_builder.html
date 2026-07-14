@@ -146,7 +146,7 @@
         <div style="display: flex; gap: 4px">
           <button class="btn-r" onclick="addWing()">+ 建筑</button>
           <button class="btn-g" onclick="exportCFG()">导出JSON</button>
-          <button class="btn-g" onclick="saveB7()" style="background: #0d7a3a">
+          <button id="btn-save-b7" class="btn-g" onclick="saveB7()" style="background: #0d7a3a">
             💾 保存到地图
           </button>
           <button class="btn-b" onclick="resetDefault()">默认两栋</button>
@@ -672,7 +672,7 @@
             body: JSON.stringify({ type: 'campus', b7_buildings: payload }),
           });
           const j = await r.json();
-          const btn = document.querySelector('.btn-g:last-of-type');
+          const btn = document.getElementById('btn-save-b7');
           if (j.ok) {
             btn.textContent = '✅已保存';
             setTimeout(() => (btn.textContent = '💾 保存到地图'), 1500);
