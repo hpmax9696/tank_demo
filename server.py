@@ -21,6 +21,8 @@ MODEL_MAP = {
     'hexapod': ('models/hexapod_config.js', 'HEXAPOD_CONFIG'),
 }
 
+CAMPUS_MAP = 'maps/campus.map.json'
+
 
 def _find_config_bounds(text, const_name):
     """在 JS 源码中找到 const CONST_NAME = {...}; 的起止位置。"""
@@ -86,6 +88,47 @@ def solidify_config(model_type, config_json_str):
     return filepath
 
 
+def solidify_campus(payload):
+    """更新 campus.map.json 的 name 字段 + 可选 b7_buildings。
+    payload: {'names': {'buildings':{idx:name}, 'grounds':{idx:name}, 'b7':{idx:name}},
+              'b7_buildings': [...] (可选, 整体替换)}"""
+    if not os.path.exists(CAMPUS_MAP):
+        raise FileNotFoundError(f'校园地图不存在: {CAMPUS_MAP}')
+    with open(CAMPUS_MAP, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    obs = data.setdefault('obstacles', {})
+    names = payload.get('names') or {}
+
+    # 建筑 name (跳过 roofType==='dome' 的 B7 footprint)
+    blds = obs.get('footprintBuildings') or []
+    for k, v in (names.get('buildings') or {}).items():
+        i = int(k)
+        if 0 <= i < len(blds) and blds[i].get('roofType') != 'dome':
+            blds[i]['name'] = v
+
+    # 运动场 name
+    gnds = obs.get('grounds') or []
+    for k, v in (names.get('grounds') or {}).items():
+        i = int(k)
+        if 0 <= i < len(gnds):
+            gnds[i]['name'] = v
+
+    # b7_buildings name
+    b7 = obs.get('b7_buildings') or []
+    for k, v in (names.get('b7') or {}).items():
+        i = int(k)
+        if 0 <= i < len(b7):
+            b7[i]['name'] = v
+
+    # 整体替换 b7_buildings (b7_builder 保存时)
+    if 'b7_buildings' in payload and payload['b7_buildings'] is not None:
+        obs['b7_buildings'] = payload['b7_buildings']
+
+    with open(CAMPUS_MAP, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return CAMPUS_MAP
+
+
 def overpass_proxy(ql):
     """用 node fetch 转发 Overpass QL (node fetch 对镜像兼容性优于 python urllib)。
     镜像列表在 overpass_fetch.js。返回 JSON 文本。"""
@@ -112,6 +155,12 @@ class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
                 content_len = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(content_len)
                 data = json.loads(body)
+
+                # campus 命名/B7 保存分支
+                if data.get('type') == 'campus':
+                    saved_path = solidify_campus(data)
+                    self._json_ok({'file': saved_path})
+                    return
 
                 model_type = data.get('modelType', '')
                 config = data.get('config', {})
