@@ -118,7 +118,11 @@
       </div>
       <button class="btn btn-red" onclick="setMode('corridor')">🔴 外廊模式</button>
       <button class="btn btn-blue" onclick="setMode('ac')">🔵 空调模式</button>
+      <button class="btn btn-green" onclick="toggleNameMode()">🏷 命名模式(N)</button>
       <button class="btn btn-gray" onclick="clearMarks()">🗑 清除全部标记</button>
+      <button class="btn btn-green" onclick="saveNames()" style="background: #0d7a3a">
+        💾 保存命名到地图
+      </button>
       <button class="btn btn-green" onclick="exportJSON()">📋 导出 JSON</button>
       <textarea id="output" readonly placeholder="标记完成后点击导出..."></textarea>
     </div>
@@ -132,6 +136,7 @@
         ccy = 0,
         scale = 1;
       let mode = 'corridor'; // 'corridor'|'ac'
+      let nameMode = false; // 命名模式开关
       let marks = {}; // { "bldIdx-edgeIdx": "corridor"|"ac" }
       let hoveredKey = null;
 
@@ -294,6 +299,52 @@
           ctx.textAlign = 'center';
           ctx.fillText('B' + (bi + 1), cc.x, cc.y + 5);
         }
+        // B7 双栋(b7_buildings) 矩形 + name
+        const b7 = campusData.obstacles.b7_buildings || [];
+        for (let bi = 0; bi < b7.length; bi++) {
+          const w = b7[bi];
+          const cs = Math.cos(w.ry),
+            sn = Math.sin(w.ry);
+          const hw = w.w / 2,
+            hd = w.d / 2;
+          const corners = [];
+          for (let c = 0; c < 4; c++) {
+            const sx = c === 0 || c === 3 ? -1 : 1,
+              sz = c < 2 ? -1 : 1;
+            corners.push([w.cx + sx * hw * cs - sz * hd * sn, w.cz + sx * hw * sn + sz * hd * cs]);
+          }
+          drawPoly(corners, 'rgba(200,180,160,0.5)', '#c8a060', 2);
+          const cc = w2c(w.cx, w.cz);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 12px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(w.name || 'B7-' + (bi + 1), cc.x, cc.y);
+        }
+        // 运动场 name 回显
+        for (let gi = 0; gi < (campusData.obstacles.grounds || []).length; gi++) {
+          const g = campusData.obstacles.grounds[gi];
+          if (!g.name) continue;
+          const fp = g.footprint;
+          const cx = fp.reduce((s, p) => s + p[0], 0) / fp.length;
+          const cz = fp.reduce((s, p) => s + p[1], 0) / fp.length;
+          const cc = w2c(cx, cz);
+          ctx.fillStyle = '#ffe08a';
+          ctx.font = 'bold 10px monospace';
+          ctx.fillText(g.name, cc.x, cc.y);
+        }
+        // 普通建筑 name 回显(替代纯 B 编号)
+        for (let bi = 0; bi < blds.length; bi++) {
+          const b = blds[bi];
+          if (b.roofType === 'dome') continue; // B7 跳过
+          if (!b.name) continue;
+          const fp = b.footprint;
+          const cx = fp.reduce((s, p) => s + p[0], 0) / fp.length;
+          const cz = fp.reduce((s, p) => s + p[1], 0) / fp.length;
+          const cc = w2c(cx, cz);
+          ctx.fillStyle = '#9ff';
+          ctx.font = 'bold 11px monospace';
+          ctx.fillText(b.name, cc.x, cc.y + 18);
+        }
       }
       // 查找鼠标悬停的建筑边
       function findEdge(cx, cy) {
@@ -324,6 +375,43 @@
         }
         return best;
       }
+      function pointInPoly(x, z, poly) {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+          const xi = poly[i][0],
+            zi = poly[i][1],
+            xj = poly[j][0],
+            zj = poly[j][1];
+          if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+        }
+        return inside;
+      }
+      function findEntityAt(wx, wz) {
+        // 返回 {kind:'bld'|'b7'|'ground', idx} 或 null
+        const blds = campusData.obstacles.footprintBuildings || [];
+        for (let i = 0; i < blds.length; i++) {
+          if (blds[i].roofType === 'dome') continue;
+          if (pointInPoly(wx, wz, blds[i].footprint)) return { kind: 'bld', idx: i };
+        }
+        const b7 = campusData.obstacles.b7_buildings || [];
+        for (let i = 0; i < b7.length; i++) {
+          const w = b7[i],
+            cs = Math.cos(w.ry),
+            sn = Math.sin(w.ry),
+            hw = w.w / 2,
+            hd = w.d / 2;
+          const lx = wx - w.cx,
+            lz = wz - w.cz;
+          const rlx = lx * cs + lz * sn,
+            rlz = -lx * sn + lz * cs;
+          if (Math.abs(rlx) <= hw && Math.abs(rlz) <= hd) return { kind: 'b7', idx: i };
+        }
+        const gnds = campusData.obstacles.grounds || [];
+        for (let i = 0; i < gnds.length; i++) {
+          if (pointInPoly(wx, wz, gnds[i].footprint)) return { kind: 'ground', idx: i };
+        }
+        return null;
+      }
       canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const fe = findEdge(e.clientX - rect.left, e.clientY - rect.top);
@@ -333,9 +421,31 @@
           draw();
         }
       });
+      function _currentName(ent) {
+        if (ent.kind === 'bld') return campusData.obstacles.footprintBuildings[ent.idx].name || '';
+        if (ent.kind === 'b7') return (campusData.obstacles.b7_buildings[ent.idx] || {}).name || '';
+        return campusData.obstacles.grounds[ent.idx].name || '';
+      }
+      function _setName(ent, nv) {
+        if (ent.kind === 'bld') campusData.obstacles.footprintBuildings[ent.idx].name = nv;
+        else if (ent.kind === 'b7') campusData.obstacles.b7_buildings[ent.idx].name = nv;
+        else campusData.obstacles.grounds[ent.idx].name = nv;
+        draw();
+      }
       canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const fe = findEdge(e.clientX - rect.left, e.clientY - rect.top);
+        if (nameMode) {
+          // 命名模式: 面拾取
+          const w = c2w(e.clientX - rect.left, e.clientY - rect.top);
+          const ent = findEntityAt(w.x, w.z);
+          if (!ent) return;
+          const cur = _currentName(ent);
+          const nv = prompt('命名 (' + ent.kind + ' #' + (ent.idx + 1) + '):', cur);
+          if (nv === null) return;
+          _setName(ent, nv);
+          return;
+        }
         if (!fe) return;
         const key = bldEdgeKey(fe.bi, fe.ei);
         if (marks[key] === mode) delete marks[key];
@@ -346,8 +456,20 @@
         const k = e.key.toLowerCase();
         if (k === 'r') setMode('corridor');
         else if (k === 'b') setMode('ac');
+        else if (k === 'n') toggleNameMode();
         else if (k === 'c') clearMarks();
       });
+      function toggleNameMode() {
+        nameMode = !nameMode;
+        const el = document.getElementById('mode-ind');
+        if (nameMode) {
+          el.textContent = '🏷 当前模式: 命名(点建筑/场地输入)';
+          el.style.background = '#1a8a4a';
+        } else {
+          setMode(mode); // 恢复显示当前标记模式
+        }
+        draw();
+      }
       function setMode(m) {
         mode = m;
         const el = document.getElementById('mode-ind');
@@ -398,6 +520,34 @@
           btn.textContent = '✅ 已复制';
           setTimeout(() => (btn.textContent = '📋 导出 JSON'), 2000);
         });
+      }
+      async function saveNames() {
+        const names = { buildings: {}, grounds: {}, b7: {} };
+        const blds = campusData.obstacles.footprintBuildings || [];
+        for (let i = 0; i < blds.length; i++) {
+          if (blds[i].roofType === 'dome') continue;
+          if (blds[i].name) names.buildings[i] = blds[i].name;
+        }
+        for (let i = 0; i < (campusData.obstacles.grounds || []).length; i++) {
+          if (campusData.obstacles.grounds[i].name)
+            names.grounds[i] = campusData.obstacles.grounds[i].name;
+        }
+        for (let i = 0; i < (campusData.obstacles.b7_buildings || []).length; i++) {
+          if (campusData.obstacles.b7_buildings[i].name)
+            names.b7[i] = campusData.obstacles.b7_buildings[i].name;
+        }
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'campus', names }),
+          });
+          const j = await r.json();
+          if (j.ok) alert('命名已保存到地图');
+          else alert('保存失败: ' + j.error);
+        } catch (e) {
+          alert('保存失败: ' + e.message);
+        }
       }
       window.addEventListener('resize', () => {
         if (campusData) {
