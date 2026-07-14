@@ -438,6 +438,11 @@ function createFootprintBuildings(targetScene, fps) {
   var M = window.CampusMaterials;
   if (!M || !THREE.ExtrudeGeometry) return;
   window._campusBuildings = [];
+  // B7 双栋参数(数据驱动, fallback 硬编码) — 来自 obstacles.b7_buildings
+  var _campusB7Buildings =
+    currentMapData && currentMapData.obstacles && currentMapData.obstacles.b7_buildings
+      ? currentMapData.obstacles.b7_buildings
+      : null;
   // 共享几何体(所有建筑共用, 通过scale差异化)
   var balusterGeo = null,
     railGeo = null,
@@ -668,30 +673,49 @@ function createFootprintBuildings(targetScene, fps) {
     bldGroup.name = 'campus-bld-detail';
     if (fp.roofType === 'dome') {
       // B7 参数化拱顶(与b7_builder工具一致): 每栋独立 vaultH/archRatio
-      var _b7blds = [
-        { cx: 32.5, cz: 31.3, w: 38.3, d: 22.6, ry: -1.326, vaultH: 10, archRatio: 0.45 },
-        { cx: 47.7, cz: 46, w: 14, d: 16.8, ry: 0.244, vaultH: 5, archRatio: 0.6 },
-      ];
-      var _vaultMat = new THREE.MeshStandardMaterial({ color: '#c8d8e0', roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide });
+      var _b7blds =
+        _campusB7Buildings && _campusB7Buildings.length
+          ? _campusB7Buildings
+          : [
+              { cx: 32.5, cz: 31.3, w: 38.3, d: 22.6, ry: -1.326, vaultH: 10, archRatio: 0.45 },
+              { cx: 47.7, cz: 46, w: 14, d: 16.8, ry: 0.244, vaultH: 5, archRatio: 0.6 },
+            ];
+      var _vaultMat = new THREE.MeshStandardMaterial({
+        color: '#c8d8e0',
+        roughness: 0.4,
+        metalness: 0.5,
+        side: THREE.DoubleSide,
+      });
       for (var _wi = 0; _wi < _b7blds.length; _wi++) {
         var _w = _b7blds[_wi];
-        var _vH = _w.vaultH, _ratio = _w.archRatio;
-        var _wallH = _vH * (1 - _ratio), _archH = _vH * _ratio;
+        var _vH = _w.vaultH,
+          _ratio = _w.archRatio;
+        var _wallH = _vH * (1 - _ratio),
+          _archH = _vH * _ratio;
         var _halfW = Math.min(_w.w, _w.d) * 0.48;
         var _shape = new THREE.Shape();
-        _shape.moveTo(-_halfW, 0); _shape.lineTo(-_halfW, _wallH);
+        _shape.moveTo(-_halfW, 0);
+        _shape.lineTo(-_halfW, _wallH);
         var _arc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
         var _apts = _arc.getPoints(24);
         for (var _ai = 0; _ai < _apts.length; _ai++) _shape.lineTo(_apts[_ai].x, _apts[_ai].y);
-        _shape.lineTo(_halfW, 0); _shape.closePath();
+        _shape.lineTo(_halfW, 0);
+        _shape.closePath();
         var _extLen = _w.w;
         var _geo = new THREE.ExtrudeGeometry(_shape, { depth: _extLen, bevelEnabled: false });
         var _mesh = new THREE.Mesh(_geo, _vaultMat);
         var _ry = _w.ry;
         _mesh.rotation.y = Math.PI / 2 - _ry;
-        _mesh.position.set(_w.cx - (_extLen / 2) * Math.cos(_ry), 0, _w.cz - (_extLen / 2) * Math.sin(_ry));
-        _mesh.castShadow = true; _mesh.receiveShadow = true; _mesh.name = 'campus-dome';
-        targetScene.add(_mesh); obstacleMeshes.push(_mesh);
+        _mesh.position.set(
+          _w.cx - (_extLen / 2) * Math.cos(_ry),
+          0,
+          _w.cz - (_extLen / 2) * Math.sin(_ry)
+        );
+        _mesh.castShadow = true;
+        _mesh.receiveShadow = true;
+        _mesh.name = 'campus-dome';
+        targetScene.add(_mesh);
+        obstacleMeshes.push(_mesh);
       }
     }
 
