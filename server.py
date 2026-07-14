@@ -124,8 +124,15 @@ def solidify_campus(payload):
     if 'b7_buildings' in payload and payload['b7_buildings'] is not None:
         obs['b7_buildings'] = payload['b7_buildings']
 
+    # 保持原文件内联坐标数组格式(避免 json.dump 展开成多行致全文件重排)
+    s = json.dumps(data, ensure_ascii=False, indent=2)
+    s = re.sub(
+        r'\[\s*((?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?,\s*)*-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*)\]',
+        lambda m: '[' + ', '.join(x.strip() for x in m.group(1).split(',')) + ']',
+        s,
+    )
     with open(CAMPUS_MAP, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write(s)
     return CAMPUS_MAP
 
 
