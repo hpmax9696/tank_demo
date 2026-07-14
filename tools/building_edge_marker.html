@@ -126,8 +126,10 @@
       const canvas = document.getElementById('c'),
         ctx = canvas.getContext('2d');
       let campusData = null,
-        viewX = 0,
-        viewZ = 0,
+        mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
         scale = 1;
       let mode = 'corridor'; // 'corridor'|'ac'
       let marks = {}; // { "bldIdx-edgeIdx": "corridor"|"ac" }
@@ -165,8 +167,10 @@
         const cw = canvas.parentElement.clientWidth,
           ch = canvas.parentElement.clientHeight;
         scale = Math.min(cw / w, ch / h);
-        viewX = -(mx - pad) * scale;
-        viewZ = -(mz - pad) * scale;
+        mcx = (mx + Mx) / 2;
+        mcz = (mz + Mz) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
         canvas.width = cw * devicePixelRatio;
         canvas.height = ch * devicePixelRatio;
         canvas.style.width = cw + 'px';
@@ -174,10 +178,10 @@
         ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
       }
       function w2c(wx, wz) {
-        return { x: viewX + wx * scale, y: viewZ + wz * scale };
+        return { x: ccx - (wx - mcx) * scale, y: ccy - (wz - mcz) * scale };
       }
       function c2w(cx, cy) {
-        return { x: (cx - viewX) / scale, z: (cy - viewZ) / scale };
+        return { x: mcx - (cx - ccx) / scale, z: mcz - (cy - ccy) / scale };
       }
 
       function drawPoly(poly, fill, stroke, lw) {
