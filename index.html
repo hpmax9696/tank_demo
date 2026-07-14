@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.67.2</title>
+    <title>坦克运动demo v0.67.3</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.67.2</div>
+      <div class="menu-version">v0.67.3</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.67.3 校园建筑真实化 —
+          建筑墙面Canvas纹理(白瓷砖+窗户+楼层线)+敞开式外廊栏杆(朝内院,楼层挑板)+空调外机(朝外);
+          B7体育馆双栋参数化拱顶(运动场vaultH10+车棚vaultH5,EllipseCurve截面); 删除B1校外建筑;
+          打点工具坐标对齐上帝模式(上北右西)
+        </div>
+        <div class="cl-title">
           🏟️ v0.67.2 校园地面三层分区(地砖+塑胶跑道+草地) — 东北室内教学区:地砖;
           西南运动区:用户打点精确多边形跑道(贝塞尔曲线段);
           运动场内部:TerrainTextures.grass()真实FBM噪声+草叶纹理;
@@ -841,13 +847,8 @@
           🐛 v0.66.1 修复玩家六足F2 OFF蓝灰六棱柱残留 —
           LOD替身_lodCylinder被collisionSystem._setRenderVisible误设visible,玩家六足不进LOD循环无人修正→残留;修复=_setRenderVisible跳过_lod前缀mesh
         </div>
-        <div class="cl-title">
-          🔍 v0.66.0 碰撞体系统(模型减面+F2可视化)+虎式迷彩+MG枪口 —
-          SimplifyModifier减面生成精确碰撞体(虎式4493→627tris,T-34~4500→698tris),splitX自动分离车体/履带,F2切换camera
-          layer1可视化,虎式热带沙漠迷彩,mgMuzzleOffset替代硬编码枪口位置
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.67.2~v0.66.1) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.67.3~v0.66.1) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

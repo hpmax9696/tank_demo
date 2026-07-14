@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>B7 建筑构造工具 v3</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eee;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #map-panel {
+        flex: 1;
+        position: relative;
+        border-right: 2px solid #333;
+      }
+      #map-panel canvas {
+        display: block;
+        cursor: crosshair;
+      }
+      #side {
+        width: 360px;
+        display: flex;
+        flex-direction: column;
+        background: #16213e;
+        overflow-y: auto;
+      }
+      #view3d {
+        height: 280px;
+        background: #111;
+        position: relative;
+        min-height: 280px;
+      }
+      #view3d canvas {
+        display: block;
+      }
+      #ctrls {
+        flex: 1;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 200px;
+      }
+      h2 {
+        font-size: 13px;
+        color: #e94560;
+      }
+      h3 {
+        font-size: 11px;
+        color: #aaa;
+        margin: 4px 0;
+      }
+      button {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: bold;
+      }
+      .btn-r {
+        background: #e94560;
+        color: #fff;
+      }
+      .btn-g {
+        background: #1a8a4a;
+        color: #fff;
+      }
+      .btn-b {
+        background: #1565c0;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #444;
+        color: #aaa;
+      }
+      label {
+        font-size: 10px;
+        color: #aaa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 1px 0;
+      }
+      label span {
+        color: #eee;
+        min-width: 34px;
+        text-align: right;
+      }
+      input[type='range'] {
+        flex: 1;
+        margin: 0 4px;
+      }
+      .wing-row {
+        background: #1a1a2e;
+        padding: 6px;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 2px 0;
+      }
+      .wing-row .wname {
+        color: #e94560;
+        font-weight: bold;
+        font-size: 11px;
+      }
+      .hint {
+        font-size: 9px;
+        color: #555;
+        line-height: 1.4;
+      }
+      #output {
+        width: 100%;
+        height: 90px;
+        background: #0a0a1a;
+        color: #0f0;
+        border: 1px solid #333;
+        padding: 4px;
+        font-size: 10px;
+        resize: vertical;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map-panel"><canvas id="map2d"></canvas></div>
+    <div id="side">
+      <div id="view3d"><canvas id="c3d"></canvas></div>
+      <div id="ctrls">
+        <h2>B7 双建筑构造 (运动场+车棚)</h2>
+        <div class="hint">
+          2D地图(上北右西,对齐上帝模式): 拖=新建 | 点选=移 | 拖角=改尺寸 | 右=删 | Del=删选中<br />每栋独立:
+          vaultH拱顶高度 + archRatio曲度
+        </div>
+        <div style="display: flex; gap: 4px">
+          <button class="btn-r" onclick="addWing()">+ 建筑</button>
+          <button class="btn-g" onclick="exportCFG()">导出JSON</button>
+          <button class="btn-b" onclick="resetDefault()">默认两栋</button>
+        </div>
+        <div id="wing-list"></div>
+        <textarea id="output" readonly placeholder="导出后显示JSON..."></textarea>
+      </div>
+    </div>
+    <script src="../js/three.min.js"></script>
+    <script>
+      // ============ 2D Map (对齐上帝模式: 上北右西) ============
+      const c2d = document.getElementById('map2d'),
+        ctx = c2d.getContext('2d');
+      let campus = null,
+        mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
+        sc = 1;
+      let wings = [],
+        sel = -1,
+        dmode = '',
+        dcorner = -1,
+        dstart = null,
+        dorig = null;
+      const WN = 'ABCDEFGH';
+      function defWing(n) {
+        return { cx: 0, cz: 0, w: 20, d: 12, ry: 0, name: n, vaultH: 8, archRatio: 0.5 };
+      }
+
+      async function loadMap() {
+        try {
+          const r = await fetch('../maps/campus.map.json');
+          campus = await r.json();
+          fit2D();
+          draw2D();
+        } catch (e) {
+          alert('Load fail');
+        }
+      }
+      function fit2D() {
+        const b = campus.obstacles.boundary;
+        let mx = Infinity,
+          Mx = -Infinity,
+          mz = Infinity,
+          Mz = -Infinity;
+        for (const p of b) {
+          if (p[0] < mx) mx = p[0];
+          if (p[0] > Mx) Mx = p[0];
+          if (p[1] < mz) mz = p[1];
+          if (p[1] > Mz) Mz = p[1];
+        }
+        const pad = 12,
+          w = Mx - mx + pad * 2,
+          h = Mz - mz + pad * 2;
+        const cw = c2d.parentElement.clientWidth,
+          ch = c2d.parentElement.clientHeight;
+        sc = Math.min(cw / w, ch / h);
+        mcx = (mx + Mx) / 2;
+        mcz = (mz + Mz) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
+        c2d.width = cw * devicePixelRatio;
+        c2d.height = ch * devicePixelRatio;
+        c2d.style.width = cw + 'px';
+        c2d.style.height = ch + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      function w2s(wx, wz) {
+        return { x: ccx - (wx - mcx) * sc, y: ccy - (wz - mcz) * sc };
+      }
+      function s2w(sx, sy) {
+        return { x: mcx - (sx - ccx) / sc, z: mcz - (sy - ccy) / sc };
+      }
+      function drawPoly(poly, fill, stroke, lw) {
+        if (!poly || poly.length < 2) return;
+        ctx.beginPath();
+        const p0 = w2s(poly[0][0], poly[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < poly.length; i++) {
+          const p = w2s(poly[i][0], poly[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw || 2;
+          ctx.stroke();
+        }
+      }
+      function wingCorners(w) {
+        const hw = w.w / 2,
+          hd = w.d / 2,
+          cs = Math.cos(w.ry),
+          sn = Math.sin(w.ry),
+          out = [];
+        for (let c = 0; c < 4; c++) {
+          const sx = c === 0 || c === 3 ? -1 : 1,
+            sz = c < 2 ? -1 : 1;
+          out.push({
+            x: w.cx + sx * hw * cs - sz * hd * sn,
+            z: w.cz + sx * hw * sn + sz * hd * cs,
+          });
+        }
+        return out;
+      }
+      function draw2D() {
+        const W = c2d.parentElement.clientWidth,
+          H = c2d.parentElement.clientHeight;
+        ctx.clearRect(0, 0, W, H);
+        if (!campus) return;
+        ctx.fillStyle = '#d8d4cc';
+        ctx.fillRect(0, 0, W, H);
+        drawPoly(campus.obstacles.boundary, 'rgba(200,200,200,0.4)', '#999', 2.5);
+        for (const b of campus.obstacles.footprintBuildings || [])
+          drawPoly(b.footprint, '#3a5a3a', '#2a4a2a', 1.5);
+        for (const g of campus.obstacles.grounds || [])
+          drawPoly(g.footprint, '#4a8c3f', '#3a7c2f', 1);
+        drawPoly(campus.obstacles.boundary, null, '#666', 3);
+        for (let i = 0; i < wings.length; i++) {
+          const w = wings[i],
+            isS = i === sel,
+            crs = wingCorners(w);
+          ctx.beginPath();
+          for (let c = 0; c < 4; c++) {
+            const p = w2s(crs[c].x, crs[c].z);
+            c === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(200,180,160,' + (isS ? 0.5 : 0.25) + ')';
+          ctx.fill();
+          ctx.strokeStyle = isS ? '#e94560' : '#c8a060';
+          ctx.lineWidth = isS ? 3 : 2;
+          ctx.stroke();
+          const cp = w2s(w.cx, w.cz);
+          ctx.beginPath();
+          ctx.arc(cp.x, cp.y, isS ? 7 : 5, 0, Math.PI * 2);
+          ctx.fillStyle = isS ? '#e94560' : '#f0a500';
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 12px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(w.name || '?', cp.x, cp.y - 12);
+          if (isS)
+            for (let c = 0; c < 4; c++) {
+              const p = w2s(crs[c].x, crs[c].z);
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+              ctx.fillStyle = '#fff';
+              ctx.fill();
+              ctx.strokeStyle = '#e94560';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+        }
+      }
+      function hitTest(sx, sy) {
+        let best = null,
+          bd = Infinity;
+        for (let i = wings.length - 1; i >= 0; i--) {
+          const w = wings[i],
+            crs = wingCorners(w);
+          for (let c = 0; c < 4; c++) {
+            const p = w2s(crs[c].x, crs[c].z);
+            const d = Math.hypot(sx - p.x, sy - p.y);
+            if (d < 10 && d < bd) {
+              bd = d;
+              best = { idx: i, corner: c };
+            }
+          }
+          const cp = w2s(w.cx, w.cz);
+          const cd = Math.hypot(sx - cp.x, sy - cp.y);
+          if (cd < 8 && cd < bd) {
+            bd = cd;
+            best = { idx: i, corner: -1 };
+          }
+          if (!best || best.idx !== i) {
+            const wx = s2w(sx, sy),
+              lx = wx.x - w.cx,
+              lz = wx.z - w.cz;
+            const rlx = lx * Math.cos(-w.ry) - lz * Math.sin(-w.ry),
+              rlz = lx * Math.sin(-w.ry) + lz * Math.cos(-w.ry);
+            if (Math.abs(rlx) <= w.w / 2 && Math.abs(rlz) <= w.d / 2) {
+              best = { idx: i, corner: -1 };
+              bd = 0;
+            }
+          }
+        }
+        return best;
+      }
+      c2d.addEventListener('mousedown', (e) => {
+        if (!campus) return;
+        const r = c2d.getBoundingClientRect(),
+          sx = e.clientX - r.left,
+          sy = e.clientY - r.top;
+        if (e.button === 2) {
+          const ht = hitTest(sx, sy);
+          if (ht && ht.idx >= 0) {
+            wings.splice(ht.idx, 1);
+            sel = -1;
+            updateUI();
+            draw2D();
+            update3D();
+          }
+          return;
+        }
+        const ht = hitTest(sx, sy);
+        if (ht && ht.idx >= 0) {
+          sel = ht.idx;
+          dmode = ht.corner >= 0 ? 'corner' : 'move';
+          dcorner = ht.corner;
+          dstart = { sx, sy };
+          dorig = JSON.parse(JSON.stringify(wings[sel]));
+          updateUI();
+          draw2D();
+          return;
+        }
+        sel = -1;
+        dmode = 'new';
+        dstart = s2w(sx, sy);
+        updateUI();
+        draw2D();
+      });
+      c2d.addEventListener('mousemove', (e) => {
+        if (!campus || !dmode) return;
+        const r = c2d.getBoundingClientRect(),
+          sx = e.clientX - r.left,
+          sy = e.clientY - r.top;
+        if (dmode === 'new') {
+          const p = s2w(sx, sy),
+            cx = (dstart.x + p.x) / 2,
+            cz = (dstart.z + p.z) / 2,
+            dx = p.x - dstart.x,
+            dz = p.z - dstart.z;
+          const w = Math.abs(dx) || 6,
+            d = Math.abs(dz) || 6;
+          if (w < 2 || d < 2) return;
+          if (sel < 0 || sel >= wings.length) {
+            sel = wings.length;
+            wings.push(Object.assign(defWing(WN[wings.length]), { cx, cz, w, d }));
+          } else {
+            wings[sel] = Object.assign(defWing(WN[sel]), { cx, cz, w, d });
+          }
+          updateUI();
+          draw2D();
+        } else if (dmode === 'move' && sel >= 0) {
+          const p = s2w(sx, sy),
+            ds = s2w(dstart.sx, dstart.sy);
+          wings[sel].cx = dorig.cx + (p.x - ds.x);
+          wings[sel].cz = dorig.cz + (p.z - ds.z);
+          updateUI();
+          draw2D();
+        } else if (dmode === 'corner' && sel >= 0) {
+          const p = s2w(sx, sy),
+            w = wings[sel];
+          const lx = p.x - w.cx,
+            lz = p.z - w.cz,
+            rlx = lx * Math.cos(-w.ry) - lz * Math.sin(-w.ry),
+            rlz = lx * Math.sin(-w.ry) + lz * Math.cos(-w.ry);
+          w.w = Math.max(4, Math.abs(rlx) * 2);
+          w.d = Math.max(4, Math.abs(rlz) * 2);
+          updateUI();
+          draw2D();
+        }
+      });
+      c2d.addEventListener('mouseup', () => {
+        dmode = '';
+        dstart = null;
+        update3D();
+      });
+      c2d.addEventListener('contextmenu', (e) => e.preventDefault());
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete' && sel >= 0) {
+          wings.splice(sel, 1);
+          sel = -1;
+          updateUI();
+          draw2D();
+          update3D();
+        }
+      });
+
+      // ============ 3D Preview (对齐上帝模式: 上北右西) ============
+      const c3d = document.getElementById('c3d');
+      const renderer = new THREE.WebGLRenderer({ canvas: c3d, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      const S3 = new THREE.Scene();
+      S3.background = new THREE.Color('#1a1a2e');
+      const cam3 = new THREE.PerspectiveCamera(50, 1, 1, 500);
+      cam3.position.set(38, 48, 8);
+      cam3.lookAt(38, 0, 34);
+      S3.add(new THREE.AmbientLight('#ffffff', 1.0));
+      const sun = new THREE.DirectionalLight('#ffffff', 1.8);
+      sun.position.set(50, 60, 20);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(512, 512);
+      sun.shadow.camera.near = 1;
+      sun.shadow.camera.far = 200;
+      sun.shadow.camera.left = -60;
+      sun.shadow.camera.right = 60;
+      sun.shadow.camera.top = 60;
+      sun.shadow.camera.bottom = -60;
+      S3.add(sun);
+      S3.add(new THREE.GridHelper(100, 20, '#333', '#222'));
+      let mapBlds = [],
+        vaultMeshes = [];
+      async function loadMapRef() {
+        if (!campus) return;
+        for (let i = 0; i < campus.obstacles.footprintBuildings.length; i++) {
+          const b = campus.obstacles.footprintBuildings[i],
+            fp = b.footprint;
+          const s = new THREE.Shape();
+          s.moveTo(fp[0][0], fp[0][1]);
+          for (let j = 1; j < fp.length; j++) s.lineTo(fp[j][0], fp[j][1]);
+          s.closePath();
+          const g = new THREE.ShapeGeometry(s);
+          const mat = new THREE.MeshBasicMaterial({
+            color: '#3a5a3a',
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.4,
+          });
+          const m = new THREE.Mesh(g, mat);
+          m.rotation.x = -Math.PI / 2;
+          m.position.y = 0.01;
+          S3.add(m);
+          mapBlds.push(m);
+        }
+      }
+      // 参数化面包截面: 直墙(wallH) + 椭圆弧拱顶(archH), 宽halfW
+      function buildVaultShape(w) {
+        const vaultH = w.vaultH,
+          ratio = w.archRatio;
+        const wallH = vaultH * (1 - ratio),
+          archH = vaultH * ratio;
+        const halfW = Math.min(w.w, w.d) * 0.48;
+        const shape = new THREE.Shape();
+        shape.moveTo(-halfW, 0);
+        shape.lineTo(-halfW, wallH);
+        // 椭圆弧 (水平半径halfW, 垂直半径archH), 从左到右
+        const arc = new THREE.EllipseCurve(0, wallH, halfW, archH, Math.PI, 0, true);
+        const pts = arc.getPoints(24);
+        for (const p of pts) shape.lineTo(p.x, p.y);
+        shape.lineTo(halfW, 0);
+        shape.closePath();
+        return shape;
+      }
+      function makeVaultMesh(w) {
+        const shape = buildVaultShape(w);
+        const extLen = w.w; // 挤出沿wing局部x(w方向)
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: extLen, bevelEnabled: false });
+        const mat = new THREE.MeshStandardMaterial({
+          color: '#c8d8e0',
+          roughness: 0.4,
+          metalness: 0.5,
+          side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        const ry = w.ry;
+        mesh.rotation.y = Math.PI / 2 - ry; // θ=π/2-ry, 挤出world方向=(cos ry, sin ry)
+        mesh.position.set(
+          w.cx - (extLen / 2) * Math.cos(ry),
+          0,
+          w.cz - (extLen / 2) * Math.sin(ry)
+        );
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+      function update3D() {
+        vaultMeshes.forEach((m) => S3.remove(m));
+        vaultMeshes = [];
+        for (const w of wings)
+          if (w.w > 0 && w.d > 0) {
+            const m = makeVaultMesh(w);
+            S3.add(m);
+            vaultMeshes.push(m);
+          }
+      }
+      function resize3D() {
+        const el = document.getElementById('view3d'),
+          w = el.clientWidth,
+          h = el.clientHeight;
+        renderer.setSize(w, h);
+        cam3.aspect = w / h;
+        cam3.updateProjectionMatrix();
+      }
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(S3, cam3);
+      }
+      let d3 = false,
+        lmx = 0,
+        lmy = 0;
+      c3d.addEventListener('mousedown', (e) => {
+        d3 = true;
+        lmx = e.clientX;
+        lmy = e.clientY;
+        e.stopPropagation();
+      });
+      c3d.addEventListener('mousemove', (e) => {
+        if (!d3) return;
+        cam3.position.x -= e.clientX - lmx;
+        cam3.position.z -= e.clientY - lmy;
+        cam3.lookAt(38, 0, 34);
+        lmx = e.clientX;
+        lmy = e.clientY;
+      });
+      c3d.addEventListener('mouseup', () => {
+        d3 = false;
+      });
+      c3d.addEventListener('wheel', (e) => {
+        cam3.position.y += e.deltaY * 0.05;
+        cam3.position.y = Math.max(8, Math.min(90, cam3.position.y));
+        cam3.lookAt(38, 0, 34);
+        e.preventDefault();
+      });
+
+      // ============ UI ============
+      function updateUI() {
+        const el = document.getElementById('wing-list');
+        let h = '';
+        for (let i = 0; i < wings.length; i++) {
+          const w = wings[i],
+            isS = i === sel;
+          h += `<div class="wing-row" style="${isS ? 'border:2px solid #e94560' : ''}"><div class="wname">${w.name || '?'} <span style="color:#aaa;font-size:10px">${w.w.toFixed(0)}x${w.d.toFixed(0)}u h${w.vaultH.toFixed(0)}</span></div>`;
+          h += `<label>位置X<input type="range" min="-90" max="90" step="0.1" value="${w.cx}" oninput="setW(${i},'cx',this.value)"><span>${w.cx.toFixed(0)}</span></label>`;
+          h += `<label>位置Z<input type="range" min="-70" max="70" step="0.1" value="${w.cz}" oninput="setW(${i},'cz',this.value)"><span>${w.cz.toFixed(0)}</span></label>`;
+          h += `<label>长w<input type="range" min="4" max="70" value="${w.w}" oninput="setW(${i},'w',this.value)"><span>${w.w.toFixed(0)}</span></label>`;
+          h += `<label>宽d<input type="range" min="4" max="40" value="${w.d}" oninput="setW(${i},'d',this.value)"><span>${w.d.toFixed(0)}</span></label>`;
+          h += `<label>旋转<input type="range" min="-90" max="90" value="${((w.ry * 180) / Math.PI).toFixed(0)}" oninput="setW(${i},'deg',this.value)"><span>${((w.ry * 180) / Math.PI).toFixed(0)}°</span></label>`;
+          h += `<label style="color:#e94560">拱顶高<input type="range" min="3" max="20" step="0.5" value="${w.vaultH}" oninput="setW(${i},'vaultH',this.value)"><span>${w.vaultH.toFixed(1)}</span></label>`;
+          h += `<label style="color:#e94560">曲度<input type="range" min="0.2" max="0.8" step="0.05" value="${w.archRatio}" oninput="setW(${i},'archRatio',this.value)"><span>${w.archRatio.toFixed(2)}</span></label>`;
+          h += `<button class="btn-gray" onclick="delWing(${i})">删除</button></div>`;
+        }
+        el.innerHTML = h || '<span style="color:#666">拖拽地图新建建筑...</span>';
+      }
+      function setW(i, p, v) {
+        v = Number(v);
+        if (p === 'deg') wings[i].ry = (v * Math.PI) / 180;
+        else wings[i][p] = v;
+        draw2D();
+        update3D();
+      }
+      function delWing(i) {
+        wings.splice(i, 1);
+        if (sel === i) sel = -1;
+        else if (sel > i) sel--;
+        updateUI();
+        draw2D();
+        update3D();
+      }
+      function addWing() {
+        wings.push(defWing(WN[wings.length]));
+        sel = wings.length - 1;
+        updateUI();
+        draw2D();
+        update3D();
+      }
+      function resetDefault() {
+        wings = [
+          Object.assign(defWing('A'), {
+            cx: 32.5,
+            cz: 31.3,
+            w: 38.3,
+            d: 22.6,
+            ry: -1.326,
+            vaultH: 10,
+            archRatio: 0.45,
+          }), // 运动场(大,高拱)
+          Object.assign(defWing('B'), {
+            cx: 47.7,
+            cz: 46,
+            w: 14,
+            d: 16.8,
+            ry: 0.244,
+            vaultH: 5,
+            archRatio: 0.6,
+          }), // 车棚(小,矮扁拱)
+        ];
+        sel = 0;
+        updateUI();
+        draw2D();
+        update3D();
+      }
+      function exportCFG() {
+        const out = wings.map((w) => ({
+          name: w.name,
+          cx: +w.cx.toFixed(1),
+          cz: +w.cz.toFixed(1),
+          w: +w.w.toFixed(1),
+          d: +w.d.toFixed(1),
+          ry: +w.ry.toFixed(3),
+          vaultH: +w.vaultH.toFixed(1),
+          archRatio: +w.archRatio.toFixed(2),
+        }));
+        const json = JSON.stringify({ b7_buildings: out }, null, 2);
+        document.getElementById('output').value = json;
+        navigator.clipboard.writeText(json);
+        const b = document.querySelector('.btn-g');
+        b.textContent = '✅已复制';
+        setTimeout(() => (b.textContent = '导出JSON'), 1500);
+      }
+      window.addEventListener('resize', () => {
+        if (campus) {
+          fit2D();
+          draw2D();
+        }
+        resize3D();
+      });
+      (async () => {
+        await loadMap();
+        resize3D();
+        animate();
+        await loadMapRef();
+        resetDefault();
+      })();
+    </script>
+  </body>
+</html>

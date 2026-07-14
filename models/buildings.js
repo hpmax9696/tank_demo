@@ -42,9 +42,151 @@
     roughness: 0.4,
     metalness: 0.3,
   });
+  // ── 校园建筑墙面纹理(Canvas程序化: 白瓷砖+窗户+楼层线, tileable) ──
+  function _makeCampusWallTex() {
+    if (window._campusWallTex) return window._campusWallTex;
+    var W = 512,
+      H = 256;
+    var c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    var ctx = c.getContext('2d');
+    // 底色: 暖白瓷砖(中国学校外墙标准色)
+    ctx.fillStyle = '#e8e4dc';
+    ctx.fillRect(0, 0, W, H);
+    // 瓷砖水平线(浅灰, 每32px=~38cm)
+    ctx.strokeStyle = 'rgba(180,175,168,0.4)';
+    ctx.lineWidth = 1;
+    for (var y = 32; y < H; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + 0.5);
+      ctx.lineTo(W, y + 0.5);
+      ctx.stroke();
+    }
+    // 竖线(每64px, 模拟瓷砖接缝)
+    for (var x = 64; x < W; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, 0);
+      ctx.lineTo(x + 0.5, H);
+      ctx.stroke();
+    }
+    // 窗户区域: 4窗等距, 窗宽72px, 间距32px
+    var winY1 = 48,
+      winY2 = 208,
+      nWin = 4;
+    var totalW = nWin * 80 + (nWin - 1) * 24; // 4×80+3×24=392
+    var startX = (W - totalW) / 2; // 60
+    for (var wi = 0; wi < nWin; wi++) {
+      var wx = startX + wi * (80 + 24);
+      // 窗框(白)
+      ctx.fillStyle = '#f5f0e8';
+      ctx.fillRect(wx - 3, winY1 - 3, 86, winY2 - winY1 + 6);
+      // 玻璃(深蓝灰, 微反光)
+      var glassGrad = ctx.createLinearGradient(wx, winY1, wx, winY2);
+      glassGrad.addColorStop(0, '#5a6d80');
+      glassGrad.addColorStop(0.3, '#6e8296');
+      glassGrad.addColorStop(0.7, '#4a5c6e');
+      glassGrad.addColorStop(1, '#3d4e5e');
+      ctx.fillStyle = glassGrad;
+      ctx.fillRect(wx, winY1, 80, winY2 - winY1);
+      // 窗格竖框
+      ctx.fillStyle = '#f0ece4';
+      ctx.fillRect(wx + 39, winY1, 2, winY2 - winY1); // 中竖框
+      // 窗格横框
+      ctx.fillRect(wx, winY1 + 78, 80, 2); // 中横框
+      // 窗台线
+      ctx.fillStyle = '#d0cbc4';
+      ctx.fillRect(wx - 3, winY2, 86, 3);
+      ctx.fillRect(wx - 3, winY1 - 3, 86, 3);
+    }
+    // 楼层分界梁(钢筋混凝土色, 顶部)
+    ctx.fillStyle = '#d8d4cc';
+    ctx.fillRect(0, 242, W, 14);
+    ctx.fillStyle = 'rgba(160,155,148,0.5)';
+    ctx.fillRect(0, 242, W, 1); // 上边线
+    ctx.fillRect(0, 255, W, 1); // 下边线
+    // 腰线(窗下)
+    ctx.fillStyle = 'rgba(190,185,178,0.6)';
+    ctx.fillRect(0, winY1 - 3, W, 1);
+    // 随机微污渍(真实感)
+    for (var d = 0; d < 60; d++) {
+      var dx = Math.random() * W,
+        dy = Math.random() * H;
+      ctx.fillStyle = 'rgba(160,155,148,' + (0.03 + Math.random() * 0.05) + ')';
+      ctx.fillRect(dx, dy, 3 + Math.random() * 5, 2 + Math.random() * 3);
+    }
+    var tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    window._campusWallTex = tex;
+    return tex;
+  }
+  // ── 校园建筑屋顶纹理 ──
+  function _makeCampusRoofTex() {
+    if (window._campusRoofTex) return window._campusRoofTex;
+    var c = document.createElement('canvas');
+    c.width = c.height = 256;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#7a7a78';
+    ctx.fillRect(0, 0, 256, 256);
+    // 混凝土屋面微纹理
+    for (var i = 0; i < 400; i++) {
+      var rx = Math.random() * 256,
+        ry = Math.random() * 256;
+      ctx.fillStyle =
+        'rgba(' +
+        (110 + Math.random() * 30) +
+        ',' +
+        (110 + Math.random() * 30) +
+        ',' +
+        (108 + Math.random() * 20) +
+        ',0.25)';
+      ctx.fillRect(rx, ry, 2 + Math.random() * 3, 2 + Math.random() * 3);
+    }
+    // 屋面分隔缝(混凝土屋面分格)
+    ctx.strokeStyle = 'rgba(90,90,88,0.3)';
+    ctx.lineWidth = 1;
+    for (var g = 0; g < 256; g += 64) {
+      ctx.beginPath();
+      ctx.moveTo(g, 0);
+      ctx.lineTo(g, 256);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, g);
+      ctx.lineTo(256, g);
+      ctx.stroke();
+    }
+    var tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    window._campusRoofTex = tex;
+    return tex;
+  }
   // 校园(真实 footprint 拉伸建筑 + 操场草地/塑胶跑道/地砖) — v0.67 校园地图用
-  const campusWallM = new THREE.MeshStandardMaterial({ color: '#D4C5A9', roughness: 0.85 });
-  const campusRoofM = new THREE.MeshStandardMaterial({ color: '#8A8A8A', roughness: 0.75 });
+  var _wallTex = _makeCampusWallTex();
+  var _roofTex = _makeCampusRoofTex();
+  const campusWallM = new THREE.MeshStandardMaterial({
+    map: _wallTex,
+    color: '#ffffff',
+    roughness: 0.8,
+  });
+  const campusRoofM = new THREE.MeshStandardMaterial({
+    map: _roofTex,
+    color: '#ffffff',
+    roughness: 0.85,
+  });
+  // 外廊栏杆材质(深灰, 微金属)
+  const campusRailingM = new THREE.MeshStandardMaterial({
+    color: '#9a9a98',
+    roughness: 0.5,
+    metalness: 0.3,
+  });
   // 运动场内部: 草地纯色fallback(真正纹理由 createGrounds 懒初始化用 TerrainTextures.grass())
   const campusGrassM = new THREE.MeshStandardMaterial({
     color: '#4A8C3F', // 游戏标准草绿(对齐 generateCompositeGroundTexture #4a8c3f)
@@ -407,5 +549,6 @@
     roof: campusRoofM,
     pitch: campusPitchM,
     grass: campusGrassM,
+    railing: campusRailingM,
   };
 })();

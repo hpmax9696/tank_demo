@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>建筑边缘标记 — 外廊(红) / 空调(蓝)</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eee;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #cwrap {
+        flex: 1;
+        position: relative;
+        cursor: pointer;
+      }
+      canvas {
+        display: block;
+      }
+      #panel {
+        width: 300px;
+        padding: 16px;
+        background: #16213e;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      h2 {
+        font-size: 15px;
+      }
+      .btn {
+        padding: 8px 14px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .btn-red {
+        background: #e94560;
+        color: #fff;
+      }
+      .btn-blue {
+        background: #1565c0;
+        color: #fff;
+      }
+      .btn-green {
+        background: #1a8a4a;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #444;
+        color: #aaa;
+      }
+      .mode-indicator {
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-weight: bold;
+        text-align: center;
+      }
+      #output {
+        width: 100%;
+        height: 160px;
+        background: #0a0a1a;
+        color: #0f0;
+        border: 1px solid #333;
+        padding: 8px;
+        font-size: 11px;
+        resize: vertical;
+        font-family: monospace;
+      }
+      .legend {
+        font-size: 11px;
+        color: #888;
+      }
+      .legend span {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        vertical-align: middle;
+        margin-right: 4px;
+        border-radius: 2px;
+      }
+      .hint {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="cwrap"><canvas id="c"></canvas></div>
+    <div id="panel">
+      <h2>🏫 建筑边缘标记</h2>
+      <div class="legend">
+        <span style="background: #3a5a3a"></span>建筑物
+        <span style="background: #e94560"></span>外廊(红线)
+        <span style="background: #1565c0"></span>空调(蓝线)
+        <span style="background: #666"></span>未标记
+      </div>
+      <div class="mode-indicator" id="mode-ind" style="background: #e94560">🔴 当前模式: 外廊</div>
+      <div class="hint">
+        🖱️ 点击线段 = 标记为当前模式<br />
+        🖱️ 再次点击 = 取消标记<br />
+        🔴 R键 = 切换到外廊模式<br />
+        🔵 B键 = 切换到空调模式<br />
+        🗑️ C键 = 清除所有标记
+      </div>
+      <button class="btn btn-red" onclick="setMode('corridor')">🔴 外廊模式</button>
+      <button class="btn btn-blue" onclick="setMode('ac')">🔵 空调模式</button>
+      <button class="btn btn-gray" onclick="clearMarks()">🗑 清除全部标记</button>
+      <button class="btn btn-green" onclick="exportJSON()">📋 导出 JSON</button>
+      <textarea id="output" readonly placeholder="标记完成后点击导出..."></textarea>
+    </div>
+    <script>
+      const canvas = document.getElementById('c'),
+        ctx = canvas.getContext('2d');
+      let campusData = null,
+        viewX = 0,
+        viewZ = 0,
+        scale = 1;
+      let mode = 'corridor'; // 'corridor'|'ac'
+      let marks = {}; // { "bldIdx-edgeIdx": "corridor"|"ac" }
+      let hoveredKey = null;
+
+      function bldEdgeKey(bi, ei) {
+        return bi + '-' + ei;
+      }
+
+      async function load() {
+        try {
+          const r = await fetch('../maps/campus.map.json');
+          campusData = await r.json();
+          fitView();
+          draw();
+        } catch (e) {
+          alert('加载失败: ' + e.message);
+        }
+      }
+      function fitView() {
+        const b = campusData.obstacles.boundary;
+        let mx = Infinity,
+          Mx = -Infinity,
+          mz = Infinity,
+          Mz = -Infinity;
+        for (const p of b) {
+          if (p[0] < mx) mx = p[0];
+          if (p[0] > Mx) Mx = p[0];
+          if (p[1] < mz) mz = p[1];
+          if (p[1] > Mz) Mz = p[1];
+        }
+        const pad = 10,
+          w = Mx - mx + pad * 2,
+          h = Mz - mz + pad * 2;
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        scale = Math.min(cw / w, ch / h);
+        viewX = -(mx - pad) * scale;
+        viewZ = -(mz - pad) * scale;
+        canvas.width = cw * devicePixelRatio;
+        canvas.height = ch * devicePixelRatio;
+        canvas.style.width = cw + 'px';
+        canvas.style.height = ch + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      function w2c(wx, wz) {
+        return { x: viewX + wx * scale, y: viewZ + wz * scale };
+      }
+      function c2w(cx, cy) {
+        return { x: (cx - viewX) / scale, z: (cy - viewZ) / scale };
+      }
+
+      function drawPoly(poly, fill, stroke, lw) {
+        if (!poly || poly.length < 2) return;
+        ctx.beginPath();
+        const p0 = w2c(poly[0][0], poly[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < poly.length; i++) {
+          const p = w2c(poly[i][0], poly[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw || 2;
+          ctx.stroke();
+        }
+      }
+
+      function draw() {
+        const W = canvas.parentElement.clientWidth,
+          H = canvas.parentElement.clientHeight;
+        ctx.clearRect(0, 0, W, H);
+        if (!campusData) return;
+        ctx.fillStyle = '#d8d4cc';
+        ctx.fillRect(0, 0, W, H);
+        // 校园边界
+        drawPoly(campusData.obstacles.boundary, 'rgba(200,200,200,0.4)', '#999', 2.5);
+        // 运动场
+        for (const g of campusData.obstacles.grounds || [])
+          drawPoly(g.footprint, '#4a8c3f', '#3a7c2f', 1);
+        // 跑道
+        drawPoly(campusData.obstacles.boundary, null, '#666', 3);
+
+        // 建筑 + 边缘线
+        const blds = campusData.obstacles.footprintBuildings || [];
+        for (let bi = 0; bi < blds.length; bi++) {
+          const b = blds[bi];
+          if (!b.footprint || b.footprint.length < 3) continue;
+          // 建筑面
+          drawPoly(b.footprint, '#3a5a3a', '#2a4a2a', 1.5);
+          const fp = b.footprint;
+          for (let ei = 0; ei < fp.length; ei++) {
+            const a = fp[ei],
+              b2 = fp[(ei + 1) % fp.length];
+            const dx = b2[0] - a[0],
+              dz = b2[1] - a[1];
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1) continue;
+            const ca = w2c(a[0], a[1]),
+              cb = w2c(b2[0], b2[1]);
+            const key = bldEdgeKey(bi, ei);
+            const mk = marks[key];
+            const isHover = hoveredKey === key;
+            let color = '#888',
+              lw = 3;
+            if (mk === 'corridor') {
+              color = '#e94560';
+              lw = 5;
+            } else if (mk === 'ac') {
+              color = '#1565c0';
+              lw = 5;
+            }
+            if (isHover) {
+              color = '#fff';
+              lw = 7;
+            }
+
+            // 画外侧偏移线
+            const ux = dx / len,
+              uz = dz / len,
+              nx = -uz,
+              nz = ux;
+            const off = isHover ? 8 : 5;
+            const aox = ca.x + nx * off,
+              aoz = ca.y + nz * off;
+            const box = cb.x + nx * off,
+              boz = cb.y + nz * off;
+            ctx.beginPath();
+            ctx.moveTo(aox, aoz);
+            ctx.lineTo(box, boz);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            // 标记圆点
+            if (mk) {
+              const mx = (aox + box) / 2,
+                my = (aoz + boz) / 2;
+              ctx.beginPath();
+              ctx.arc(mx, my, 5, 0, Math.PI * 2);
+              ctx.fillStyle = color;
+              ctx.fill();
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 8px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText(mk === 'corridor' ? '廊' : '空', mx, my + 3);
+            }
+          }
+          // 楼号
+          const cx = fp.reduce((s, p) => s + p[0], 0) / fp.length,
+            cz = fp.reduce((s, p) => s + p[1], 0) / fp.length;
+          const cc = w2c(cx, cz);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 13px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('B' + (bi + 1), cc.x, cc.y + 5);
+        }
+      }
+      // 查找鼠标悬停的建筑边
+      function findEdge(cx, cy) {
+        const blds = campusData.obstacles.footprintBuildings || [];
+        const w = c2w(cx, cy);
+        let best = null,
+          bestDist = Infinity;
+        for (let bi = 0; bi < blds.length; bi++) {
+          const fp = blds[bi].footprint;
+          if (!fp || fp.length < 3) continue;
+          for (let ei = 0; ei < fp.length; ei++) {
+            const a = fp[ei],
+              b2 = fp[(ei + 1) % fp.length];
+            const dx = b2[0] - a[0],
+              dz = b2[1] - a[1];
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1) continue;
+            let t = ((w.x - a[0]) * dx + (w.z - a[1]) * dz) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const px = a[0] + t * dx,
+              pz = a[1] + t * dz;
+            const dist = Math.hypot(w.x - px, w.z - pz);
+            if (dist * scale < 15 && dist < bestDist) {
+              bestDist = dist;
+              best = { bi, ei };
+            }
+          }
+        }
+        return best;
+      }
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const fe = findEdge(e.clientX - rect.left, e.clientY - rect.top);
+        const newKey = fe ? bldEdgeKey(fe.bi, fe.ei) : null;
+        if (newKey !== hoveredKey) {
+          hoveredKey = newKey;
+          draw();
+        }
+      });
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const fe = findEdge(e.clientX - rect.left, e.clientY - rect.top);
+        if (!fe) return;
+        const key = bldEdgeKey(fe.bi, fe.ei);
+        if (marks[key] === mode) delete marks[key];
+        else marks[key] = mode;
+        draw();
+      });
+      document.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (k === 'r') setMode('corridor');
+        else if (k === 'b') setMode('ac');
+        else if (k === 'c') clearMarks();
+      });
+      function setMode(m) {
+        mode = m;
+        const el = document.getElementById('mode-ind');
+        if (m === 'corridor') {
+          el.textContent = '🔴 当前模式: 外廊';
+          el.style.background = '#e94560';
+        } else {
+          el.textContent = '🔵 当前模式: 空调';
+          el.style.background = '#1565c0';
+        }
+      }
+      function clearMarks() {
+        marks = {};
+        draw();
+      }
+      function exportJSON() {
+        const blds = campusData.obstacles.footprintBuildings || [];
+        const out = [];
+        for (let bi = 0; bi < blds.length; bi++) {
+          const fp = blds[bi].footprint;
+          if (!fp || fp.length < 3) continue;
+          for (let ei = 0; ei < fp.length; ei++) {
+            const key = bldEdgeKey(bi, ei);
+            if (marks[key]) {
+              const a = fp[ei],
+                b2 = fp[(ei + 1) % fp.length];
+              const dx = b2[0] - a[0],
+                dz = b2[1] - a[1];
+              const len = Math.sqrt(dx * dx + dz * dz);
+              if (len < 1) continue;
+              out.push({
+                building: bi + 1,
+                edge: ei + 1,
+                type: marks[key],
+                ax: +a[0].toFixed(2),
+                az: +a[1].toFixed(2),
+                bx: +b2[0].toFixed(2),
+                bz: +b2[1].toFixed(2),
+                len: +len.toFixed(1),
+              });
+            }
+          }
+        }
+        const json = JSON.stringify(out, null, 2);
+        document.getElementById('output').value = json;
+        navigator.clipboard.writeText(json).then(() => {
+          const btn = document.querySelector('.btn-green');
+          btn.textContent = '✅ 已复制';
+          setTimeout(() => (btn.textContent = '📋 导出 JSON'), 2000);
+        });
+      }
+      window.addEventListener('resize', () => {
+        if (campusData) {
+          fitView();
+          draw();
+        }
+      });
+      load();
+    </script>
+  </body>
+</html>

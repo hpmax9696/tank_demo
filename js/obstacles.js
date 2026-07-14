@@ -435,43 +435,328 @@ function _footprintToShape(fp, flipZ) {
 }
 
 function createFootprintBuildings(targetScene, fps) {
-  const M = window.CampusMaterials;
+  var M = window.CampusMaterials;
   if (!M || !THREE.ExtrudeGeometry) return;
-  window._campusBuildings = []; // 收集建筑mesh供 placeCamera 相机避障射线检测
-  for (const fp of fps) {
+  window._campusBuildings = [];
+  // 共享几何体(所有建筑共用, 通过scale差异化)
+  var balusterGeo = null,
+    railGeo = null,
+    acGeo = null;
+  var getBalusterGeo = function () {
+    if (balusterGeo) return balusterGeo;
+    balusterGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.0, 6);
+    return balusterGeo;
+  };
+  var getRailGeo = function () {
+    if (railGeo) return railGeo;
+    railGeo = new THREE.BoxGeometry(1.0, 0.06, 0.08);
+    return railGeo;
+  };
+  var getACGeo = function () {
+    if (acGeo) return acGeo;
+    acGeo = new THREE.BoxGeometry(1.0, 0.7, 0.4);
+    return acGeo;
+  };
+  // bldGroup坐标系: rotation.x=-PI/2 → localX=worldX, localY=-worldZ, localZ=worldY(高度)
+  // 沿建筑某条边添加外廊栏杆+楼层挑板(多楼层)
+  var addCorridorToEdge = function (parent, ax, az, bx, bz, wallH) {
+    var dx = bx - ax,
+      dz = bz - az;
+    var edgeLen = Math.sqrt(dx * dx + dz * dz);
+    if (edgeLen < 2) return;
+    var ux = dx / edgeLen,
+      uz = dz / edgeLen;
+    var nx = -uz,
+      nz = ux; // 边外法线(world)
+    // local方向: edge=(dx,-dz) in XY, normal=(nx,-nz) in XY, 高度=Z
+    var ldx = dx,
+      ldz = -dz; // edge方向 in local XY
+    var lnx = nx,
+      lnz = -nz; // 法线 in local XY
+    var edgeAngle = Math.atan2(ldz, ldx); // local Z旋转角
+    var floorH = 3.0,
+      railH = 1.05,
+      spacer = 0.55;
+    var nBalusters = Math.max(2, Math.floor(edgeLen / spacer));
+    var geoB = getBalusterGeo();
+    var geoR = getRailGeo();
+    var railMat = M.railing;
+    for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
+      var floorY = fl * floorH; // world高度 → localZ
+      // 栏杆柱: Cylinder(沿Y) → rotate.x=-PI/2 → 沿localZ(竖直)
+      for (var bi = 0; bi <= nBalusters; bi++) {
+        var t = bi / nBalusters;
+        var railOff = 0.78;
+        var lx = ax + dx * t + nx * railOff; // 走廊外沿
+        var ly = -(az + dz * t + nz * railOff);
+        var col = new THREE.Mesh(geoB, railMat);
+        col.position.set(lx, ly, floorY + railH / 2);
+        col.scale.set(1, railH, 1);
+        col.rotation.x = -Math.PI / 2; // 圆柱Y→localZ→竖直
+        col.castShadow = true;
+        col.name = 'campus-detail';
+        parent.add(col);
+      }
+      // 顶部横杆: BoxGeometry(1,0.06,0.08) 沿X, scale+rotate对齐edge
+      var tlx = ax + dx * 0.5 + nx * railOff;
+      var tly = -(az + dz * 0.5 + nz * railOff);
+      var topRail = new THREE.Mesh(geoR, railMat);
+      topRail.position.set(tlx, tly, floorY + railH);
+      topRail.scale.set(edgeLen, 1, 1);
+      topRail.rotation.z = edgeAngle;
+      topRail.castShadow = true;
+      topRail.name = 'campus-detail';
+      parent.add(topRail);
+      // 中间横杆
+      var midRail = new THREE.Mesh(geoR, railMat);
+      midRail.position.set(tlx, tly, floorY + railH * 0.55);
+      midRail.scale.set(edgeLen, 1, 1);
+      midRail.rotation.z = edgeAngle;
+      midRail.castShadow = true;
+      midRail.name = 'campus-detail';
+      parent.add(midRail);
+      // 楼层挑板: BoxGeometry(edgeLen, 0.8, 0.1) 沿X长, 沿Y外挑, 沿Z薄
+      var slabGeo = new THREE.BoxGeometry(edgeLen, 0.85, 0.1);
+      var slab = new THREE.Mesh(
+        slabGeo,
+        new THREE.MeshStandardMaterial({ color: '#c8c4bc', roughness: 0.7 })
+      );
+      slab.position.set(ax + dx * 0.5 + nx * 0.4, -(az + dz * 0.5 + nz * 0.4), floorY + 0.05);
+      slab.rotation.z = edgeAngle;
+      slab.castShadow = true;
+      slab.receiveShadow = true;
+      slab.name = 'campus-detail';
+      parent.add(slab);
+    }
+  };
+  // 沿北面墙添加空调外机
+  var addACToEdge = function (parent, ax, az, bx, bz, wallH) {
+    var dx = bx - ax,
+      dz = bz - az;
+    var edgeLen = Math.sqrt(dx * dx + dz * dz);
+    if (edgeLen < 4) return;
+    var nx = -(dz / edgeLen),
+      nz = dx / edgeLen;
+    var ldx = dx,
+      ldz = -dz;
+    var edgeAngle = Math.atan2(ldz, ldx);
+    var floorH = 3.0,
+      spacing = 5.0;
+    var nUnits = Math.max(1, Math.floor(edgeLen / spacing));
+    var acGeoG = getACGeo();
+    var acMat = new THREE.MeshStandardMaterial({
+      color: '#c8c4be',
+      roughness: 0.55,
+      metalness: 0.35,
+    });
+    for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
+      var floorY = fl * floorH + 1.0;
+      for (var ai = 0; ai < nUnits; ai++) {
+        var t = (ai + 0.5) / nUnits;
+        var lx = ax + dx * t + nx * 0.45;
+        var ly = -(az + dz * t + nz * 0.45);
+        var ac = new THREE.Mesh(acGeoG, acMat);
+        ac.position.set(lx, ly, floorY + 0.35);
+        ac.rotation.z = edgeAngle;
+        ac.castShadow = true;
+        ac.name = 'campus-detail';
+        parent.add(ac);
+        // 支架
+        var br = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.5), acMat);
+        br.position.set(ax + dx * t + nx * 0.2, -(az + dz * t + nz * 0.2), floorY - 0.05);
+        br.castShadow = true;
+        br.name = 'campus-detail';
+        parent.add(br);
+      }
+    }
+  };
+
+  // ── 计算内院中心(所有建筑包围盒中心的均值)用于判断内/外面 ──
+  var allCx = 0,
+    allCz = 0,
+    allN = 0;
+  for (var _pi = 0; _pi < fps.length; _pi++) {
+    var _pf = fps[_pi].footprint;
+    if (!_pf || _pf.length < 3) continue;
+    var _mnX = Infinity,
+      _mxX = -Infinity,
+      _mnZ = Infinity,
+      _mxZ = -Infinity;
+    for (var _pj = 0; _pj < _pf.length; _pj++) {
+      var _px = _pf[_pj][0],
+        _pz = _pf[_pj][1];
+      if (_px < _mnX) _mnX = _px;
+      if (_px > _mxX) _mxX = _px;
+      if (_pz < _mnZ) _mnZ = _pz;
+      if (_pz > _mxZ) _mxZ = _pz;
+    }
+    allCx += (_mnX + _mxX) / 2;
+    allCz += (_mnZ + _mxZ) / 2;
+    allN++;
+  }
+  var courtyardX = allCx / allN,
+    courtyardZ = allCz / allN;
+
+  for (var _fi = 0; _fi < fps.length; _fi++) {
+    var fp = fps[_fi];
     if (!fp.footprint || fp.footprint.length < 3) continue;
-    const shape = _footprintToShape(fp.footprint, true);
-    const h = fp.height || 8; // 单位(米÷1.3)
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
-    const mesh = new THREE.Mesh(geo, [M.wall, M.roof]); // [侧面墙, 顶/底 roof]
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.name = 'campus-bld';
-    targetScene.add(mesh);
-    obstacleMeshes.push(mesh);
-    // 碰撞: footprint 外接圆(用原始 x,z, 与渲染 world.z 同步)
-    let minX = Infinity,
+    var shape = _footprintToShape(fp.footprint, true);
+    var h = fp.height || 8;
+    var perim = 0;
+    var edges = [];
+    var fpPts = fp.footprint;
+    for (var i = 0; i < fpPts.length; i++) {
+      var ax = fpPts[i][0],
+        az = fpPts[i][1];
+      var bx = fpPts[(i + 1) % fpPts.length][0],
+        bz = fpPts[(i + 1) % fpPts.length][1];
+      var dx = bx - ax,
+        dz = bz - az;
+      var len = Math.sqrt(dx * dx + dz * dz);
+      if (len < 1) continue;
+      perim += len;
+      var ux = dx / len,
+        uz = dz / len;
+      var nz = -ux,
+        nx = uz; // 边外法线(CCW多边形)
+      // 边中心→内院中心方向, 点积判断是否朝内
+      var ecx = (ax + bx) / 2,
+        ecz = (az + bz) / 2;
+      var tcX = courtyardX - ecx,
+        tcZ = courtyardZ - ecz;
+      var tcLen = Math.sqrt(tcX * tcX + tcZ * tcZ) || 1;
+      var innerScore = nx * (tcX / tcLen) + nz * (tcZ / tcLen); // >0=朝内院
+      edges.push({
+        ax: ax,
+        az: az,
+        bx: bx,
+        bz: bz,
+        len: len,
+        ux: ux,
+        uz: uz,
+        nx: nx,
+        nz: nz,
+        innerScore: innerScore,
+      });
+    }
+    // 每建筑clone墙纹理: U沿周长每6单位1tile, V每3单位(1层)1tile
+    var wallTex = window._campusWallTex ? window._campusWallTex.clone() : null;
+    if (wallTex) {
+      wallTex.repeat.set(Math.max(1, Math.round(perim / 6)), Math.max(1, Math.round(h / 3)));
+      wallTex.needsUpdate = true;
+    }
+    var wallMat = wallTex
+      ? new THREE.MeshStandardMaterial({ map: wallTex, color: '#ffffff', roughness: 0.8 })
+      : M.wall;
+    var roofTex = window._campusRoofTex ? window._campusRoofTex.clone() : null;
+    var roofMat = roofTex
+      ? new THREE.MeshStandardMaterial({ map: roofTex, color: '#ffffff', roughness: 0.85 })
+      : M.roof;
+    // 穹顶建筑跳过方形ExtrudeGeometry, 由下方dome代码单独生成拱顶mesh
+    if (fp.roofType !== 'dome') {
+      var geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+      var mesh = new THREE.Mesh(geo, [wallMat, roofMat]);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.name = 'campus-bld';
+      targetScene.add(mesh);
+    }
+
+    // ── 穹顶(体育馆) ──
+    var bldGroup = new THREE.Group();
+    bldGroup.name = 'campus-bld-detail';
+    if (fp.roofType === 'dome') {
+      // B7 参数化拱顶(与b7_builder工具一致): 每栋独立 vaultH/archRatio
+      var _b7blds = [
+        { cx: 32.5, cz: 31.3, w: 38.3, d: 22.6, ry: -1.326, vaultH: 10, archRatio: 0.45 },
+        { cx: 47.7, cz: 46, w: 14, d: 16.8, ry: 0.244, vaultH: 5, archRatio: 0.6 },
+      ];
+      var _vaultMat = new THREE.MeshStandardMaterial({ color: '#c8d8e0', roughness: 0.4, metalness: 0.5, side: THREE.DoubleSide });
+      for (var _wi = 0; _wi < _b7blds.length; _wi++) {
+        var _w = _b7blds[_wi];
+        var _vH = _w.vaultH, _ratio = _w.archRatio;
+        var _wallH = _vH * (1 - _ratio), _archH = _vH * _ratio;
+        var _halfW = Math.min(_w.w, _w.d) * 0.48;
+        var _shape = new THREE.Shape();
+        _shape.moveTo(-_halfW, 0); _shape.lineTo(-_halfW, _wallH);
+        var _arc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
+        var _apts = _arc.getPoints(24);
+        for (var _ai = 0; _ai < _apts.length; _ai++) _shape.lineTo(_apts[_ai].x, _apts[_ai].y);
+        _shape.lineTo(_halfW, 0); _shape.closePath();
+        var _extLen = _w.w;
+        var _geo = new THREE.ExtrudeGeometry(_shape, { depth: _extLen, bevelEnabled: false });
+        var _mesh = new THREE.Mesh(_geo, _vaultMat);
+        var _ry = _w.ry;
+        _mesh.rotation.y = Math.PI / 2 - _ry;
+        _mesh.position.set(_w.cx - (_extLen / 2) * Math.cos(_ry), 0, _w.cz - (_extLen / 2) * Math.sin(_ry));
+        _mesh.castShadow = true; _mesh.receiveShadow = true; _mesh.name = 'campus-dome';
+        targetScene.add(_mesh); obstacleMeshes.push(_mesh);
+      }
+    }
+
+    // ── 外廊栏杆 + 空调外机 (穹顶建筑跳过) ──
+    if (fp.roofType !== 'dome') {
+      var innerEdges = edges.filter(function (e) {
+        return e.innerScore > 0.2;
+      });
+      innerEdges.sort(function (a, b) {
+        return b.len - a.len;
+      });
+      for (var _ie = 0; _ie < Math.min(innerEdges.length, 3); _ie++) {
+        if (innerEdges[_ie].len > 4) {
+          addCorridorToEdge(
+            bldGroup,
+            innerEdges[_ie].ax,
+            innerEdges[_ie].az,
+            innerEdges[_ie].bx,
+            innerEdges[_ie].bz,
+            h
+          );
+        }
+      }
+      var outerEdges = edges.filter(function (e) {
+        return e.innerScore < -0.2;
+      });
+      for (var _oe = 0; _oe < outerEdges.length; _oe++) {
+        addACToEdge(
+          bldGroup,
+          outerEdges[_oe].ax,
+          outerEdges[_oe].az,
+          outerEdges[_oe].bx,
+          outerEdges[_oe].bz,
+          h
+        );
+      }
+      bldGroup.rotation.x = -Math.PI / 2;
+      targetScene.add(bldGroup);
+      obstacleMeshes.push(mesh);
+      obstacleMeshes.push(bldGroup);
+    }
+
+    // 碰撞数据
+    var minX = Infinity,
       maxX = -Infinity,
       minZ = Infinity,
       maxZ = -Infinity;
-    for (const p of fp.footprint) {
-      const x = p[0],
-        z = p[1];
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (z < minZ) minZ = z;
-      if (z > maxZ) maxZ = z;
+    for (var _pi = 0; _pi < fpPts.length; _pi++) {
+      var _x = fpPts[_pi][0],
+        _z = fpPts[_pi][1];
+      if (_x < minX) minX = _x;
+      if (_x > maxX) maxX = _x;
+      if (_z < minZ) minZ = _z;
+      if (_z > maxZ) maxZ = _z;
     }
-    // 预存碰撞数据: 足迹多边形(2D射线-多边形求交) + AABB(快速剔除)
-    mesh.userData._polygon = fp.footprint; // [[x,z],...] 世界坐标
-    mesh.userData._wallH = h;
-    window._campusBuildings.push(mesh);
+    if (fp.roofType !== 'dome') {
+      mesh.userData._polygon = fp.footprint;
+      mesh.userData._wallH = h;
+      window._campusBuildings.push(mesh);
+    }
     obstacleData.push({
       x: (minX + maxX) / 2,
       z: (minZ + maxZ) / 2,
       radius: (Math.max(maxX - minX, maxZ - minZ) / 2) * 1.05,
-      box: { minX, maxX, minZ, maxZ },
+      box: { minX: minX, maxX: maxX, minZ: minZ, maxZ: maxZ },
       polygon: fp.footprint,
       height: h,
       type: 'building',
