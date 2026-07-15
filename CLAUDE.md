@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.5
 
 ## 运行
 
@@ -269,6 +269,22 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.67.5 本次会话变更 (2026-07-15)
+
+### 校园现实化：楼高 + 人行天桥 + 教学楼架空层
+
+- **现实信息同步(楼高)**: 综合楼×3(B2/B3/B6)+教学楼×2(B4/B5)=5层(height=15, floorH=3); 工具房(B1)=平房(height=3)。楼层逻辑由height驱动(floor(wallH/3)外廊空调+round(h/3)墙纹理)
+- **教学楼 L 型去短翼→正交矩形**: B5 原 L 型(短翼=西北突 P2-P3-P4-P5)去掉短翼,主体 P0-P1-P2-P*新(P*新=P2+(P0-P1), 已验证 P0-P1⊥P1-P2)
+- **人行天桥(空中连廊)**: `obstacles.bridges` 新数组。天桥 footprint 贴三栋真实斜边(偏13°: 南界主体北边段/北界B6南边段/东界垂直建筑边/西端B3东南),封闭白瓷砖 box,三层地板 `floorY=6`+一层厚 `thickness=3`(天花9),连教学楼+B3+B6 三层。obstacles.js 加 bridge 渲染(ExtrudeGeometry 空中,只入 obstacleMeshes 炮弹 Raycaster,不入 obstacleData 坦克可从桥下穿)
+- **教学楼一楼架空层**: B5 `stiltFloor=1`。楼体 ExtrudeGeometry 从 y=3 起(depth=h-3=12,4层墙),架空层 y=0~3 柱子支撑(沿 footprint 边每5单位圆柱 r0.3)。外廊/空调 wallH 改 `h-_stiltY`+bldGroup.position.y=\_stiltY(跳过架空层,从2层起)
+- **改动文件**: maps/campus.map.json(楼高+命名+主体矩形+bridges+stiltFloor) + js/obstacles.js(bridge渲染+架空层+柱子+外廊空调偏移)
+- **验证**: CDP 校园+3工具 0 错误; Playwright 天桥 mesh 确认; 教学楼架空层 mesh position.y=3
+
+### 数据格式变更(消费者同步)
+
+- 新增字段: `campus.obstacles.bridges`([{footprint,floorY,thickness,name}]); `footprintBuildings[i].stiltFloor`(架空层数)
+- 消费者: js/obstacles.js(bridge 渲染+架空层) + tools/building_edge_marker.html(命名,暂不显示 bridge)
 
 ## v0.67.4 本次会话变更 (2026-07-14)
 

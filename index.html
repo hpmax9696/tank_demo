@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.67.4</title>
+    <title>坦克运动demo v0.67.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.67.4</div>
+      <div class="menu-version">v0.67.5</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.67.5 校园现实化(楼高+天桥+架空层) —
+          现实信息:综合楼×3+教学楼×2=5层(15),工具房=平房(3); 教学楼L型去短翼→正交矩形;
+          人行天桥(空中连廊,三层floorY6+一层厚3,贴教学楼/综合楼2/综合楼3斜边);
+          教学楼一楼架空层(stiltFloor柱子支撑,外廊/空调跳过架空层)
+        </div>
+        <div class="cl-title">
           🏫 v0.67.4 校园工具旋转对齐+命名+B7双栋数据化 —
           3工具(building_edge_marker/track_zone_marker)投影对齐上帝模式(上北右西);
           building_edge_marker命名模式(N键:建筑/运动场/B7双栋,/api/solidify写回);
@@ -846,12 +852,8 @@
           🎯 v0.67.1 校园建筑围墙碰撞修复 — 2D射线-多边形精确求交(替代ExtrudeGeometry逐三角raycast)+
           围墙加入碰撞检测+命中播放地面低沉音效+墙面焦痕平行于墙面+HE溅射不可摧毁守卫
         </div>
-        <div class="cl-title">
-          🏫 v0.67.0
-          金福园小学真实校园地图(OSM导入)+建筑多边形碰撞+炮弹Raycaster墙面检测+相机避障+围墙瓷砖地面
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.67.4~v0.67.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.67.5~v0.67.1) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

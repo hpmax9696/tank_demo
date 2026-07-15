@@ -607,6 +607,7 @@ function createFootprintBuildings(targetScene, fps) {
     if (!fp.footprint || fp.footprint.length < 3) continue;
     var shape = _footprintToShape(fp.footprint, true);
     var h = fp.height || 8;
+    var _stiltY = (fp.stiltFloor || 0) * 3; // 架空层高度(一楼, 柱子支撑)
     var perim = 0;
     var edges = [];
     var fpPts = fp.footprint;
@@ -647,7 +648,10 @@ function createFootprintBuildings(targetScene, fps) {
     // 每建筑clone墙纹理: U沿周长每6单位1tile, V每3单位(1层)1tile
     var wallTex = window._campusWallTex ? window._campusWallTex.clone() : null;
     if (wallTex) {
-      wallTex.repeat.set(Math.max(1, Math.round(perim / 6)), Math.max(1, Math.round(h / 3)));
+      wallTex.repeat.set(
+        Math.max(1, Math.round(perim / 6)),
+        Math.max(1, Math.round((h - _stiltY) / 3))
+      );
       wallTex.needsUpdate = true;
     }
     var wallMat = wallTex
@@ -659,13 +663,37 @@ function createFootprintBuildings(targetScene, fps) {
       : M.roof;
     // 穹顶建筑跳过方形ExtrudeGeometry, 由下方dome代码单独生成拱顶mesh
     if (fp.roofType !== 'dome') {
-      var geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+      var _bDepth = Math.max(1, h - _stiltY); // 楼体墙高(架空层以上)
+      var geo = new THREE.ExtrudeGeometry(shape, { depth: _bDepth, bevelEnabled: false });
       var mesh = new THREE.Mesh(geo, [wallMat, roofMat]);
       mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = _stiltY; // 架空: 楼体从 stiltY 起
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.name = 'campus-bld';
       targetScene.add(mesh);
+      // 架空层柱子(沿 footprint 边每5单位一根, 圆柱 y=0~stiltY)
+      if (_stiltY > 0) {
+        var _pGeo = new THREE.CylinderGeometry(0.3, 0.35, 1, 8);
+        var _pMat = new THREE.MeshStandardMaterial({ color: '#d8d4cc', roughness: 0.9 });
+        for (var _pei = 0; _pei < fpPts.length; _pei++) {
+          var _pa = fpPts[_pei],
+            _pb = fpPts[(_pei + 1) % fpPts.length];
+          var _pdx = _pb[0] - _pa[0],
+            _pdz = _pb[1] - _pa[1];
+          var _plen = Math.hypot(_pdx, _pdz);
+          if (_plen < 0.5) continue;
+          var _pn = Math.max(1, Math.round(_plen / 5));
+          for (var _ppi = 0; _ppi <= _pn; _ppi++) {
+            var _pt = _ppi / _pn;
+            var _pillar = new THREE.Mesh(_pGeo, _pMat);
+            _pillar.position.set(_pa[0] + _pdx * _pt, _stiltY / 2, _pa[1] + _pdz * _pt);
+            _pillar.scale.set(1, _stiltY, 1);
+            _pillar.castShadow = true;
+            targetScene.add(_pillar);
+          }
+        }
+      }
     }
 
     // ── 穹顶(体育馆) ──
@@ -735,7 +763,7 @@ function createFootprintBuildings(targetScene, fps) {
             innerEdges[_ie].az,
             innerEdges[_ie].bx,
             innerEdges[_ie].bz,
-            h
+            h - _stiltY
           );
         }
       }
@@ -749,9 +777,10 @@ function createFootprintBuildings(targetScene, fps) {
           outerEdges[_oe].az,
           outerEdges[_oe].bx,
           outerEdges[_oe].bz,
-          h
+          h - _stiltY
         );
       }
+      bldGroup.position.y = _stiltY;
       bldGroup.rotation.x = -Math.PI / 2;
       targetScene.add(bldGroup);
       obstacleMeshes.push(mesh);
@@ -786,6 +815,45 @@ function createFootprintBuildings(targetScene, fps) {
       type: 'building',
       groupRef: null,
     });
+  }
+
+  // ── 人行天桥(空中封闭连廊, 白瓷砖, 三层位置一层高) ──
+  var _bridges =
+    (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
+  for (var _bi = 0; _bi < _bridges.length; _bi++) {
+    var _br = _bridges[_bi];
+    var _bshape = _footprintToShape(_br.footprint, true);
+    var _bperim = 0;
+    for (var _bj = 0; _bj < _br.footprint.length - 1; _bj++)
+      _bperim += Math.hypot(
+        _br.footprint[_bj + 1][0] - _br.footprint[_bj][0],
+        _br.footprint[_bj + 1][1] - _br.footprint[_bj][1]
+      );
+    var _btex = window._campusWallTex ? window._campusWallTex.clone() : null;
+    if (_btex) {
+      _btex.repeat.set(
+        Math.max(1, Math.round(_bperim / 6)),
+        Math.max(1, Math.round((_br.thickness || 3) / 3))
+      );
+      _btex.needsUpdate = true;
+    }
+    var _bmat = _btex
+      ? new THREE.MeshStandardMaterial({ map: _btex, color: '#ffffff', roughness: 0.8 })
+      : M.wall;
+    var _brTex = window._campusRoofTex ? window._campusRoofTex.clone() : null;
+    var _bRoofMat = _brTex
+      ? new THREE.MeshStandardMaterial({ map: _brTex, color: '#ffffff', roughness: 0.85 })
+      : M.roof;
+    var _bth = _br.thickness || 3;
+    var _bgeo = new THREE.ExtrudeGeometry(_bshape, { depth: _bth, bevelEnabled: false });
+    var _bmesh = new THREE.Mesh(_bgeo, [_bmat, _bRoofMat]);
+    _bmesh.rotation.x = -Math.PI / 2;
+    _bmesh.position.y = _br.floorY || 6; // 三层地板(连三栋三层空间 y=6~9)
+    _bmesh.castShadow = true;
+    _bmesh.receiveShadow = true;
+    _bmesh.name = 'campus-bridge';
+    targetScene.add(_bmesh);
+    obstacleMeshes.push(_bmesh); // 炮弹Raycaster命中(空中); 不push obstacleData→坦克可从桥下穿行
   }
 }
 
