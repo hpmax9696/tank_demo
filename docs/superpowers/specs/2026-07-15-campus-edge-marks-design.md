@@ -132,7 +132,7 @@ if (fp.roofType !== 'dome') {
         addACToEdge(bldGroup, _e.ax,_e.az,_e.bx,_e.bz, h-_stiltY, _skipY, _stiltY);
     }
   } else {
-    // fallback:现有 innerScore 自动推断(代码原样保留,零回归)
+    // fallback:现有 innerScore 自动推断; 但同样算 skipYRanges(对 _bridges)传参 → 自动推断的外廊/空调也避天桥(顺带修复 v0.67.5 天桥实装后潜在的穿插)
     var innerEdges = edges.filter(e => e.innerScore > 0.2);
     innerEdges.sort((a,b) => b.len - a.len);
     for (var _ie = 0; _ie < Math.min(innerEdges.length, 3); _ie++) { ... }
@@ -181,7 +181,7 @@ if (fp.roofType !== 'dome') {
 **零回归保证**:
 
 - 其他地图(无 `edgeMarks`)→ `obstacles.js` 走 fallback 分支,渲染与改动前逐字节一致。
-- 校园未标记的楼 → 同样 fallback。
+- 校园未标记的楼 → 同样 fallback。**注:fallback 现在也计算天桥避让**(自动推断的外廊/空调跳过天桥层),这是顺带修复 v0.67.5 潜在穿插的正向变化,非回归。
 - `server.py` 新增 `edgeMarks` 处理是增量,不影响现有 `names`/`b7_buildings` 逻辑。
 
 **验证步骤**:
