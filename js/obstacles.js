@@ -663,6 +663,10 @@ function createFootprintBuildings(targetScene, fps) {
   var courtyardX = allCx / allN,
     courtyardZ = allCz / allN;
 
+  // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipYRanges 避天桥层)
+  var _bridges =
+    (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
+
   for (var _fi = 0; _fi < fps.length; _fi++) {
     var fp = fps[_fi];
     if (!fp.footprint || fp.footprint.length < 3) continue;
@@ -810,36 +814,56 @@ function createFootprintBuildings(targetScene, fps) {
 
     // ── 外廊栏杆 + 空调外机 (穹顶建筑跳过) ──
     if (fp.roofType !== 'dome') {
-      var innerEdges = edges.filter(function (e) {
-        return e.innerScore > 0.2;
-      });
-      innerEdges.sort(function (a, b) {
-        return b.len - a.len;
-      });
-      for (var _ie = 0; _ie < Math.min(innerEdges.length, 3); _ie++) {
-        if (innerEdges[_ie].len > 4) {
-          addCorridorToEdge(
+      var _marks = fp.edgeMarks;
+      if (_marks && _marks.length) {
+        // 覆盖模式: 只画标记的边, 逐层生成跳过天桥层
+        for (var _mi = 0; _mi < _marks.length; _mi++) {
+          var _mk = _marks[_mi];
+          var _ed = edgeByFootprintIdx(fp.footprint, _mk.ei);
+          if (!_ed || _ed.len < 2) continue;
+          var _mskip = edgeBridgeOverlaps(_ed, _bridges, _stiltY);
+          if (_mk.type === 'corridor')
+            addCorridorToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
+          else if (_mk.type === 'ac')
+            addACToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
+        }
+      } else {
+        // fallback: innerScore 自动推断, 同样算天桥避让
+        var innerEdges = edges.filter(function (e) {
+          return e.innerScore > 0.2;
+        });
+        innerEdges.sort(function (a, b) {
+          return b.len - a.len;
+        });
+        for (var _ie = 0; _ie < Math.min(innerEdges.length, 3); _ie++) {
+          if (innerEdges[_ie].len > 4) {
+            var _iskip = edgeBridgeOverlaps(innerEdges[_ie], _bridges, _stiltY);
+            addCorridorToEdge(
+              bldGroup,
+              innerEdges[_ie].ax,
+              innerEdges[_ie].az,
+              innerEdges[_ie].bx,
+              innerEdges[_ie].bz,
+              h - _stiltY,
+              _iskip
+            );
+          }
+        }
+        var outerEdges = edges.filter(function (e) {
+          return e.innerScore < -0.2;
+        });
+        for (var _oe = 0; _oe < outerEdges.length; _oe++) {
+          var _oskip = edgeBridgeOverlaps(outerEdges[_oe], _bridges, _stiltY);
+          addACToEdge(
             bldGroup,
-            innerEdges[_ie].ax,
-            innerEdges[_ie].az,
-            innerEdges[_ie].bx,
-            innerEdges[_ie].bz,
-            h - _stiltY
+            outerEdges[_oe].ax,
+            outerEdges[_oe].az,
+            outerEdges[_oe].bx,
+            outerEdges[_oe].bz,
+            h - _stiltY,
+            _oskip
           );
         }
-      }
-      var outerEdges = edges.filter(function (e) {
-        return e.innerScore < -0.2;
-      });
-      for (var _oe = 0; _oe < outerEdges.length; _oe++) {
-        addACToEdge(
-          bldGroup,
-          outerEdges[_oe].ax,
-          outerEdges[_oe].az,
-          outerEdges[_oe].bx,
-          outerEdges[_oe].bz,
-          h - _stiltY
-        );
       }
       bldGroup.position.y = _stiltY;
       bldGroup.rotation.x = -Math.PI / 2;
@@ -879,8 +903,6 @@ function createFootprintBuildings(targetScene, fps) {
   }
 
   // ── 人行天桥(空中封闭连廊, 白瓷砖, 三层位置一层高) ──
-  var _bridges =
-    (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
   for (var _bi = 0; _bi < _bridges.length; _bi++) {
     var _br = _bridges[_bi];
     var _bshape = _footprintToShape(_br.footprint, true);
