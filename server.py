@@ -89,9 +89,10 @@ def solidify_config(model_type, config_json_str):
 
 
 def solidify_campus(payload):
-    """更新 campus.map.json 的 name 字段 + 可选 b7_buildings。
+    """更新 campus.map.json 的 name 字段 + 可选 b7_buildings / edgeMarks。
     payload: {'names': {'buildings':{idx:name}, 'grounds':{idx:name}, 'b7':{idx:name}},
-              'b7_buildings': [...] (可选, 整体替换)}"""
+              'b7_buildings': [...] (可选, 整体替换),
+              'edgeMarks': {'<idx>':[{ei,type},...]} (可选, 空[]=清除该楼标记)}"""
     if not os.path.exists(CAMPUS_MAP):
         raise FileNotFoundError(f'校园地图不存在: {CAMPUS_MAP}')
     with open(CAMPUS_MAP, 'r', encoding='utf-8') as f:
@@ -123,6 +124,15 @@ def solidify_campus(payload):
     # 整体替换 b7_buildings (b7_builder 保存时)
     if 'b7_buildings' in payload and payload['b7_buildings'] is not None:
         obs['b7_buildings'] = payload['b7_buildings']
+
+    # 外廊/空调边标记 edgeMarks (building_edge_marker.html 保存)
+    for k, v in (payload.get('edgeMarks') or {}).items():
+        i = int(k)
+        if 0 <= i < len(blds) and blds[i].get('roofType') != 'dome':
+            if v:  # 非空才写(空=未标记→不写字段→渲染 fallback)
+                blds[i]['edgeMarks'] = v
+            elif 'edgeMarks' in blds[i]:
+                del blds[i]['edgeMarks']  # 显式清除标记回 fallback
 
     # 保持原文件内联坐标数组格式(避免 json.dump 展开成多行致全文件重排)
     s = json.dumps(data, ensure_ascii=False, indent=2)
