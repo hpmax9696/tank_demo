@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.67.5</title>
+    <title>坦克运动demo v0.68.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.67.5</div>
+      <div class="menu-version">v0.68.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.68.0 校园外廊/空调标记系统(工具→地图→渲染) — building_edge_marker 工具加 load 回填
+          edgeMarks + 保存按钮 + 画天桥; server solidify_campus 写回 edgeMarks; obstacles.js
+          读标记渲染(覆盖语义,有标记只画标记边,无则 fallback innerScore 自动推断); 标记边+fallback
+          边都跳过天桥 Y 区间(6~9)的层
+        </div>
+        <div class="cl-title">
           🏫 v0.67.5 校园现实化(楼高+天桥+架空层) —
           现实信息:综合楼×3+教学楼×2=5层(15),工具房=平房(3); 教学楼L型去短翼→正交矩形;
           人行天桥(空中连廊,三层floorY6+一层厚3,贴教学楼/综合楼2/综合楼3斜边);
@@ -848,12 +854,8 @@
           运动场内部:TerrainTextures.grass()真实FBM噪声+草叶纹理;
           修复Shape坐标系Z轴取反(rotation.x=-PI/2矩阵补偿); 顺修window.obstacleMeshes引用断裂
         </div>
-        <div class="cl-title">
-          🎯 v0.67.1 校园建筑围墙碰撞修复 — 2D射线-多边形精确求交(替代ExtrudeGeometry逐三角raycast)+
-          围墙加入碰撞检测+命中播放地面低沉音效+墙面焦痕平行于墙面+HE溅射不可摧毁守卫
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.67.5~v0.67.1) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.68.0~v0.67.2) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

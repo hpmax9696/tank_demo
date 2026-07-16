@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.67.5
+# CODEBUDDY.md — v0.68.0
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -86,18 +86,18 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 项目已从单一 `index.html` 拆分为多个独立模块：
 
-| 文件                | 行数  | 功能                                                       |
-| ------------------- | :---: | ---------------------------------------------------------- |
-| `index.html`        | ~1034 | 核心游戏框架（UI框架+菜单+脚本加载+训练配置）              |
-| `waters.js`         | ~326  | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画）      |
-| `bridges.js`        | ~165  | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤）            |
-| `debugcolliders.js` | ~122  | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条） |
-| `audio.js`          | ~322  | 音频系统（引擎声/开火/爆炸/命中/锁定音/卡壳音）            |
-| `input.js`          |  ~74  | 输入处理（WASD驾驶+手柄5段力度+倒车转向修正）              |
-| `shells.js`         | ~363  | 炮弹系统（发射/爆炸/溅射+碎片对象池P-burst-2）             |
-| `mg.js`             | ~209  | 机枪系统（自动锁敌/弹道/过热）                             |
-| `bars.js`           |  ~85  | UI元素（血条/装填条/HUD）                                  |
-| `obstacles.js`      | ~893  | 环境对象（树木/建筑/IM合并去重+category分类+材质全局化）   |
+| 文件                | 行数  | 功能                                                                                            |
+| ------------------- | :---: | ----------------------------------------------------------------------------------------------- |
+| `index.html`        | ~1034 | 核心游戏框架（UI框架+菜单+脚本加载+训练配置）                                                   |
+| `waters.js`         | ~326  | 水体系统（池塘水面+河流alphaMap遮罩平面+碰撞体+动画）                                           |
+| `bridges.js`        | ~165  | 桥梁系统（编辑器桥+参数化桥+碰撞检测+虚空过滤）                                                 |
+| `debugcolliders.js` | ~122  | 碰撞体可视化（F3切换，从运行时数据反向生成红环/蓝板/红条）                                      |
+| `audio.js`          | ~322  | 音频系统（引擎声/开火/爆炸/命中/锁定音/卡壳音）                                                 |
+| `input.js`          |  ~74  | 输入处理（WASD驾驶+手柄5段力度+倒车转向修正）                                                   |
+| `shells.js`         | ~363  | 炮弹系统（发射/爆炸/溅射+碎片对象池P-burst-2）                                                  |
+| `mg.js`             | ~209  | 机枪系统（自动锁敌/弹道/过热）                                                                  |
+| `bars.js`           |  ~85  | UI元素（血条/装填条/HUD）                                                                       |
+| `obstacles.js`      | ~1757 | 环境对象（树木/建筑/IM合并去重+category分类+材质全局化+校园 footprintBuildings/edgeMarks/天桥） |
 
 ### 地图编辑器（v0.49.0 模块拆分后）
 
@@ -201,6 +201,14 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 ```
 
 通过 `currentMapData` 全局变量访问地形参数。
+
+#### 校园地图（campus.map.json）特殊字段（v0.68.0）
+
+- `obstacles.footprintBuildings[i]`：真实 footprint 拉伸建筑（ExtrudeGeometry），含 `footprint`/`height`/`floorH`/`name`/`stiltFloor`(架空层数)/`edgeMarks`
+- `obstacles.footprintBuildings[i].edgeMarks`：外廊/空调标记数组 `[{ei, type:'corridor'|'ac'}]`，`ei`=footprint 点索引对（i 到 i+1 为一条边）。**覆盖语义**：数组非空时只画标记边，空/无字段→fallback innerScore 自动推断。工具 `building_edge_marker.html` 标记 → POST `/api/solidify` → 写回此字段
+- `obstacles.bridges`：人行天桥（空中连廊）`[{footprint, floorY, thickness, name}]`，渲染端跳过 Y 区间（floorY ~ floorY+thickness，默认 6~9）的层
+- `obstacles.b7_buildings`：B7 双栋参数化（室内运动场+车棚，vaultH/archRatio 独立）
+- 消费者：`js/obstacles.js`（渲染）+ `tools/building_edge_marker.html`（标记/回填）+ `server.py solidify_campus`（写回，正则内联保坐标格式）
 
 ### 音频系统
 

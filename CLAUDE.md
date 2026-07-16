@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.67.5
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.68.0
 
 ## 运行
 
@@ -269,6 +269,23 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.68.0 本次会话变更 (2026-07-16)
+
+### 校园建筑外廊/空调标记系统(工具标记 → 地图 → 渲染)
+
+- **工具闭环**: tools/building_edge_marker.html 加 load 回填 edgeMarks + "保存标记到地图"按钮(POST /api/solidify)+ draw 画天桥 footprint(紫色虚线提示)。clearMarks+save 显式清除已落盘标记
+- **server 写回**: solidify_campus 扩展接收 edgeMarks,写回 footprintBuildings[i].edgeMarks,空数组删字段回 fallback,保持坐标内联格式
+- **渲染接入**: obstacles.js 读 fp.edgeMarks(覆盖语义:有标记只画标记边,无则 fallback innerScore 自动推断)。helper: edgeByFootprintIdx(按 footprint 点索引取边,不依赖 edges 下标)+ edgeBridgeOverlaps(边贴天桥检测)
+- **天桥楼层裁剪**: 标记边 + fallback 边都跳过天桥 Y 区间(6~9)的层。顺带修复 v0.67.5 天桥实装后 fallback 自动推断栏杆穿天桥的潜在穿插
+- **架空层**: 隐式跳过(栏杆第0层落 y=\_stiltY 架空层顶)
+- **改动文件**: server.py + tools/building_edge_marker.html + js/obstacles.js
+- **验证**: CDP 0 错误; Playwright 工具闭环(标记→保存→回填→清除)+ 游戏渲染(覆盖/fallback 天桥层裁剪到 0 mesh); map01a 零回归
+
+### 数据格式变更(消费者同步)
+
+- 新增字段: campus.obstacles.footprintBuildings[i].edgeMarks = [{ei, type:'corridor'|'ac'}](数组非空才覆盖,空/无字段→fallback)
+- 消费者: js/obstacles.js(渲染) + tools/building_edge_marker.html(回填/保存) + server.py(写回)
 
 ## v0.67.5 本次会话变更 (2026-07-15)
 
