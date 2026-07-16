@@ -537,12 +537,15 @@
       async function saveEdgeMarks() {
         const blds = campusData.obstacles.footprintBuildings || [];
         const edgeMarks = {};
+        // 先为所有非 dome 楼初始化(含无标记的, 空数组=显式清除已落盘标记)
+        for (let bi = 0; bi < blds.length; bi++) {
+          if (blds[bi].roofType !== 'dome') edgeMarks[bi] = [];
+        }
         for (const key in marks) {
           const parts = key.split('-');
           const bi = parseInt(parts[0], 10);
           const ei = parseInt(parts[1], 10);
-          if (blds[bi] && blds[bi].roofType !== 'dome') {
-            if (!edgeMarks[bi]) edgeMarks[bi] = [];
+          if (blds[bi] && blds[bi].roofType !== 'dome' && edgeMarks[bi]) {
             edgeMarks[bi].push({ ei: ei, type: marks[key] });
           }
         }
