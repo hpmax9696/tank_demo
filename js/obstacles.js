@@ -457,6 +457,65 @@ function createFootprintBuildings(targetScene, fps) {
     railGeo = new THREE.BoxGeometry(1.0, 0.06, 0.08);
     return railGeo;
   };
+  // 按 footprint 点索引取边(端点+长度+中点), 不依赖 edges 数组下标(防中间退化边偏移)
+  var edgeByFootprintIdx = function (footprint, ei) {
+    var n = footprint.length;
+    if (ei < 0 || ei >= n) return null;
+    var ax = footprint[ei][0],
+      az = footprint[ei][1];
+    var bx = footprint[(ei + 1) % n][0],
+      bz = footprint[(ei + 1) % n][1];
+    var dx = bx - ax,
+      dz = bz - az;
+    var len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 1) return null;
+    return { ax: ax, az: az, bx: bx, bz: bz, len: len, mx: (ax + bx) / 2, mz: (az + bz) / 2 };
+  };
+  // 点到线段 2D 距离
+  var _pointSegDist2D = function (px, pz, ax, az, bx, bz) {
+    var dx = bx - ax,
+      dz = bz - az;
+    var l2 = dx * dx + dz * dz;
+    var t = l2 > 0 ? ((px - ax) * dx + (pz - az) * dz) / l2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
+  };
+  // 该边贴上的天桥的【局部 Y 区间】(世界 [floorY,floorY+thickness] 减 stiltY), 供楼层跳过
+  var edgeBridgeOverlaps = function (edge, bridges, stiltY) {
+    var ranges = [];
+    if (!bridges || !bridges.length) return ranges;
+    for (var bi = 0; bi < bridges.length; bi++) {
+      var br = bridges[bi];
+      var fp = br.footprint;
+      if (!fp || fp.length < 2) continue;
+      var minDist = Infinity;
+      for (var i = 0; i < fp.length; i++) {
+        var ca = fp[i],
+          cb = fp[(i + 1) % fp.length];
+        for (var t = 0; t <= 1.0001; t += 0.25) {
+          // 采样建筑边 5 点
+          var px = edge.ax + (edge.bx - edge.ax) * t;
+          var pz = edge.az + (edge.bz - edge.az) * t;
+          var d = _pointSegDist2D(px, pz, ca[0], ca[1], cb[0], cb[1]);
+          if (d < minDist) minDist = d;
+        }
+      }
+      if (minDist < 0.8) {
+        var fy = br.floorY || 6,
+          th = br.thickness || 3;
+        ranges.push([fy - stiltY, fy + th - stiltY]);
+      }
+    }
+    return ranges;
+  };
+  // 局部 Y 是否落在任一跳过区间
+  var _inSkipRanges = function (y, ranges) {
+    if (!ranges || !ranges.length) return false;
+    for (var i = 0; i < ranges.length; i++) {
+      if (y >= ranges[i][0] && y < ranges[i][1]) return true;
+    }
+    return false;
+  };
   var getACGeo = function () {
     if (acGeo) return acGeo;
     acGeo = new THREE.BoxGeometry(1.0, 0.7, 0.4);
@@ -464,7 +523,7 @@ function createFootprintBuildings(targetScene, fps) {
   };
   // bldGroup坐标系: rotation.x=-PI/2 → localX=worldX, localY=-worldZ, localZ=worldY(高度)
   // 沿建筑某条边添加外廊栏杆+楼层挑板(多楼层)
-  var addCorridorToEdge = function (parent, ax, az, bx, bz, wallH) {
+  var addCorridorToEdge = function (parent, ax, az, bx, bz, wallH, skipYRanges) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -487,6 +546,7 @@ function createFootprintBuildings(targetScene, fps) {
     var geoR = getRailGeo();
     var railMat = M.railing;
     for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
+      if (_inSkipRanges(fl * floorH + floorH / 2, skipYRanges)) continue; // 天桥层跳过
       var floorY = fl * floorH; // world高度 → localZ
       // 栏杆柱: Cylinder(沿Y) → rotate.x=-PI/2 → 沿localZ(竖直)
       for (var bi = 0; bi <= nBalusters; bi++) {
@@ -535,7 +595,7 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
   // 沿北面墙添加空调外机
-  var addACToEdge = function (parent, ax, az, bx, bz, wallH) {
+  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipYRanges) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -555,6 +615,7 @@ function createFootprintBuildings(targetScene, fps) {
       metalness: 0.35,
     });
     for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
+      if (_inSkipRanges(fl * floorH + floorH / 2, skipYRanges)) continue; // 天桥层跳过
       var floorY = fl * floorH + 1.0;
       for (var ai = 0; ai < nUnits; ai++) {
         var t = (ai + 0.5) / nUnits;
