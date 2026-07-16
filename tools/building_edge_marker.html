@@ -123,6 +123,9 @@
       <button class="btn btn-green" onclick="saveNames()" style="background: #0d7a3a">
         💾 保存命名到地图
       </button>
+      <button class="btn btn-green" onclick="saveEdgeMarks()" style="background: #0d7a3a">
+        💾 保存标记到地图
+      </button>
       <button class="btn btn-green" onclick="exportJSON()">📋 导出 JSON</button>
       <textarea id="output" readonly placeholder="标记完成后点击导出..."></textarea>
     </div>
@@ -148,6 +151,16 @@
         try {
           const r = await fetch('../maps/campus.map.json');
           campusData = await r.json();
+          // 回填已有 edgeMarks
+          const _blds = campusData.obstacles.footprintBuildings || [];
+          for (let _bi = 0; _bi < _blds.length; _bi++) {
+            const _em = _blds[_bi].edgeMarks || [];
+            for (const _m of _em) {
+              if (typeof _m.ei === 'number' && (_m.type === 'corridor' || _m.type === 'ac')) {
+                marks[bldEdgeKey(_bi, _m.ei)] = _m.type;
+              }
+            }
+          }
           fitView();
           draw();
         } catch (e) {
@@ -320,6 +333,42 @@
           ctx.textAlign = 'center';
           ctx.fillText(w.name || 'B7-' + (bi + 1), cc.x, cc.y);
         }
+        // 天桥 footprint(紫色虚线提示, 辅助判断避让)
+        const bridges = campusData.obstacles.bridges || [];
+        for (let bri = 0; bri < bridges.length; bri++) {
+          const br = bridges[bri];
+          if (!br.footprint || br.footprint.length < 2) continue;
+          ctx.save();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#b266ff';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          const p0 = w2c(br.footprint[0][0], br.footprint[0][1]);
+          ctx.moveTo(p0.x, p0.y);
+          for (let pi = 1; pi < br.footprint.length; pi++) {
+            const pp = w2c(br.footprint[pi][0], br.footprint[pi][1]);
+            ctx.lineTo(pp.x, pp.y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+          const fp = br.footprint;
+          const bcx = fp.reduce((s, p) => s + p[0], 0) / fp.length;
+          const bcz = fp.reduce((s, p) => s + p[1], 0) / fp.length;
+          const bc = w2c(bcx, bcz);
+          ctx.fillStyle = '#b266ff';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            (br.name || '天桥') +
+              ' y=' +
+              (br.floorY || 6) +
+              '~' +
+              ((br.floorY || 6) + (br.thickness || 3)),
+            bc.x,
+            bc.y
+          );
+        }
         // 运动场 name 回显
         for (let gi = 0; gi < (campusData.obstacles.grounds || []).length; gi++) {
           const g = campusData.obstacles.grounds[gi];
@@ -484,6 +533,38 @@
       function clearMarks() {
         marks = {};
         draw();
+      }
+      async function saveEdgeMarks() {
+        const blds = campusData.obstacles.footprintBuildings || [];
+        const edgeMarks = {};
+        for (const key in marks) {
+          const parts = key.split('-');
+          const bi = parseInt(parts[0], 10);
+          const ei = parseInt(parts[1], 10);
+          if (blds[bi] && blds[bi].roofType !== 'dome') {
+            if (!edgeMarks[bi]) edgeMarks[bi] = [];
+            edgeMarks[bi].push({ ei: ei, type: marks[key] });
+          }
+        }
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'campus', edgeMarks: edgeMarks }),
+          });
+          const j = await r.json();
+          if (j.ok)
+            alert(
+              '✅ 标记已保存 (' +
+                Object.keys(edgeMarks).length +
+                ' 栋楼, ' +
+                Object.values(edgeMarks).reduce((s, a) => s + a.length, 0) +
+                ' 条边)'
+            );
+          else alert('保存失败: ' + j.error);
+        } catch (e) {
+          alert('保存失败: ' + e.message);
+        }
       }
       function exportJSON() {
         const blds = campusData.obstacles.footprintBuildings || [];
