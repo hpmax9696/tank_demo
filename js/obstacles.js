@@ -705,8 +705,24 @@ function createFootprintBuildings(targetScene, fps) {
       roughness: 0.55,
       metalness: 0.35,
     });
-    var _flr = forceY !== undefined ? [forceY] : null;
+    var _flr = forceY != null ? [forceY] : null;
     var _nFl = _flr ? _flr.length : Math.floor(wallH / floorH);
+    // 空调位: 有窗时放教室交界(窗间墙), 无窗时均布
+    var _acPositions = [];
+    if (winRanges && winRanges.length) {
+      // 第一间教室之前的墙
+      if (winRanges[0].t0 > 0.05) _acPositions.push(winRanges[0].t0 / 2);
+      // 教室之间的墙
+      for (var _gi = 0; _gi < winRanges.length - 1; _gi++) {
+        _acPositions.push((winRanges[_gi].t1 + winRanges[_gi + 1].t0) / 2);
+      }
+      // 最后一间教室之后的墙
+      var _lastWr = winRanges[winRanges.length - 1];
+      if (_lastWr.t1 < 0.95) _acPositions.push((_lastWr.t1 + 1) / 2);
+    } else {
+      var _nUnits = Math.max(1, Math.floor(edgeLen / spacing));
+      for (var _ai2 = 0; _ai2 < _nUnits; _ai2++) _acPositions.push((_ai2 + 0.5) / _nUnits);
+    }
     for (var fl = 0; fl < _nFl; fl++) {
       var floorY = _flr ? _flr[fl] : fl * floorH + 1.0;
       var seg = null;
@@ -720,20 +736,8 @@ function createFootprintBuildings(targetScene, fps) {
           }
         }
       }
-      for (var ai = 0; ai < nUnits; ai++) {
-        var t = (ai + 0.5) / nUnits;
-        // 空调不能装在窗户上: 中心距窗范围<0.6(半宽0.5+余量)则跳过
-        var _onWin = false;
-        if (winRanges) {
-          for (var _wi2 = 0; _wi2 < winRanges.length; _wi2++) {
-            var _wr = winRanges[_wi2];
-            if (t >= _wr.t0 - 0.6 / edgeLen && t <= _wr.t1 + 0.6 / edgeLen) {
-              _onWin = true;
-              break;
-            }
-          }
-        }
-        if (_onWin) continue;
+      for (var ai = 0; ai < _acPositions.length; ai++) {
+        var t = _acPositions[ai];
         if (seg && t >= seg[0] && t <= seg[1]) continue; // 连接段跳过空调
         var lx = ax + dx * t + nx * 0.45;
         var ly = -(az + dz * t + nz * 0.45);
@@ -893,7 +897,7 @@ function createFootprintBuildings(targetScene, fps) {
         var doorBlocked2 = seg && door2T0 < seg[1] && door2T1 > seg[0];
         var doorMidZ = floorY + doorH / 2;
         // 前门
-        if (!doorBlocked1 && doorT1 - doorT0 > 0.02) {
+        if (!doorBlocked1 && doorT1 - doorT0 > 0.005) {
           var d1MidT = (doorT0 + doorT1) / 2;
           var d1X = ax + dx * d1MidT + nx * wallOff;
           var d1Y = -(az + dz * d1MidT + nz * wallOff);
@@ -904,7 +908,7 @@ function createFootprintBuildings(targetScene, fps) {
           parent.add(door1);
         }
         // 后门
-        if (!doorBlocked2 && door2T1 - door2T0 > 0.02) {
+        if (!doorBlocked2 && door2T1 - door2T0 > 0.005) {
           var d2MidT = (door2T0 + door2T1) / 2;
           var d2X = ax + dx * d2MidT + nx * wallOff;
           var d2Y = -(az + dz * d2MidT + nz * wallOff);
