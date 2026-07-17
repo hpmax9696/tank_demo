@@ -1150,21 +1150,26 @@ function createFootprintBuildings(targetScene, fps) {
         _b7grp.rotation.x = -Math.PI / 2;
         targetScene.add(_b7grp);
         obstacleMeshes.push(_b7grp);
-        // 车棚四角柱(敞开式, 无墙)
+        // 车棚四角柱(敞开式, 无墙, 内收至拱面正下方)
         if (_isCarport) {
           var _pGeo = new THREE.CylinderGeometry(0.25, 0.28, 1, 8);
           var _pMat = new THREE.MeshStandardMaterial({ color: '#d8d4cc', roughness: 0.75 });
+          var _pInset = _halfW2 * 0.88; // 柱内收至拱面宽度88%处
           var _corners = [
-            [-_halfW2, 0],
-            [-_halfW2, _extLen2],
-            [_halfW2, 0],
-            [_halfW2, _extLen2],
+            [-_pInset, 0],
+            [-_pInset, _extLen2],
+            [_pInset, 0],
+            [_pInset, _extLen2],
           ];
           for (var _ci = 0; _ci < _corners.length; _ci++) {
-            var _cw = _b7w(_corners[_ci][0], _corners[_ci][1]);
+            var _lx = _corners[_ci][0];
+            // 拱面在该 lx 处的高度: _wallH + _archH * sqrt(1-(lx/_halfW)^2)
+            var _t = Math.abs(_lx) / _halfW2;
+            var _archY = _wallH + _archH * Math.sqrt(Math.max(0, 1 - _t * _t));
+            var _cw = _b7w(_lx, _corners[_ci][1]);
             var _pillar = new THREE.Mesh(_pGeo, _pMat);
-            _pillar.position.set(_cw[0], _b7wallH / 2, _cw[1]);
-            _pillar.scale.set(1, _b7wallH, 1);
+            _pillar.position.set(_cw[0], _archY / 2, _cw[1]);
+            _pillar.scale.set(1, _archY, 1);
             _pillar.castShadow = true;
             _pillar.name = 'campus-pillar';
             targetScene.add(_pillar);
