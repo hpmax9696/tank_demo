@@ -637,32 +637,6 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
 
-  // ── 计算内院中心(所有建筑包围盒中心的均值)用于判断内/外面 ──
-  var allCx = 0,
-    allCz = 0,
-    allN = 0;
-  for (var _pi = 0; _pi < fps.length; _pi++) {
-    var _pf = fps[_pi].footprint;
-    if (!_pf || _pf.length < 3) continue;
-    var _mnX = Infinity,
-      _mxX = -Infinity,
-      _mnZ = Infinity,
-      _mxZ = -Infinity;
-    for (var _pj = 0; _pj < _pf.length; _pj++) {
-      var _px = _pf[_pj][0],
-        _pz = _pf[_pj][1];
-      if (_px < _mnX) _mnX = _px;
-      if (_px > _mxX) _mxX = _px;
-      if (_pz < _mnZ) _mnZ = _pz;
-      if (_pz > _mxZ) _mxZ = _pz;
-    }
-    allCx += (_mnX + _mxX) / 2;
-    allCz += (_mnZ + _mxZ) / 2;
-    allN++;
-  }
-  var courtyardX = allCx / allN,
-    courtyardZ = allCz / allN;
-
   // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipYRanges 避天桥层)
   var _bridges =
     (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
@@ -674,41 +648,12 @@ function createFootprintBuildings(targetScene, fps) {
     var h = fp.height || 8;
     var _stiltY = (fp.stiltFloor || 0) * 3; // 架空层高度(一楼, 柱子支撑)
     var perim = 0;
-    var edges = [];
     var fpPts = fp.footprint;
     for (var i = 0; i < fpPts.length; i++) {
-      var ax = fpPts[i][0],
-        az = fpPts[i][1];
-      var bx = fpPts[(i + 1) % fpPts.length][0],
-        bz = fpPts[(i + 1) % fpPts.length][1];
-      var dx = bx - ax,
-        dz = bz - az;
-      var len = Math.sqrt(dx * dx + dz * dz);
-      if (len < 1) continue;
-      perim += len;
-      var ux = dx / len,
-        uz = dz / len;
-      var nz = -ux,
-        nx = uz; // 边外法线(CCW多边形)
-      // 边中心→内院中心方向, 点积判断是否朝内
-      var ecx = (ax + bx) / 2,
-        ecz = (az + bz) / 2;
-      var tcX = courtyardX - ecx,
-        tcZ = courtyardZ - ecz;
-      var tcLen = Math.sqrt(tcX * tcX + tcZ * tcZ) || 1;
-      var innerScore = nx * (tcX / tcLen) + nz * (tcZ / tcLen); // >0=朝内院
-      edges.push({
-        ax: ax,
-        az: az,
-        bx: bx,
-        bz: bz,
-        len: len,
-        ux: ux,
-        uz: uz,
-        nx: nx,
-        nz: nz,
-        innerScore: innerScore,
-      });
+      var _pa = fpPts[i],
+        _pb = fpPts[(i + 1) % fpPts.length];
+      var _plen = Math.hypot(_pb[0] - _pa[0], _pb[1] - _pa[1]);
+      if (_plen >= 1) perim += _plen;
     }
     // 每建筑clone墙纹理: U沿周长每6单位1tile, V每3单位(1层)1tile
     var wallTex = window._campusWallTex ? window._campusWallTex.clone() : null;
@@ -827,44 +772,8 @@ function createFootprintBuildings(targetScene, fps) {
           else if (_mk.type === 'ac')
             addACToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
         }
-      } else {
-        // fallback: innerScore 自动推断, 同样算天桥避让
-        var innerEdges = edges.filter(function (e) {
-          return e.innerScore > 0.2;
-        });
-        innerEdges.sort(function (a, b) {
-          return b.len - a.len;
-        });
-        for (var _ie = 0; _ie < Math.min(innerEdges.length, 3); _ie++) {
-          if (innerEdges[_ie].len > 4) {
-            var _iskip = edgeBridgeOverlaps(innerEdges[_ie], _bridges, _stiltY);
-            addCorridorToEdge(
-              bldGroup,
-              innerEdges[_ie].ax,
-              innerEdges[_ie].az,
-              innerEdges[_ie].bx,
-              innerEdges[_ie].bz,
-              h - _stiltY,
-              _iskip
-            );
-          }
-        }
-        var outerEdges = edges.filter(function (e) {
-          return e.innerScore < -0.2;
-        });
-        for (var _oe = 0; _oe < outerEdges.length; _oe++) {
-          var _oskip = edgeBridgeOverlaps(outerEdges[_oe], _bridges, _stiltY);
-          addACToEdge(
-            bldGroup,
-            outerEdges[_oe].ax,
-            outerEdges[_oe].az,
-            outerEdges[_oe].bx,
-            outerEdges[_oe].bz,
-            h - _stiltY,
-            _oskip
-          );
-        }
       }
+      // 无 edgeMarks → 不画(原 fallback 已删)
       bldGroup.position.y = _stiltY;
       bldGroup.rotation.x = -Math.PI / 2;
       targetScene.add(bldGroup);
