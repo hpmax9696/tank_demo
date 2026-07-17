@@ -805,6 +805,33 @@ function createFootprintBuildings(targetScene, fps) {
         _mesh.name = 'campus-dome';
         targetScene.add(_mesh);
         obstacleMeshes.push(_mesh);
+
+        // b7 空调(读 edgeMarks, 只 ac, 长边 ei=0/2)
+        var _b7mks = _w.edgeMarks || [];
+        var _extLen2 = _w.w;
+        var _halfW2 = Math.min(_w.w, _w.d) * 0.48;
+        var _cry = Math.cos(_ry),
+          _sry = Math.sin(_ry);
+        var _b7wallH = _vH * (1 - _ratio);
+        // 世界坐标转换: 局部 (lx, lz) → 世界 (wx, wz)
+        var _b7w = function (lx, lz) {
+          return [
+            _w.cx - (_extLen2 / 2) * _cry + lx * _sry + lz * _cry,
+            _w.cz - (_extLen2 / 2) * _sry - lx * _cry + lz * _sry,
+          ];
+        };
+        var _b7grp = new THREE.Group();
+        _b7grp.rotation.x = -Math.PI / 2;
+        targetScene.add(_b7grp);
+        for (var _bmi = 0; _bmi < _b7mks.length; _bmi++) {
+          var _bm = _b7mks[_bmi];
+          if (_bm.type !== 'ac') continue;
+          var _sgn = _bm.ei === 0 ? -1 : _bm.ei === 2 ? 1 : null;
+          if (_sgn === null) continue; // 只支持长边 ei=0/2
+          var _wa = _b7w(_sgn * _halfW2, 0);
+          var _wb = _b7w(_sgn * _halfW2, _extLen2);
+          addACToEdge(_b7grp, _wa[0], _wa[1], _wb[0], _wb[1], _b7wallH, []);
+        }
       }
     }
 
