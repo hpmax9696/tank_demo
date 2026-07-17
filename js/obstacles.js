@@ -757,9 +757,9 @@ function createFootprintBuildings(targetScene, fps) {
   };
 
   // 计算一条边上所有教室窗户的 t 范围(供 addDoorsAndWindows 和 addACToEdge 避让共用)
-  var computeWindowRanges = function (edgeLen) {
+  var computeWindowRanges = function (edgeLen, _nr) {
     var cw = 8; // 标准教室宽度
-    var nClassrooms = Math.max(1, Math.round(edgeLen / cw));
+    var nClassrooms = _nr || Math.max(1, Math.round(edgeLen / cw));
     var crw = edgeLen / nClassrooms; // 实际教室宽度
     var ranges = [];
     for (var ci = 0; ci < nClassrooms; ci++) {
@@ -775,7 +775,19 @@ function createFootprintBuildings(targetScene, fps) {
 
   // 沿建筑边添加门窗户(贴面薄Box)
   // type='corridor': 前门+窗户(多扇)+后门; type='ac': 仅窗户(与走廊面对称)
-  var addDoorsAndWindows = function (parent, ax, az, bx, bz, wallH, type, skipSegs, _stiltY) {
+  var addDoorsAndWindows = function (
+    parent,
+    ax,
+    az,
+    bx,
+    bz,
+    wallH,
+    type,
+    skipSegs,
+    _stiltY,
+    _nRooms,
+    _singleDoor
+  ) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -793,9 +805,9 @@ function createFootprintBuildings(targetScene, fps) {
       doorH = 2.0,
       doorW = 0.7;
     var wallOff = 0.02; // 门窗略突出墙面
-    var nClassrooms = Math.max(1, Math.round(edgeLen / 8));
+    var nClassrooms = _nRooms || Math.max(1, Math.round(edgeLen / 8));
     var crw = edgeLen / nClassrooms;
-    var winRanges = computeWindowRanges(edgeLen);
+    var winRanges = computeWindowRanges(edgeLen, _nRooms);
 
     // 共享材质(全局复用)
     if (!addDoorsAndWindows._doorMat) {
@@ -891,10 +903,7 @@ function createFootprintBuildings(targetScene, fps) {
         if (type !== 'corridor') continue;
         var doorT0 = c0t + 0.4 / edgeLen;
         var doorT1 = doorT0 + doorW / edgeLen; // 前门
-        var door2T1 = c1t - 0.4 / edgeLen;
-        var door2T0 = door2T1 - doorW / edgeLen; // 后门
         var doorBlocked1 = seg && doorT0 < seg[1] && doorT1 > seg[0];
-        var doorBlocked2 = seg && door2T0 < seg[1] && door2T1 > seg[0];
         var doorMidZ = floorY + doorH / 2;
         // 前门
         if (!doorBlocked1 && doorT1 - doorT0 > 0.005) {
@@ -907,16 +916,21 @@ function createFootprintBuildings(targetScene, fps) {
           door1.name = 'campus-detail';
           parent.add(door1);
         }
-        // 后门
-        if (!doorBlocked2 && door2T1 - door2T0 > 0.005) {
-          var d2MidT = (door2T0 + door2T1) / 2;
-          var d2X = ax + dx * d2MidT + nx * wallOff;
-          var d2Y = -(az + dz * d2MidT + nz * wallOff);
-          var door2 = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.04, doorH), doorMat);
-          door2.position.set(d2X, d2Y, doorMidZ);
-          door2.rotation.z = edgeAngle;
-          door2.name = 'campus-detail';
-          parent.add(door2);
+        // 后门(单门模式跳过)
+        if (!_singleDoor) {
+          var door2T1 = c1t - 0.4 / edgeLen;
+          var door2T0 = door2T1 - doorW / edgeLen; // 后门
+          var doorBlocked2 = seg && door2T0 < seg[1] && door2T1 > seg[0];
+          if (!doorBlocked2 && door2T1 - door2T0 > 0.005) {
+            var d2MidT = (door2T0 + door2T1) / 2;
+            var d2X = ax + dx * d2MidT + nx * wallOff;
+            var d2Y = -(az + dz * d2MidT + nz * wallOff);
+            var door2 = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.04, doorH), doorMat);
+            door2.position.set(d2X, d2Y, doorMidZ);
+            door2.rotation.z = edgeAngle;
+            door2.name = 'campus-detail';
+            parent.add(door2);
+          }
         }
       }
     }
@@ -1108,6 +1122,7 @@ function createFootprintBuildings(targetScene, fps) {
           var _mskip = edgeBridgeOverlaps(_ed, _bridges, _stiltY);
           if (_mk.type === 'corridor') {
             addCorridorToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
+            var _isTool = fp.name === '工具房';
             addDoorsAndWindows(
               bldGroup,
               _ed.ax,
@@ -1117,7 +1132,9 @@ function createFootprintBuildings(targetScene, fps) {
               h - _stiltY,
               'corridor',
               _mskip,
-              _stiltY
+              _stiltY,
+              _isTool ? 5 : undefined, // _nRooms: 工具房强制5间
+              _isTool || undefined // _singleDoor: 工具房单门
             );
           } else if (_mk.type === 'ac') {
             var _acWinRanges = computeWindowRanges(_ed.len);

@@ -25,7 +25,13 @@
         ],
         "height": 3,
         "name": "工具房",
-        "type": "school"
+        "type": "school",
+        "edgeMarks": [
+          {
+            "ei": 1,
+            "type": "corridor"
+          }
+        ]
       },
       {
         "footprint": [
