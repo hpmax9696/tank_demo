@@ -823,10 +823,11 @@ function createFootprintBuildings(targetScene, fps) {
         var _b7grp = new THREE.Group();
         _b7grp.rotation.x = -Math.PI / 2;
         targetScene.add(_b7grp);
+        obstacleMeshes.push(_b7grp);
         for (var _bmi = 0; _bmi < _b7mks.length; _bmi++) {
           var _bm = _b7mks[_bmi];
           if (_bm.type !== 'ac') continue;
-          var _sgn = _bm.ei === 0 ? -1 : _bm.ei === 2 ? 1 : null;
+          var _sgn = _bm.ei === 0 ? 1 : _bm.ei === 2 ? -1 : null;
           if (_sgn === null) continue; // 只支持长边 ei=0/2
           var _wa = _b7w(_sgn * _halfW2, 0);
           var _wb = _b7w(_sgn * _halfW2, _extLen2);
