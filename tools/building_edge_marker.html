@@ -146,6 +146,12 @@
       function bldEdgeKey(bi, ei) {
         return bi + '-' + ei;
       }
+      // 由 findEdge 结果生成 marks key(findEdge 对 footprintBuildings 返回 {bi,ei},
+      // 对 b7_buildings 返回 {kind:'b7', bi, ei})
+      function markKey(fe) {
+        if (fe.kind === 'b7') return 'b7-' + fe.bi + '-' + fe.ei;
+        return fe.bi + '-' + fe.ei;
+      }
 
       async function load() {
         try {
@@ -158,6 +164,16 @@
             for (const _m of _em) {
               if (typeof _m.ei === 'number' && (_m.type === 'corridor' || _m.type === 'ac')) {
                 marks[bldEdgeKey(_bi, _m.ei)] = _m.type;
+              }
+            }
+          }
+          // 回填 b7_buildings edgeMarks(b7 拱顶无外廊,只回填 ac)
+          const _b7lds = campusData.obstacles.b7_buildings || [];
+          for (let _bi = 0; _bi < _b7lds.length; _bi++) {
+            const _em = _b7lds[_bi].edgeMarks || [];
+            for (const _m of _em) {
+              if (typeof _m.ei === 'number' && _m.type === 'ac') {
+                marks['b7-' + _bi + '-' + _m.ei] = _m.type;
               }
             }
           }
@@ -312,7 +328,7 @@
           ctx.textAlign = 'center';
           ctx.fillText('B' + (bi + 1), cc.x, cc.y + 5);
         }
-        // B7 双栋(b7_buildings) 矩形 + name
+        // B7 双栋(b7_buildings) 矩形 + name + 边标记
         const b7 = campusData.obstacles.b7_buildings || [];
         for (let bi = 0; bi < b7.length; bi++) {
           const w = b7[bi];
@@ -327,6 +343,64 @@
             corners.push([w.cx + sx * hw * cs - sz * hd * sn, w.cz + sx * hw * sn + sz * hd * cs]);
           }
           drawPoly(corners, 'rgba(200,180,160,0.5)', '#c8a060', 2);
+          // b7 边标记(参考 footprintBuildings 边标记逻辑:外侧偏移线 + 圆点 + hover)
+          for (let bei = 0; bei < 4; bei++) {
+            const a = corners[bei],
+              b2 = corners[(bei + 1) % 4];
+            const dx = b2[0] - a[0],
+              dz = b2[1] - a[1];
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1) continue;
+            const ca = w2c(a[0], a[1]),
+              cb = w2c(b2[0], b2[1]);
+            const key = 'b7-' + bi + '-' + bei;
+            const mk = marks[key];
+            const isHover = hoveredKey === key;
+            let color = null,
+              lw = 0;
+            if (mk === 'corridor') {
+              color = '#e94560';
+              lw = 5;
+            } else if (mk === 'ac') {
+              color = '#1565c0';
+              lw = 5;
+            }
+            if (isHover) {
+              color = '#fff';
+              lw = 7;
+            }
+            if (!color) continue; // 无标记无 hover 不画(b7 已有黄框,不叠加灰线)
+            // 画外侧偏移线
+            const ux = dx / len,
+              uz = dz / len,
+              nx = -uz,
+              nz = ux;
+            const off = isHover ? 8 : 5;
+            const aox = ca.x + nx * off,
+              aoz = ca.y + nz * off;
+            const box = cb.x + nx * off,
+              boz = cb.y + nz * off;
+            ctx.beginPath();
+            ctx.moveTo(aox, aoz);
+            ctx.lineTo(box, boz);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            // 标记圆点
+            if (mk) {
+              const mx = (aox + box) / 2,
+                my = (aoz + boz) / 2;
+              ctx.beginPath();
+              ctx.arc(mx, my, 5, 0, Math.PI * 2);
+              ctx.fillStyle = color;
+              ctx.fill();
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 8px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText(mk === 'corridor' ? '廊' : '空', mx, my + 3);
+            }
+          }
           const cc = w2c(w.cx, w.cz);
           ctx.fillStyle = '#fff';
           ctx.font = 'bold 12px monospace';
@@ -402,6 +476,9 @@
         let best = null,
           bestDist = Infinity;
         for (let bi = 0; bi < blds.length; bi++) {
+          // 跳过 dome(B7 旧轮廓 footprint) — 它与 b7_buildings 室内运动场/车棚重叠,
+          // 不跳过会让点击总是命中 dome 边而非 b7_buildings 边(参见 findEntityAt 同样跳过 dome)
+          if (blds[bi].roofType === 'dome') continue;
           const fp = blds[bi].footprint;
           if (!fp || fp.length < 3) continue;
           for (let ei = 0; ei < fp.length; ei++) {
@@ -419,6 +496,42 @@
             if (dist * scale < 15 && dist < bestDist) {
               bestDist = dist;
               best = { bi, ei };
+            }
+          }
+        }
+        // b7_buildings 4 边(俯视矩形 cx,cz,w,d,ry)
+        // (变量名用 bd 避免覆盖外层 w=鼠标世界坐标)
+        const b7lds = campusData.obstacles.b7_buildings || [];
+        for (let bi = 0; bi < b7lds.length; bi++) {
+          const bd = b7lds[bi];
+          const cs = Math.cos(bd.ry),
+            sn = Math.sin(bd.ry);
+          const hw = bd.w / 2,
+            hd = bd.d / 2;
+          const corners = [];
+          for (let c = 0; c < 4; c++) {
+            const sx = c === 0 || c === 3 ? -1 : 1,
+              sz = c < 2 ? -1 : 1;
+            corners.push([
+              bd.cx + sx * hw * cs - sz * hd * sn,
+              bd.cz + sx * hw * sn + sz * hd * cs,
+            ]);
+          }
+          for (let ei = 0; ei < 4; ei++) {
+            const a = corners[ei],
+              b2 = corners[(ei + 1) % 4];
+            const dx = b2[0] - a[0],
+              dz = b2[1] - a[1];
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1) continue;
+            let t = ((w.x - a[0]) * dx + (w.z - a[1]) * dz) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const px = a[0] + t * dx,
+              pz = a[1] + t * dz;
+            const dist = Math.hypot(w.x - px, w.z - pz);
+            if (dist * scale < 15 && dist < bestDist) {
+              bestDist = dist;
+              best = { kind: 'b7', bi: bi, ei: ei };
             }
           }
         }
@@ -464,7 +577,7 @@
       canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const fe = findEdge(e.clientX - rect.left, e.clientY - rect.top);
-        const newKey = fe ? bldEdgeKey(fe.bi, fe.ei) : null;
+        const newKey = fe ? markKey(fe) : null;
         if (newKey !== hoveredKey) {
           hoveredKey = newKey;
           draw();
@@ -496,7 +609,7 @@
           return;
         }
         if (!fe) return;
-        const key = bldEdgeKey(fe.bi, fe.ei);
+        const key = markKey(fe);
         if (marks[key] === mode) delete marks[key];
         else marks[key] = mode;
         draw();
@@ -542,6 +655,7 @@
           if (blds[bi].roofType !== 'dome') edgeMarks[bi] = [];
         }
         for (const key in marks) {
+          if (key.indexOf('b7-') === 0) continue; // b7 key 另外收集
           const parts = key.split('-');
           const bi = parseInt(parts[0], 10);
           const ei = parseInt(parts[1], 10);
@@ -549,20 +663,39 @@
             edgeMarks[bi].push({ ei: ei, type: marks[key] });
           }
         }
+        // 收集 b7_buildings 标记(key 格式 'b7-<bi>-<ei>')
+        const b7lds2 = campusData.obstacles.b7_buildings || [];
+        const b7_edgeMarks = {};
+        for (let bi = 0; bi < b7lds2.length; bi++) b7_edgeMarks[bi] = [];
+        for (const key in marks) {
+          if (key.indexOf('b7-') !== 0) continue;
+          const parts = key.split('-'); // ['b7', bi, ei]
+          const bi = parseInt(parts[1], 10),
+            ei = parseInt(parts[2], 10);
+          if (b7_edgeMarks[bi]) b7_edgeMarks[bi].push({ ei: ei, type: marks[key] });
+        }
         try {
           const r = await fetch('/api/solidify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'campus', edgeMarks: edgeMarks }),
+            body: JSON.stringify({
+              type: 'campus',
+              edgeMarks: edgeMarks,
+              b7_edgeMarks: b7_edgeMarks,
+            }),
           });
           const j = await r.json();
           if (j.ok)
             alert(
-              '✅ 标记已保存 (' +
+              '✅ 标记已保存 (楼 ' +
                 Object.keys(edgeMarks).length +
-                ' 栋楼, ' +
+                ' 栋 / ' +
                 Object.values(edgeMarks).reduce((s, a) => s + a.length, 0) +
-                ' 条边)'
+                ' 边, b7 ' +
+                Object.keys(b7_edgeMarks).length +
+                ' 栋 / ' +
+                Object.values(b7_edgeMarks).reduce((s, a) => s + a.length, 0) +
+                ' 边)'
             );
           else alert('保存失败: ' + j.error);
         } catch (e) {
