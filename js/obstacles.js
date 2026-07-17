@@ -1060,33 +1060,41 @@ function createFootprintBuildings(targetScene, fps) {
         var _ry = _w.ry;
         var _isCarport = _w.name === '车棚';
         if (_isCarport) {
-          // 车棚: 薄拱壳屋顶(无墙) — 内外两层拱曲线构成壳截面
-          var _shellShape = new THREE.Shape();
-          var _shellThick = 0.15;
-          _shellShape.moveTo(-_halfW, _wallH);
-          var _oArc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
-          var _oPts = _oArc.getPoints(24);
-          for (var _oi = 0; _oi < _oPts.length; _oi++)
-            _shellShape.lineTo(_oPts[_oi].x, _oPts[_oi].y);
-          _shellShape.lineTo(_halfW, _wallH);
-          // 内层拱(略小)反向回描
-          var _iArc = new THREE.EllipseCurve(
+          // 车棚: 单片拱面屋顶(敞开, 无墙) — BufferGeometry 沿拱曲线扫掠
+          var _archPts = new THREE.EllipseCurve(
             0,
             _wallH,
-            _halfW - _shellThick,
-            _archH - _shellThick,
-            0,
+            _halfW,
+            _archH,
             Math.PI,
+            0,
             true
-          );
-          var _iPts = _iArc.getPoints(24);
-          for (var _ii = 0; _ii < _iPts.length; _ii++)
-            _shellShape.lineTo(_iPts[_ii].x, _iPts[_ii].y);
-          _shellShape.closePath();
-          var _shellGeo = new THREE.ExtrudeGeometry(_shellShape, {
-            depth: _extLen,
-            bevelEnabled: false,
-          });
+          ).getPoints(32);
+          var _nPts = _archPts.length;
+          var _verts = new Float32Array(_nPts * 2 * 3); // 每点2份(z=0/z=_extLen)
+          for (var _pi = 0; _pi < _nPts; _pi++) {
+            var _px = _archPts[_pi].x,
+              _py = _archPts[_pi].y;
+            var _vi = _pi * 6;
+            _verts[_vi] = _px;
+            _verts[_vi + 1] = _py;
+            _verts[_vi + 2] = 0;
+            _verts[_vi + 3] = _px;
+            _verts[_vi + 4] = _py;
+            _verts[_vi + 5] = _extLen;
+          }
+          var _indices = [];
+          for (var _pi2 = 0; _pi2 < _nPts - 1; _pi2++) {
+            var _a = _pi2 * 2,
+              _b = _a + 1,
+              _c = _a + 2,
+              _d = _a + 3;
+            _indices.push(_a, _c, _b, _c, _d, _b);
+          }
+          var _shellGeo = new THREE.BufferGeometry();
+          _shellGeo.setAttribute('position', new THREE.BufferAttribute(_verts, 3));
+          _shellGeo.setIndex(_indices);
+          _shellGeo.computeVertexNormals();
           var _shellMesh = new THREE.Mesh(_shellGeo, _vaultMat);
           _shellMesh.rotation.y = Math.PI / 2 - _ry;
           _shellMesh.position.set(
