@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.69.0</title>
+    <title>坦克运动demo v0.70.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.69.0</div>
+      <div class="menu-version">v0.70.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.70.0 校园建筑门窗系统 — 5栋教学楼外廊面门+窗+空调面窗对称; 教室自动划分(
+          宽≈8u整除边长); corridor面每教室前门+后门+多扇窗(细框); ac面窗对称+空调外机避让窗户;
+          天桥子段裁剪; 架空层柱内移+去角柱+清理防泄漏
+        </div>
+        <div class="cl-title">
           🏫 v0.69.0 校园外廊/空调标记 v2(纯覆盖+天桥子段裁剪+b7空调) — 弃 fallback:无 edgeMarks
           的楼不画外廊/空调(工具房自动无); 天桥子段级裁剪
           (贴天桥的边天桥层只裁连接子段,其余段画外廊); b7 dome 拱顶长边墙面挂空调; 用户已标 5 楼真实
@@ -848,14 +853,8 @@
           B7双栋参数化提升为数据obstacles.b7_buildings(obstacles.js数据驱动+fallback); server.py
           solidify加campus分支(正则内联保坐标格式); b7_builder数据加载+保存
         </div>
-        <div class="cl-title">
-          🏫 v0.67.3 校园建筑真实化 —
-          建筑墙面Canvas纹理(白瓷砖+窗户+楼层线)+敞开式外廊栏杆(朝内院,楼层挑板)+空调外机(朝外);
-          B7体育馆双栋参数化拱顶(运动场vaultH10+车棚vaultH5,EllipseCurve截面); 删除B1校外建筑;
-          打点工具坐标对齐上帝模式(上北右西)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.69.0~v0.67.3) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.70.0~v0.67.5) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

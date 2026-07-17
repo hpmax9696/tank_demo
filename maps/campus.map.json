@@ -305,7 +305,13 @@
         "d": 22.6,
         "ry": -1.326,
         "vaultH": 10,
-        "archRatio": 0.45
+        "archRatio": 0.45,
+        "edgeMarks": [
+          {
+            "ei": 2,
+            "type": "ac"
+          }
+        ]
       },
       {
         "name": "车棚",
