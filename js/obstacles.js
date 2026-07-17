@@ -1056,29 +1056,73 @@ function createFootprintBuildings(targetScene, fps) {
         var _wallH = _vH * (1 - _ratio),
           _archH = _vH * _ratio;
         var _halfW = Math.min(_w.w, _w.d) * 0.48;
-        var _shape = new THREE.Shape();
-        _shape.moveTo(-_halfW, 0);
-        _shape.lineTo(-_halfW, _wallH);
-        var _arc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
-        var _apts = _arc.getPoints(24);
-        for (var _ai = 0; _ai < _apts.length; _ai++) _shape.lineTo(_apts[_ai].x, _apts[_ai].y);
-        _shape.lineTo(_halfW, 0);
-        _shape.closePath();
         var _extLen = _w.w;
-        var _geo = new THREE.ExtrudeGeometry(_shape, { depth: _extLen, bevelEnabled: false });
-        var _mesh = new THREE.Mesh(_geo, _vaultMat);
         var _ry = _w.ry;
-        _mesh.rotation.y = Math.PI / 2 - _ry;
-        _mesh.position.set(
-          _w.cx - (_extLen / 2) * Math.cos(_ry),
-          0,
-          _w.cz - (_extLen / 2) * Math.sin(_ry)
-        );
-        _mesh.castShadow = true;
-        _mesh.receiveShadow = true;
-        _mesh.name = 'campus-dome';
-        targetScene.add(_mesh);
-        obstacleMeshes.push(_mesh);
+        var _isCarport = _w.name === '车棚';
+        if (_isCarport) {
+          // 车棚: 薄拱壳屋顶(无墙) — 内外两层拱曲线构成壳截面
+          var _shellShape = new THREE.Shape();
+          var _shellThick = 0.15;
+          _shellShape.moveTo(-_halfW, _wallH);
+          var _oArc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
+          var _oPts = _oArc.getPoints(24);
+          for (var _oi = 0; _oi < _oPts.length; _oi++)
+            _shellShape.lineTo(_oPts[_oi].x, _oPts[_oi].y);
+          _shellShape.lineTo(_halfW, _wallH);
+          // 内层拱(略小)反向回描
+          var _iArc = new THREE.EllipseCurve(
+            0,
+            _wallH,
+            _halfW - _shellThick,
+            _archH - _shellThick,
+            0,
+            Math.PI,
+            true
+          );
+          var _iPts = _iArc.getPoints(24);
+          for (var _ii = 0; _ii < _iPts.length; _ii++)
+            _shellShape.lineTo(_iPts[_ii].x, _iPts[_ii].y);
+          _shellShape.closePath();
+          var _shellGeo = new THREE.ExtrudeGeometry(_shellShape, {
+            depth: _extLen,
+            bevelEnabled: false,
+          });
+          var _shellMesh = new THREE.Mesh(_shellGeo, _vaultMat);
+          _shellMesh.rotation.y = Math.PI / 2 - _ry;
+          _shellMesh.position.set(
+            _w.cx - (_extLen / 2) * Math.cos(_ry),
+            0,
+            _w.cz - (_extLen / 2) * Math.sin(_ry)
+          );
+          _shellMesh.castShadow = true;
+          _shellMesh.receiveShadow = true;
+          _shellMesh.name = 'campus-dome';
+          targetScene.add(_shellMesh);
+          obstacleMeshes.push(_shellMesh);
+        } else {
+          // 室内运动场: 封闭拱顶(墙+拱一体)
+          var _shape = new THREE.Shape();
+          _shape.moveTo(-_halfW, 0);
+          _shape.lineTo(-_halfW, _wallH);
+          var _arc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
+          var _apts = _arc.getPoints(24);
+          for (var _ai = 0; _ai < _apts.length; _ai++) _shape.lineTo(_apts[_ai].x, _apts[_ai].y);
+          _shape.lineTo(_halfW, 0);
+          _shape.closePath();
+          var _geo = new THREE.ExtrudeGeometry(_shape, { depth: _extLen, bevelEnabled: false });
+          var _mesh = new THREE.Mesh(_geo, _vaultMat);
+          _mesh.rotation.y = Math.PI / 2 - _ry;
+          _mesh.position.set(
+            _w.cx - (_extLen / 2) * Math.cos(_ry),
+            0,
+            _w.cz - (_extLen / 2) * Math.sin(_ry)
+          );
+          _mesh.castShadow = true;
+          _mesh.receiveShadow = true;
+          _mesh.name = 'campus-dome';
+          targetScene.add(_mesh);
+          obstacleMeshes.push(_mesh);
+        }
 
         // b7 空调(读 edgeMarks, 只 ac, 长边 ei=0/2)
         var _b7mks = _w.edgeMarks || [];
@@ -1098,6 +1142,27 @@ function createFootprintBuildings(targetScene, fps) {
         _b7grp.rotation.x = -Math.PI / 2;
         targetScene.add(_b7grp);
         obstacleMeshes.push(_b7grp);
+        // 车棚四角柱(敞开式, 无墙)
+        if (_isCarport) {
+          var _pGeo = new THREE.CylinderGeometry(0.25, 0.28, 1, 8);
+          var _pMat = new THREE.MeshStandardMaterial({ color: '#d8d4cc', roughness: 0.75 });
+          var _corners = [
+            [-_halfW2, 0],
+            [-_halfW2, _extLen2],
+            [_halfW2, 0],
+            [_halfW2, _extLen2],
+          ];
+          for (var _ci = 0; _ci < _corners.length; _ci++) {
+            var _cw = _b7w(_corners[_ci][0], _corners[_ci][1]);
+            var _pillar = new THREE.Mesh(_pGeo, _pMat);
+            _pillar.position.set(_cw[0], _b7wallH / 2, _cw[1]);
+            _pillar.scale.set(1, _b7wallH, 1);
+            _pillar.castShadow = true;
+            _pillar.name = 'campus-pillar';
+            targetScene.add(_pillar);
+            obstacleMeshes.push(_pillar);
+          }
+        }
         for (var _bmi = 0; _bmi < _b7mks.length; _bmi++) {
           var _bm = _b7mks[_bmi];
           if (_bm.type !== 'ac') continue;
