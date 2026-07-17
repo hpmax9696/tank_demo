@@ -1102,10 +1102,44 @@ function createFootprintBuildings(targetScene, fps) {
           var _ed = edgeByFootprintIdx(fp.footprint, _mk.ei);
           if (!_ed || _ed.len < 2) continue;
           var _mskip = edgeBridgeOverlaps(_ed, _bridges, _stiltY);
-          if (_mk.type === 'corridor')
+          if (_mk.type === 'corridor') {
             addCorridorToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
-          else if (_mk.type === 'ac')
-            addACToEdge(bldGroup, _ed.ax, _ed.az, _ed.bx, _ed.bz, h - _stiltY, _mskip);
+            addDoorsAndWindows(
+              bldGroup,
+              _ed.ax,
+              _ed.az,
+              _ed.bx,
+              _ed.bz,
+              h - _stiltY,
+              'corridor',
+              _mskip,
+              _stiltY
+            );
+          } else if (_mk.type === 'ac') {
+            var _acWinRanges = computeWindowRanges(_ed.len);
+            addDoorsAndWindows(
+              bldGroup,
+              _ed.ax,
+              _ed.az,
+              _ed.bx,
+              _ed.bz,
+              h - _stiltY,
+              'ac',
+              _mskip,
+              _stiltY
+            );
+            addACToEdge(
+              bldGroup,
+              _ed.ax,
+              _ed.az,
+              _ed.bx,
+              _ed.bz,
+              h - _stiltY,
+              _mskip,
+              null,
+              _acWinRanges
+            );
+          }
         }
       }
       // 无 edgeMarks → 不画(原 fallback 已删)
