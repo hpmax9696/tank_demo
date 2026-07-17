@@ -480,41 +480,63 @@ function createFootprintBuildings(targetScene, fps) {
     t = Math.max(0, Math.min(1, t));
     return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
   };
-  // 该边贴上的天桥的【局部 Y 区间】(世界 [floorY,floorY+thickness] 减 stiltY), 供楼层跳过
+  // 该边贴上的天桥: {yRange(局部Y), segRange(连接子段参数[t1,t2])}
   var edgeBridgeOverlaps = function (edge, bridges, stiltY) {
-    var ranges = [];
-    if (!bridges || !bridges.length) return ranges;
+    var out = [];
+    if (!bridges || !bridges.length) return out;
+    var ux = (edge.bx - edge.ax) / edge.len;
+    var uz = (edge.bz - edge.az) / edge.len;
     for (var bi = 0; bi < bridges.length; bi++) {
       var br = bridges[bi];
       var fp = br.footprint;
       if (!fp || fp.length < 2) continue;
+      var fy = br.floorY || 6,
+        th = br.thickness || 3;
+      var yRange = [fy - stiltY, fy + th - stiltY];
       var minDist = Infinity;
+      var segLo = 1,
+        segHi = 0; // 连接子段(参数区间)
       for (var i = 0; i < fp.length; i++) {
         var ca = fp[i],
           cb = fp[(i + 1) % fp.length];
+        var cdx = cb[0] - ca[0],
+          cdz = cb[1] - ca[1];
+        var cLen = Math.hypot(cdx, cdz);
+        if (cLen < 0.1) continue;
+        var cux = cdx / cLen,
+          cuz = cdz / cLen;
+        var dot = cux * ux + cuz * uz;
+        // 共线: 方向平行(|dot|≈1) + 距离<0.3
+        if (Math.abs(Math.abs(dot) - 1) < 0.005) {
+          var d1 = Math.abs((ca[0] - edge.ax) * uz - (ca[1] - edge.az) * ux);
+          if (d1 < 0.3) {
+            var ta = ((ca[0] - edge.ax) * ux + (ca[1] - edge.az) * uz) / edge.len;
+            var tb = ((cb[0] - edge.ax) * ux + (cb[1] - edge.az) * uz) / edge.len;
+            if (dot < 0) {
+              var tmp = ta;
+              ta = tb;
+              tb = tmp;
+            }
+            var lo = Math.max(0, Math.min(ta, tb));
+            var hi = Math.min(1, Math.max(ta, tb));
+            if (hi > lo) {
+              segLo = Math.min(segLo, lo);
+              segHi = Math.max(segHi, hi);
+            }
+          }
+        }
         for (var t = 0; t <= 1.0001; t += 0.25) {
-          // 采样建筑边 5 点
           var px = edge.ax + (edge.bx - edge.ax) * t;
           var pz = edge.az + (edge.bz - edge.az) * t;
-          var d = _pointSegDist2D(px, pz, ca[0], ca[1], cb[0], cb[1]);
-          if (d < minDist) minDist = d;
+          var dd = _pointSegDist2D(px, pz, ca[0], ca[1], cb[0], cb[1]);
+          if (dd < minDist) minDist = dd;
         }
       }
       if (minDist < 0.8) {
-        var fy = br.floorY || 6,
-          th = br.thickness || 3;
-        ranges.push([fy - stiltY, fy + th - stiltY]);
+        out.push({ yRange: yRange, segRange: segHi > segLo ? [segLo, segHi] : [0, 1] });
       }
     }
-    return ranges;
-  };
-  // 局部 Y 是否落在任一跳过区间
-  var _inSkipRanges = function (y, ranges) {
-    if (!ranges || !ranges.length) return false;
-    for (var i = 0; i < ranges.length; i++) {
-      if (y >= ranges[i][0] && y < ranges[i][1]) return true;
-    }
-    return false;
+    return out;
   };
   var getACGeo = function () {
     if (acGeo) return acGeo;
@@ -523,7 +545,7 @@ function createFootprintBuildings(targetScene, fps) {
   };
   // bldGroup坐标系: rotation.x=-PI/2 → localX=worldX, localY=-worldZ, localZ=worldY(高度)
   // 沿建筑某条边添加外廊栏杆+楼层挑板(多楼层)
-  var addCorridorToEdge = function (parent, ax, az, bx, bz, wallH, skipYRanges) {
+  var addCorridorToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -531,71 +553,92 @@ function createFootprintBuildings(targetScene, fps) {
     var ux = dx / edgeLen,
       uz = dz / edgeLen;
     var nx = -uz,
-      nz = ux; // 边外法线(world)
-    // local方向: edge=(dx,-dz) in XY, normal=(nx,-nz) in XY, 高度=Z
+      nz = ux;
     var ldx = dx,
-      ldz = -dz; // edge方向 in local XY
-    var lnx = nx,
-      lnz = -nz; // 法线 in local XY
-    var edgeAngle = Math.atan2(ldz, ldx); // local Z旋转角
+      ldz = -dz;
+    var edgeAngle = Math.atan2(ldz, ldx);
     var floorH = 3.0,
       railH = 1.05,
       spacer = 0.55;
     var nBalusters = Math.max(2, Math.floor(edgeLen / spacer));
-    var geoB = getBalusterGeo();
-    var geoR = getRailGeo();
-    var railMat = M.railing;
+    var geoB = getBalusterGeo(),
+      geoR = getRailGeo(),
+      railMat = M.railing;
     for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
-      if (_inSkipRanges(fl * floorH + floorH / 2, skipYRanges)) continue; // 天桥层跳过
-      var floorY = fl * floorH; // world高度 → localZ
-      // 栏杆柱: Cylinder(沿Y) → rotate.x=-PI/2 → 沿localZ(竖直)
+      var floorY = fl * floorH;
+      var yCenter = floorY + floorH / 2;
+      // 该层是否在天桥层 + 连接子段
+      var seg = null;
+      for (var si = 0; si < (skipSegs || []).length; si++) {
+        var ss = skipSegs[si];
+        if (yCenter >= ss.yRange[0] && yCenter < ss.yRange[1]) {
+          seg = ss.segRange;
+          break;
+        }
+      }
+      // 栏杆柱
+      var railOff = 0.78;
       for (var bi = 0; bi <= nBalusters; bi++) {
         var t = bi / nBalusters;
-        var railOff = 0.78;
-        var lx = ax + dx * t + nx * railOff; // 走廊外沿
+        if (seg && t >= seg[0] && t <= seg[1]) continue; // 连接段跳过柱子
+        var lx = ax + dx * t + nx * railOff;
         var ly = -(az + dz * t + nz * railOff);
         var col = new THREE.Mesh(geoB, railMat);
         col.position.set(lx, ly, floorY + railH / 2);
         col.scale.set(1, railH, 1);
-        col.rotation.x = -Math.PI / 2; // 圆柱Y→localZ→竖直
+        col.rotation.x = -Math.PI / 2;
         col.castShadow = true;
         col.name = 'campus-detail';
         parent.add(col);
       }
-      // 顶部横杆: BoxGeometry(1,0.06,0.08) 沿X, scale+rotate对齐edge
-      var tlx = ax + dx * 0.5 + nx * railOff;
-      var tly = -(az + dz * 0.5 + nz * railOff);
-      var topRail = new THREE.Mesh(geoR, railMat);
-      topRail.position.set(tlx, tly, floorY + railH);
-      topRail.scale.set(edgeLen, 1, 1);
-      topRail.rotation.z = edgeAngle;
-      topRail.castShadow = true;
-      topRail.name = 'campus-detail';
-      parent.add(topRail);
-      // 中间横杆
-      var midRail = new THREE.Mesh(geoR, railMat);
-      midRail.position.set(tlx, tly, floorY + railH * 0.55);
-      midRail.scale.set(edgeLen, 1, 1);
-      midRail.rotation.z = edgeAngle;
-      midRail.castShadow = true;
-      midRail.name = 'campus-detail';
-      parent.add(midRail);
-      // 楼层挑板: BoxGeometry(edgeLen, 0.8, 0.1) 沿X长, 沿Y外挑, 沿Z薄
-      var slabGeo = new THREE.BoxGeometry(edgeLen, 0.85, 0.1);
-      var slab = new THREE.Mesh(
-        slabGeo,
-        new THREE.MeshStandardMaterial({ color: '#c8c4bc', roughness: 0.7 })
-      );
-      slab.position.set(ax + dx * 0.5 + nx * 0.4, -(az + dz * 0.5 + nz * 0.4), floorY + 0.05);
-      slab.rotation.z = edgeAngle;
-      slab.castShadow = true;
-      slab.receiveShadow = true;
-      slab.name = 'campus-detail';
-      parent.add(slab);
+      // 横杆/挑板分段: seg 时画 [0,t1]+[t2,1], 否则 [0,1]
+      var segs = seg
+        ? [
+            [0, seg[0]],
+            [seg[1], 1],
+          ]
+        : [[0, 1]];
+      for (var sgi = 0; sgi < segs.length; sgi++) {
+        var s0 = segs[sgi][0],
+          s1 = segs[sgi][1];
+        if (s1 - s0 < 0.02) continue;
+        var segLen = edgeLen * (s1 - s0);
+        var segMid = (s0 + s1) / 2;
+        var tlx = ax + dx * segMid + nx * railOff;
+        var tly = -(az + dz * segMid + nz * railOff);
+        var topRail = new THREE.Mesh(geoR, railMat);
+        topRail.position.set(tlx, tly, floorY + railH);
+        topRail.scale.set(segLen, 1, 1);
+        topRail.rotation.z = edgeAngle;
+        topRail.castShadow = true;
+        topRail.name = 'campus-detail';
+        parent.add(topRail);
+        var midRail = new THREE.Mesh(geoR, railMat);
+        midRail.position.set(tlx, tly, floorY + railH * 0.55);
+        midRail.scale.set(segLen, 1, 1);
+        midRail.rotation.z = edgeAngle;
+        midRail.castShadow = true;
+        midRail.name = 'campus-detail';
+        parent.add(midRail);
+        var slab = new THREE.Mesh(
+          new THREE.BoxGeometry(segLen, 0.85, 0.1),
+          new THREE.MeshStandardMaterial({ color: '#c8c4bc', roughness: 0.7 })
+        );
+        slab.position.set(
+          ax + dx * segMid + nx * 0.4,
+          -(az + dz * segMid + nz * 0.4),
+          floorY + 0.05
+        );
+        slab.rotation.z = edgeAngle;
+        slab.castShadow = true;
+        slab.receiveShadow = true;
+        slab.name = 'campus-detail';
+        parent.add(slab);
+      }
     }
   };
   // 沿北面墙添加空调外机
-  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipYRanges) {
+  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -615,10 +658,19 @@ function createFootprintBuildings(targetScene, fps) {
       metalness: 0.35,
     });
     for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
-      if (_inSkipRanges(fl * floorH + floorH / 2, skipYRanges)) continue; // 天桥层跳过
       var floorY = fl * floorH + 1.0;
+      var yCenter = fl * floorH + floorH / 2;
+      var seg = null;
+      for (var si = 0; si < (skipSegs || []).length; si++) {
+        var ss = skipSegs[si];
+        if (yCenter >= ss.yRange[0] && yCenter < ss.yRange[1]) {
+          seg = ss.segRange;
+          break;
+        }
+      }
       for (var ai = 0; ai < nUnits; ai++) {
         var t = (ai + 0.5) / nUnits;
+        if (seg && t >= seg[0] && t <= seg[1]) continue; // 连接段跳过空调
         var lx = ax + dx * t + nx * 0.45;
         var ly = -(az + dz * t + nz * 0.45);
         var ac = new THREE.Mesh(acGeoG, acMat);
@@ -627,7 +679,6 @@ function createFootprintBuildings(targetScene, fps) {
         ac.castShadow = true;
         ac.name = 'campus-detail';
         parent.add(ac);
-        // 支架
         var br = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.3, 0.5), acMat);
         br.position.set(ax + dx * t + nx * 0.2, -(az + dz * t + nz * 0.2), floorY - 0.05);
         br.castShadow = true;
@@ -637,7 +688,7 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
 
-  // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipYRanges 避天桥层)
+  // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipSegs 避天桥连接子段)
   var _bridges =
     (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
 
