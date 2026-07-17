@@ -565,7 +565,7 @@ function createFootprintBuildings(targetScene, fps) {
     var geoB = getBalusterGeo(),
       geoR = getRailGeo(),
       railMat = M.railing;
-    for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
+    for (var fl = 1; fl < Math.floor(wallH / floorH); fl++) {
       var floorY = fl * floorH;
       var yCenter = floorY + floorH / 2;
       // 该层是否在天桥层 + 连接子段
