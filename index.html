@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.70.0</title>
+    <title>坦克运动demo v0.71.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.70.0</div>
+      <div class="menu-version">v0.71.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.71.0 门窗户修复+一楼去外廊+工具房+车棚敞棚 — 修门阈值长边不丢; AC forceY
+          null陷阱+窗间墙布局; 一楼删外廊栏杆; 工具房5间房朝运动场(单门模式);
+          车棚改单片拱面+四角内收柱(随拱高)
+        </div>
+        <div class="cl-title">
           🏫 v0.70.0 校园建筑门窗系统 — 5栋教学楼外廊面门+窗+空调面窗对称; 教室自动划分(
           宽≈8u整除边长); corridor面每教室前门+后门+多扇窗(细框); ac面窗对称+空调外机避让窗户;
           天桥子段裁剪; 架空层柱内移+去角柱+清理防泄漏
@@ -846,15 +851,8 @@
           人行天桥(空中连廊,三层floorY6+一层厚3,贴教学楼/综合楼2/综合楼3斜边);
           教学楼一楼架空层(stiltFloor柱子支撑,外廊/空调跳过架空层)
         </div>
-        <div class="cl-title">
-          🏫 v0.67.4 校园工具旋转对齐+命名+B7双栋数据化 —
-          3工具(building_edge_marker/track_zone_marker)投影对齐上帝模式(上北右西);
-          building_edge_marker命名模式(N键:建筑/运动场/B7双栋,/api/solidify写回);
-          B7双栋参数化提升为数据obstacles.b7_buildings(obstacles.js数据驱动+fallback); server.py
-          solidify加campus分支(正则内联保坐标格式); b7_builder数据加载+保存
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.70.0~v0.67.5) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.71.0~v0.67.5) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

@@ -7914,7 +7914,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.70.0 | 校园建筑门窗系统(门+窗+空调避让)');
+console.log('🎮 坦克运动demo v0.71.0 | 门窗修复+一楼去外廊+工具房5间+车棚敞棚');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

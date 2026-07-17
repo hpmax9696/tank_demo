@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.70.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.71.0
 
 ## 运行
 
@@ -267,6 +267,19 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.71.0 本次会话变更 (2026-07-18)
+
+### 门窗修复+一楼去外廊+工具房+车棚敞棚
+
+- **门阈值修复**: 0.02→0.005 (边长>35u时0.7/len<0.02门被误删)
+- **AC修复**: forceY!==undefined→!=null (调用方传null→[null]仅1层) + 窗间墙定点布局替代均布避让
+- **一楼去外廊**: addCorridorToEdge fl=0→fl=1; 门窗保留(学生从门直入广场)
+- **工具房5间房**: edgeMarks(ei=1朝运动场) + \_nRooms=5/\_singleDoor参数; computeWindowRanges支持\_nr覆盖
+- **车棚敞棚**: 封闭椭圆柱→单片BufferGeometry拱面(32段扫掠); 四角柱内收88%+柱高随拱(顶拱底不凸)
+- **改动**: js/obstacles.js + maps/campus.map.json
 
 ---
 
