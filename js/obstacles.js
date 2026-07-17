@@ -638,7 +638,7 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
   // 沿北面墙添加空调外机
-  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs) {
+  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs, forceY) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -657,15 +657,19 @@ function createFootprintBuildings(targetScene, fps) {
       roughness: 0.55,
       metalness: 0.35,
     });
-    for (var fl = 0; fl < Math.floor(wallH / floorH); fl++) {
-      var floorY = fl * floorH + 1.0;
-      var yCenter = fl * floorH + floorH / 2;
+    var _flr = forceY !== undefined ? [forceY] : null;
+    var _nFl = _flr ? _flr.length : Math.floor(wallH / floorH);
+    for (var fl = 0; fl < _nFl; fl++) {
+      var floorY = _flr ? _flr[fl] : fl * floorH + 1.0;
       var seg = null;
-      for (var si = 0; si < (skipSegs || []).length; si++) {
-        var ss = skipSegs[si];
-        if (yCenter >= ss.yRange[0] && yCenter < ss.yRange[1]) {
-          seg = ss.segRange;
-          break;
+      if (!_flr) {
+        var yCenter = fl * floorH + floorH / 2;
+        for (var si = 0; si < (skipSegs || []).length; si++) {
+          var ss = skipSegs[si];
+          if (yCenter >= ss.yRange[0] && yCenter < ss.yRange[1]) {
+            seg = ss.segRange;
+            break;
+          }
         }
       }
       for (var ai = 0; ai < nUnits; ai++) {
@@ -831,7 +835,7 @@ function createFootprintBuildings(targetScene, fps) {
           if (_sgn === null) continue; // 只支持长边 ei=0/2
           var _wa = _b7w(_sgn * _halfW2, 0);
           var _wb = _b7w(_sgn * _halfW2, _extLen2);
-          addACToEdge(_b7grp, _wa[0], _wa[1], _wb[0], _wb[1], _b7wallH, []);
+          addACToEdge(_b7grp, _wa[0], _wa[1], _wb[0], _wb[1], _b7wallH, [], _b7wallH - 1.5);
         }
       }
     }
