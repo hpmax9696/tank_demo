@@ -686,7 +686,7 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
   // 沿北面墙添加空调外机
-  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs, forceY) {
+  var addACToEdge = function (parent, ax, az, bx, bz, wallH, skipSegs, forceY, winRanges) {
     var dx = bx - ax,
       dz = bz - az;
     var edgeLen = Math.sqrt(dx * dx + dz * dz);
@@ -722,6 +722,18 @@ function createFootprintBuildings(targetScene, fps) {
       }
       for (var ai = 0; ai < nUnits; ai++) {
         var t = (ai + 0.5) / nUnits;
+        // 空调不能装在窗户上: 如果 t 落在任何窗户范围内则跳过
+        var _onWin = false;
+        if (winRanges) {
+          for (var _wi2 = 0; _wi2 < winRanges.length; _wi2++) {
+            var _wr = winRanges[_wi2];
+            if (t >= _wr.t0 - 0.1 / edgeLen && t <= _wr.t1 + 0.1 / edgeLen) {
+              _onWin = true;
+              break;
+            }
+          }
+        }
+        if (_onWin) continue;
         if (seg && t >= seg[0] && t <= seg[1]) continue; // 连接段跳过空调
         var lx = ax + dx * t + nx * 0.45;
         var ly = -(az + dz * t + nz * 0.45);
