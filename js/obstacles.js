@@ -757,6 +757,157 @@ function createFootprintBuildings(targetScene, fps) {
     return ranges;
   };
 
+  // 沿建筑边添加门窗户(贴面薄Box)
+  // type='corridor': 前门+窗户(多扇)+后门; type='ac': 仅窗户(与走廊面对称)
+  var addDoorsAndWindows = function (parent, ax, az, bx, bz, wallH, type, skipSegs, _stiltY) {
+    var dx = bx - ax,
+      dz = bz - az;
+    var edgeLen = Math.sqrt(dx * dx + dz * dz);
+    if (edgeLen < 4) return;
+    var ux = dx / edgeLen,
+      uz = dz / edgeLen;
+    var nx = -uz,
+      nz = ux; // 外法线
+    var ldx = dx,
+      ldz = -dz;
+    var edgeAngle = Math.atan2(ldz, ldx);
+    var floorH = 3.0,
+      sillH = 0.8,
+      winH = 1.2,
+      doorH = 2.0,
+      doorW = 0.7;
+    var wallOff = 0.02; // 门窗略突出墙面
+    var nClassrooms = Math.max(1, Math.round(edgeLen / 8));
+    var crw = edgeLen / nClassrooms;
+    var winRanges = computeWindowRanges(edgeLen);
+
+    // 共享材质(全局复用)
+    if (!addDoorsAndWindows._doorMat) {
+      addDoorsAndWindows._doorMat = new THREE.MeshStandardMaterial({
+        color: '#8B6914',
+        roughness: 0.7,
+      });
+      addDoorsAndWindows._glassMat = new THREE.MeshStandardMaterial({
+        color: '#c8ddf0',
+        roughness: 0.15,
+        metalness: 0.3,
+      });
+      addDoorsAndWindows._frameMat = new THREE.MeshStandardMaterial({
+        color: '#666666',
+        roughness: 0.5,
+      });
+    }
+    var doorMat = addDoorsAndWindows._doorMat;
+    var glassMat = addDoorsAndWindows._glassMat;
+    var frameMat = addDoorsAndWindows._frameMat;
+
+    var nFloors = Math.floor(wallH / floorH);
+    for (var fl = 0; fl < nFloors; fl++) {
+      var floorY = fl * floorH;
+      // 跳过架空层(柱子支撑, 首层无墙)
+      if (_stiltY > 0 && floorY < _stiltY) continue;
+      var yCenter = floorY + floorH / 2;
+      // 天桥裁剪
+      var seg = null;
+      for (var si = 0; si < (skipSegs || []).length; si++) {
+        var ss = skipSegs[si];
+        if (yCenter >= ss.yRange[0] && yCenter < ss.yRange[1]) {
+          seg = ss.segRange;
+          break;
+        }
+      }
+      // 按教室遍历
+      for (var ci = 0; ci < nClassrooms; ci++) {
+        var c0 = ci * crw,
+          c1 = (ci + 1) * crw; // 教室在边的起止(单位)
+        var c0t = c0 / edgeLen,
+          c1t = c1 / edgeLen;
+
+        // 窗户 t 范围
+        var wr = winRanges[ci];
+        var w0t = wr.t0,
+          w1t = wr.t1;
+
+        // -- 窗户 --
+        // 裁剪: 窗与 seg 重叠则整扇跳过
+        var winBlocked = seg && w0t < seg[1] && w1t > seg[0];
+        if (!winBlocked && w1t - w0t > 0.05) {
+          var wLen = edgeLen * (w1t - w0t);
+          var wMidT = (w0t + w1t) / 2;
+          var wMidX = ax + dx * wMidT + nx * wallOff;
+          var wMidY = -(az + dz * wMidT + nz * wallOff);
+          var winZ = floorY + sillH + winH / 2;
+          // 窗户扇数: 每扇约1.2u宽
+          var nPanes = Math.max(2, Math.round(wLen / 1.2));
+          var paneW = wLen / nPanes;
+          for (var pi = 0; pi < nPanes; pi++) {
+            var pMidT = w0t + ((pi + 0.5) * (w1t - w0t)) / nPanes;
+            var pMidX = ax + dx * pMidT + nx * wallOff;
+            var pMidY = -(az + dz * pMidT + nz * wallOff);
+            // 玻璃
+            var glass = new THREE.Mesh(new THREE.BoxGeometry(paneW - 0.04, 0.03, winH), glassMat);
+            glass.position.set(pMidX, pMidY, winZ);
+            glass.rotation.z = edgeAngle;
+            glass.name = 'campus-detail';
+            parent.add(glass);
+          }
+          // 窗竖框(扇间)
+          for (var pi2 = 1; pi2 < nPanes; pi2++) {
+            var mT = w0t + (pi2 * (w1t - w0t)) / nPanes;
+            var mX = ax + dx * mT + nx * wallOff;
+            var mY = -(az + dz * mT + nz * wallOff);
+            var mull = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, winH), frameMat);
+            mull.position.set(mX, mY, winZ);
+            mull.rotation.z = edgeAngle;
+            mull.name = 'campus-detail';
+            parent.add(mull);
+          }
+          // 窗横框(上下)
+          for (var hi = 0; hi < 2; hi++) {
+            var hZ = floorY + sillH + (hi === 0 ? 0 : winH);
+            var hRail = new THREE.Mesh(new THREE.BoxGeometry(wLen, 0.05, 0.04), frameMat);
+            hRail.position.set(wMidX, wMidY, hZ);
+            hRail.rotation.z = edgeAngle;
+            hRail.name = 'campus-detail';
+            parent.add(hRail);
+          }
+        }
+
+        // -- 门 (仅 corridor) --
+        if (type !== 'corridor') continue;
+        var doorT0 = c0t + 0.4 / edgeLen;
+        var doorT1 = doorT0 + doorW / edgeLen; // 前门
+        var door2T1 = c1t - 0.4 / edgeLen;
+        var door2T0 = door2T1 - doorW / edgeLen; // 后门
+        var doorBlocked1 = seg && doorT0 < seg[1] && doorT1 > seg[0];
+        var doorBlocked2 = seg && door2T0 < seg[1] && door2T1 > seg[0];
+        var doorMidZ = floorY + doorH / 2;
+        // 前门
+        if (!doorBlocked1 && doorT1 - doorT0 > 0.02) {
+          var d1MidT = (doorT0 + doorT1) / 2;
+          var d1X = ax + dx * d1MidT + nx * wallOff;
+          var d1Y = -(az + dz * d1MidT + nz * wallOff);
+          var door1 = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.04, doorH), doorMat);
+          door1.position.set(d1X, d1Y, doorMidZ);
+          door1.rotation.z = edgeAngle;
+          door1.name = 'campus-detail';
+          parent.add(door1);
+        }
+        // 后门
+        if (!doorBlocked2 && door2T1 - door2T0 > 0.02) {
+          var d2MidT = (door2T0 + door2T1) / 2;
+          var d2X = ax + dx * d2MidT + nx * wallOff;
+          var d2Y = -(az + dz * d2MidT + nz * wallOff);
+          var door2 = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.04, doorH), doorMat);
+          door2.position.set(d2X, d2Y, doorMidZ);
+          door2.rotation.z = edgeAngle;
+          door2.name = 'campus-detail';
+          parent.add(door2);
+        }
+      }
+    }
+  };
+
   // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipSegs 避天桥连接子段)
   var _bridges =
     (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
