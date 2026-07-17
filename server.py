@@ -134,6 +134,15 @@ def solidify_campus(payload):
             elif 'edgeMarks' in blds[i]:
                 del blds[i]['edgeMarks']  # 显式清除标记回 fallback
 
+    # b7_buildings edgeMarks (室内运动场/车棚 空调标记)
+    for k, v in (payload.get('b7_edgeMarks') or {}).items():
+        i = int(k)
+        if 0 <= i < len(b7):
+            if v:
+                b7[i]['edgeMarks'] = v
+            elif 'edgeMarks' in b7[i]:
+                del b7[i]['edgeMarks']
+
     # 保持原文件内联坐标数组格式(避免 json.dump 展开成多行致全文件重排)
     s = json.dumps(data, ensure_ascii=False, indent=2)
     s = re.sub(
