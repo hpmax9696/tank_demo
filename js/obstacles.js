@@ -532,8 +532,9 @@ function createFootprintBuildings(targetScene, fps) {
           if (dd < minDist) minDist = dd;
         }
       }
-      if (minDist < 0.8) {
-        out.push({ yRange: yRange, segRange: segHi > segLo ? [segLo, segHi] : [0, 1] });
+      // 只有真共线连接段才裁(天桥沿该边占子段); 贴但不沿(如天桥连短边, 长边只是端点近)不裁
+      if (minDist < 0.8 && segHi > segLo) {
+        out.push({ yRange: yRange, segRange: [segLo, segHi] });
       }
     }
     return out;
