@@ -722,12 +722,12 @@ function createFootprintBuildings(targetScene, fps) {
       }
       for (var ai = 0; ai < nUnits; ai++) {
         var t = (ai + 0.5) / nUnits;
-        // 空调不能装在窗户上: 如果 t 落在任何窗户范围内则跳过
+        // 空调不能装在窗户上: 中心距窗范围<0.6(半宽0.5+余量)则跳过
         var _onWin = false;
         if (winRanges) {
           for (var _wi2 = 0; _wi2 < winRanges.length; _wi2++) {
             var _wr = winRanges[_wi2];
-            if (t >= _wr.t0 - 0.1 / edgeLen && t <= _wr.t1 + 0.1 / edgeLen) {
+            if (t >= _wr.t0 - 0.6 / edgeLen && t <= _wr.t1 + 0.6 / edgeLen) {
               _onWin = true;
               break;
             }
