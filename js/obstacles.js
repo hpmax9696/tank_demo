@@ -635,6 +635,53 @@ function createFootprintBuildings(targetScene, fps) {
         slab.receiveShadow = true;
         slab.name = 'campus-detail';
         parent.add(slab);
+
+        // 侧墙(两端封闭): 非顶层 floor→railH高, 顶层 floor→wallH(天花板)
+        var nFloors = Math.floor(wallH / floorH);
+        var isTopFloor = fl === nFloors - 1;
+        var sideH = isTopFloor ? wallH - floorY : railH;
+        if (sideH > 0.05) {
+          var sideGeo = new THREE.BoxGeometry(0.06, railOff, sideH);
+          var sideMat = new THREE.MeshStandardMaterial({ color: '#c8c4bc', roughness: 0.7 });
+          // 段起点侧墙
+          var sw0 = new THREE.Mesh(sideGeo, sideMat);
+          sw0.position.set(
+            ax + dx * s0 + nx * (railOff / 2),
+            -(az + dz * s0 + nz * (railOff / 2)),
+            floorY + sideH / 2
+          );
+          sw0.rotation.z = edgeAngle;
+          sw0.castShadow = true;
+          sw0.name = 'campus-detail';
+          parent.add(sw0);
+          // 段终点侧墙
+          var sw1 = new THREE.Mesh(sideGeo, sideMat);
+          sw1.position.set(
+            ax + dx * s1 + nx * (railOff / 2),
+            -(az + dz * s1 + nz * (railOff / 2)),
+            floorY + sideH / 2
+          );
+          sw1.rotation.z = edgeAngle;
+          sw1.castShadow = true;
+          sw1.name = 'campus-detail';
+          parent.add(sw1);
+        }
+
+        // 顶层天花板(与建筑屋顶齐平)
+        if (isTopFloor) {
+          var ceilMat = new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: 0.65 });
+          var ceilGeo = new THREE.BoxGeometry(segLen, railOff, 0.06);
+          var ceilPanel = new THREE.Mesh(ceilGeo, ceilMat);
+          ceilPanel.position.set(
+            ax + dx * segMid + nx * (railOff / 2),
+            -(az + dz * segMid + nz * (railOff / 2)),
+            wallH - 0.03
+          );
+          ceilPanel.rotation.z = edgeAngle;
+          ceilPanel.castShadow = true;
+          ceilPanel.name = 'campus-detail';
+          parent.add(ceilPanel);
+        }
       }
     }
   };
@@ -693,6 +740,23 @@ function createFootprintBuildings(targetScene, fps) {
     }
   };
 
+  // 计算一条边上所有教室窗户的 t 范围(供 addDoorsAndWindows 和 addACToEdge 避让共用)
+  var computeWindowRanges = function (edgeLen) {
+    var cw = 8; // 标准教室宽度
+    var nClassrooms = Math.max(1, Math.round(edgeLen / cw));
+    var crw = edgeLen / nClassrooms; // 实际教室宽度
+    var ranges = [];
+    for (var ci = 0; ci < nClassrooms; ci++) {
+      var c0 = ci * crw,
+        c1 = (ci + 1) * crw;
+      // 窗: 教室两端各留 1.5u (0.4墙 + 0.7门 + 0.4墙)
+      var w0 = (c0 + 1.5) / edgeLen;
+      var w1 = (c1 - 1.5) / edgeLen;
+      if (w1 - w0 > 0.05) ranges.push({ t0: w0, t1: w1 });
+    }
+    return ranges;
+  };
+
   // 天桥数据(前置读取, 供建筑循环内外廊/空调分支算 skipSegs 避天桥连接子段)
   var _bridges =
     (currentMapData && currentMapData.obstacles && currentMapData.obstacles.bridges) || [];
@@ -738,10 +802,20 @@ function createFootprintBuildings(targetScene, fps) {
       mesh.receiveShadow = true;
       mesh.name = 'campus-bld';
       targetScene.add(mesh);
-      // 架空层柱子(沿 footprint 边每5单位一根, 圆柱 y=0~stiltY)
+      // 架空层柱子(沿 footprint 边每5单位一根, 内移避开墙外露)
       if (_stiltY > 0) {
+        // 计算 footprint 质心, 用于判断边的内侧方向
+        var _cx = 0,
+          _cz = 0;
+        for (var _pi2 = 0; _pi2 < fpPts.length; _pi2++) {
+          _cx += fpPts[_pi2][0];
+          _cz += fpPts[_pi2][1];
+        }
+        _cx /= fpPts.length;
+        _cz /= fpPts.length;
         var _pGeo = new THREE.CylinderGeometry(0.3, 0.35, 1, 8);
         var _pMat = new THREE.MeshStandardMaterial({ color: '#d8d4cc', roughness: 0.9 });
+        var _pInset = 0.55; // 柱子内移量(>顶部半径0.35, 确保不露头)
         for (var _pei = 0; _pei < fpPts.length; _pei++) {
           var _pa = fpPts[_pei],
             _pb = fpPts[(_pei + 1) % fpPts.length];
@@ -749,14 +823,30 @@ function createFootprintBuildings(targetScene, fps) {
             _pdz = _pb[1] - _pa[1];
           var _plen = Math.hypot(_pdx, _pdz);
           if (_plen < 0.5) continue;
+          // 边法线: (-pdz, pdx), 取指向质心侧为内侧
+          var _nx = -_pdz / _plen,
+            _nz = _pdx / _plen;
+          var _midX = (_pa[0] + _pb[0]) / 2,
+            _midZ = (_pa[1] + _pb[1]) / 2;
+          if ((_cx - _midX) * _nx + (_cz - _midZ) * _nz < 0) {
+            _nx = -_nx;
+            _nz = -_nz;
+          }
           var _pn = Math.max(1, Math.round(_plen / 5));
-          for (var _ppi = 0; _ppi <= _pn; _ppi++) {
+          // 四角不设柱(两端 t=0/t=1 跳过)
+          for (var _ppi = 1; _ppi < _pn; _ppi++) {
             var _pt = _ppi / _pn;
             var _pillar = new THREE.Mesh(_pGeo, _pMat);
-            _pillar.position.set(_pa[0] + _pdx * _pt, _stiltY / 2, _pa[1] + _pdz * _pt);
+            _pillar.position.set(
+              _pa[0] + _pdx * _pt + _nx * _pInset,
+              _stiltY / 2,
+              _pa[1] + _pdz * _pt + _nz * _pInset
+            );
             _pillar.scale.set(1, _stiltY, 1);
             _pillar.castShadow = true;
+            _pillar.name = 'campus-pillar';
             targetScene.add(_pillar);
+            obstacleMeshes.push(_pillar);
           }
         }
       }
