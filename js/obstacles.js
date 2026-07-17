@@ -804,8 +804,6 @@ function createFootprintBuildings(targetScene, fps) {
     var nFloors = Math.floor(wallH / floorH);
     for (var fl = 0; fl < nFloors; fl++) {
       var floorY = fl * floorH;
-      // 跳过架空层(柱子支撑, 首层无墙)
-      if (_stiltY > 0 && floorY < _stiltY) continue;
       var yCenter = floorY + floorH / 2;
       // 天桥裁剪
       var seg = null;
@@ -825,8 +823,8 @@ function createFootprintBuildings(targetScene, fps) {
 
         // 窗户 t 范围
         var wr = winRanges[ci];
-        var w0t = wr.t0,
-          w1t = wr.t1;
+        var w0t = wr ? wr.t0 : 0,
+          w1t = wr ? wr.t1 : 0;
 
         // -- 窗户 --
         // 裁剪: 窗与 seg 重叠则整扇跳过
