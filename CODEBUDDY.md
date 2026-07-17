@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.68.0
+# CODEBUDDY.md — v0.69.0
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -202,12 +202,13 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 通过 `currentMapData` 全局变量访问地形参数。
 
-#### 校园地图（campus.map.json）特殊字段（v0.68.0）
+#### 校园地图（campus.map.json）特殊字段（v0.69.0）
 
 - `obstacles.footprintBuildings[i]`：真实 footprint 拉伸建筑（ExtrudeGeometry），含 `footprint`/`height`/`floorH`/`name`/`stiltFloor`(架空层数)/`edgeMarks`
-- `obstacles.footprintBuildings[i].edgeMarks`：外廊/空调标记数组 `[{ei, type:'corridor'|'ac'}]`，`ei`=footprint 点索引对（i 到 i+1 为一条边）。**覆盖语义**：数组非空时只画标记边，空/无字段→fallback innerScore 自动推断。工具 `building_edge_marker.html` 标记 → POST `/api/solidify` → 写回此字段
-- `obstacles.bridges`：人行天桥（空中连廊）`[{footprint, floorY, thickness, name}]`，渲染端跳过 Y 区间（floorY ~ floorY+thickness，默认 6~9）的层
+- `obstacles.footprintBuildings[i].edgeMarks`：外廊/空调标记数组 `[{ei, type:'corridor'|'ac'}]`，`ei`=footprint 点索引对（i 到 i+1 为一条边）。**纯覆盖语义(v0.69.0)**：数组非空时只画标记边，**空/无字段→不画**（弃 fallback innerScore 自动推断）。工具 `building_edge_marker.html` 标记 → POST `/api/solidify` → 写回此字段
+- `obstacles.bridges`：人行天桥（空中连廊）`[{footprint, floorY, thickness, name}]`，渲染端**子段级裁剪(v0.69.0)**：贴天桥的边天桥层只裁连接子段（共线+投影算 segRange），其余段照画外廊
 - `obstacles.b7_buildings`：B7 双栋参数化（室内运动场+车棚，vaultH/archRatio 独立）
+- `obstacles.b7_buildings[i].edgeMarks`：B7 空调标记数组 `[{ei, type:'ac'}]`（v0.69.0 新增），`ei=0/2` 拱顶长边墙面挂空调。dome 分支读此字段渲染
 - 消费者：`js/obstacles.js`（渲染）+ `tools/building_edge_marker.html`（标记/回填）+ `server.py solidify_campus`（写回，正则内联保坐标格式）
 
 ### 音频系统

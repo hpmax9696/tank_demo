@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.68.0</title>
+    <title>坦克运动demo v0.69.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.68.0</div>
+      <div class="menu-version">v0.69.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏫 v0.69.0 校园外廊/空调标记 v2(纯覆盖+天桥子段裁剪+b7空调) — 弃 fallback:无 edgeMarks
+          的楼不画外廊/空调(工具房自动无); 天桥子段级裁剪
+          (贴天桥的边天桥层只裁连接子段,其余段画外廊); b7 dome 拱顶长边墙面挂空调; 用户已标 5 楼真实
+          edgeMarks(综合楼1/2/3+高年级教学楼+教学楼)
+        </div>
+        <div class="cl-title">
           🏫 v0.68.0 校园外廊/空调标记系统(工具→地图→渲染) — building_edge_marker 工具加 load 回填
           edgeMarks + 保存按钮 + 画天桥; server solidify_campus 写回 edgeMarks; obstacles.js
           读标记渲染(覆盖语义,有标记只画标记边,无则 fallback innerScore 自动推断); 标记边+fallback
@@ -848,14 +854,8 @@
           B7体育馆双栋参数化拱顶(运动场vaultH10+车棚vaultH5,EllipseCurve截面); 删除B1校外建筑;
           打点工具坐标对齐上帝模式(上北右西)
         </div>
-        <div class="cl-title">
-          🏟️ v0.67.2 校园地面三层分区(地砖+塑胶跑道+草地) — 东北室内教学区:地砖;
-          西南运动区:用户打点精确多边形跑道(贝塞尔曲线段);
-          运动场内部:TerrainTextures.grass()真实FBM噪声+草叶纹理;
-          修复Shape坐标系Z轴取反(rotation.x=-PI/2矩阵补偿); 顺修window.obstacleMeshes引用断裂
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.68.0~v0.67.2) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.69.0~v0.67.3) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

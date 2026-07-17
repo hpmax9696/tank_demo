@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.68.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.69.0
 
 ## 运行
 
@@ -269,6 +269,22 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.69.0 本次会话变更 (2026-07-17)
+
+### 校园外廊/空调标记 v2 调整(纯覆盖 + 天桥子段裁剪 + b7 空调)
+
+- **纯覆盖模式**: 弃 fallback, 无 edgeMarks 的楼不画外廊/空调(工具房自动无)。删 fallback 分支 + edges/innerScore/courtyardX/Z dead code(-96行)
+- **天桥子段级裁剪**: edgeBridgeOverlaps 返回 {yRange, segRange}(共线+投影算连接子段)。贴天桥的边天桥层只裁连接子段(如 B5 ei=3 t∈[0,0.4]),其余段画外廊;横杆/挑板分段(方案A)
+- **b7 空调**: 工具支持标 b7_buildings 4 边;dome 分支读 b7 edgeMarks,拱顶长边(ei=0/2)墙面挂空调(\_b7w 坐标推导)。b7 只空调
+- **改动文件**: server.py + tools/building_edge_marker.html + js/obstacles.js
+- **验证**: CDP 0错误; Playwright 工具房0mesh + B5子段裁剪 + b7空调7mesh
+
+### 数据格式变更(消费者同步)
+
+- 新增字段: campus.obstacles.b7_buildings[i].edgeMarks = [{ei, type:'ac'}]
+- footprintBuildings[i] 语义变: 无 edgeMarks → 不画(弃 fallback)
+- 消费者: js/obstacles.js + tools/building_edge_marker.html + server.py
 
 ## v0.68.0 本次会话变更 (2026-07-16)
 

@@ -37,7 +37,17 @@
         ],
         "height": 15,
         "name": "综合楼1号",
-        "type": "school"
+        "type": "school",
+        "edgeMarks": [
+          {
+            "ei": 1,
+            "type": "corridor"
+          },
+          {
+            "ei": 3,
+            "type": "ac"
+          }
+        ]
       },
       {
         "footprint": [
@@ -49,7 +59,17 @@
         ],
         "height": 15,
         "name": "综合楼2号",
-        "type": "school"
+        "type": "school",
+        "edgeMarks": [
+          {
+            "ei": 1,
+            "type": "corridor"
+          },
+          {
+            "ei": 3,
+            "type": "ac"
+          }
+        ]
       },
       {
         "footprint": [
@@ -61,7 +81,17 @@
         ],
         "height": 15,
         "name": "高年级教学楼",
-        "type": "school"
+        "type": "school",
+        "edgeMarks": [
+          {
+            "ei": 3,
+            "type": "corridor"
+          },
+          {
+            "ei": 1,
+            "type": "ac"
+          }
+        ]
       },
       {
         "footprint": [
@@ -74,7 +104,17 @@
         "height": 15,
         "name": "教学楼",
         "type": "school",
-        "stiltFloor": 1
+        "stiltFloor": 1,
+        "edgeMarks": [
+          {
+            "ei": 3,
+            "type": "corridor"
+          },
+          {
+            "ei": 1,
+            "type": "ac"
+          }
+        ]
       },
       {
         "footprint": [
@@ -86,7 +126,17 @@
         ],
         "height": 15,
         "name": "综合楼3号",
-        "type": "school"
+        "type": "school",
+        "edgeMarks": [
+          {
+            "ei": 1,
+            "type": "corridor"
+          },
+          {
+            "ei": 3,
+            "type": "ac"
+          }
+        ]
       },
       {
         "footprint": [
