@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.71.0
+# CODEBUDDY.md — v0.72.0
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -202,7 +202,7 @@ Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
 
 通过 `currentMapData` 全局变量访问地形参数。
 
-#### 校园地图（campus.map.json）特殊字段（v0.71.0）
+#### 校园地图（campus.map.json）特殊字段（v0.72.0）
 
 - `obstacles.footprintBuildings[i]`：真实 footprint 拉伸建筑（ExtrudeGeometry），含 `footprint`/`height`/`floorH`/`name`/`stiltFloor`(架空层数)/`edgeMarks`
 - `obstacles.footprintBuildings[i].edgeMarks`：外廊/空调标记数组 `[{ei, type:'corridor'|'ac'}]`，`ei`=footprint 点索引对（i 到 i+1 为一条边）。**纯覆盖语义(v0.69.0)**：数组非空时只画标记边，**空/无字段→不画**（弃 fallback innerScore 自动推断）。工具 `building_edge_marker.html` 标记 → POST `/api/solidify` → 写回此字段

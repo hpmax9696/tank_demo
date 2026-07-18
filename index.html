@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.71.0</title>
+    <title>坦克运动demo v0.72.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.71.0</div>
+      <div class="menu-version">v0.72.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🚻 v0.72.0 厕所区域系统+运动场门窗分化+车棚柱修复 — 工具页画区域→保存→一排大厕所
+          (男厕+洗手区带镜台龙头+女厕); 室内运动场拱顶米白/墙绿漆+蓝腰线+对开门高窗;
+          车棚柱长宽双向内收+柱顶拱面避让
+        </div>
+        <div class="cl-title">
           🏫 v0.71.0 门窗户修复+一楼去外廊+工具房+车棚敞棚 — 修门阈值长边不丢; AC forceY
           null陷阱+窗间墙布局; 一楼删外廊栏杆; 工具房5间房朝运动场(单门模式);
           车棚改单片拱面+四角内收柱(随拱高)
@@ -839,20 +844,8 @@
           (贴天桥的边天桥层只裁连接子段,其余段画外廊); b7 dome 拱顶长边墙面挂空调; 用户已标 5 楼真实
           edgeMarks(综合楼1/2/3+高年级教学楼+教学楼)
         </div>
-        <div class="cl-title">
-          🏫 v0.68.0 校园外廊/空调标记系统(工具→地图→渲染) — building_edge_marker 工具加 load 回填
-          edgeMarks + 保存按钮 + 画天桥; server solidify_campus 写回 edgeMarks; obstacles.js
-          读标记渲染(覆盖语义,有标记只画标记边,无则 fallback innerScore 自动推断); 标记边+fallback
-          边都跳过天桥 Y 区间(6~9)的层
-        </div>
-        <div class="cl-title">
-          🏫 v0.67.5 校园现实化(楼高+天桥+架空层) —
-          现实信息:综合楼×3+教学楼×2=5层(15),工具房=平房(3); 教学楼L型去短翼→正交矩形;
-          人行天桥(空中连廊,三层floorY6+一层厚3,贴教学楼/综合楼2/综合楼3斜边);
-          教学楼一楼架空层(stiltFloor柱子支撑,外廊/空调跳过架空层)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.71.0~v0.67.5) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.72.0~v0.70.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

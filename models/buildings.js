@@ -543,6 +543,273 @@
   window.ModelRegistry.register('buildings', 'bungalow', createBungalow, 10);
   window.ModelRegistry.register('buildings', 'villa', createVilla, 10);
   window.ModelRegistry.register('buildings', 'apartment', createApartment, 7);
+
+  // ── 厕所(校园地图专用) ──
+  const _twM = new THREE.MeshStandardMaterial({ color: '#f0ece0', roughness: 0.6 }); // 外墙米白
+  const _trM = new THREE.MeshStandardMaterial({ color: '#7a7a7a', roughness: 0.7 }); // 单坡屋顶灰
+  const _tdM = new THREE.MeshStandardMaterial({ color: '#8B6914', roughness: 0.7 }); // 木门
+  const _tgM = new THREE.MeshStandardMaterial({
+    color: '#c8ddf0',
+    roughness: 0.15,
+    metalness: 0.3,
+  }); // 玻璃窗
+  const _tsM = new THREE.MeshStandardMaterial({ color: '#e8e0d0', roughness: 0.5 }); // 洗手台
+  const _tmM = new THREE.MeshStandardMaterial({ color: '#d8e8f8', roughness: 0.1, metalness: 0.5 }); // 镜子
+
+  // 厕所标志纹理(Canvas生成, 缓存)
+  function _toiletSignTex(gender) {
+    var key = '_signTexV10' + gender;
+    if (window[key]) return window[key];
+    var c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    var ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 128, 128); // 全透明底
+    ctx.fillStyle = '#1a3a5c'; // 深蓝圆底
+    ctx.beginPath();
+    ctx.arc(64, 64, 60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    if (gender === 'male') {
+      // 男: 圆头 + 矩形身 + 双腿
+      ctx.beginPath();
+      ctx.arc(64, 36, 10, 0, Math.PI * 2);
+      ctx.fill(); // 头
+      ctx.fillRect(50, 52, 28, 30); // 身体(加长)
+      ctx.fillRect(50, 82, 11, 28); // 左腿(加长)
+      ctx.fillRect(67, 82, 11, 28); // 右腿(加长)
+    } else {
+      // 女: 圆头 + 沙漏型(上小三角+下大三角) + 双腿
+      ctx.beginPath();
+      ctx.arc(64, 29, 10, 0, Math.PI * 2);
+      ctx.fill(); // 头
+      // 上三角(小): 肩宽→腰窄 (上宽下窄)
+      ctx.beginPath();
+      ctx.moveTo(44, 42);
+      ctx.lineTo(84, 42);
+      ctx.lineTo(76, 56);
+      ctx.lineTo(52, 56);
+      ctx.closePath();
+      ctx.fill();
+      // 下三角(大): 腰窄→裙宽 (上窄下宽)
+      ctx.beginPath();
+      ctx.moveTo(52, 56);
+      ctx.lineTo(76, 56);
+      ctx.lineTo(94, 88);
+      ctx.lineTo(34, 88);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(46, 88, 10, 22); // 左腿
+      ctx.fillRect(72, 88, 10, 22); // 右腿
+    }
+    var tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    tex.premultiplyAlpha = false;
+    window[key] = tex;
+    return tex;
+  }
+
+  window.createToilet = function (rowLen) {
+    // 大厕所: 男厕 + 洗手区 + 女厕, 宽度=rowLen
+    if (!rowLen || rowLen < 4) rowLen = 4;
+    var depth = 2.0,
+      wallH = 2.2,
+      rH = 0.5,
+      wallT = 0.08;
+    var hD = depth / 2;
+    var menW = rowLen * 0.375,
+      washW = rowLen * 0.25,
+      womenW = rowLen * 0.375;
+    var menCX = -(washW / 2 + menW / 2),
+      washCX = 0,
+      womenCX = washW / 2 + womenW / 2;
+    var hW = rowLen / 2;
+
+    var g = new THREE.Group();
+    function wall(cx, cy, cz, w, h, d) {
+      var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), _twM);
+      m.position.set(cx, cy, cz);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      g.add(m);
+    }
+
+    // 后墙(+Z, 全长)
+    wall(0, wallH / 2, hD - wallT / 2, rowLen, wallH, wallT);
+    // 男厕前墙(-X侧, -Z面)
+    wall(menCX, wallH / 2, -hD + wallT / 2, menW, wallH, wallT);
+    // 女厕前墙(+X侧, -Z面)
+    wall(womenCX, wallH / 2, -hD + wallT / 2, womenW, wallH, wallT);
+    // 男厕外侧墙(-X端)
+    wall(-hW + wallT / 2, wallH / 2, 0, wallT, wallH, depth - wallT * 2);
+    // 女厕外侧墙(+X端)
+    wall(hW - wallT / 2, wallH / 2, 0, wallT, wallH, depth - wallT * 2);
+    // 男厕-洗手间隔墙
+    wall(menCX + menW / 2 - wallT / 2, wallH / 2, -hD + wallT / 2, wallT, wallH, hD - 0.45);
+    // 女厕-洗手间隔墙
+    wall(womenCX - womenW / 2 + wallT / 2, wallH / 2, -hD + wallT / 2, wallT, wallH, hD - 0.45);
+
+    // 地面
+    var fl = new THREE.Mesh(new THREE.BoxGeometry(rowLen, 0.06, depth), _tsM);
+    fl.position.y = 0.03;
+    fl.receiveShadow = true;
+    g.add(fl);
+
+    // 单坡屋顶(沿X倾斜)
+    var rs = new THREE.Shape();
+    rs.moveTo(-hW - 0.1, wallH);
+    rs.lineTo(-hW - 0.1, wallH + rH * 0.3);
+    rs.lineTo(hW + 0.1, wallH + rH);
+    rs.lineTo(hW + 0.1, wallH);
+    rs.closePath();
+    var rg = new THREE.ExtrudeGeometry(rs, { depth: depth + 0.2, bevelEnabled: false });
+    rg.translate(0, 0, -hD - 0.1);
+    var roof = new THREE.Mesh(rg, _trM);
+    roof.position.y = 0;
+    roof.castShadow = true;
+    g.add(roof);
+
+    // 男厕门(隔墙上, 对开)
+    var dW = 0.45,
+      dH = 1.8,
+      gap = 0.02;
+    var drX = menCX + menW / 2 - wallT / 2; // 隔墙X位置
+    var drZ = -hD + 0.55; // 门Z位置(离前墙)
+    var lw = (dW - gap) / 2;
+    var d1 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
+    d1.position.set(drX, dH / 2, drZ + lw / 2 + gap / 2);
+    d1.castShadow = true;
+    g.add(d1);
+    var d2 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
+    d2.position.set(drX, dH / 2, drZ - lw / 2 - gap / 2);
+    d2.castShadow = true;
+    g.add(d2);
+    var hg = new THREE.CylinderGeometry(0.02, 0.02, 0.9, 8);
+    var hm = new THREE.MeshStandardMaterial({ color: '#cccccc', roughness: 0.2, metalness: 0.9 });
+    var h1 = new THREE.Mesh(hg, hm);
+    h1.position.set(drX + 0.03, 1.0, drZ + gap / 2 + 0.05);
+    g.add(h1);
+    var h2 = new THREE.Mesh(hg, hm);
+    h2.position.set(drX + 0.03, 1.0, drZ - gap / 2 - 0.05);
+    g.add(h2);
+
+    // 女厕门
+    var drX2 = womenCX - womenW / 2 + wallT / 2;
+    var d3 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
+    d3.position.set(drX2, dH / 2, drZ - lw / 2 - gap / 2);
+    d3.castShadow = true;
+    g.add(d3);
+    var d4 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
+    d4.position.set(drX2, dH / 2, drZ + lw / 2 + gap / 2);
+    d4.castShadow = true;
+    g.add(d4);
+    var h3 = new THREE.Mesh(hg, hm);
+    h3.position.set(drX2 + 0.03, 1.0, drZ - gap / 2 - 0.05);
+    g.add(h3);
+    var h4 = new THREE.Mesh(hg, hm);
+    h4.position.set(drX2 + 0.03, 1.0, drZ + gap / 2 + 0.05);
+    g.add(h4);
+
+    // 男女厕所标志(漂浮在前方0.5m, 测试可见性)
+    var signR = 0.35,
+      signY = 1.8;
+    var signFront = -hD + wallT + 0.02; // 前墙外表面外侧
+    var signS = signR * 2;
+    var signM = new THREE.Mesh(
+      new THREE.PlaneGeometry(signS, signS),
+      new THREE.MeshBasicMaterial({
+        map: _toiletSignTex('male'),
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
+      })
+    );
+    signM.position.set(menCX, signY, signFront);
+    signM.rotation.y = Math.PI;
+    g.add(signM);
+    var signF = new THREE.Mesh(
+      new THREE.PlaneGeometry(signS, signS),
+      new THREE.MeshBasicMaterial({
+        map: _toiletSignTex('female'),
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
+      })
+    );
+    signF.position.set(womenCX, signY, signFront);
+    signF.rotation.y = Math.PI;
+    g.add(signF);
+
+    // 洗手台(后墙前, 洗手中部)
+    var sW = washW - 0.2,
+      sH = 0.75,
+      sD = 0.45;
+    var sink = new THREE.Mesh(new THREE.BoxGeometry(sW, sH, sD), _tsM);
+    sink.position.set(0, sH / 2, hD - wallT - sD / 2);
+    sink.castShadow = true;
+    sink.receiveShadow = true;
+    g.add(sink);
+    // 5个黑色水龙头(均匀分布)
+    var faucetM = new THREE.MeshStandardMaterial({
+      color: '#1a1a1a',
+      roughness: 0.3,
+      metalness: 0.5,
+    });
+    for (var fi = 0; fi < 5; fi++) {
+      var fx = ((fi + 0.5) * sW) / 5 - sW / 2; // 沿台面均布
+      var fz = hD - wallT; // 台面靠镜子内沿
+      var fy = sH; // 台面顶部
+      // 竖管(圆柱, 从台面起)
+      var pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), faucetM);
+      pipe.position.set(fx, fy + 0.15, fz);
+      pipe.castShadow = true;
+      g.add(pipe);
+      // 弯管横段(圆柱, 前伸)
+      var spout = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), faucetM);
+      spout.rotation.x = Math.PI / 2;
+      spout.position.set(fx, fy + 0.3, fz - 0.125); // 伸向镜面方向
+      spout.castShadow = true;
+      g.add(spout);
+    }
+
+    // 镜子(后墙上, 真实反射)
+    var mW = sW - 0.1,
+      mH = 0.8;
+    var mirrorZ = hD - wallT - 0.01;
+    var mirrorY = sH + mH / 2 + 0.1;
+    var mirrorGeo = new THREE.PlaneGeometry(mW, mH);
+    var mirrorRT = new THREE.WebGLRenderTarget(512, Math.round((512 * mH) / mW), {
+      format: THREE.RGBAFormat,
+    });
+    var mirrorCam = new THREE.PerspectiveCamera(60, mW / mH, 0.1, 200);
+    var mirrorMat = new THREE.MeshBasicMaterial({ map: mirrorRT.texture });
+    var mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+    mirror.position.set(0, mirrorY, mirrorZ);
+    mirror.rotation.y = Math.PI;
+    mirror.userData._refPlaneZ = mirrorZ; // 反射平面世界Z(在group局部系)
+    mirror.userData._refCam = mirrorCam;
+    mirror.userData._refRT = mirrorRT;
+    mirror.userData._refLocalZ = mirrorZ; // 局部Z坐标
+    g.add(mirror);
+    // 注册到全局反射器列表
+    if (!window._reflectors) window._reflectors = [];
+    window._reflectors.push(mirror);
+
+    // 高窗(男厕和女厕的前后墙)
+    function hWin(wx, wz, ww) {
+      var w = new THREE.Mesh(new THREE.PlaneGeometry(ww, 0.35), _tgM);
+      w.position.set(wx, wallH - 0.4, wz);
+      g.add(w);
+    }
+    hWin(menCX, hD - wallT / 2 - 0.01, menW - 0.5); // 男厕后窗
+    hWin(menCX, -hD + wallT / 2 + 0.01, menW - 0.5); // 男厕前窗
+    hWin(womenCX, hD - wallT / 2 - 0.01, womenW - 0.5); // 女厕后窗
+    hWin(womenCX, -hD + wallT / 2 + 0.01, womenW - 0.5); // 女厕前窗
+
+    g.userData = { category: 'toilet', height: wallH + rH, radius: rowLen / 2 };
+    return g;
+  };
+
   // 校园地图材质暴露(footprint 拉伸建筑 + 操场草地/塑胶跑道用)
   window.CampusMaterials = {
     wall: campusWallM,

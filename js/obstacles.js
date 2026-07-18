@@ -1108,28 +1108,356 @@ function createFootprintBuildings(targetScene, fps) {
           targetScene.add(_shellMesh);
           obstacleMeshes.push(_shellMesh);
         } else {
-          // 室内运动场: 封闭拱顶(墙+拱一体)
-          var _shape = new THREE.Shape();
-          _shape.moveTo(-_halfW, 0);
-          _shape.lineTo(-_halfW, _wallH);
-          var _arc = new THREE.EllipseCurve(0, _wallH, _halfW, _archH, Math.PI, 0, true);
-          var _apts = _arc.getPoints(24);
-          for (var _ai = 0; _ai < _apts.length; _ai++) _shape.lineTo(_apts[_ai].x, _apts[_ai].y);
-          _shape.lineTo(_halfW, 0);
-          _shape.closePath();
-          var _geo = new THREE.ExtrudeGeometry(_shape, { depth: _extLen, bevelEnabled: false });
-          var _mesh = new THREE.Mesh(_geo, _vaultMat);
-          _mesh.rotation.y = Math.PI / 2 - _ry;
-          _mesh.position.set(
+          // 室内运动场: 拱顶壳(米白)+墙面板(米黄)+蓝色腰线
+          var _sportsArchPts = new THREE.EllipseCurve(
+            0,
+            _wallH,
+            _halfW,
+            _archH,
+            Math.PI,
+            0,
+            true
+          ).getPoints(32);
+          var _sportsNPts = _sportsArchPts.length;
+          var _sportsVerts = new Float32Array(_sportsNPts * 2 * 3);
+          for (var _spi = 0; _spi < _sportsNPts; _spi++) {
+            var _spx = _sportsArchPts[_spi].x,
+              _spy = _sportsArchPts[_spi].y;
+            var _svi = _spi * 6;
+            _sportsVerts[_svi] = _spx;
+            _sportsVerts[_svi + 1] = _spy;
+            _sportsVerts[_svi + 2] = 0;
+            _sportsVerts[_svi + 3] = _spx;
+            _sportsVerts[_svi + 4] = _spy;
+            _sportsVerts[_svi + 5] = _extLen;
+          }
+          var _sportsIndices = [];
+          for (var _spi2 = 0; _spi2 < _sportsNPts - 1; _spi2++) {
+            var _sa = _spi2 * 2,
+              _sb = _sa + 1,
+              _sc = _sa + 2,
+              _sd = _sa + 3;
+            _sportsIndices.push(_sa, _sc, _sb, _sc, _sd, _sb);
+          }
+          var _sportsArchGeo = new THREE.BufferGeometry();
+          _sportsArchGeo.setAttribute('position', new THREE.BufferAttribute(_sportsVerts, 3));
+          _sportsArchGeo.setIndex(_sportsIndices);
+          _sportsArchGeo.computeVertexNormals();
+
+          // 材质定义
+          var _archWhiteM = new THREE.MeshStandardMaterial({
+            color: '#f5f0e0',
+            roughness: 0.35,
+            metalness: 0.2,
+            side: THREE.DoubleSide,
+          });
+          var _wallCreamM = new THREE.MeshStandardMaterial({
+            color: '#f5e8c0',
+            roughness: 0.6,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
+          });
+          var _beltBlueM = new THREE.MeshStandardMaterial({
+            color: '#4477aa',
+            roughness: 0.3,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
+          });
+
+          // 建筑组(与原始 ExtrudeGeometry 同样变换)
+          var _domeGrp = new THREE.Group();
+          _domeGrp.rotation.y = Math.PI / 2 - _ry;
+          _domeGrp.position.set(
             _w.cx - (_extLen / 2) * Math.cos(_ry),
             0,
             _w.cz - (_extLen / 2) * Math.sin(_ry)
           );
-          _mesh.castShadow = true;
-          _mesh.receiveShadow = true;
-          _mesh.name = 'campus-dome';
-          targetScene.add(_mesh);
-          obstacleMeshes.push(_mesh);
+          targetScene.add(_domeGrp);
+          obstacleMeshes.push(_domeGrp);
+
+          // 拱顶壳
+          var _archShell = new THREE.Mesh(_sportsArchGeo, _archWhiteM);
+          _archShell.castShadow = true;
+          _archShell.receiveShadow = true;
+          _archShell.name = 'campus-dome';
+          _domeGrp.add(_archShell);
+
+          // 拱顶端盖(封住侧面透明: ShapeGeometry覆盖拱面三角区, Z=0和Z=_extLen)
+          var _endCapShape = new THREE.Shape();
+          _endCapShape.moveTo(-_halfW, _wallH);
+          var _ecArchPts = new THREE.EllipseCurve(
+            0,
+            _wallH,
+            _halfW,
+            _archH,
+            Math.PI,
+            0,
+            true
+          ).getPoints(24);
+          for (var _eci = 0; _eci < _ecArchPts.length; _eci++)
+            _endCapShape.lineTo(_ecArchPts[_eci].x, _ecArchPts[_eci].y);
+          _endCapShape.lineTo(+_halfW, _wallH);
+          var _endCapGeo = new THREE.ShapeGeometry(_endCapShape);
+          var _endCap0 = new THREE.Mesh(_endCapGeo, _wallCreamM);
+          _endCap0.position.set(0, 0, 0);
+          _endCap0.name = 'campus-dome';
+          _domeGrp.add(_endCap0);
+          var _endCap1 = new THREE.Mesh(_endCapGeo, _wallCreamM);
+          _endCap1.position.set(0, 0, _extLen);
+          _endCap1.rotation.y = Math.PI;
+          _endCap1.name = 'campus-dome';
+          _domeGrp.add(_endCap1);
+
+          // 墙面分两段: 腰线(Y=3.0)以下绿色漆, 以上米黄
+          var _wallGreenM = new THREE.MeshStandardMaterial({
+            color: '#6b8e5a',
+            roughness: 0.6,
+            metalness: 0.1,
+          });
+          var _beltY = _wallH * 0.384; // 黄金分割: 上部61.6% 下部38.4%
+          var _lowerH = _beltY,
+            _upperH = _wallH - _beltY;
+          // 长墙下段(绿色)
+          var _longLowerGeo = new THREE.BoxGeometry(0.25, _lowerH, _extLen);
+          var _wlNXlo = new THREE.Mesh(_longLowerGeo, _wallGreenM);
+          _wlNXlo.position.set(-_halfW + 0.125, _lowerH / 2, _extLen / 2);
+          _wlNXlo.castShadow = true;
+          _wlNXlo.name = 'campus-wall';
+          _domeGrp.add(_wlNXlo);
+          var _wlPXlo = new THREE.Mesh(_longLowerGeo, _wallGreenM);
+          _wlPXlo.position.set(+_halfW - 0.125, _lowerH / 2, _extLen / 2);
+          _wlPXlo.castShadow = true;
+          _wlPXlo.name = 'campus-wall';
+          _domeGrp.add(_wlPXlo);
+          // 长墙上段(米黄)
+          var _longUpperGeo = new THREE.BoxGeometry(0.25, _upperH, _extLen);
+          var _wlNXup = new THREE.Mesh(_longUpperGeo, _wallCreamM);
+          _wlNXup.position.set(-_halfW + 0.125, _beltY + _upperH / 2, _extLen / 2);
+          _wlNXup.castShadow = true;
+          _wlNXup.name = 'campus-wall';
+          _domeGrp.add(_wlNXup);
+          var _wlPXup = new THREE.Mesh(_longUpperGeo, _wallCreamM);
+          _wlPXup.position.set(+_halfW - 0.125, _beltY + _upperH / 2, _extLen / 2);
+          _wlPXup.castShadow = true;
+          _wlPXup.name = 'campus-wall';
+          _domeGrp.add(_wlPXup);
+          // 短墙下段(绿色)
+          var _endLowerGeo = new THREE.BoxGeometry(2 * _halfW, _lowerH, 0.25);
+          var _ew0lo = new THREE.Mesh(_endLowerGeo, _wallGreenM);
+          _ew0lo.position.set(0, _lowerH / 2, 0.125);
+          _ew0lo.castShadow = true;
+          _ew0lo.name = 'campus-wall';
+          _domeGrp.add(_ew0lo);
+          var _ew1lo = new THREE.Mesh(_endLowerGeo, _wallGreenM);
+          _ew1lo.position.set(0, _lowerH / 2, _extLen - 0.125);
+          _ew1lo.castShadow = true;
+          _ew1lo.name = 'campus-wall';
+          _domeGrp.add(_ew1lo);
+          // 短墙上段(米黄)
+          var _endUpperGeo = new THREE.BoxGeometry(2 * _halfW, _upperH, 0.25);
+          var _ew0up = new THREE.Mesh(_endUpperGeo, _wallCreamM);
+          _ew0up.position.set(0, _beltY + _upperH / 2, 0.125);
+          _ew0up.castShadow = true;
+          _ew0up.name = 'campus-wall';
+          _domeGrp.add(_ew0up);
+          var _ew1up = new THREE.Mesh(_endUpperGeo, _wallCreamM);
+          _ew1up.position.set(0, _beltY + _upperH / 2, _extLen - 0.125);
+          _ew1up.castShadow = true;
+          _ew1up.name = 'campus-wall';
+          _domeGrp.add(_ew1up);
+
+          // 蓝色腰线(漆面极薄, 贴墙外表面, Y=3.0m)
+          var _beltThin = 0.02,
+            _beltH = 0.25;
+          var _beltLongGeo = new THREE.BoxGeometry(_beltThin, _beltH, _extLen);
+          var _beltNX = new THREE.Mesh(_beltLongGeo, _beltBlueM);
+          _beltNX.position.set(-_halfW + _beltThin / 2, _beltY, _extLen / 2); // -X墙外表面=-_halfW
+          _beltNX.name = 'campus-detail';
+          _domeGrp.add(_beltNX);
+          var _beltPX = new THREE.Mesh(_beltLongGeo, _beltBlueM);
+          _beltPX.position.set(+_halfW - _beltThin / 2, _beltY, _extLen / 2); // +X墙外表面=+_halfW
+          _beltPX.name = 'campus-detail';
+          _domeGrp.add(_beltPX);
+          var _beltShortGeo = new THREE.BoxGeometry(2 * _halfW, _beltH, _beltThin);
+          var _beltZ0 = new THREE.Mesh(_beltShortGeo, _beltBlueM);
+          _beltZ0.position.set(0, _beltY, -_beltThin / 2); // Z=0端墙外表面=0
+          _beltZ0.name = 'campus-detail';
+          _domeGrp.add(_beltZ0);
+          var _beltZ1 = new THREE.Mesh(_beltShortGeo, _beltBlueM);
+          _beltZ1.position.set(0, _beltY, _extLen + _beltThin / 2); // Z=_extLen端墙外表面=_extLen
+          _beltZ1.name = 'campus-detail';
+          _domeGrp.add(_beltZ1);
+
+          // ---- 运动场门窗贴面函数(本地坐标系: X=拱跨, Y=高度, Z=挤出方向) ----
+          var _endW = 2.0; // 墙端留白(函数作用域, 两分支共用)
+          var _addSportsDoorsWindows = function (wallX, outDX, hasDoor) {
+            var _sillH = 2.5,
+              _winH = 1.2,
+              _winW = 2.5;
+            var _doorW = 4.5,
+              _doorH = 3.5;
+            var _glassM = new THREE.MeshStandardMaterial({
+              color: '#c8ddf0',
+              roughness: 0.15,
+              metalness: 0.3,
+            });
+            var _doorM = new THREE.MeshStandardMaterial({ color: '#8B6914', roughness: 0.7 });
+            var _frameM = new THREE.MeshStandardMaterial({ color: '#666666', roughness: 0.5 });
+            var _winZ = _sillH + _winH / 2;
+            var _x = wallX + outDX * 0.03; // wallX已是墙外表面, +0.03贴面
+
+            if (hasDoor) {
+              // 朝向天桥面: 6窗 + 1大门居中
+              var _nWinLeft = 3,
+                _nWinRight = 3;
+              var _doorGap = 2.5;
+              var _doorZ = _extLen / 2;
+              var _doorZ0 = _doorZ - _doorW / 2,
+                _doorZ1 = _doorZ + _doorW / 2;
+
+              // 左侧窗户(门左侧, 3扇)
+              var _leftEnd = _doorZ0 - _doorGap;
+              var _leftSpan = _leftEnd - _endW;
+              var _leftGap = (_leftSpan - _nWinLeft * _winW) / (_nWinLeft + 1);
+              for (var _wi = 0; _wi < _nWinLeft; _wi++) {
+                var _wz = _endW + _leftGap * (_wi + 1) + _winW * (_wi + 0.5);
+                // 玻璃
+                // BoxGeometry(X=墙法线薄向, Y=高, Z=沿墙宽向)
+                var _gl = new THREE.Mesh(new THREE.BoxGeometry(0.03, _winH, _winW), _glassM);
+                _gl.position.set(_x, _winZ, _wz);
+                _gl.name = 'campus-detail';
+                _domeGrp.add(_gl);
+                for (var _hi = 0; _hi < 2; _hi++) {
+                  var _hr = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 0.04, _winW + 0.04),
+                    _frameM
+                  );
+                  _hr.position.set(_x, _sillH + (_hi === 0 ? 0 : _winH), _wz);
+                  _hr.name = 'campus-detail';
+                  _domeGrp.add(_hr);
+                }
+                for (var _vi = 0; _vi < 2; _vi++) {
+                  var _vr = new THREE.Mesh(new THREE.BoxGeometry(0.05, _winH, 0.04), _frameM);
+                  _vr.position.set(_x, _winZ, _wz + (_vi === 0 ? -_winW / 2 : _winW / 2));
+                  _vr.name = 'campus-detail';
+                  _domeGrp.add(_vr);
+                }
+              }
+
+              // 右侧窗户(门右侧, 3扇)
+              var _rightStart = _doorZ1 + _doorGap;
+              var _rightSpan = _extLen - _rightStart - _endW;
+              var _rightGap = (_rightSpan - _nWinRight * _winW) / (_nWinRight + 1);
+              for (var _wi2 = 0; _wi2 < _nWinRight; _wi2++) {
+                var _wz2 = _rightStart + _rightGap * (_wi2 + 1) + _winW * (_wi2 + 0.5);
+                var _gl2 = new THREE.Mesh(new THREE.BoxGeometry(0.03, _winH, _winW), _glassM);
+                _gl2.position.set(_x, _winZ, _wz2);
+                _gl2.name = 'campus-detail';
+                _domeGrp.add(_gl2);
+                for (var _hi2 = 0; _hi2 < 2; _hi2++) {
+                  var _hr2 = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 0.04, _winW + 0.04),
+                    _frameM
+                  );
+                  _hr2.position.set(_x, _sillH + (_hi2 === 0 ? 0 : _winH), _wz2);
+                  _hr2.name = 'campus-detail';
+                  _domeGrp.add(_hr2);
+                }
+                for (var _vi2 = 0; _vi2 < 2; _vi2++) {
+                  var _vr2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, _winH, 0.04), _frameM);
+                  _vr2.position.set(_x, _winZ, _wz2 + (_vi2 === 0 ? -_winW / 2 : _winW / 2));
+                  _vr2.name = 'campus-detail';
+                  _domeGrp.add(_vr2);
+                }
+              }
+
+              // 对开大门(居中, 中缝黑色线条, 竖向把手)
+              var _doorHalfW = _doorW / 2 - 0.02;
+              var _doorL = new THREE.Mesh(new THREE.BoxGeometry(0.04, _doorH, _doorHalfW), _doorM);
+              _doorL.position.set(_x, _doorH / 2, _doorZ - _doorW / 4 - 0.01);
+              _doorL.name = 'campus-detail';
+              _domeGrp.add(_doorL);
+              var _doorR = new THREE.Mesh(new THREE.BoxGeometry(0.04, _doorH, _doorHalfW), _doorM);
+              _doorR.position.set(_x, _doorH / 2, _doorZ + _doorW / 4 + 0.01);
+              _doorR.name = 'campus-detail';
+              _domeGrp.add(_doorR);
+              // 中缝黑色线条(覆盖腰线/墙面)
+              var _gapStrip = new THREE.Mesh(
+                new THREE.BoxGeometry(0.045, _doorH, 0.04),
+                new THREE.MeshStandardMaterial({ color: '#1a1a1a', roughness: 0.9 })
+              );
+              _gapStrip.position.set(_x + 0.005, _doorH / 2, _doorZ);
+              _gapStrip.name = 'campus-detail';
+              _domeGrp.add(_gapStrip);
+              // 竖向门把手(圆柱, 离中缝约0.15)
+              var _handleGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.2, 8);
+              var _handleM = new THREE.MeshStandardMaterial({
+                color: '#cccccc',
+                roughness: 0.2,
+                metalness: 0.9,
+              });
+              var _hL = new THREE.Mesh(_handleGeo, _handleM);
+              _hL.position.set(_x + 0.03, 1.2, _doorZ - 0.15);
+              _hL.name = 'campus-detail';
+              _domeGrp.add(_hL);
+              var _hR = new THREE.Mesh(_handleGeo, _handleM);
+              _hR.position.set(_x + 0.03, 1.2, _doorZ + 0.15);
+              _hR.name = 'campus-detail';
+              _domeGrp.add(_hR);
+              _hR.name = 'campus-detail';
+              _domeGrp.add(_hR);
+
+              // 返回窗t范围供AC避让
+              var _winRanges = [];
+              for (var _wi3 = 0; _wi3 < _nWinLeft; _wi3++) {
+                var _z0 = _endW + _leftGap * (_wi3 + 1) + _winW * _wi3;
+                _winRanges.push({ t0: _z0 / _extLen, t1: (_z0 + _winW) / _extLen });
+              }
+              for (var _wi4 = 0; _wi4 < _nWinRight; _wi4++) {
+                var _z0r = _rightStart + _rightGap * (_wi4 + 1) + _winW * _wi4;
+                _winRanges.push({ t0: _z0r / _extLen, t1: (_z0r + _winW) / _extLen });
+              }
+              return _winRanges;
+            } else {
+              // 背对天桥面: 7窗均匀分布
+              var _nWin = 7;
+              var _span2 = _extLen - 2 * _endW;
+              var _gap2 = (_span2 - _nWin * _winW) / (_nWin + 1);
+              for (var _wi5 = 0; _wi5 < _nWin; _wi5++) {
+                var _wz3 = _endW + _gap2 * (_wi5 + 1) + _winW * (_wi5 + 0.5);
+                var _gl3 = new THREE.Mesh(new THREE.BoxGeometry(0.03, _winH, _winW), _glassM);
+                _gl3.position.set(_x, _winZ, _wz3);
+                _gl3.name = 'campus-detail';
+                _domeGrp.add(_gl3);
+                for (var _hi3 = 0; _hi3 < 2; _hi3++) {
+                  var _hr3 = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 0.04, _winW + 0.04),
+                    _frameM
+                  );
+                  _hr3.position.set(_x, _sillH + (_hi3 === 0 ? 0 : _winH), _wz3);
+                  _hr3.name = 'campus-detail';
+                  _domeGrp.add(_hr3);
+                }
+                for (var _vi5 = 0; _vi5 < 2; _vi5++) {
+                  var _vr3 = new THREE.Mesh(new THREE.BoxGeometry(0.05, _winH, 0.04), _frameM);
+                  _vr3.position.set(_x, _winZ, _wz3 + (_vi5 === 0 ? -_winW / 2 : _winW / 2));
+                  _vr3.name = 'campus-detail';
+                  _domeGrp.add(_vr3);
+                }
+              }
+              var _wrs = [];
+              for (var _wri = 0; _wri < _nWin; _wri++) {
+                var _z0 = _endW + _gap2 * (_wri + 1) + _winW * _wri;
+                _wrs.push({ t0: _z0 / _extLen, t1: (_z0 + _winW) / _extLen });
+              }
+              return _wrs;
+            }
+          };
+
+          // 贴门窗: +X墙(朝向天桥, 大门+6窗), -X墙(背对天桥, 仅7窗)
+          var _winRangesFront = _addSportsDoorsWindows(+_halfW, +1, true); // +X墙: 朝向天桥, 大门+窗
+          var _winRangesBack = _addSportsDoorsWindows(-_halfW, -1, false); // -X墙: 背对天桥, 仅窗
         }
 
         // b7 空调(读 edgeMarks, 只 ac, 长边 ei=0/2)
@@ -1154,18 +1482,21 @@ function createFootprintBuildings(targetScene, fps) {
         if (_isCarport) {
           var _pGeo = new THREE.CylinderGeometry(0.25, 0.28, 1, 8);
           var _pMat = new THREE.MeshStandardMaterial({ color: '#d8d4cc', roughness: 0.75 });
-          var _pInset = _halfW2 * 0.88; // 柱内收至拱面宽度88%处
+          var _pInset = _halfW2 * 0.88; // 柱在拱跨方向内收至半宽88%处 (~6%/94%全宽)
+          var _zInset = _extLen2 * 0.05; // 柱在脊线方向(长度)内收至全长5%处 (~5%/95%全宽)
+          var _pRadius = 0.28; // 柱顶半径
           var _corners = [
-            [-_pInset, 0],
-            [-_pInset, _extLen2],
-            [_pInset, 0],
-            [_pInset, _extLen2],
+            [-_pInset, _zInset],
+            [-_pInset, _extLen2 - _zInset],
+            [_pInset, _zInset],
+            [_pInset, _extLen2 - _zInset],
           ];
           for (var _ci = 0; _ci < _corners.length; _ci++) {
             var _lx = _corners[_ci][0];
-            // 拱面在该 lx 处的高度: _wallH + _archH * sqrt(1-(lx/_halfW)^2)
-            var _t = Math.abs(_lx) / _halfW2;
-            var _archY = _wallH + _archH * Math.sqrt(Math.max(0, 1 - _t * _t));
+            // 拱面在柱子外侧边缘处的高度: _wallH + _archH * sqrt(1-((abs(lx)+pRadius)/_halfW)^2)
+            // 以柱子最外侧(朝车棚边缘方向)为基准，确保整个圆顶面都在拱面下方
+            var _tEdge = (Math.abs(_lx) + _pRadius) / _halfW2;
+            var _archY = _wallH + _archH * Math.sqrt(Math.max(0, 1 - _tEdge * _tEdge));
             var _cw = _b7w(_lx, _corners[_ci][1]);
             var _pillar = new THREE.Mesh(_pGeo, _pMat);
             _pillar.position.set(_cw[0], _archY / 2, _cw[1]);
@@ -1183,7 +1514,9 @@ function createFootprintBuildings(targetScene, fps) {
           if (_sgn === null) continue; // 只支持长边 ei=0/2
           var _wa = _b7w(_sgn * _halfW2, 0);
           var _wb = _b7w(_sgn * _halfW2, _extLen2);
-          addACToEdge(_b7grp, _wa[0], _wa[1], _wb[0], _wb[1], _b7wallH, [], _b7wallH - 1.5);
+          // AC 避让窗户: ei=2(-X墙/朝桥)传窗范围, ei=0(+X墙/背桥)传null(均布)
+          var _acWR = _sgn < 0 ? _winRangesBack : _winRangesFront; // -X墙(ei=2)用背桥面窗, +X墙(ei=0)用朝桥面窗
+          addACToEdge(_b7grp, _wa[0], _wa[1], _wb[0], _wb[1], _b7wallH, [], _b7wallH - 1.5, _acWR);
         }
       }
     }
@@ -1363,6 +1696,40 @@ function _expandPolygon(poly, dist) {
   return expanded;
 }
 
+// ── 厕所区域(toiletZones: 每个区域生成一整座大厕所, 宽度自适应) ──
+function createToiletZones(targetScene) {
+  var tzCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.toiletZones;
+  if (!tzCfg || !tzCfg.length) return;
+  if (typeof createToilet !== 'function') return;
+
+  for (var ti = 0; ti < tzCfg.length; ti++) {
+    var tz = tzCfg[ti];
+    var rowOnZ = tz.d > tz.w;
+    var rowLen = rowOnZ ? tz.d : tz.w;
+    if (rowLen < 4) rowLen = 4;
+
+    // 建一整座大厕所(宽度=区域长边)
+    var inst = createToilet(rowLen);
+    inst.position.set(tz.cx, getTerrainHeight ? getTerrainHeight(tz.cx, tz.cz) : 0, tz.cz);
+    var baseRot = rowOnZ ? Math.PI / 2 : 0;
+    inst.rotation.y = tz.ry + baseRot + (Math.PI * 148) / 180;
+    inst.name = 'toilet';
+    targetScene.add(inst);
+    if (obstacleMeshes) obstacleMeshes.push(inst);
+
+    var ud = inst.userData;
+    if (typeof insertObstacle === 'function') {
+      insertObstacle({
+        x: tz.cx,
+        z: tz.cz,
+        radius: rowLen / 2,
+        height: ud.height,
+        type: 'building',
+      });
+    }
+  }
+}
+
 // ── 西南运动区塑胶跑道(人工打点精确边界, 覆盖 grounds+通道+边缘, 坐落地砖之上/草地之下) ──
 function createSportsTrackZone(targetScene, grounds, boundary) {
   if (!THREE.ShapeGeometry) return;
@@ -1483,6 +1850,7 @@ function createBoundaryWalls(targetScene, boundary) {
     mesh.name = 'campus-wall';
     targetScene.add(mesh);
     obstacleMeshes.push(mesh);
+    if (window._campusBuildings) window._campusBuildings.push(mesh);
     const nx = -dz / L,
       nz = dx / L;
     const t = WALL_T / 2 + 0.3;
@@ -2115,6 +2483,9 @@ function createObstacles(targetScene = scene) {
   if (obsCfg && obsCfg.grounds && obsCfg.grounds.length) {
     createGrounds(targetScene, obsCfg.grounds); // 草地(运动场内部, 盖跑道之上)
   }
+  // 厕所区域(独立模型, 放在建筑之后/草地之上)
+  createToiletZones(targetScene);
+
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
     createBoundaryWalls(targetScene, obsCfg.boundary);
   }

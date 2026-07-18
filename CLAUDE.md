@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.71.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.72.0
 
 ## 运行
 
@@ -249,11 +249,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项   | 可选值                                                      |
+| 配置项 | 可选值 |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方     | 坦克、六足(灰色不可选)                                      |
-| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
+| 我方 | 坦克、六足(灰色不可选) |
+| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -270,9 +270,18 @@ legGroup (Y旋转=水平摆角)
 
 ---
 
-## v0.71.0 本次会话变更 (2026-07-18)
+## v0.72.0 本次会话变更 (2026-07-18)
 
-### 门窗修复+一楼去外廊+工具房+车棚敞棚
+### 厕所区域系统 + 运动场门窗分化 + 车棚柱修复
+
+- **厕所区域系统**: tools/toilet_zone_marker.html(新) 对角线拖拽画矩形+旋转→POST /api/solidify→campus.map.json toiletZones→obstacles.js createToiletZones渲染→models/buildings.js createToilet(rowLen)模型(男厕37.5%+洗手区25%带镜台5龙头+女厕37.5%三连体,对开门+男女Canvas标志牌)
+- **运动场门窗分化**: ExtrudeGeometry→拱顶壳(BufferGeometry米白)+墙面板(BoxGeometry,腰线下绿漆#6b8e5a上米黄)+蓝腰线(#4477aa,四面,polygonOffset防z-fighting)+朝桥面1对开门+6高窗+背桥面7高窗+拱端盖(ShapeGeometry)
+- **车棚柱修复**: 长宽双向内收(拱跨88%,脊线5%)+柱顶按外侧边缘(圆心+半径)算拱高防刺破+腰线漆面0.02厚贴墙外表面
+- **镜子实时反射**: WebGLRenderTarget+每帧反射相机(隐藏镜子本体,天蓝背景),引擎gameLoop中更新
+- **厕所标志**: Canvas纹理(CanvasTexture,深蓝圆底+白色男女图标,premultiplyAlpha)+MeshBasicMaterial(transparent+depthWrite:false,贴前墙外表面)
+- **改动**: models/buildings.js + js/obstacles.js + tools/toilet_zone_marker.html(新) + server.py + maps/campus.map.json + js/engine.js(反射循环)
+
+### 门窗修复+一楼去外廊+工具房+车棚敞棚 (v0.71.0)
 
 - **门阈值修复**: 0.02→0.005 (边长>35u时0.7/len<0.02门被误删)
 - **AC修复**: forceY!==undefined→!=null (调用方传null→[null]仅1层) + 窗间墙定点布局替代均布避让
