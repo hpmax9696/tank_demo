@@ -558,7 +558,7 @@
 
   // 厕所标志纹理(Canvas生成, 缓存)
   function _toiletSignTex(gender) {
-    var key = '_signTexV10' + gender;
+    var key = '_signTexV11' + gender;
     if (window[key]) return window[key];
     var c = document.createElement('canvas');
     c.width = 128;
@@ -599,12 +599,13 @@
       ctx.lineTo(34, 88);
       ctx.closePath();
       ctx.fill();
-      ctx.fillRect(46, 88, 10, 22); // 左腿
-      ctx.fillRect(72, 88, 10, 22); // 右腿
+      ctx.fillRect(51, 88, 10, 22); // 左腿(内边61, 与男标志腿距一致)
+      ctx.fillRect(67, 88, 10, 22); // 右腿(内边67)
     }
     var tex = new THREE.CanvasTexture(c);
     tex.minFilter = THREE.LinearFilter;
     tex.premultiplyAlpha = false;
+    tex.colorSpace = THREE.SRGBColorSpace; // 画布颜色是sRGB, 不标记会被当linear→显示偏亮
     window[key] = tex;
     return tex;
   }
@@ -710,10 +711,10 @@
     h4.position.set(drX2 + 0.03, 1.0, drZ + gap / 2 + 0.05);
     g.add(h4);
 
-    // 男女厕所标志(漂浮在前方0.5m, 测试可见性)
+    // 男女厕所标志(贴前墙外表面, 比窗更外0.01防z-fighting)
     var signR = 0.35,
-      signY = 1.8;
-    var signFront = -hD + wallT + 0.02; // 前墙外表面外侧
+      signY = wallH * 0.616; // 墙高0.616处(≈1.36)
+    var signFront = -hD - 0.02; // 前墙外表面(-hD)再外扩0.02, 防z-fighting
     var signS = signR * 2;
     var signM = new THREE.Mesh(
       new THREE.PlaneGeometry(signS, signS),
@@ -795,16 +796,17 @@
     if (!window._reflectors) window._reflectors = [];
     window._reflectors.push(mirror);
 
-    // 高窗(男厕和女厕的前后墙)
+    // 高窗(男厕和女厕的前后墙, 贴墙外表面; 前墙窗面朝-Z需转半圈)
     function hWin(wx, wz, ww) {
       var w = new THREE.Mesh(new THREE.PlaneGeometry(ww, 0.35), _tgM);
-      w.position.set(wx, wallH - 0.4, wz);
+      w.position.set(wx, wallH - 0.25, wz); // 窗底1.775, 与标志顶(≈1.71)不重叠
+      if (wz < 0) w.rotation.y = Math.PI;
       g.add(w);
     }
-    hWin(menCX, hD - wallT / 2 - 0.01, menW - 0.5); // 男厕后窗
-    hWin(menCX, -hD + wallT / 2 + 0.01, menW - 0.5); // 男厕前窗
-    hWin(womenCX, hD - wallT / 2 - 0.01, womenW - 0.5); // 女厕后窗
-    hWin(womenCX, -hD + wallT / 2 + 0.01, womenW - 0.5); // 女厕前窗
+    hWin(menCX, hD + 0.01, menW - 0.5); // 男厕后窗
+    hWin(menCX, -hD - 0.01, menW - 0.5); // 男厕前窗
+    hWin(womenCX, hD + 0.01, womenW - 0.5); // 女厕后窗
+    hWin(womenCX, -hD - 0.01, womenW - 0.5); // 女厕前窗
 
     g.userData = { category: 'toilet', height: wallH + rH, radius: rowLen / 2 };
     return g;

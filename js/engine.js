@@ -2593,10 +2593,11 @@ function gameLoop() {
             if (od.type === 'building') {
               if (od.groupRef) {
                 const obs = od.groupRef;
-                obs.parent.remove(obs);
+                if (obs.parent) obs.parent.remove(obs);
                 obs.traverse((c) => {
                   if (c.geometry) c.geometry.dispose();
-                  if (c.material) c.material.dispose();
+                  // campus- 前缀 = 模块级共享材质(球场/球门/篮球架), 绝不 dispose
+                  if (c.material && !String(c.name).startsWith('campus-')) c.material.dispose();
                 });
                 const meshIdx = obstacleMeshes.indexOf(obs);
                 if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
@@ -2612,6 +2613,16 @@ function gameLoop() {
             }
             if (window._obstacleGrid) {
               window._obstacleGrid.remove(od);
+            }
+            // 同组兄弟碰撞体联动清理(球门双柱: 命中一柱整门碎, 防隐形空气墙残留)
+            if (od.groupRef) {
+              for (let sk = obstacleData.length - 1; sk >= 0; sk--) {
+                if (obstacleData[sk].groupRef === od.groupRef) {
+                  obstacleData[sk].destroyed = true;
+                  if (window._obstacleGrid) window._obstacleGrid.remove(obstacleData[sk]);
+                  obstacleData.splice(sk, 1);
+                }
+              }
             }
           }
           hit = true;
@@ -2894,14 +2905,22 @@ function gameLoop() {
             spawnFragments(op, od.color);
             if (od.type === 'building') {
               if (od.groupRef) {
+                // 软删除: 同批快照可含同组兄弟条目(球门双柱), 立即 remove 会使第二条 parent=null 崩溃
                 const obs = od.groupRef;
-                obs.parent.remove(obs);
+                obs.visible = false;
                 obs.traverse((c) => {
-                  if (c.geometry) c.geometry.dispose();
-                  if (c.material) c.material.dispose();
+                  if (c.geometry) c.geometry.dispose(); // 几何回收防泄漏; 材质不碰(campus 模块级共享)
                 });
                 const mi = obstacleMeshes.indexOf(obs);
                 if (mi >= 0) obstacleMeshes.splice(mi, 1);
+                // 同组兄弟条目联动软删除(快照残留引用由 destroyed 守卫跳过)
+                for (let sk = obstacleData.length - 1; sk >= 0; sk--) {
+                  if (obstacleData[sk].groupRef === obs) {
+                    obstacleData[sk].destroyed = true;
+                    if (window._obstacleGrid) window._obstacleGrid.remove(obstacleData[sk]);
+                    obstacleData.splice(sk, 1);
+                  }
+                }
               } else if (od.imBuilding) {
                 disposeBuildingInstance(od);
               }
@@ -7834,7 +7853,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.72.0 | 金福园小学校园地图+建筑多边形碰撞+炮弹Raycaster墙面检测');
+console.log('🎮 坦克运动demo v0.73.0 | 球场标线+球门+篮球架(可碎)+厕所标志修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

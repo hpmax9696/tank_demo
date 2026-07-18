@@ -1814,6 +1814,12 @@ function createGrounds(targetScene, grounds) {
   };
   for (const g of grounds) {
     if (!g.footprint || g.footprint.length < 3) continue;
+    // 命名球场 → SportsFields 接管(标线纹理面 + 球门/篮球架)
+    if (window.SportsFields && SportsFields.hasCourt(g.name)) {
+      SportsFields.buildCourt(g, targetScene);
+      SportsFields.buildEquipment(g, targetScene);
+      continue;
+    }
     const shape = _footprintToShape(g.footprint, true);
     const geo = new THREE.ShapeGeometry(shape);
     const mesh = new THREE.Mesh(geo, getGrassMat());

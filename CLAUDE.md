@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.72.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.73.0
 
 ## 运行
 
@@ -31,6 +31,7 @@ python server.py
 │   ├── bars.js        # UI 血条/装填条 (~85行)
 │   ├── input.js       # 输入处理 (~74行)：WASD+手柄5段力度
 │   ├── spatialGrid.js # 空间网格 (~110行)
+│   ├── sportsFields.js # 球场模块 (~400行)：标线纹理+UV重映射+球门/篮球架+可碎登记
 │   ├── sky.js         # 动态天空系统 (~271行)：渐变穹顶+噪声云层+太阳光晕
 │   ├── profiled_extrude.js # ProfiledExtrude 几何类型 (~116行)：XY轮廓+roofProfile拉伸
 │   └── tank_specs.js  # 坦克规格参数 (~96行)：历史数据查询
@@ -249,11 +250,11 @@ legGroup (Y旋转=水平摆角)
 
 主菜单"训练场"按钮 → 配置面板 → 选我方/敌方单位 + 敌方行为 → 地图01a，相距100单位。
 
-| 配置项 | 可选值 |
+| 配置项   | 可选值                                                      |
 | -------- | ----------------------------------------------------------- | ------------------------ | --- |
-| 我方 | 坦克、六足(灰色不可选) |
-| 敌方 | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
-| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动) | 坦克速度6.0, 炮塔转速1.0 | |
+| 我方     | 坦克、六足(灰色不可选)                                      |
+| 敌方     | 坦克(T-34/85全参数对齐)、**六足(CCD IK动画)**、突击车、丧尸 |
+| 敌方行为 | 主动攻击(出生即追击)、反击(受击才还手)、不反击(完全被动)    | 坦克速度6.0, 炮塔转速1.0 |     |
 
 - **敌方T-34坦克**：HP/速度/炮弹/MG/过热参数全面对齐玩家，炮塔独立瞄准+炮管俯仰+弹道重力补偿
 - **敌方六足(v0.57.0 CCD IK)**：`js/hexapod_enemy.js`多实例CCD IK+三角步态+踉跄+死亡。homeOffset相对定位防下陷，髋Z轴修正，动态步幅自适应速度。加特林+导弹独立武器系统，MG不触发踉跄
@@ -267,6 +268,36 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.73.0 本次会话变更 (2026-07-19)
+
+### 球场标线+球门+篮球架（SDD 子代理流程，6任务全绿）
+
+- **新模块 js/sportsFields.js (~400行)**: 按 grounds 名匹配('足球场'/大篮球场*/小篮球场*)接管场地渲染。整场 CanvasTexture(草底平铺+白线0.12u, 缓存key `_courtTexV1<kind>`)+UV重映射(footprint局部归一化, makeMapper统一(long,short)坐标系); polygonOffset -3/-6 全库置顶
+- **足球场**: 沿长轴分2子场(各16×23.7u), 各画边线/中线/中圈r2.3/两端禁区7×3/点球点; 4球门(3×2m白框+3片半透明网)在子场端线中点; **双柱碰撞(r0.15)坦克撞门框停**(门宽2.31<坦克碰撞直径2.4, 物理合理), 命中任一柱整门碎
+- **篮球场**: 大场5人制(三分r5.2/罚球区3.8×4.4)/小场3人制(r3.4/2.5×2.9)缩小全场; 8篮球架(底座+立柱+悬臂+白底红框篮板CanvasTexture+橙Torus筐), 筐高大2.35u(3.05m)/小2.0u(2.6m); 三分弧心与筐心精确对齐(hoopD=1.425/1.025, armLen扣0.225保3D零回归)
+- **engine.js 摧毁增强(2处)**: ①主循环直接命中: parent判空+campus-前缀共享材质dispose保护+兄弟碰撞体联动清理(destroyed+grid.remove+splice) ②HE溅射: destroyed软删除(visible=false不remove, 依托既有destroyed守卫**根治同批命中双柱null.parent崩溃**——该崩溃被gameLoop try-catch吞成僵尸弹极隐蔽)
+- **接线**: obstacles.js createGrounds 循环+5行(命名场地转交buildCourt/buildEquipment后continue); index.html +1 script; **零数据格式变更**(按名匹配)
+- **碰撞登记**: obstacleData.push直接登记(insertObstacle不存在——createToiletZones的typeof守卫永假, 厕所至今无碰撞体, 已知遗留)
+- **验证**: pw_sports_test T1-T5b全PASS(真炮弹端到端摧毁+HE软删除); map01a回归10s零错误DC312; CDP 0错误
+- **改动**: js/sportsFields.js(新) + js/engine.js + js/obstacles.js + index.html + docs/superpowers/{specs,plans}
+
+### 厕所标志/高窗修复
+
+- **标志不可见根因**: signFront=-hD+wallT+0.02 在前墙内侧(墙占[-1.0,-0.92], 标志-0.90)被墙挡; 修为 -hD-0.02 贴外墙面
+- **标志颜色偏亮**: CanvasTexture 未标 SRGBColorSpace 被当 linear 二次提亮(#1a3a5c→#6090a8); 补 colorSpace
+- **标志降高**: signY=wallH\*0.616(≈1.36); 女标志两腿 46/72→51/67 与男标志腿距一致(6px); 纹理缓存key V10→V11
+- **高窗嵌墙**: 4扇窗 z=±(hD-wallT/2∓0.01) 在墙体内; 修为 ±(hD+0.01) 贴外墙面, 前墙窗转半圈朝外(FrontSide剔除), 升高 wallH-0.4→wallH-0.25 避开标志
+- **改动**: models/buildings.js
+
+### 已知问题（新增/更新）
+
+1. 厕所无碰撞体(insertObstacle不存在, createToiletZones守卫永假)——坦克可穿厕所
+2. HE摧毁球门后Group以visible=false残留scene(软删除固有, geometry已回收无泄漏)
+3. gameLoop大try-catch把崩溃吞成console.warn(本次HE崩溃靠僵尸弹症状定位, 建议升error级)
+4. vs模式摧毁路径预置bug: engine.js:6660 splice用checkObs索引会误删(campus不进vs, 未修)
 
 ---
 
