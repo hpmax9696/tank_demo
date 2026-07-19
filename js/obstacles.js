@@ -2524,7 +2524,7 @@ function createObstacles(targetScene = scene) {
         ce = cn[1];
       var ux = ce[0] - cu[0],
         uz = ce[1] - cu[1];
-      var yaw = -Math.atan2(uz, ux) + Math.PI; // +X → P0→P1方向(偏移π对齐工具页上下)
+      var yaw = -Math.atan2(uz, ux) + Math.PI / 2; // v0.73.17: 试探π/2
       var boxH = 3; // 一层楼高
       var geo = new THREE.BoxGeometry(cz.w, boxH, cz.d);
       // 6面: +X(前=红) -X(后=蓝) +Y(顶=灰) -Y(底=灰) +Z(右=绿) -Z(左=黄)
