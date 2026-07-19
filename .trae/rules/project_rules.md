@@ -239,7 +239,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.74.0 — 足球场soccerFields+坐标校准验证+厕所修复）
+## 当前版本（v0.75.0 — 足球场soccerFields+坐标校准验证+厕所修复）
 
 ### 关键参数
 
