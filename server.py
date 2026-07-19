@@ -134,8 +134,8 @@ def solidify_campus(payload):
             elif 'edgeMarks' in blds[i]:
                 del blds[i]['edgeMarks']  # 显式清除标记回 fallback
 
-    # 厕所区域 toiletZones (toilet_zone_marker.html 保存; 不匹配 soccerFields)
-    if payload.get('type') != 'soccerFields' and 'zones' in payload and payload['zones'] is not None:
+    # 厕所区域 toiletZones (明确匹配类型, 避免新工具(zones键)误覆盖)
+    if payload.get('type') in ('toiletZones', 'campus') and 'zones' in payload and payload['zones'] is not None:
         obs['toiletZones'] = payload['zones']
     # 足球子场 soccerFields (soccer_zone_marker.html 保存)
     if payload.get('type') == 'soccerFields' and 'zones' in payload and payload['zones'] is not None:
