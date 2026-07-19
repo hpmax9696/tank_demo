@@ -251,7 +251,7 @@
   }
 
   // 球门: 本地 +X=朝场内, 门柱沿 Z 各±1.155, 高1.54, 柱r0.05
-  var GOAL = { w: 2.31, h: 1.54, r: 0.05, depth: 0.8 };
+  var GOAL = { w: 3.4, h: 1.54, r: 0.05, depth: 0.8 };
   function _createGoal() {
     var g = new THREE.Group();
     g.name = 'sf-goal';
