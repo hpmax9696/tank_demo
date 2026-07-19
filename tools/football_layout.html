@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>足球场胶囊形布局</title>
+    <style>
+      body {
+        font-family: 'Microsoft YaHei', sans-serif;
+        background: #1a1a2e;
+        color: #ddd;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+      }
+      svg {
+        background: #0f1a0f;
+        border-radius: 12px;
+        margin: 10px 0;
+      }
+      h2 {
+        color: #f5954a;
+      }
+      .info {
+        color: #888;
+        font-size: 0.9rem;
+        max-width: 800px;
+        line-height: 1.6;
+      }
+      .info span {
+        color: #4ade80;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>足球场布局方案 — 胶囊形草坪内两子场</h2>
+    <svg id="main" width="700" height="700" viewBox="-300 -380 600 760"></svg>
+    <div class="info">
+      <b>俯视图</b>（沿胶囊长轴方向上下排列，长轴≈104°/SE-NW）<br />
+      <span>绿色区域</span> = 胶囊形草坪（22点真实footprint）&nbsp;|&nbsp; <span>青色框</span> =
+      两个子场（长边相邻，各 ≈47.6×7.8u = 62×10m）<br />
+      <span>红色线</span> = 子场标线（边线/中线/禁区）&nbsp;|&nbsp; <span>橙色点</span> =
+      球门（子场短边中点，面朝长轴方向）
+    </div>
+
+    <svg id="detail1" width="700" height="500" viewBox="-300 -30 600 300"></svg>
+    <div class="info">
+      <b>子场1 放大</b>（长边沿胶囊宽度≈47.6u，短边≈7.8u沿长轴方向）<br />
+      边线/中线/中圈/禁区/点球点 | 球门在短边两端 × 2 = 4球门
+    </div>
+
+    <script>
+      const svgNS = 'http://www.w3.org/2000/svg';
+
+      function el(tag, attrs) {
+        const e = document.createElementNS(svgNS, tag);
+        for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+        return e;
+      }
+
+      // ---- 从 campus.map.json 的 22点胶囊形数据, 投影到胶囊局部坐标 ----
+      const pts22 = [
+        // 22点足迹 (来自grounds[9]), 世界坐标(x,z)
+        [33.257, 2.085],
+        [42.749, -34.197],
+        [41.078, -38.367],
+        [38.994, -42.845],
+        [33.778, -47.118],
+        [29.611, -49.936],
+        [25.437, -51.708],
+        [18.557, -53.798],
+        [11.778, -54.003],
+        [4.587, -51.708],
+        [0.0, -49.31],
+        [-3.545, -45.868],
+        [-12.928, -8.961],
+        [-10.425, -2.916],
+        [-8.342, 1.049],
+        [-3.444, 4.8],
+        [3.125, 7.514],
+        [11.257, 9.287],
+        [20.749, 9.698],
+        [26.066, 7.72],
+        [29.191, 5.527],
+        [33.257, 2.085],
+      ];
+
+      // 胶囊长轴方向 = P0→P1 ≈ -75° (or 104°)
+      const longDx = pts22[1][0] - pts22[0][0]; // P1.x - P0.x
+      const longDz = pts22[1][1] - pts22[0][1]; // P1.z - P0.z
+      const longLen = Math.sqrt(longDx * longDx + longDz * longDz);
+      const lux = longDx / longLen; // 长轴单位向量
+      const luz = longDz / longLen;
+      // 短轴单位向量 = 长轴逆时针90°(在XZ平面 right-hand: +x右 +z上, 90°ccw: (-lz, lx))
+      const sux = -luz;
+      const suz = lux;
+
+      // 投影所有22点到胶囊局部坐标: u=短轴(宽度方向), v=长轴(长度方向)
+      const proj = pts22.map((p) => {
+        const cx = p[0] - pts22[6][0]; // 以一个中心附近点做参考(方便绘图)
+        const cz = p[1] - pts22[6][1];
+        return { u: cx * sux + cz * suz, v: cx * lux + cz * luz };
+      });
+
+      // 短轴范围 → 胶囊宽度, 长轴范围 → 胶囊全长
+      const us = proj.map((p) => p.u),
+        vs = proj.map((p) => p.v);
+      const uMin = Math.min(...us),
+        uMax = Math.max(...us);
+      const vMin = Math.min(...vs),
+        vMax = Math.max(...vs);
+      const capW = uMax - uMin; // 胶囊宽度
+      const capL = vMax - vMin; // 胶囊总长
+      const rectLen = capL - capW; // 中间矩形部分
+      const subShort = rectLen / 2; // 每个子场短边
+
+      // ---- 主图: 胶囊 + 两子场 (SVG y=长轴方向, x=短轴方向) ----
+      const SCALE = 7.5; // px/u
+      const mainSvg = document.getElementById('main');
+
+      // 1. 胶囊轮廓
+      let d = '';
+      for (let i = 0; i <= proj.length; i++) {
+        const p = proj[i % proj.length];
+        const sx = p.u * SCALE,
+          sy = p.v * SCALE;
+        d += (i === 0 ? 'M' : 'L') + sx.toFixed(1) + ',' + sy.toFixed(1);
+      }
+      const capsule = el('path', {
+        d,
+        fill: 'rgba(34,139,34,0.25)',
+        stroke: '#4ade80',
+        'stroke-width': 1.5,
+      });
+      mainSvg.appendChild(capsule);
+
+      // 2. 两子场矩形
+      const fieldU0 = uMin + 0.5,
+        fieldU1 = uMax - 0.5; // 子场长边范围(内缩0.5)
+      const fieldLen = fieldU1 - fieldU0; // ≈ 46.6u
+
+      for (let i = 0; i < 2; i++) {
+        const v0 = vMin + capW / 2 + i * subShort + 0.3;
+        const v1 = vMin + capW / 2 + (i + 1) * subShort - 0.3;
+        const sc = (v0 + v1) / 2;
+
+        // 草地底色
+        const rect = el('rect', {
+          x: fieldU0 * SCALE,
+          y: v0 * SCALE,
+          width: fieldLen * SCALE,
+          height: (v1 - v0) * SCALE,
+          fill: 'rgba(80,160,60,0.35)',
+          stroke: 'cyan',
+          'stroke-width': 1,
+        });
+        mainSvg.appendChild(rect);
+
+        // 中线(u方向)
+        const midLine = el('line', {
+          x1: (uMin + capW / 2) * SCALE,
+          y1: v0 * SCALE,
+          x2: (uMin + capW / 2) * SCALE,
+          y2: v1 * SCALE,
+          stroke: 'red',
+          'stroke-width': 0.8,
+          'stroke-dasharray': '3,2',
+        });
+        mainSvg.appendChild(midLine);
+
+        // 中圈
+        const circle = el('circle', {
+          cx: (uMin + capW / 2) * SCALE,
+          cy: sc * SCALE,
+          r: 2.3 * SCALE,
+          fill: 'none',
+          stroke: 'red',
+          'stroke-width': 0.7,
+        });
+        mainSvg.appendChild(circle);
+
+        // 禁区(v两端)
+        for (let e = 0; e < 2; e++) {
+          const ve = e === 0 ? v0 : v1;
+          const dv = e === 0 ? 1 : -1;
+          const bRect = el('rect', {
+            x: (uMin + capW / 2 - 3.5) * SCALE, // boxW/2 = 3.5
+            y: e === 0 ? (ve + dv * 3) * SCALE : ve * SCALE,
+            width: 7 * SCALE,
+            height: 3 * SCALE,
+            fill: 'none',
+            stroke: 'red',
+            'stroke-width': 0.7,
+          });
+          mainSvg.appendChild(bRect);
+          // 点球点
+          const dot = el('circle', {
+            cx: (uMin + capW / 2) * SCALE,
+            cy: (ve + dv * 4.6) * SCALE,
+            r: 2,
+            fill: 'red',
+          });
+          mainSvg.appendChild(dot);
+          // 球门标记(橙色点)
+          const goal = el('circle', {
+            cx: (uMin + capW / 2) * SCALE,
+            cy: ve * SCALE,
+            r: 4,
+            fill: '#f5954a',
+            stroke: '#e07020',
+            'stroke-width': 2,
+          });
+          mainSvg.appendChild(goal);
+        }
+
+        // 标签
+        const lbl = el('text', {
+          x: (uMax + 2) * SCALE,
+          y: sc * SCALE + 4,
+          fill: 'cyan',
+          'font-size': '11px',
+          'font-weight': 'bold',
+        });
+        lbl.textContent = `子场${i + 1}  ${(v1 - v0).toFixed(1)}u`;
+        mainSvg.appendChild(lbl);
+      }
+
+      // 3. 尺寸标注
+      // 胶囊宽度
+      const wArrow = el('line', {
+        x1: uMin * SCALE - 15,
+        y1: vMin * SCALE - 15,
+        x2: uMax * SCALE + 15,
+        y2: vMin * SCALE - 15,
+        stroke: '#888',
+        'stroke-width': 1,
+        markerEnd: 'url(#arr)',
+      });
+      mainSvg.appendChild(wArrow);
+      const wTxt = el('text', {
+        x: ((uMin + uMax) / 2) * SCALE,
+        y: vMin * SCALE - 22,
+        fill: '#aaa',
+        'font-size': '11px',
+        'text-anchor': 'middle',
+      });
+      wTxt.textContent = `胶囊宽度≈${capW.toFixed(0)}u (${(capW * 1.3).toFixed(0)}m)`;
+      mainSvg.appendChild(wTxt);
+
+      // 中间矩形
+      const hTxt = el('text', {
+        x: uMax * SCALE + 30,
+        y: (vMin + capW / 2) * SCALE + 4,
+        fill: '#aaa',
+        'font-size': '11px',
+      });
+      hTxt.textContent = `矩高15.6u`;
+      mainSvg.appendChild(hTxt);
+
+      // 箭头标记
+      const defs = el('defs', {});
+      const marker = el('marker', {
+        id: 'arr',
+        markerWidth: 8,
+        markerHeight: 6,
+        refX: 8,
+        refY: 3,
+        orient: 'auto',
+      });
+      const arrow = el('path', { d: 'M0,0 L8,3 L0,6 Z', fill: '#888' });
+      marker.appendChild(arrow);
+      defs.appendChild(marker);
+      mainSvg.appendChild(defs);
+
+      // ---- 子场放大图 ----
+      const detailSvg = document.getElementById('detail1');
+      const SCALE2 = 12;
+      const FL = fieldLen,
+        FS = subShort - 0.6; // 子场长边/短边(去内缩)
+      const ox = (-FL / 2) * SCALE2,
+        oy = (-FS / 2) * SCALE2;
+
+      // 草地
+      const fd = el('rect', {
+        x: ox,
+        y: oy,
+        width: FL * SCALE2,
+        height: FS * SCALE2,
+        fill: 'rgba(80,160,60,0.4)',
+        stroke: 'cyan',
+        'stroke-width': 1.5,
+      });
+      detailSvg.appendChild(fd);
+
+      // 边线
+      const bl = el('rect', {
+        x: (-FL / 2 + 0.5) * SCALE2,
+        y: (-FS / 2 + 0.5) * SCALE2,
+        width: (FL - 1) * SCALE2,
+        height: (FS - 1) * SCALE2,
+        fill: 'none',
+        stroke: 'red',
+        'stroke-width': 1.2,
+      });
+      detailSvg.appendChild(bl);
+
+      // 中线
+      const ml = el('line', {
+        x1: 0,
+        y1: (-FS / 2 + 0.5) * SCALE2,
+        x2: 0,
+        y2: (FS / 2 - 0.5) * SCALE2,
+        stroke: 'red',
+        'stroke-width': 0.8,
+      });
+      detailSvg.appendChild(ml);
+
+      // 中圈
+      const cc = el('circle', {
+        cx: 0,
+        cy: 0,
+        r: 2.3 * SCALE2,
+        fill: 'none',
+        stroke: 'red',
+        'stroke-width': 0.8,
+      });
+      detailSvg.appendChild(cc);
+
+      // 禁区+点球点
+      for (let e = 0; e < 2; e++) {
+        const uEnd = e === 0 ? FL / 2 - 0.5 : -FL / 2 + 0.5;
+        const dir = e === 0 ? -1 : 1;
+        const bx = uEnd * SCALE2;
+        const by = -3.5 * SCALE2;
+        const box = el('rect', {
+          x: e === 0 ? bx : bx - 3 * SCALE2,
+          y: by,
+          width: 3 * SCALE2,
+          height: 7 * SCALE2,
+          fill: 'none',
+          stroke: 'red',
+          'stroke-width': 0.8,
+        });
+        detailSvg.appendChild(box);
+        const dot = el('circle', { cx: (uEnd + dir * 4.6) * SCALE2, cy: 0, r: 3, fill: 'red' });
+        detailSvg.appendChild(dot);
+        // 球门
+        const goal = el('circle', {
+          cx: uEnd * SCALE2,
+          cy: 0,
+          r: 5,
+          fill: '#f5954a',
+          stroke: '#e07020',
+          'stroke-width': 2.5,
+        });
+        detailSvg.appendChild(goal);
+      }
+
+      // 尺寸标注
+      const szLbl = el('text', {
+        x: ox + ((FL / 2) * SCALE2) / 2,
+        y: oy + FS * SCALE2 + 20,
+        fill: '#aaa',
+        'font-size': '12px',
+        'text-anchor': 'middle',
+      });
+      szLbl.textContent = `长边≈${FL.toFixed(0)}u (${(FL * 1.3).toFixed(0)}m)`;
+      detailSvg.appendChild(szLbl);
+      const szLbl2 = el('text', {
+        x: ox - 20,
+        y: oy + (FS / 2) * SCALE2,
+        fill: '#aaa',
+        'font-size': '11px',
+        'text-anchor': 'end',
+        transform: `rotate(-90,${ox - 20},${oy + (FS / 2) * SCALE2})`,
+      });
+      szLbl2.textContent = `短边≈${FS.toFixed(1)}u (${(FS * 1.3).toFixed(0)}m)`;
+      detailSvg.appendChild(szLbl2);
+      const gInfo = el('text', {
+        x: ox + (FL * SCALE2) / 2,
+        y: oy - 15,
+        fill: '#f5954a',
+        'font-size': '13px',
+        'text-anchor': 'middle',
+        'font-weight': 'bold',
+      });
+      gInfo.textContent = '球门在短边两端 | 面朝长轴方向';
+      detailSvg.appendChild(gInfo);
+    </script>
+  </body>
+</html>

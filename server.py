@@ -137,6 +137,9 @@ def solidify_campus(payload):
     # 厕所区域 toiletZones (toilet_zone_marker.html 保存)
     if 'zones' in payload and payload['zones'] is not None:
         obs['toiletZones'] = payload['zones']
+    # 足球子场 soccerFields (soccer_zone_marker.html 保存)
+    if payload.get('type') == 'soccerFields' and 'zones' in payload and payload['zones'] is not None:
+        obs['soccerFields'] = payload['zones']
 
     # b7_buildings edgeMarks (室内运动场/车棚 空调标记)
     for k, v in (payload.get('b7_edgeMarks') or {}).items():
@@ -186,8 +189,8 @@ class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
                 body = self.rfile.read(content_len)
                 data = json.loads(body)
 
-                # campus 命名/B7/厕所区域 保存分支
-                if data.get('type') in ('campus', 'toiletZones'):
+                # campus 命名/B7/厕所区域/足球场 保存分支
+                if data.get('type') in ('campus', 'toiletZones', 'soccerFields'):
                     saved_path = solidify_campus(data)
                     self._json_ok({'file': saved_path})
                     return
