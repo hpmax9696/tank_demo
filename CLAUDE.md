@@ -160,6 +160,7 @@ FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
 6. **自动验证**：修改代码后自动用 Chrome headless CDP 抓取控制台错误，无误后才通知用户；有错则自行修复再验证，直到通过
 7. **模块优先**：新功能优先以独立 JS 模块加载，三个主文件（index/map_editor/model_factory）不宜再增大，主文件仅作框架和加载器
 8. **文档同步**：更新 CLAUDE.md 时同步更新 CODEBUDDY.md（参数/架构/已知问题）和 `.trae/rules/project_rules.md`（规则/文件行数），三份文档保持一致
+9. **标记工具→Demo 坐标对齐**：新建工具页(drag画矩形→保存到campus.map.json)时，必须使用与工具页逐字相同的 zoneCorners 旋转公式生成 footprint，球门位置用 `_localToWorld(b, lEnd, S/2)`（短边中点），**绝不**用 `_localToWorld(b, L/2, sEnd)`（长边中点=90°错位）。详见 [[tool-demo-coordinate-mapping]]
 
 ## 六足战车 IK 系统
 
