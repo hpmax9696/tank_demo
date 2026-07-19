@@ -413,15 +413,15 @@
   }
 
   function _drawSoccerSub(ctx, m) {
-    // 单子场: 球门在短轴(S)两端 / 中线横穿长轴(L) / 中圈在中心 / 禁区在S端
+    // 单子场: 球门在L端(短边中点=l=0或L处s=S/2) / 中线横穿L / 中圈中心 / 禁区L端
     _rect(ctx, m, INSET, INSET, m.L - INSET, m.S - INSET);
-    _line(ctx, m, INSET, m.S / 2, m.L - INSET, m.S / 2);
+    _line(ctx, m, m.L / 2, INSET, m.L / 2, m.S - INSET);
     _circle(ctx, m, m.L / 2, m.S / 2, FB.circle);
     for (var e = 0; e < 2; e++) {
-      var sEnd = e === 0 ? INSET : m.S - INSET;
+      var lEnd = e === 0 ? INSET : m.L - INSET;
       var dir = e === 0 ? 1 : -1;
-      _rect(ctx, m, m.L / 2 - FB.boxW / 2, sEnd, m.L / 2 + FB.boxW / 2, sEnd + dir * FB.boxD);
-      _circle(ctx, m, m.L / 2, sEnd + dir * FB.penalty, 0.1, true);
+      _rect(ctx, m, lEnd, m.S / 2 - FB.boxW / 2, lEnd + dir * FB.boxD, m.S / 2 + FB.boxW / 2);
+      _circle(ctx, m, lEnd + dir * FB.penalty, m.S / 2, 0.1, true);
     }
   }
 
@@ -495,20 +495,23 @@
       targetScene.add(mesh);
       obstacleMeshes.push(mesh);
 
-      // 2球门在短轴(S)两端中点, 面朝S方向(场中心)=标记工具getGoalEnds法线方向
+      // 2球门在短轴(S)两端中点, 面朝S方向(场中心)
+      // _localToWorld(l,s): l沿L=长轴=w方向, s沿S=短轴=d方向
+      // 短边中点=(l=0或L, s=S/2)即w端+d中心=d边中点 ✓
+      // (L/2, sEnd)是w中点+d端=w边中点=长边中点 ✗
       var m2 = makeMapper(1024, b.len0, b.len1);
       for (var e = 0; e < 2; e++) {
-        var sEnd = e === 0 ? INSET : m2.S - INSET;
-        var inwardS = e === 0 ? -1 : 1; // S起点球门面朝-S(迎接+S来的球), S终点面朝+S
-        var w = _localToWorld(b, m2.L / 2, sEnd);
+        var lEnd = e === 0 ? 0 : m2.L; // L方向两端: 0或L
+        var inwardS = e === 0 ? -1 : 1;
+        var w = _localToWorld(b, lEnd, m2.S / 2); // 短边中点!
         var goal = _createGoal();
         var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
         goal.position.set(w[0], gy, w[1]);
-        goal.rotation.y = _yawOfDir(b, 0, inwardS); // 门面朝S方向(对齐标记工具axis='d'法线)
+        goal.rotation.y = _yawOfDir(b, 0, inwardS);
         targetScene.add(goal);
         obstacleMeshes.push(goal);
         for (var side = -1; side <= 1; side += 2) {
-          var pw = _localToWorld(b, m2.L / 2 + (side * GOAL.w) / 2, sEnd);
+          var pw = _localToWorld(b, lEnd, m2.S / 2 + (side * GOAL.w) / 2); // 柱沿S排列
           obstacleData.push({
             x: pw[0],
             z: pw[1],
