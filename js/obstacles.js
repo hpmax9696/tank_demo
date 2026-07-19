@@ -1814,6 +1814,15 @@ function createGrounds(targetScene, grounds) {
   };
   for (const g of grounds) {
     if (!g.footprint || g.footprint.length < 3) continue;
+    // 若有 soccerFields 标记数据则跳过旧"足球场"ground(由 createSoccerFields 替代)
+    if (
+      g.name === '足球场' &&
+      currentMapData &&
+      currentMapData.obstacles &&
+      currentMapData.obstacles.soccerFields &&
+      currentMapData.obstacles.soccerFields.length
+    )
+      continue;
     // 命名球场 → SportsFields 接管(标线纹理面 + 球门/篮球架)
     if (window.SportsFields && SportsFields.hasCourt(g.name)) {
       SportsFields.buildCourt(g, targetScene);
@@ -2491,7 +2500,7 @@ function createObstacles(targetScene = scene) {
   }
   // 厕所区域(独立模型, 放在建筑之后/草地之上)
   createToiletZones(targetScene);
-  // 足球子场(soccer_zone_marker.html 工具标记, 从 soccerFields 数据生成)
+  // 足球子场(从 soccer_zone_marker.html 工具标记数据生成)
   if (window.SportsFields && SportsFields.createSoccerFields)
     SportsFields.createSoccerFields(targetScene);
 
