@@ -2538,7 +2538,9 @@ function createObstacles(targetScene = scene) {
       ];
       var cube = new THREE.Mesh(geo, mats);
       cube.position.set(cz.cx, boxH / 2, cz.cz);
-      cube.rotation.y = yaw;
+      cube.rotation.order = 'YXZ';
+      cube.rotation.set(0, yaw - Math.PI / 2, 0); // +X→P0→P1(先Y再X)
+      cube.rotateX(Math.PI); // Z轴反转(+Z↔-Z)
       cube.castShadow = true;
       cube.receiveShadow = true;
       cube.name = 'calibration-cube';
