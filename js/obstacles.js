@@ -2491,6 +2491,9 @@ function createObstacles(targetScene = scene) {
   }
   // 厕所区域(独立模型, 放在建筑之后/草地之上)
   createToiletZones(targetScene);
+  // 足球子场(soccer_zone_marker.html 工具标记, 从 soccerFields 数据生成)
+  if (window.SportsFields && SportsFields.createSoccerFields)
+    SportsFields.createSoccerFields(targetScene);
 
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
     createBoundaryWalls(targetScene, obsCfg.boundary);

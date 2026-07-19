@@ -399,12 +399,141 @@
     else if (kind === 'bb3') _buildBasketballEquip(g, targetScene, b, BB3, 2.0);
   }
 
+  // ── 从 soccerFields 数据生成子场 (soccer_zone_marker.html 工具保存) ──
+  // 使用与标记工具完全一致的 zoneCorners 旋转公式，避免坐标系差异
+  function _zoneCorners(sf) {
+    var cr = Math.cos(sf.ry),
+      sr = Math.sin(sf.ry);
+    var hw = sf.w / 2,
+      hd = sf.d / 2;
+    return [
+      [sf.cx + -hw * cr - -hd * sr, sf.cz + -hw * sr + -hd * cr],
+      [sf.cx + -hw * cr - +hd * sr, sf.cz + -hw * sr + +hd * cr],
+      [sf.cx + +hw * cr - +hd * sr, sf.cz + +hw * sr + +hd * cr],
+      [sf.cx + +hw * cr - -hd * sr, sf.cz + +hw * sr + -hd * cr],
+    ];
+  }
+
+  // 单个足球子场标线纹理(不分割)
+  function _courtTexSoccer(len0, len1) {
+    var key = '_courtTexV3soccer_' + len0.toFixed(1) + '_' + len1.toFixed(1);
+    if (window[key]) return window[key];
+    var W = 1024,
+      H = Math.max(64, Math.round((1024 * Math.min(len0, len1)) / Math.max(len0, len1)));
+    var cW = len0 >= len1 ? W : H,
+      cH = len0 >= len1 ? H : W;
+    var c = document.createElement('canvas');
+    c.width = cW;
+    c.height = cH;
+    var ctx = c.getContext('2d');
+    var tt = window.TerrainTextures,
+      grass = tt ? tt.grass() : null;
+    var m = makeMapper(W, len0, len1);
+    if (grass) {
+      var tile = Math.max(8, Math.round(m.scale));
+      for (var y = 0; y < cH; y += tile)
+        for (var x = 0; x < cW; x += tile) ctx.drawImage(grass, x, y, tile, tile);
+    } else {
+      ctx.fillStyle = '#4A8C3F';
+      ctx.fillRect(0, 0, cW, cH);
+    }
+    ctx.strokeStyle = '#f6f6f6';
+    ctx.fillStyle = '#f6f6f6';
+    ctx.lineWidth = LINE_W * m.scale;
+    // 单子场: 边线/中线(沿S=球门间方向)/中圈/两端禁区/点球
+    _rect(ctx, m, INSET, INSET, m.L - INSET, m.S - INSET);
+    _line(ctx, m, INSET, m.S / 2, m.L - INSET, m.S / 2);
+    _circle(ctx, m, m.L / 2, m.S / 2, FB.circle);
+    for (var e = 0; e < 2; e++) {
+      var sEnd = e === 0 ? INSET : m.S - INSET;
+      var dir = e === 0 ? 1 : -1;
+      _rect(ctx, m, m.L / 2 - FB.boxW / 2, sEnd, m.L / 2 + FB.boxW / 2, sEnd + dir * FB.boxD);
+      _circle(ctx, m, m.L / 2, sEnd + dir * FB.penalty, 0.1, true);
+    }
+    var tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    window[key] = tex;
+    return tex;
+  }
+
+  function createSoccerFields(targetScene) {
+    var sfCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.soccerFields;
+    if (!sfCfg || !sfCfg.length) return;
+    for (var si = 0; si < sfCfg.length; si++) {
+      var sf = sfCfg[si];
+      var fp = _zoneCorners(sf);
+      var g = {
+        footprint: [fp[0], fp[1], fp[2], fp[3], [fp[0][0], fp[0][1]]],
+        name: 'soccer',
+        kind: 'pitch',
+      };
+      var b = _basis(g);
+      var shape = _footprintToShape(g.footprint, true);
+      var geo = new THREE.ShapeGeometry(shape);
+      var pos = geo.attributes.position;
+      var uvArr = new Float32Array(pos.count * 2);
+      for (var i = 0; i < pos.count; i++) {
+        var wx = pos.getX(i),
+          wz = -pos.getY(i);
+        var dx = wx - b.p0[0],
+          dz = wz - b.p0[1];
+        uvArr[i * 2] = (dx * b.u[0] + dz * b.u[1]) / b.len0;
+        uvArr[i * 2 + 1] = (dx * b.v[0] + dz * b.v[1]) / b.len1;
+      }
+      geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+      var tex = _courtTexSoccer(b.len0, b.len1);
+      var mat = new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: 0.95,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -6,
+      });
+      var mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0;
+      mesh.receiveShadow = true;
+      mesh.name = 'campus-court';
+      targetScene.add(mesh);
+      obstacleMeshes.push(mesh);
+
+      // 球门: 子场短轴(S)两端各1个, 面朝S方向=场内
+      var m2 = makeMapper(1024, b.len0, b.len1);
+      for (var e = 0; e < 2; e++) {
+        var sEnd = e === 0 ? INSET : m2.S - INSET;
+        var inwardS = e === 0 ? 1 : -1;
+        var w = _localToWorld(b, m2.L / 2, sEnd);
+        var goal = _createGoal();
+        var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
+        goal.position.set(w[0], gy, w[1]);
+        goal.rotation.y = _yawOfDir(b, 0, inwardS);
+        targetScene.add(goal);
+        obstacleMeshes.push(goal);
+        // 双柱碰撞沿长轴(L)方向排布
+        for (var side = -1; side <= 1; side += 2) {
+          var pw = _localToWorld(b, m2.L / 2 + (side * GOAL.w) / 2, sEnd);
+          obstacleData.push({
+            x: pw[0],
+            z: pw[1],
+            radius: 0.15,
+            height: GOAL.h,
+            type: 'building',
+            groupRef: goal,
+            color: '#f8f8f8',
+          });
+        }
+      }
+    }
+  }
+
   window.SportsFields = {
     hasCourt: function (name) {
       return courtKind(name) !== null;
     },
     buildCourt: buildCourt,
     buildEquipment: buildEquipment,
+    createSoccerFields: createSoccerFields,
     _basis: _basis,
     _courtKind: courtKind,
   };
