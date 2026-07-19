@@ -501,7 +501,7 @@
       // (L/2, sEnd)是w中点+d端=w边中点=长边中点 ✗
       var m2 = makeMapper(1024, b.len0, b.len1);
       for (var e = 0; e < 2; e++) {
-        var lEnd = e === 0 ? 0 : m2.L; // L方向两端: 0或L
+        var lEnd = e === 0 ? INSET : m2.L - INSET; // L方向两端内缩(边线内侧)
         var inwardS = e === 0 ? -1 : 1;
         var w = _localToWorld(b, lEnd, m2.S / 2); // 短边中点!
         var goal = _createGoal();
