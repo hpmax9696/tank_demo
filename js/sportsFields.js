@@ -507,7 +507,7 @@
         var goal = _createGoal();
         var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
         goal.position.set(w[0], gy, w[1]);
-        goal.rotation.y = _yawOfDir(b, 0, inwardS);
+        goal.rotation.y = _yawOfDir(b, 0, inwardS) - Math.PI / 2; // 绕自身中点顺时针转90°
         targetScene.add(goal);
         obstacleMeshes.push(goal);
         for (var side = -1; side <= 1; side += 2) {
