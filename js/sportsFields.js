@@ -71,20 +71,21 @@
     else ctx.stroke();
   }
 
-  // 足球场: 沿长轴分 2 子场, 各画边线/中线/中圈/两端禁区/点球点
+  // 足球场: 沿短轴分 2 子场(长边相邻), 各画边线/中线/中圈/两端禁区/点球点
+  // 长轴(L)=球门间方向, 短轴(S)=两子场排列方向
   function _drawFootball(ctx, m) {
     for (var i = 0; i < 2; i++) {
-      var l0 = (i * m.L) / 2 + INSET,
-        l1 = ((i + 1) * m.L) / 2 - INSET;
-      var lc = (l0 + l1) / 2;
-      _rect(ctx, m, l0, INSET, l1, m.S - INSET);
-      _line(ctx, m, l0, m.S / 2, l1, m.S / 2);
-      _circle(ctx, m, lc, m.S / 2, FB.circle);
+      var s0 = (i * m.S) / 2 + INSET,
+        s1 = ((i + 1) * m.S) / 2 - INSET;
+      var sc = (s0 + s1) / 2;
+      _rect(ctx, m, INSET, s0, m.L - INSET, s1);
+      _line(ctx, m, INSET, sc, m.L - INSET, sc); // 中线(横穿长轴)
+      _circle(ctx, m, m.L / 2, sc, FB.circle);
       for (var e = 0; e < 2; e++) {
-        var sEnd = e === 0 ? INSET : m.S - INSET;
+        var lEnd = e === 0 ? INSET : m.L - INSET;
         var dir = e === 0 ? 1 : -1;
-        _rect(ctx, m, lc - FB.boxW / 2, sEnd, lc + FB.boxW / 2, sEnd + dir * FB.boxD);
-        _circle(ctx, m, lc, sEnd + dir * FB.penalty, 0.1, true);
+        _rect(ctx, m, lEnd, sc - FB.boxW / 2, lEnd + dir * FB.boxD, sc + FB.boxW / 2);
+        _circle(ctx, m, lEnd + dir * FB.penalty, sc, 0.1, true);
       }
     }
   }
@@ -125,7 +126,7 @@
 
   // 纹理: 草底平铺 + 白线 (按 kind 缓存, key 带版本)
   function _courtTex(kind, len0, len1) {
-    var key = '_courtTexV1' + kind;
+    var key = '_courtTexV2' + kind;
     if (window[key]) return window[key];
     var W = 1024,
       H = Math.max(64, Math.round((1024 * Math.min(len0, len1)) / Math.max(len0, len1)));
@@ -160,11 +161,12 @@
     return tex;
   }
 
-  // 共享材质缓存(kind → material)
+  // 共享材质缓存(带纹理版本 key)
   var _courtMats = {};
   function _courtMat(kind, len0, len1) {
-    if (_courtMats[kind]) return _courtMats[kind];
-    _courtMats[kind] = new THREE.MeshStandardMaterial({
+    var mk = '_courtTexV2' + kind; // 纹理版本同步 key
+    if (_courtMats[mk]) return _courtMats[mk];
+    _courtMats[mk] = new THREE.MeshStandardMaterial({
       map: _courtTex(kind, len0, len1),
       roughness: 0.95,
       polygonOffset: true,
@@ -291,24 +293,24 @@
     return g;
   }
 
-  // 足球设备: 2 子场 × 2 端线球门
+  // 足球设备: 2 子场 × 2 长轴端球门(长轴=球门间方向)
   function _buildFootballEquip(g, targetScene, b) {
     var m = makeMapper(1024, b.len0, b.len1);
     for (var i = 0; i < 2; i++) {
-      var lc = (i * m.L) / 2 + m.L / 4; // 子场中心(长轴向)
+      var sc = (i * m.S) / 2 + m.S / 4; // 子场中心(短轴向)
       for (var e = 0; e < 2; e++) {
-        var sEnd = e === 0 ? INSET : m.S - INSET;
-        var inwardS = e === 0 ? 1 : -1; // 朝场内(s 方向)
-        var w = _localToWorld(b, lc, sEnd);
+        var lEnd = e === 0 ? INSET : m.L - INSET;
+        var inwardL = e === 0 ? 1 : -1;
+        var w = _localToWorld(b, lEnd, sc);
         var goal = _createGoal();
         var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
         goal.position.set(w[0], gy, w[1]);
-        goal.rotation.y = _yawOfDir(b, 0, inwardS); // 本地+X → 场内
+        goal.rotation.y = _yawOfDir(b, inwardL, 0); // 本地+X → 场内(l方向)
         targetScene.add(goal);
         obstacleMeshes.push(goal);
-        // 双柱碰撞: 柱世界位置 = 端线中点 ± 门半宽(沿端线方向 = l 方向)
+        // 双柱碰撞: 柱沿短轴(s)方向间距门宽
         for (var side = -1; side <= 1; side += 2) {
-          var pw = _localToWorld(b, lc + (side * GOAL.w) / 2, sEnd);
+          var pw = _localToWorld(b, lEnd, sc + (side * GOAL.w) / 2);
           obstacleData.push({
             x: pw[0],
             z: pw[1],
