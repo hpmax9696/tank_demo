@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.73.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.74.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,15 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.74.0 — 足球场soccerFields+坐标校准验证（2026-07-19）
+
+- **足球子场工具链**: tools/soccer_zone_marker.html 标记→campus.map.json soccerFields→js/sportsFields.js createSoccerFields渲染
+- **坐标转换规律验证**: tools/calibration_marker.html(4色边矩形→6面立方体)19轮迭代确认工具页↔demo完全对齐
+- **足球场**: 2子场标线(整场CanvasTexture+UV重映射)+4球门(双柱可碎,r0.15,门宽3.4m占短边15%)
+- **server.py**: toiletZones条件改正向白名单,杜绝新工具误覆盖; 新增soccerFields/calibration类型支持
+- **规则固化**: CLAUDE.md规则#9(标记工具坐标对齐)+#10(改server.py后重启); memory [[tool-demo-coordinate-mapping]]
+- **改动**: js/sportsFields.js + js/obstacles.js + server.py + tools/soccer_zone_marker.html(新) + memory
 
 ### v0.73.0 — 球场标线+球门+篮球架（2026-07-19）
 
@@ -1471,7 +1480,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.73.0）
+### 代码规模（截至 v0.74.0）
 
 | 分类             | 文件                                                                                                                                                                                                          |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |

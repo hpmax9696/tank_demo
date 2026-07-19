@@ -2504,51 +2504,6 @@ function createObstacles(targetScene = scene) {
   if (window.SportsFields && SportsFields.createSoccerFields)
     SportsFields.createSoccerFields(targetScene);
 
-  // ── 坐标校准立方体(calibration_marker.html) ──
-  var calZones = obsCfg && obsCfg.calibrationZones;
-  if (calZones && calZones.length) {
-    for (var ci = 0; ci < calZones.length; ci++) {
-      var cz = calZones[ci];
-      // 与工具页逐字相同的 zoneCorners 公式
-      var cr = Math.cos(cz.ry),
-        sr = Math.sin(cz.ry),
-        hw = cz.w / 2,
-        hd = cz.d / 2;
-      var cn = [
-        [cz.cx + -hw * cr - -hd * sr, cz.cz + -hw * sr + -hd * cr],
-        [cz.cx + -hw * cr - +hd * sr, cz.cz + -hw * sr + +hd * cr],
-        [cz.cx + +hw * cr - +hd * sr, cz.cz + +hw * sr + +hd * cr],
-        [cz.cx + +hw * cr - -hd * sr, cz.cz + +hw * sr + -hd * cr],
-      ];
-      var cu = cn[0],
-        ce = cn[1];
-      var ux = ce[0] - cu[0],
-        uz = ce[1] - cu[1];
-      var yaw = -Math.atan2(uz, ux) + Math.PI / 2; // v0.73.17: 试探π/2
-      var boxH = 3; // 一层楼高
-      var geo = new THREE.BoxGeometry(cz.w, boxH, cz.d);
-      // 6面: +X(前=红) -X(后=蓝) +Y(顶=灰) -Y(底=灰) +Z(右=绿) -Z(左=黄)
-      var mats = [
-        new THREE.MeshStandardMaterial({ color: '#e94560', roughness: 0.5 }), // +X 红=P0→P1
-        new THREE.MeshStandardMaterial({ color: '#3b82f6', roughness: 0.5 }), // -X 蓝=P2→P3
-        new THREE.MeshStandardMaterial({ color: '#666666', roughness: 0.5 }), // +Y 灰
-        new THREE.MeshStandardMaterial({ color: '#444444', roughness: 0.5 }), // -Y 深灰
-        new THREE.MeshStandardMaterial({ color: '#4ade80', roughness: 0.5 }), // +Z 绿=P1→P2
-        new THREE.MeshStandardMaterial({ color: '#f0a500', roughness: 0.5 }), // -Z 黄=P3→P0
-      ];
-      var cube = new THREE.Mesh(geo, mats);
-      cube.position.set(cz.cx, boxH / 2, cz.cz);
-      cube.rotation.order = 'YXZ';
-      cube.rotation.set(0, yaw - Math.PI, 0); // +X→P0→P1(顺时针再移1位)
-      cube.rotateX(Math.PI); // Z轴反转(+Z↔-Z)
-      cube.castShadow = true;
-      cube.receiveShadow = true;
-      cube.name = 'calibration-cube';
-      targetScene.add(cube);
-      obstacleMeshes.push(cube);
-    }
-  }
-
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
     createBoundaryWalls(targetScene, obsCfg.boundary);
   }
