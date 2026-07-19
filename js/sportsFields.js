@@ -499,7 +499,7 @@
       var m2 = makeMapper(1024, b.len0, b.len1);
       for (var e = 0; e < 2; e++) {
         var sEnd = e === 0 ? INSET : m2.S - INSET;
-        var inwardS = e === 0 ? 1 : -1; // 面朝场中心方向
+        var inwardS = e === 0 ? -1 : 1; // S起点球门面朝-S(迎接+S来的球), S终点面朝+S
         var w = _localToWorld(b, m2.L / 2, sEnd);
         var goal = _createGoal();
         var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
