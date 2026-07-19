@@ -495,16 +495,16 @@
       targetScene.add(mesh);
       obstacleMeshes.push(mesh);
 
-      // 2球门在短轴(S)两端, 面朝长轴(L)=球门间方向
+      // 2球门在短轴(S)两端中点, 面朝S方向(场中心)=标记工具getGoalEnds法线方向
       var m2 = makeMapper(1024, b.len0, b.len1);
       for (var e = 0; e < 2; e++) {
         var sEnd = e === 0 ? INSET : m2.S - INSET;
-        var inwardL = m2.L > 0 ? 1 : 0; // 球门面朝L正方向
+        var inwardS = e === 0 ? 1 : -1; // 面朝场中心方向
         var w = _localToWorld(b, m2.L / 2, sEnd);
         var goal = _createGoal();
         var gy = typeof getTerrainHeight === 'function' ? getTerrainHeight(w[0], w[1]) : 0;
         goal.position.set(w[0], gy, w[1]);
-        goal.rotation.y = _yawOfDir(b, inwardL, 0); // 门面朝L方向(对齐标记工具)
+        goal.rotation.y = _yawOfDir(b, 0, inwardS); // 门面朝S方向(对齐标记工具axis='d'法线)
         targetScene.add(goal);
         obstacleMeshes.push(goal);
         for (var side = -1; side <= 1; side += 2) {
