@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>坐标校准 — 矩形→立方体</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eee;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #canvas-wrap {
+        flex: 1;
+        position: relative;
+        cursor: crosshair;
+      }
+      canvas {
+        display: block;
+      }
+      #panel {
+        width: 280px;
+        padding: 16px;
+        background: #16213e;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      h2 {
+        font-size: 16px;
+        color: #f0a500;
+        margin-bottom: 4px;
+      }
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+      }
+      .btn-green {
+        background: #1a8a4a;
+        color: #fff;
+      }
+      .btn-red {
+        background: #e94560;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #333;
+        color: #aaa;
+      }
+      .legend {
+        font-size: 11px;
+        color: #888;
+      }
+      .legend b {
+        display: inline-block;
+        width: 60px;
+      }
+      .hint {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+      }
+      #status {
+        font-size: 12px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-wrap"><canvas id="c"></canvas></div>
+    <div id="panel">
+      <h2>📐 坐标校准标记</h2>
+      <div class="legend">
+        <b style="color: #e94560">■ 红</b> P0→P1 边<br />
+        <b style="color: #4ade80">■ 绿</b> P1→P2 边<br />
+        <b style="color: #3b82f6">■ 蓝</b> P2→P3 边<br />
+        <b style="color: #f0a500">■ 黄</b> P3→P0 边
+      </div>
+      <div class="hint">
+        🖱️ 拖拽对角线画矩形<br />
+        🖱️ 拖内部=平移 | 🔲角=缩放 | 🟠=旋转<br />
+        ⌨️ Delete=删除 | 💾=保存到地图
+      </div>
+      <button class="btn btn-red" onclick="deleteSelected()">🗑 删除选中</button>
+      <button class="btn btn-gray" onclick="clearAll()">🗑 清空</button>
+      <button class="btn btn-green" onclick="saveZones()">💾 保存到地图</button>
+      <div id="status">加载中...</div>
+    </div>
+    <script>
+      const canvas = document.getElementById('c'),
+        ctx = canvas.getContext('2d');
+      const HR = 7,
+        RR = 6;
+      let campusData = null,
+        zones = [],
+        selIdx = -1;
+      let dragMode = null,
+        dragCorner = -1,
+        dragStart = { x: 0, z: 0 },
+        dragZoneOrig = null;
+      let mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
+        scale = 1;
+
+      async function load() {
+        try {
+          const r = await fetch('../maps/campus.map.json');
+          campusData = await r.json();
+          zones = campusData.obstacles.calibrationZones || [];
+          fit();
+          draw();
+          setS('已加载, ' + zones.length + ' 个矩形');
+        } catch (e) {
+          setS('加载失败: ' + e.message);
+        }
+      }
+      function fit() {
+        const b = campusData.obstacles.boundary;
+        let x0 = 1e9,
+          x1 = -1e9,
+          z0 = 1e9,
+          z1 = -1e9;
+        for (const p of b) {
+          if (p[0] < x0) x0 = p[0];
+          if (p[0] > x1) x1 = p[0];
+          if (p[1] < z0) z0 = p[1];
+          if (p[1] > z1) z1 = p[1];
+        }
+        const pad = 10,
+          w = x1 - x0 + pad * 2,
+          h = z1 - z0 + pad * 2;
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        scale = Math.min(cw / w, ch / h);
+        mcx = (x0 + x1) / 2;
+        mcz = (z0 + z1) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
+        canvas.width = cw * devicePixelRatio;
+        canvas.height = ch * devicePixelRatio;
+        canvas.style.width = cw + 'px';
+        canvas.style.height = ch + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      function w2c(wx, wz) {
+        return { x: ccx - (wx - mcx) * scale, y: ccy - (wz - mcz) * scale };
+      }
+      function c2w(cx, cy) {
+        return { x: mcx - (cx - ccx) / scale, z: mcz - (cy - ccy) / scale };
+      }
+      function zc(z) {
+        const cr = Math.cos(z.ry),
+          sr = Math.sin(z.ry),
+          hw = z.w / 2,
+          hd = z.d / 2;
+        return [
+          { x: z.cx + -hw * cr - -hd * sr, z: z.cz + -hw * sr + -hd * cr },
+          { x: z.cx + -hw * cr - +hd * sr, z: z.cz + -hw * sr + +hd * cr },
+          { x: z.cx + +hw * cr - +hd * sr, z: z.cz + +hw * sr + +hd * cr },
+          { x: z.cx + +hw * cr - -hd * sr, z: z.cz + +hw * sr + -hd * cr },
+        ];
+      }
+
+      function draw() {
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        ctx.clearRect(0, 0, cw, ch);
+        if (!campusData) return;
+        ctx.fillStyle = '#d8d4cc';
+        ctx.fillRect(0, 0, cw, ch);
+        const bdry = campusData.obstacles.boundary;
+        drawPoly(bdry, '#ddd', '#666', 2);
+        for (const fp of campusData.obstacles.footprintBuildings || [])
+          drawPoly(fp.footprint, '#3a5a3a', '#2a4a2a', 1);
+        for (const gn of campusData.obstacles.grounds || [])
+          drawPoly(gn.footprint, '#4a8c3f', null, 0);
+        drawPoly(bdry, null, '#666', 2);
+        for (let zi = 0; zi < zones.length; zi++) {
+          const z = zones[zi],
+            cn = zc(z);
+          if (zi === selIdx) {
+            // 选中: 白边+角柄+旋转柄(同toilet marker)
+            for (let ci = 0; ci < 4; ci++) {
+              const c = w2c(cn[ci].x, cn[ci].z);
+              ctx.fillStyle = '#fff';
+              ctx.strokeStyle = '#333';
+              ctx.beginPath();
+              ctx.arc(c.x, c.y, HR, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+            }
+            const tm = { x: (cn[0].x + cn[1].x) / 2, z: (cn[0].z + cn[1].z) / 2 };
+            const nx = -(cn[1].z - cn[0].z),
+              nz = cn[1].x - cn[0].x,
+              nl = Math.hypot(nx, nz) || 1;
+            const rp = w2c(tm.x + (nx / nl) * 1.5, tm.z + (nz / nl) * 1.5);
+            ctx.fillStyle = '#f0a500';
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(rp.x, rp.y, RR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            const tmc = w2c(tm.x, tm.z);
+            ctx.strokeStyle = '#f0a500';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(tmc.x, tmc.y);
+            ctx.lineTo(rp.x, rp.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          // 四条边不同颜色
+          const cols = ['#e94560', '#4ade80', '#3b82f6', '#f0a500'];
+          for (let j = 0; j < 4; j++) {
+            const a = w2c(cn[j].x, cn[j].z),
+              b = w2c(cn[(j + 1) % 4].x, cn[(j + 1) % 4].z);
+            ctx.strokeStyle = cols[j];
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+          // 面内浅色填充
+          ctx.fillStyle = 'rgba(240,165,0,0.08)';
+          ctx.beginPath();
+          const c0 = w2c(cn[0].x, cn[0].z);
+          ctx.moveTo(c0.x, c0.y);
+          for (let j = 1; j < 4; j++) {
+            const c = w2c(cn[j].x, cn[j].z);
+            ctx.lineTo(c.x, c.y);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      function drawPoly(poly, fill, stroke, lw) {
+        if (!poly || poly.length < 2) return;
+        ctx.beginPath();
+        const p0 = w2c(poly[0][0], poly[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < poly.length; i++) {
+          const p = w2c(poly[i][0], poly[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw || 2;
+          ctx.stroke();
+        }
+      }
+      function hit(cx, cy) {
+        for (let i = zones.length - 1; i >= 0; i--) {
+          if (pip(cx, cy, zc(zones[i]))) return i;
+        }
+        return -1;
+      }
+      function hitC(cx, cy, zi) {
+        const cn = zc(zones[zi]);
+        for (let ci = 0; ci < 4; ci++) {
+          const c = w2c(cn[ci].x, cn[ci].z);
+          if (Math.hypot(cx - c.x, cy - c.y) < HR + 6) return ci;
+        }
+        return -1;
+      }
+      function hitR(cx, cy, zi) {
+        const cn = zc(zones[zi]);
+        const tm = { x: (cn[0].x + cn[1].x) / 2, z: (cn[0].z + cn[1].z) / 2 };
+        const nx = -(cn[1].z - cn[0].z),
+          nz = cn[1].x - cn[0].x,
+          nl = Math.hypot(nx, nz) || 1;
+        const rp = w2c(tm.x + (nx / nl) * 1.5, tm.z + (nz / nl) * 1.5);
+        return Math.hypot(cx - rp.x, cy - rp.y) < RR + 6;
+      }
+      function pip(cx, cy, cn) {
+        let inside = false;
+        for (let i = 0, j = cn.length - 1; i < cn.length; j = i++) {
+          const ci = w2c(cn[i].x, cn[i].z),
+            cj = w2c(cn[j].x, cn[j].z);
+          if (ci.y > cy !== cj.y > cy && cx < ((cj.x - ci.x) * (cy - ci.y)) / (cj.y - ci.y) + ci.x)
+            inside = !inside;
+        }
+        return inside;
+      }
+      function setS(s) {
+        document.getElementById('status').textContent = s;
+      }
+
+      canvas.addEventListener('mousedown', (e) => {
+        const cr = canvas.getBoundingClientRect(),
+          cx = e.clientX - cr.left,
+          cy = e.clientY - cr.top,
+          w = c2w(cx, cy);
+        if (selIdx >= 0 && hitR(cx, cy, selIdx)) {
+          dragMode = 'rotate';
+          dragStart = { x: w.x, z: w.z };
+          const z = zones[selIdx];
+          dragZoneOrig = { cx: z.cx, cz: z.cz, ry: z.ry };
+          return;
+        }
+        if (selIdx >= 0) {
+          const ci = hitC(cx, cy, selIdx);
+          if (ci >= 0) {
+            dragMode = 'corner';
+            dragCorner = ci;
+            dragStart = { x: w.x, z: w.z };
+            const z = zones[selIdx];
+            dragZoneOrig = { cx: z.cx, cz: z.cz, w: z.w, d: z.d, ry: z.ry };
+            return;
+          }
+        }
+        const zi = hit(cx, cy);
+        if (zi >= 0) {
+          selIdx = zi;
+          dragMode = 'move';
+          dragStart = { x: w.x, z: w.z };
+          const z = zones[zi];
+          dragZoneOrig = { cx: z.cx, cz: z.cz };
+          draw();
+          return;
+        }
+        selIdx = -1;
+        dragMode = 'draw';
+        dragStart = { x: w.x, z: w.z };
+        draw();
+      });
+      canvas.addEventListener('mousemove', (e) => {
+        const cr = canvas.getBoundingClientRect(),
+          cx = e.clientX - cr.left,
+          cy = e.clientY - cr.top,
+          w = c2w(cx, cy);
+        if (dragMode === 'draw') {
+          const x0 = Math.min(dragStart.x, w.x),
+            x1 = Math.max(dragStart.x, w.x),
+            z0 = Math.min(dragStart.z, w.z),
+            z1 = Math.max(dragStart.z, w.z);
+          draw();
+          ctx.strokeStyle = '#fff';
+          ctx.setLineDash([6, 3]);
+          ctx.lineWidth = 2;
+          const p0 = w2c(x0, z0),
+            p1 = w2c(x1, z1);
+          ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+          ctx.setLineDash([]);
+        } else if (dragMode === 'move' && selIdx >= 0) {
+          const dx = w.x - dragStart.x,
+            dz = w.z - dragStart.z;
+          zones[selIdx].cx = dragZoneOrig.cx + dx;
+          zones[selIdx].cz = dragZoneOrig.cz + dz;
+          draw();
+        } else if (dragMode === 'corner' && selIdx >= 0) {
+          const z = zones[selIdx],
+            cr = Math.cos(z.ry),
+            sr = Math.sin(z.ry);
+          const lx = (w.x - z.cx) * cr + (w.z - z.cz) * sr;
+          const lz = -(w.x - z.cx) * sr + (w.z - z.cz) * cr;
+          const hwO = dragZoneOrig.w / 2,
+            hdO = dragZoneOrig.d / 2;
+          let nHW = hwO,
+            nHD = hdO;
+          if (dragCorner === 0) {
+            nHW = -lx;
+            nHD = -lz;
+          } else if (dragCorner === 1) {
+            nHW = -lx;
+            nHD = lz;
+          } else if (dragCorner === 2) {
+            nHW = lx;
+            nHD = lz;
+          } else {
+            nHW = lx;
+            nHD = -lz;
+          }
+          z.w = Math.max(2, nHW * 2);
+          z.d = Math.max(2, nHD * 2);
+          draw();
+        } else if (dragMode === 'rotate' && selIdx >= 0) {
+          const z = zones[selIdx];
+          const a0 = Math.atan2(dragStart.z - z.cz, dragStart.x - z.cx);
+          const a1 = Math.atan2(w.z - z.cz, w.x - z.cx);
+          z.ry = dragZoneOrig.ry + (a1 - a0);
+          draw();
+        }
+      });
+      canvas.addEventListener('mouseup', (e) => {
+        if (dragMode === 'draw') {
+          const cr = canvas.getBoundingClientRect(),
+            cx = e.clientX - cr.left,
+            cy = e.clientY - cr.top,
+            w = c2w(cx, cy);
+          const x0 = Math.min(dragStart.x, w.x),
+            x1 = Math.max(dragStart.x, w.x),
+            z0 = Math.min(dragStart.z, w.z),
+            z1 = Math.max(dragStart.z, w.z);
+          const rw = x1 - x0,
+            rd = z1 - z0;
+          if (rw > 2 && rd > 2) {
+            zones.push({ cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, w: rw, d: rd, ry: 0 });
+            selIdx = zones.length - 1;
+            setS('新建矩形 #' + zones.length);
+          }
+        }
+        dragMode = null;
+        dragCorner = -1;
+        dragZoneOrig = null;
+        draw();
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA'
+          )
+            return;
+          deleteSelected();
+        }
+      });
+      function deleteSelected() {
+        if (selIdx < 0) return;
+        zones.splice(selIdx, 1);
+        selIdx = -1;
+        setS('已删除');
+        draw();
+      }
+      function clearAll() {
+        zones = [];
+        selIdx = -1;
+        draw();
+        setS('已清空');
+      }
+      async function saveZones() {
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'calibration', zones }),
+          });
+          if (r.ok) {
+            setS('✅ 已保存 ' + zones.length + ' 个矩形');
+          } else {
+            setS('❌ ' + r.status + ' ' + (await r.text()));
+          }
+        } catch (e) {
+          setS('❌ ' + e.message);
+        }
+      }
+      load();
+    </script>
+  </body>
+</html>
