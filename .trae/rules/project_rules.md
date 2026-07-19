@@ -239,7 +239,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.75.0 — 足球场soccerFields+坐标校准验证+厕所修复）
+## 当前版本（v0.76.0 — 花坛打点系统）
 
 ### 关键参数
 
@@ -249,7 +249,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | 游玩尺寸        | playWidth×playDepth（空气墙，默认200×200）                                                     |
 | index.html 行数 | ~1047 行                                                                                       |
 | engine.js 行数  | ~7631 行                                                                                       |
-| 总源码行数      | ~33,800 行（52 个源文件）                                                                      |
+| 总源码行数      | ~34,300 行（54 个源文件）                                                                      |
 | 编辑器模块      | 6个：terrainGen(914)+genStatus(181)+entities(653)+waterBridge(659)+data(504)+terrainPaint(335) |
 | 六足系统        | core(1188)+factory(884)+enemy(328)+probe(208)+aimLine(295)+config(70)                          |
 | 坦克速度        | MAX_SPEED=8.0 m/s                                                                              |

@@ -1730,6 +1730,95 @@ function createToiletZones(targetScene) {
   }
 }
 
+// ── 花坛区域(planterZones: 每个位置生成圆形环柱花坛+中心树木) ──
+function createPlanterZones(targetScene) {
+  var pzCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.planterZones;
+  if (!pzCfg || !pzCfg.length) return;
+
+  var PLANTER_OUTER_R = 1.0; // ø2m → r=1m
+  var WALL_THICKNESS = 0.3;
+  var WALL_HEIGHT = 0.5;
+  var INNER_R = PLANTER_OUTER_R - WALL_THICKNESS; // 0.7m
+  var WALL_SEGMENTS = 48;
+
+  // 共享几何体(所有花坛尺寸相同)
+  var ringShape = new THREE.Shape();
+  ringShape.absarc(0, 0, PLANTER_OUTER_R, 0, Math.PI * 2, false);
+  var hole = new THREE.Path();
+  hole.absarc(0, 0, INNER_R, 0, Math.PI * 2, true);
+  ringShape.holes.push(hole);
+  var ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: WALL_HEIGHT, bevelEnabled: false });
+  // ExtrudeGeometry 默认沿 Z 轴拉伸, 需旋转到 Y 轴
+  ringGeo.rotateX(-Math.PI / 2);
+
+  var wallMat = new THREE.MeshStandardMaterial({
+    color: '#c0b8a8',
+    roughness: 0.85,
+    metalness: 0.05,
+  });
+  var soilGeo = new THREE.CircleGeometry(INNER_R - 0.02, 32); // 略小于内径防穿插
+  soilGeo.rotateX(-Math.PI / 2);
+  var soilMat = new THREE.MeshStandardMaterial({ color: '#8B6914', roughness: 0.95 });
+
+  // 树模型(复用共享几何/材质)
+  var tm = window.TreeModels && window.TreeModels.spherical;
+  var TREE_HEIGHT_M = 5.0; // 5m
+  var treeScale = tm ? TREE_HEIGHT_M / (window.METERS_PER_UNIT || 1.3) / tm.baseHeight : 2.3;
+
+  for (var pi = 0; pi < pzCfg.length; pi++) {
+    var pz = pzCfg[pi];
+    var groundY = getTerrainHeight ? getTerrainHeight(pz.cx, pz.cz) : 0;
+
+    // 花坛容器 group
+    var planterGroup = new THREE.Group();
+    planterGroup.name = 'planter_' + pi;
+
+    // 环柱墙
+    var wall = new THREE.Mesh(ringGeo, wallMat);
+    wall.position.y = groundY;
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    planterGroup.add(wall);
+
+    // 泥土填充(环柱顶部)
+    var soil = new THREE.Mesh(soilGeo, soilMat);
+    soil.position.y = groundY + WALL_HEIGHT;
+    soil.receiveShadow = true;
+    planterGroup.add(soil);
+
+    // 中心树木
+    if (tm) {
+      var treeGroup = new THREE.Group();
+      var trunk = new THREE.Mesh(tm.trunkGeo, tm.trunkMat);
+      trunk.position.y = tm.trunkOffsetY;
+      trunk.castShadow = true;
+      trunk.receiveShadow = true;
+      var crown = new THREE.Mesh(tm.crownGeo, tm.crownMat);
+      crown.position.y = tm.crownOffsetY;
+      crown.castShadow = true;
+      crown.receiveShadow = true;
+      treeGroup.add(trunk);
+      treeGroup.add(crown);
+      treeGroup.scale.setScalar(treeScale);
+      treeGroup.position.set(0, groundY + WALL_HEIGHT, 0);
+      planterGroup.add(treeGroup);
+    }
+
+    planterGroup.position.set(pz.cx, 0, pz.cz);
+    targetScene.add(planterGroup);
+    if (obstacleMeshes) obstacleMeshes.push(planterGroup);
+
+    // 碰撞登记(简单圆柱, 坦克不可穿过花坛)
+    obstacleData.push({
+      x: pz.cx,
+      z: pz.cz,
+      radius: PLANTER_OUTER_R,
+      height: WALL_HEIGHT,
+      type: 'building',
+    });
+  }
+}
+
 // ── 西南运动区塑胶跑道(人工打点精确边界, 覆盖 grounds+通道+边缘, 坐落地砖之上/草地之下) ──
 function createSportsTrackZone(targetScene, grounds, boundary) {
   if (!THREE.ShapeGeometry) return;
@@ -2500,6 +2589,8 @@ function createObstacles(targetScene = scene) {
   }
   // 厕所区域(独立模型, 放在建筑之后/草地之上)
   createToiletZones(targetScene);
+  // 花坛区域(从 planter_marker.html 工具标记数据生成)
+  createPlanterZones(targetScene);
   // 足球子场(从 soccer_zone_marker.html 工具标记数据生成)
   if (window.SportsFields && SportsFields.createSoccerFields)
     SportsFields.createSoccerFields(targetScene);

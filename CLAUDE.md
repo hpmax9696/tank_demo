@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.75.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.76.0
 
 ## 运行
 
@@ -270,6 +270,23 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.76.0 本次会话变更 (2026-07-20)
+
+### 花坛打点系统（工具页打点→地图保存→3D渲染）
+
+- **新工具页**: `tools/planter_marker.html` 点击地图放置花坛圆形标记（ø2m），支持拖拽移动/Delete删除/保存到地图。框架照搬 toilet_zone_marker（canvas + w2c/c2w 坐标变换 + 校园底图渲染）
+- **数据格式**: `campus.obstacles.planterZones = [{cx, cz}, ...]`，简单位置数组（花坛固定尺寸无需 w/d/ry）
+- **3D 渲染** (`js/obstacles.js` createPlanterZones ~80行): 每个花坛 = 环柱墙（Shape+Path 孔洞→ExtrudeGeometry，ø2m×高0.5m×壁厚0.3m，#c0b8a8 混凝土）+ 泥土圆盘（CircleGeometry，棕色 #8B6914）+ 中心树木（复用 TreeModels.spherical 共享几何，scale≈3.85→5m高）。碰撞体重接 push 进 obstacleData（r=1.0 圆柱，坦克不可穿过）
+- **server.py**: solidify_campus + do_POST 新增 `planterZones` 类型分支
+- **改动文件**: `tools/planter_marker.html`(新建) + `js/obstacles.js`(+80行) + `server.py`(+5行) + `maps/campus.map.json`(新增空 planterZones 字段)
+
+### 数据格式变更
+
+- 新增字段: `campus.obstacles.planterZones = [{cx, cz}, ...]`
+- 消费者: `js/obstacles.js`(渲染+碰撞) + `tools/planter_marker.html`(加载/保存)
 
 ---
 
