@@ -70,6 +70,17 @@
     if (fill) ctx.fill();
     else ctx.stroke();
   }
+  // 实心矩形/圆填充(场地坐标, 用于红色区域)
+  function _fillRect(ctx, m, l1, s1, l2, s2) {
+    var a = m.xy(l1, s1), b = m.xy(l2, s2);
+    ctx.fillRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+  }
+  function _fillCircle(ctx, m, lc, sc, r) {
+    var c = m.xy(lc, sc);
+    ctx.beginPath();
+    ctx.arc(c[0], c[1], r * m.scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // 足球场: 沿长轴分 2 子场, 各画边线/中线/中圈/两端禁区/点球点
   function _drawFootball(ctx, m) {
@@ -136,18 +147,41 @@
     c.width = cW;
     c.height = cH;
     var ctx = c.getContext('2d');
-    // 草底: TerrainTextures.grass() 以 1u≈tile 平铺, 与四周草地密度一致
-    var tt = window.TerrainTextures,
-      grass = tt ? tt.grass() : null;
+    // 底色: 足球场用草地, 篮球场用蓝色塑胶
+    var tt = window.TerrainTextures;
     var m = makeMapper(W, len0, len1);
-    if (grass) {
-      var tile = Math.max(8, Math.round(m.scale)); // 1u → px
-      for (var y = 0; y < cH; y += tile)
-        for (var x = 0; x < cW; x += tile) ctx.drawImage(grass, x, y, tile, tile);
-    } else {
-      ctx.fillStyle = '#4A8C3F';
+    var isBB = kind === 'bb5' || kind === 'bb3';
+    if (isBB) {
+      // 蓝色塑胶底
+      ctx.fillStyle = '#2b6eb3';
       ctx.fillRect(0, 0, cW, cH);
+    } else {
+      var grass = tt ? tt.grass() : null;
+      if (grass) {
+        var tile = Math.max(8, Math.round(m.scale));
+        for (var y = 0; y < cH; y += tile)
+          for (var x = 0; x < cW; x += tile) ctx.drawImage(grass, x, y, tile, tile);
+      } else {
+        ctx.fillStyle = '#4A8C3F';
+        ctx.fillRect(0, 0, cW, cH);
+      }
     }
+    // 篮球场红色区域: 中圈+禁区(白线之前填充)
+    if (isBB) {
+      var P = kind === 'bb5' ? BB5 : BB3;
+      ctx.fillStyle = '#c8332b';
+      // 中圈
+      _fillCircle(ctx, m, m.L / 2, m.S / 2, P.circle);
+      // 两端禁区
+      for (var e = 0; e < 2; e++) {
+        var lEnd = e === 0 ? INSET : m.L - INSET;
+        var dir = e === 0 ? 1 : -1;
+        var ftL1 = lEnd, ftL2 = lEnd + dir * P.ftD;
+        var ftS1 = m.S / 2 - P.ftW / 2, ftS2 = m.S / 2 + P.ftW / 2;
+        _fillRect(ctx, m, Math.min(ftL1, ftL2), ftS1, Math.max(ftL1, ftL2), ftS2);
+      }
+    }
+    // 白线
     ctx.strokeStyle = '#f6f6f6';
     ctx.fillStyle = '#f6f6f6';
     ctx.lineWidth = LINE_W * m.scale;

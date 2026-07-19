@@ -611,204 +611,662 @@
   }
 
   window.createToilet = function (rowLen) {
-    // 大厕所: 男厕 + 洗手区 + 女厕, 宽度=rowLen
-    if (!rowLen || rowLen < 4) rowLen = 4;
-    var depth = 2.0,
-      wallH = 2.2,
-      rH = 0.5,
-      wallT = 0.08;
-    var hD = depth / 2;
-    var menW = rowLen * 0.375,
-      washW = rowLen * 0.25,
-      womenW = rowLen * 0.375;
-    var menCX = -(washW / 2 + menW / 2),
-      washCX = 0,
-      womenCX = washW / 2 + womenW / 2;
+    // 二层厕所楼 — 移植自独立建模(v8加宽), 双跑楼梯+洗手区+男女厕
+    // 内部坐标系: 前=+Z, 后=-Z; 左=-X(楼梯), 右=+X(厕所)
+    // 外层旋转PI使前=-Z对齐游戏约定
+    if (!rowLen || rowLen < 8) rowLen = 8;
+
+    // ── 尺寸参数(沿X=长边=rowLen, 沿Z=进深) ──
+    var BLD_D = 5.5; // 建筑进深(Z向)
+    var FLOOR_H = 3.0; // 层高
+    var WALL_T = 0.24; // 墙厚
+    var STAIR_W = Math.max(3.5, rowLen * 0.16); // 楼梯间宽
+    var WASH_W = Math.max(3.0, rowLen * 0.14); // 洗手区宽
+    var TOILET_W = rowLen - STAIR_W - WASH_W; // 厕所宽
+    var WASH_D = BLD_D * 0.45; // 洗手区进深(从前墙向后)
+
+    var hD = BLD_D / 2;
     var hW = rowLen / 2;
+    var X_LEFT = -hW;
+    var X_RIGHT = hW;
+    var X_STAIR_R = X_LEFT + STAIR_W;
+    var X_WASH_R = X_STAIR_R + WASH_W;
+    var Z_FRONT = hD;
+    var Z_BACK = -hD;
+    var Z_WASH_BACK = Z_FRONT - WASH_D;
+
+    var innerG = new THREE.Group(); // 内部组(前=+Z), 最后旋转PI使前=-Z
+    innerG.position.z = 0.75; // 前墙保持原位, 后墙缩进1.5m(7→5.5)
+
+    // ── 材质 ──
+    var wMat = _twM; // 外墙
+    var wiMat = new THREE.MeshStandardMaterial({
+      color: 0xf0ebe0,
+      roughness: 0.8,
+      side: THREE.DoubleSide,
+    });
+    var flMat = new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.7 });
+    var rfMat = _trM; // 屋顶
+    var stMat = new THREE.MeshStandardMaterial({ color: 0xc8c8c8, roughness: 0.6 });
+    var rlMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.3, metalness: 0.7 });
+    var drMat = _tdM; // 门
+    var tlMat = new THREE.MeshStandardMaterial({ color: 0xd8f0f0, roughness: 0.3 });
+    var skMat = _tsM; // 洗手台
+    var mtMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.2, metalness: 0.8 });
+    var bmMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.7 });
+    var frMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.5 });
+
+    // ── 辅助函数 ──
+    function addBox(w, h, d, x, y, z, mat, castS, recvS) {
+      if (castS === undefined) castS = true;
+      if (recvS === undefined) recvS = true;
+      var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.castShadow = castS;
+      m.receiveShadow = recvS;
+      innerG.add(m);
+      return m;
+    }
+
+    function wallX(x1, x2, y, z, h, t, mat) {
+      var w = Math.abs(x2 - x1);
+      if (w < 0.01) return;
+      addBox(w, h, t, (x1 + x2) / 2, y + h / 2, z, mat);
+    }
+
+    function wallZ(z1, z2, y, x, h, t, mat) {
+      var d = Math.abs(z2 - z1);
+      if (d < 0.01) return;
+      addBox(t, h, d, x, y + h / 2, (z1 + z2) / 2, mat);
+    }
+
+    // 带门洞的Z向隔墙
+    function wallZWithDoor(z1, z2, y, x, h, t, doorZ, doorW, doorH, mat) {
+      var minZ = Math.min(z1, z2);
+      var maxZ = Math.max(z1, z2);
+      var doorLeft = doorZ - doorW / 2;
+      var doorRight = doorZ + doorW / 2;
+      if (doorLeft > minZ + 0.01) wallZ(minZ, doorLeft, y, x, h, t, mat);
+      if (doorRight < maxZ - 0.01) wallZ(doorRight, maxZ, y, x, h, t, mat);
+      var lintelH = h - doorH;
+      if (lintelH > 0.01) addBox(t, lintelH, doorW, x, y + doorH + lintelH / 2, doorZ, mat);
+      // 门扇
+      addBox(0.06, doorH - 0.05, doorW - 0.06, x, y + doorH / 2, doorZ, drMat);
+      // 门框
+      addBox(0.08, 0.08, doorW + 0.12, x, y + doorH + 0.04, doorZ, frMat);
+      addBox(0.08, doorH + 0.08, 0.08, x, y + doorH / 2, doorZ - doorW / 2 - 0.04, frMat);
+      addBox(0.08, doorH + 0.08, 0.08, x, y + doorH / 2, doorZ + doorW / 2 + 0.04, frMat);
+    }
+
+    // Z向栏杆(沿Z走向)
+    function railingZ(z1, z2, y, x, h) {
+      var len = Math.abs(z2 - z1);
+      if (len < 0.1) return;
+      var cz = (z1 + z2) / 2;
+      addBox(0.06, 0.06, len, x, y + h, cz, rlMat);
+      addBox(0.04, 0.04, len, x, y + h * 0.5, cz, rlMat);
+      addBox(0.05, 0.05, len, x, y + 0.08, cz, rlMat);
+      var numBars = Math.max(2, Math.floor(len / 0.12));
+      for (var bi = 0; bi <= numBars; bi++) {
+        var bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, h - 0.08, 6), rlMat);
+        bar.position.set(x, y + h / 2 + 0.04, z1 + (len / numBars) * bi);
+        innerG.add(bar);
+      }
+      var numPosts = Math.max(2, Math.ceil(len / 1.5));
+      for (var pi = 0; pi <= numPosts; pi++) {
+        var post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, h + 0.05, 8), rlMat);
+        post.position.set(x, y + h / 2, z1 + (len / numPosts) * pi);
+        innerG.add(post);
+      }
+    }
+
+    // X向栏杆(沿X走向)
+    function railingX(x1, x2, y, z, h) {
+      var len = Math.abs(x2 - x1);
+      if (len < 0.1) return;
+      var cx = (x1 + x2) / 2;
+      addBox(len, 0.06, 0.06, cx, y + h, z, rlMat);
+      addBox(len, 0.04, 0.04, cx, y + h * 0.5, z, rlMat);
+      addBox(len, 0.05, 0.05, cx, y + 0.08, z, rlMat);
+      var numBars = Math.max(2, Math.floor(len / 0.12));
+      for (var bi = 0; bi <= numBars; bi++) {
+        var bar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, h - 0.08, 6), rlMat);
+        bar2.position.set(x1 + (len / numBars) * bi, y + h / 2 + 0.04, z);
+        innerG.add(bar2);
+      }
+      var numPosts = Math.max(2, Math.ceil(len / 1.5));
+      for (var pi = 0; pi <= numPosts; pi++) {
+        var post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, h + 0.05, 8), rlMat);
+        post2.position.set(x1 + (len / numPosts) * pi, y + h / 2, z);
+        innerG.add(post2);
+      }
+    }
+
+    // ═══════════════════════════
+    // 楼板与屋顶
+    // ═══════════════════════════
+    function createFloorsAndRoof() {
+      // 一层地面
+      addBox(rowLen, 0.2, BLD_D, 0, -0.1, 0, flMat, false, true);
+
+      // 二层楼板: 厕所+洗手区整块
+      var mainW = X_RIGHT - X_STAIR_R;
+      addBox(mainW, 0.2, BLD_D, (X_STAIR_R + X_RIGHT) / 2, FLOOR_H, 0, flMat, false, true);
+
+      // 楼梯间F2楼板: 围出矩形洞口
+      var stairCX = (X_LEFT + X_STAIR_R) / 2;
+      var holeX1 = X_LEFT + 0.3;
+      var holeX2 = X_STAIR_R - 0.3;
+      var holeZ1 = -1.5;
+      var holeZ2 = 2.0;
+      var holeD = holeZ2 - holeZ1;
+
+      // 洞口后方板
+      var backD = holeZ1 - Z_BACK;
+      if (backD > 0.03)
+        addBox(STAIR_W, 0.2, backD, stairCX, FLOOR_H, (Z_BACK + holeZ1) / 2, flMat, false, true);
+      // 洞口前方板
+      var frontD = Z_FRONT - holeZ2;
+      if (frontD > 0.03)
+        addBox(STAIR_W, 0.2, frontD, stairCX, FLOOR_H, (holeZ2 + Z_FRONT) / 2, flMat, false, true);
+      // 洞口左侧板
+      var leftW = holeX1 - X_LEFT;
+      if (leftW > 0.03)
+        addBox(
+          leftW,
+          0.2,
+          holeD,
+          (X_LEFT + holeX1) / 2,
+          FLOOR_H,
+          (holeZ1 + holeZ2) / 2,
+          flMat,
+          false,
+          true
+        );
+      // 洞口右侧板
+      var rightW = X_STAIR_R - holeX2;
+      if (rightW > 0.03)
+        addBox(
+          rightW,
+          0.2,
+          holeD,
+          (holeX2 + X_STAIR_R) / 2,
+          FLOOR_H,
+          (holeZ1 + holeZ2) / 2,
+          flMat,
+          false,
+          true
+        );
+
+      // 屋顶
+      addBox(rowLen + 0.5, 0.25, BLD_D + 0.5, 0, FLOOR_H * 2 + 0.125, 0, rfMat);
+
+      // 女儿墙
+      var parH = 0.5,
+        parT = 0.12;
+      addBox(rowLen + 0.5, parH, parT, 0, FLOOR_H * 2 + 0.25 + parH / 2, Z_FRONT + 0.15, wMat);
+      addBox(rowLen + 0.5, parH, parT, 0, FLOOR_H * 2 + 0.25 + parH / 2, Z_BACK - 0.15, wMat);
+      addBox(parT, parH, BLD_D + 0.5, X_LEFT - 0.15, FLOOR_H * 2 + 0.25 + parH / 2, 0, wMat);
+      addBox(parT, parH, BLD_D + 0.5, X_RIGHT + 0.15, FLOOR_H * 2 + 0.25 + parH / 2, 0, wMat);
+    }
+
+    // ═══════════════════════════
+    // 墙体
+    // ═══════════════════════════
+    function createWalls() {
+      for (var floor = 0; floor < 2; floor++) {
+        var y = floor * FLOOR_H;
+        // 后墙(全长)
+        wallX(X_LEFT, X_RIGHT, y, Z_BACK, FLOOR_H, WALL_T, wMat);
+        // 左侧外墙
+        wallZ(Z_BACK, Z_FRONT, y, X_LEFT, FLOOR_H, WALL_T, wMat);
+        // 右侧外墙
+        wallZ(Z_BACK, Z_FRONT, y, X_RIGHT, FLOOR_H, WALL_T, wMat);
+        // 厕所前墙(+Z面, 厕所段)
+        wallX(X_WASH_R, X_RIGHT, y, Z_FRONT, FLOOR_H, WALL_T, wMat);
+        // 洗手区-厕所隔墙(Z_BACK→Z_WASH_BACK之间+Z段, 带门)
+        wallZWithDoor(Z_WASH_BACK, Z_FRONT, y, X_WASH_R, FLOOR_H, WALL_T, 2.0, 0.9, 2.2, wiMat);
+        // 楼梯-洗手隔墙(Z_BACK→Z_WASH_BACK, X_STAIR_R处)
+        wallZ(Z_BACK, Z_WASH_BACK, y, X_STAIR_R, FLOOR_H, WALL_T, wiMat);
+        // 楼梯-洗手隔墙前段(续接至Z_FRONT, X_STAIR_R处)
+        wallX(X_STAIR_R, X_WASH_R, y, Z_WASH_BACK, FLOOR_H, WALL_T, wiMat);
+      }
+    }
+
+    // ═══════════════════════════
+    // 双跑楼梯
+    // ═══════════════════════════
+    function createStairs() {
+      var stepsPerFlight = 9;
+      var stepH = FLOOR_H / 20;
+      var stepD = 0.26;
+      var stairW = 1.1;
+      var gapW = 0.2;
+
+      var stairCX = (X_LEFT + X_STAIR_R) / 2;
+      var flight1X = stairCX - (stairW + gapW) / 2;
+      var flight2X = stairCX + (stairW + gapW) / 2;
+
+      var f1StartZ = Z_FRONT - 0.6;
+      var f1EndZ = f1StartZ - stepsPerFlight * stepD;
+
+      // 第一跑(F1→平台)
+      for (var i = 0; i < stepsPerFlight; i++) {
+        addBox(stairW, stepH, stepD, flight1X, i * stepH + stepH / 2, f1StartZ - i * stepD, stMat);
+      }
+
+      // 休息平台
+      var landingY = FLOOR_H / 2;
+      var landingD = stairW * 2 + gapW + 0.2;
+      var landingZ_front = f1EndZ;
+      var landingZ_back = f1EndZ - landingD;
+      addBox(
+        stairW * 2 + gapW + 0.4,
+        0.15,
+        landingD,
+        stairCX,
+        landingY - 0.075,
+        (landingZ_front + landingZ_back) / 2,
+        stMat
+      );
+
+      // 平台梁
+      addBox(
+        0.2,
+        0.3,
+        landingD + 1.0,
+        flight1X,
+        landingY - 0.3,
+        (landingZ_front + landingZ_back) / 2 - 0.5,
+        bmMat
+      );
+      addBox(
+        0.2,
+        0.3,
+        landingD + 1.0,
+        flight2X,
+        landingY - 0.3,
+        (landingZ_front + landingZ_back) / 2 - 0.5,
+        bmMat
+      );
+
+      // 平台柱
+      var colPositions = [
+        [flight1X, landingZ_back + 0.3],
+        [flight2X, landingZ_back + 0.3],
+        [flight1X, landingZ_front - 0.3],
+        [flight2X, landingZ_front - 0.3],
+      ];
+      for (var ci = 0; ci < colPositions.length; ci++) {
+        var col = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.12, landingY - 0.15, 12),
+          bmMat
+        );
+        col.position.set(colPositions[ci][0], (landingY - 0.15) / 2, colPositions[ci][1]);
+        col.castShadow = true;
+        innerG.add(col);
+      }
+
+      // 第二跑(平台→F2)
+      var f2StartZ = f1EndZ;
+      var f2EndZ = f2StartZ + stepsPerFlight * stepD;
+      for (var i2 = 0; i2 < stepsPerFlight; i2++) {
+        addBox(
+          stairW,
+          stepH,
+          stepD,
+          flight2X,
+          landingY + i2 * stepH + stepH / 2,
+          f2StartZ + i2 * stepD,
+          stMat
+        );
+      }
+
+      // F2出口处平台
+      addBox(stairW + 0.5, 0.15, 1.0, flight2X, FLOOR_H - 0.075, f2EndZ + 0.5, stMat);
+
+      // 楼梯扶手
+      createStairHandrail(flight1X - stairW / 2, 0, f1StartZ, stepsPerFlight, stepH, stepD, -1);
+      createStairHandrail(flight1X + stairW / 2, 0, f1StartZ, stepsPerFlight, stepH, stepD, -1);
+      createStairHandrail(
+        flight2X - stairW / 2,
+        landingY,
+        f2StartZ,
+        stepsPerFlight,
+        stepH,
+        stepD,
+        1
+      );
+      createStairHandrail(
+        flight2X + stairW / 2,
+        landingY,
+        f2StartZ,
+        stepsPerFlight,
+        stepH,
+        stepD,
+        1
+      );
+
+      // 平台栏杆
+      railingX(flight1X - stairW / 2, flight2X + stairW / 2, landingY, landingZ_back, 1.0);
+      railingZ(landingZ_back, landingZ_front, landingY, flight1X - stairW / 2, 1.0);
+      railingZ(landingZ_back, landingZ_front, landingY, flight2X + stairW / 2, 1.0);
+
+      // F2楼梯洞口栏杆
+      var holeX1 = X_LEFT + 0.3,
+        holeX2 = X_STAIR_R - 0.3;
+      var holeZ1 = -1.5,
+        holeZ2 = 2.0;
+      railingX(holeX1, holeX2, FLOOR_H, holeZ1, 1.1);
+      railingZ(holeZ1, holeZ2, FLOOR_H, holeX1, 1.1);
+      railingZ(holeZ1, holeZ2, FLOOR_H, holeX2, 1.1);
+      var stairOpenL = flight2X - stairW / 2 - 0.25;
+      var stairOpenR = flight2X + stairW / 2 + 0.25;
+      railingX(holeX1, stairOpenL, FLOOR_H, holeZ2, 1.1);
+      railingX(stairOpenR, holeX2, FLOOR_H, holeZ2, 1.1);
+    }
+
+    function createStairHandrail(x, startY, startZ, steps, stepH, stepD, dir) {
+      var railH = 0.9;
+      var totalH = steps * stepH;
+      var totalD = steps * stepD;
+      var angle = Math.atan2(totalH, totalD);
+      var railLen = Math.sqrt(totalH * totalH + totalD * totalD) + 0.3;
+      var cy = startY + totalH / 2 + railH;
+      var cz = startZ + (dir * totalD) / 2;
+
+      var handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, railLen, 8), rlMat);
+      if (dir < 0) {
+        handrail.rotation.x = angle - Math.PI / 2;
+      } else {
+        handrail.rotation.x = Math.PI / 2 - angle;
+      }
+      handrail.position.set(x, cy, cz);
+      innerG.add(handrail);
+
+      for (var i = 0; i <= steps; i += 2) {
+        var post = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, railH, 6), rlMat);
+        post.position.set(x, startY + i * stepH + railH / 2, startZ + dir * i * stepD);
+        innerG.add(post);
+      }
+    }
+
+    // ═══════════════════════════
+    // F2 前脸栏杆
+    // ═══════════════════════════
+    function createSecondFloorRailings() {
+      var y = FLOOR_H,
+        railH = 1.1;
+      // 楼梯间前脸
+      railingX(X_LEFT + WALL_T, X_STAIR_R - WALL_T / 2, y, Z_FRONT - 0.15, railH);
+      // 洗手区前脸
+      railingX(X_STAIR_R + WALL_T / 2, X_WASH_R - WALL_T, y, Z_FRONT - 0.15, railH);
+    }
+
+    // ═══════════════════════════
+    // 洗手区
+    // ═══════════════════════════
+    function createWashArea(floor) {
+      var y = floor * FLOOR_H;
+      var washCX = (X_STAIR_R + X_WASH_R) / 2;
+      var sinkZ = Z_WASH_BACK + WALL_T / 2 + 0.4; // 靠后墙
+
+      // 洗手台底座
+      addBox(2.4, 0.8, 0.5, washCX, y + 0.4, sinkZ, tlMat);
+      // 台面
+      addBox(2.5, 0.05, 0.58, washCX, y + 0.825, sinkZ, skMat);
+      // 水龙头
+      for (var fi = -1; fi <= 1; fi++) {
+        var faucet = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.22, 8), mtMat);
+        faucet.position.set(washCX + fi * 0.7, y + 0.94, sinkZ - 0.1);
+        innerG.add(faucet);
+      }
+      // 镜子
+      var mirror = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.9, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0xaaddff, roughness: 0.05, metalness: 0.9 })
+      );
+      mirror.position.set(washCX, y + 1.45, Z_WASH_BACK + WALL_T / 2 + 0.02);
+      innerG.add(mirror);
+    }
+
+    // ═══════════════════════════
+    // 厕所洁具
+    // ═══════════════════════════
+    function createToiletFixtures(floor) {
+      var y = floor * FLOOR_H;
+      var stallW = 1.0,
+        stallD = 1.3,
+        stallH = 2.0;
+      var stallSpacing = 1.3;
+
+      // 后墙侧蹲位(靠Z_BACK)
+      var backStartX = X_WASH_R + WALL_T + 0.5;
+      var backEndX = X_RIGHT - WALL_T - 0.3;
+      var numBackStalls = Math.floor((backEndX - backStartX) / stallSpacing);
+      for (var i = 0; i < numBackStalls; i++) {
+        var sx = backStartX + i * stallSpacing + stallW / 2;
+        var sz = Z_BACK + WALL_T + stallD / 2 + 0.1;
+        if (i > 0) addBox(0.05, stallH, stallD, sx - stallSpacing / 2, y + stallH / 2, sz, tlMat);
+        addBox(0.38, 0.38, 0.5, sx, y + 0.19, sz + 0.15, skMat);
+        addBox(0.32, 0.3, 0.12, sx, y + 0.5, sz + 0.42, skMat);
+      }
+
+      // 前墙侧蹲位(靠Z_FRONT)
+      var frontStartX = X_WASH_R + WALL_T + 0.5;
+      var frontEndX = X_RIGHT - WALL_T - 0.3;
+      var numFrontStalls = Math.floor((frontEndX - frontStartX) / stallSpacing) - 2;
+      for (var i2 = 0; i2 < numFrontStalls; i2++) {
+        var sx2 = frontStartX + i2 * stallSpacing + stallW / 2;
+        var sz2 = Z_FRONT - WALL_T - stallD / 2 - 0.1;
+        if (i2 > 0)
+          addBox(0.05, stallH, stallD, sx2 - stallSpacing / 2, y + stallH / 2, sz2, tlMat);
+        addBox(0.38, 0.38, 0.5, sx2, y + 0.19, sz2 - 0.15, skMat);
+        addBox(0.32, 0.3, 0.12, sx2, y + 0.5, sz2 - 0.42, skMat);
+      }
+
+      // 小便池(仅一楼男厕, 后墙)
+      if (floor === 0) {
+        for (var ui = 0; ui < 5; ui++) {
+          addBox(
+            0.3,
+            0.45,
+            0.2,
+            X_STAIR_R + WALL_T + 0.5 + ui * 0.7,
+            y + 0.55,
+            Z_BACK + WALL_T + 0.15,
+            skMat
+          );
+        }
+        // 拐角小便池
+        for (var uj = 0; uj < 2; uj++) {
+          addBox(
+            0.2,
+            0.45,
+            0.3,
+            X_STAIR_R + WALL_T + 0.15,
+            y + 0.55,
+            Z_BACK + WALL_T + 1.5 + uj * 0.8,
+            skMat
+          );
+        }
+      }
+    }
+
+    // ═══════════════════════════
+    // 厕所标志
+    // ═══════════════════════════
+    // 厕所标志纹理(Canvas生成, SVG→Canvas2D)
+    function _makeSignTex(gender) {
+      var c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 256;
+      var ctx = c.getContext('2d');
+      var W = 128,
+        H = 256;
+      // 背景圆角矩形
+      var bgColor = gender === 'male' ? '#1A5276' : '#C0392B';
+      var rx = 16,
+        ry = 16;
+      ctx.fillStyle = bgColor;
+      ctx.beginPath();
+      ctx.moveTo(rx, 0);
+      ctx.lineTo(W - rx, 0);
+      ctx.quadraticCurveTo(W, 0, W, ry);
+      ctx.lineTo(W, H - ry);
+      ctx.quadraticCurveTo(W, H, W - rx, H);
+      ctx.lineTo(rx, H);
+      ctx.quadraticCurveTo(0, H, 0, H - ry);
+      ctx.lineTo(0, ry);
+      ctx.quadraticCurveTo(0, 0, rx, 0);
+      ctx.fill();
+      // 人物(白色)
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineCap = 'round';
+      if (gender === 'male') {
+        // 头
+        ctx.beginPath();
+        ctx.arc(64, 48, 20, 0, Math.PI * 2);
+        ctx.fill();
+        // 身体
+        ctx.beginPath();
+        roundRect(ctx, 40, 77, 48, 70, 8);
+        ctx.fill();
+        // 左臂
+        ctx.beginPath();
+        roundRect(ctx, 20, 80, 17, 58, 8);
+        ctx.fill();
+        // 右臂
+        ctx.beginPath();
+        roundRect(ctx, 91, 80, 17, 58, 8);
+        ctx.fill();
+        // 左腿
+        ctx.beginPath();
+        roundRect(ctx, 40, 154, 20, 70, 6);
+        ctx.fill();
+        // 右腿
+        ctx.beginPath();
+        roundRect(ctx, 68, 154, 20, 70, 6);
+        ctx.fill();
+      } else {
+        // 头
+        ctx.beginPath();
+        ctx.arc(64, 48, 19, 0, Math.PI * 2);
+        ctx.fill();
+        // 上半身(V字形)
+        ctx.beginPath();
+        ctx.moveTo(46, 77);
+        ctx.lineTo(82, 77);
+        ctx.quadraticCurveTo(84, 77, 84, 79);
+        ctx.lineTo(84, 88);
+        ctx.lineTo(75, 112);
+        ctx.lineTo(53, 112);
+        ctx.lineTo(44, 88);
+        ctx.lineTo(44, 79);
+        ctx.quadraticCurveTo(44, 77, 46, 77);
+        ctx.fill();
+        // 左臂(八字形)
+        ctx.lineWidth = 13;
+        ctx.beginPath();
+        ctx.moveTo(46, 80);
+        ctx.lineTo(24, 134);
+        ctx.stroke();
+        // 右臂(八字形)
+        ctx.beginPath();
+        ctx.moveTo(82, 80);
+        ctx.lineTo(104, 134);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        // 裙子
+        ctx.beginPath();
+        ctx.moveTo(51, 114);
+        ctx.lineTo(77, 114);
+        ctx.lineTo(101, 186);
+        ctx.lineTo(27, 186);
+        ctx.closePath();
+        ctx.fill();
+        // 左腿
+        ctx.beginPath();
+        roundRect(ctx, 44, 188, 18, 42, 6);
+        ctx.fill();
+        // 右腿
+        ctx.beginPath();
+        roundRect(ctx, 67, 188, 18, 42, 6);
+        ctx.fill();
+      }
+      var tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearFilter;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+    }
+
+    function createSigns() {
+      // 标志贴洗手-厕所隔墙(X_WASH_R), 朝向洗手区(-X面), 门旁
+      var signW = 0.36,
+        signH = 0.72; // 宽高比1:2, 放大两倍
+      var signX = X_WASH_R - WALL_T / 2 - 0.02;
+      var signZ = 1.2; // 门(doorZ≈2.0)旁边
+
+      var signGeo = new THREE.PlaneGeometry(signW, signH);
+      // 一楼男厕标志
+      var signM = new THREE.Mesh(
+        signGeo,
+        new THREE.MeshBasicMaterial({
+          map: _makeSignTex('male'),
+          side: THREE.DoubleSide,
+          transparent: true,
+          depthWrite: false,
+        })
+      );
+      signM.position.set(signX, 1.7, signZ);
+      signM.rotation.y = -Math.PI / 2; // 面朝-X(洗手区)
+      innerG.add(signM);
+      // 二楼女厕标志
+      var signF = new THREE.Mesh(
+        signGeo,
+        new THREE.MeshBasicMaterial({
+          map: _makeSignTex('female'),
+          side: THREE.DoubleSide,
+          transparent: true,
+          depthWrite: false,
+        })
+      );
+      signF.position.set(signX, FLOOR_H + 1.7, signZ);
+      signF.rotation.y = -Math.PI / 2;
+      innerG.add(signF);
+    }
+
+    // ═══════════════════════════
+    // 组装
+    // ═══════════════════════════
+    createFloorsAndRoof();
+    createWalls();
+    createStairs();
+    createSecondFloorRailings();
+    createWashArea(0);
+    createWashArea(1);
+    createToiletFixtures(0);
+    createToiletFixtures(1);
+    createSigns();
+
+    // 内部坐标系前=+Z, 旋转PI使前=-Z对齐游戏约定
+    innerG.rotation.y = Math.PI;
 
     var g = new THREE.Group();
-    function wall(cx, cy, cz, w, h, d) {
-      var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), _twM);
-      m.position.set(cx, cy, cz);
-      m.castShadow = true;
-      m.receiveShadow = true;
-      g.add(m);
-    }
-
-    // 后墙(+Z, 全长)
-    wall(0, wallH / 2, hD - wallT / 2, rowLen, wallH, wallT);
-    // 男厕前墙(-X侧, -Z面)
-    wall(menCX, wallH / 2, -hD + wallT / 2, menW, wallH, wallT);
-    // 女厕前墙(+X侧, -Z面)
-    wall(womenCX, wallH / 2, -hD + wallT / 2, womenW, wallH, wallT);
-    // 男厕外侧墙(-X端)
-    wall(-hW + wallT / 2, wallH / 2, 0, wallT, wallH, depth - wallT * 2);
-    // 女厕外侧墙(+X端)
-    wall(hW - wallT / 2, wallH / 2, 0, wallT, wallH, depth - wallT * 2);
-    // 男厕-洗手间隔墙
-    wall(menCX + menW / 2 - wallT / 2, wallH / 2, -hD + wallT / 2, wallT, wallH, hD - 0.45);
-    // 女厕-洗手间隔墙
-    wall(womenCX - womenW / 2 + wallT / 2, wallH / 2, -hD + wallT / 2, wallT, wallH, hD - 0.45);
-
-    // 地面
-    var fl = new THREE.Mesh(new THREE.BoxGeometry(rowLen, 0.06, depth), _tsM);
-    fl.position.y = 0.03;
-    fl.receiveShadow = true;
-    g.add(fl);
-
-    // 单坡屋顶(沿X倾斜)
-    var rs = new THREE.Shape();
-    rs.moveTo(-hW - 0.1, wallH);
-    rs.lineTo(-hW - 0.1, wallH + rH * 0.3);
-    rs.lineTo(hW + 0.1, wallH + rH);
-    rs.lineTo(hW + 0.1, wallH);
-    rs.closePath();
-    var rg = new THREE.ExtrudeGeometry(rs, { depth: depth + 0.2, bevelEnabled: false });
-    rg.translate(0, 0, -hD - 0.1);
-    var roof = new THREE.Mesh(rg, _trM);
-    roof.position.y = 0;
-    roof.castShadow = true;
-    g.add(roof);
-
-    // 男厕门(隔墙上, 对开)
-    var dW = 0.45,
-      dH = 1.8,
-      gap = 0.02;
-    var drX = menCX + menW / 2 - wallT / 2; // 隔墙X位置
-    var drZ = -hD + 0.55; // 门Z位置(离前墙)
-    var lw = (dW - gap) / 2;
-    var d1 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
-    d1.position.set(drX, dH / 2, drZ + lw / 2 + gap / 2);
-    d1.castShadow = true;
-    g.add(d1);
-    var d2 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
-    d2.position.set(drX, dH / 2, drZ - lw / 2 - gap / 2);
-    d2.castShadow = true;
-    g.add(d2);
-    var hg = new THREE.CylinderGeometry(0.02, 0.02, 0.9, 8);
-    var hm = new THREE.MeshStandardMaterial({ color: '#cccccc', roughness: 0.2, metalness: 0.9 });
-    var h1 = new THREE.Mesh(hg, hm);
-    h1.position.set(drX + 0.03, 1.0, drZ + gap / 2 + 0.05);
-    g.add(h1);
-    var h2 = new THREE.Mesh(hg, hm);
-    h2.position.set(drX + 0.03, 1.0, drZ - gap / 2 - 0.05);
-    g.add(h2);
-
-    // 女厕门
-    var drX2 = womenCX - womenW / 2 + wallT / 2;
-    var d3 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
-    d3.position.set(drX2, dH / 2, drZ - lw / 2 - gap / 2);
-    d3.castShadow = true;
-    g.add(d3);
-    var d4 = new THREE.Mesh(new THREE.BoxGeometry(wallT + 0.01, dH, lw), _tdM);
-    d4.position.set(drX2, dH / 2, drZ + lw / 2 + gap / 2);
-    d4.castShadow = true;
-    g.add(d4);
-    var h3 = new THREE.Mesh(hg, hm);
-    h3.position.set(drX2 + 0.03, 1.0, drZ - gap / 2 - 0.05);
-    g.add(h3);
-    var h4 = new THREE.Mesh(hg, hm);
-    h4.position.set(drX2 + 0.03, 1.0, drZ + gap / 2 + 0.05);
-    g.add(h4);
-
-    // 男女厕所标志(贴前墙外表面, 比窗更外0.01防z-fighting)
-    var signR = 0.35,
-      signY = wallH * 0.616; // 墙高0.616处(≈1.36)
-    var signFront = -hD - 0.02; // 前墙外表面(-hD)再外扩0.02, 防z-fighting
-    var signS = signR * 2;
-    var signM = new THREE.Mesh(
-      new THREE.PlaneGeometry(signS, signS),
-      new THREE.MeshBasicMaterial({
-        map: _toiletSignTex('male'),
-        side: THREE.DoubleSide,
-        transparent: true,
-        depthWrite: false,
-      })
-    );
-    signM.position.set(menCX, signY, signFront);
-    signM.rotation.y = Math.PI;
-    g.add(signM);
-    var signF = new THREE.Mesh(
-      new THREE.PlaneGeometry(signS, signS),
-      new THREE.MeshBasicMaterial({
-        map: _toiletSignTex('female'),
-        side: THREE.DoubleSide,
-        transparent: true,
-        depthWrite: false,
-      })
-    );
-    signF.position.set(womenCX, signY, signFront);
-    signF.rotation.y = Math.PI;
-    g.add(signF);
-
-    // 洗手台(后墙前, 洗手中部)
-    var sW = washW - 0.2,
-      sH = 0.75,
-      sD = 0.45;
-    var sink = new THREE.Mesh(new THREE.BoxGeometry(sW, sH, sD), _tsM);
-    sink.position.set(0, sH / 2, hD - wallT - sD / 2);
-    sink.castShadow = true;
-    sink.receiveShadow = true;
-    g.add(sink);
-    // 5个黑色水龙头(均匀分布)
-    var faucetM = new THREE.MeshStandardMaterial({
-      color: '#1a1a1a',
-      roughness: 0.3,
-      metalness: 0.5,
-    });
-    for (var fi = 0; fi < 5; fi++) {
-      var fx = ((fi + 0.5) * sW) / 5 - sW / 2; // 沿台面均布
-      var fz = hD - wallT; // 台面靠镜子内沿
-      var fy = sH; // 台面顶部
-      // 竖管(圆柱, 从台面起)
-      var pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), faucetM);
-      pipe.position.set(fx, fy + 0.15, fz);
-      pipe.castShadow = true;
-      g.add(pipe);
-      // 弯管横段(圆柱, 前伸)
-      var spout = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), faucetM);
-      spout.rotation.x = Math.PI / 2;
-      spout.position.set(fx, fy + 0.3, fz - 0.125); // 伸向镜面方向
-      spout.castShadow = true;
-      g.add(spout);
-    }
-
-    // 镜子(后墙上, 真实反射)
-    var mW = sW - 0.1,
-      mH = 0.8;
-    var mirrorZ = hD - wallT - 0.01;
-    var mirrorY = sH + mH / 2 + 0.1;
-    var mirrorGeo = new THREE.PlaneGeometry(mW, mH);
-    var mirrorRT = new THREE.WebGLRenderTarget(512, Math.round((512 * mH) / mW), {
-      format: THREE.RGBAFormat,
-    });
-    var mirrorCam = new THREE.PerspectiveCamera(60, mW / mH, 0.1, 200);
-    var mirrorMat = new THREE.MeshBasicMaterial({ map: mirrorRT.texture });
-    var mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
-    mirror.position.set(0, mirrorY, mirrorZ);
-    mirror.rotation.y = Math.PI;
-    mirror.userData._refPlaneZ = mirrorZ; // 反射平面世界Z(在group局部系)
-    mirror.userData._refCam = mirrorCam;
-    mirror.userData._refRT = mirrorRT;
-    mirror.userData._refLocalZ = mirrorZ; // 局部Z坐标
-    g.add(mirror);
-    // 注册到全局反射器列表
-    if (!window._reflectors) window._reflectors = [];
-    window._reflectors.push(mirror);
-
-    // 高窗(男厕和女厕的前后墙, 贴墙外表面; 前墙窗面朝-Z需转半圈)
-    function hWin(wx, wz, ww) {
-      var w = new THREE.Mesh(new THREE.PlaneGeometry(ww, 0.35), _tgM);
-      w.position.set(wx, wallH - 0.25, wz); // 窗底1.775, 与标志顶(≈1.71)不重叠
-      if (wz < 0) w.rotation.y = Math.PI;
-      g.add(w);
-    }
-    hWin(menCX, hD + 0.01, menW - 0.5); // 男厕后窗
-    hWin(menCX, -hD - 0.01, menW - 0.5); // 男厕前窗
-    hWin(womenCX, hD + 0.01, womenW - 0.5); // 女厕后窗
-    hWin(womenCX, -hD - 0.01, womenW - 0.5); // 女厕前窗
-
-    g.userData = { category: 'toilet', height: wallH + rH, radius: rowLen / 2 };
+    g.add(innerG);
+    g.userData = { category: 'toilet', height: FLOOR_H * 2 + 0.75, radius: rowLen / 2 };
     return g;
   };
 
