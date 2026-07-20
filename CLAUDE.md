@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.76.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.77.0
 
 ## 运行
 
@@ -272,6 +272,24 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.77.0 本次会话变更 (2026-07-20)
+
+### 法国梧桐树丛打点系统（工具页 + 精细模型 + 3D 渲染）
+
+- **工具页**: `tools/tree_marker.html`(新~320行) 点击打点放置梧桐树丛标记（绿三角树形图标+虚线集群范围5m半径），框架照搬 planter_marker（canvas + w2c/c2w + 点选/拖拽/删除/保存）
+- **精细模型**: `models/plane_tree.js`(新~260行) 法国梧桐(Platanus × acerifolia) 程序化4组件模型 — 树干(CylinderGeometry+正弦噪声模拟树皮)+5主枝+5二级枝辐射排列+70+椭球5层宽穹顶树冠(~2500三角)+3-5对悬挂种子球
+- **3D 渲染** (`js/obstacles.js` createTreeZones ~105行): 每个 zone 生成 3-5 棵树（半径5单位内随机撒点），InstancedMesh(4IM: 树干+树冠+细节+阴影代理)，碰撞注册(type='plane_tree', r=0.3)，disposeTreeInstance 扩展 imDetail
+- **server.py**: solidify_campus + do_POST 新增 `treeZones` 类型分支
+- **数据格式**: `campus.obstacles.treeZones = [{cx, cz}, ...]`
+
+### 厕所前墙窗户
+
+- **models/buildings.js** `createToiletWindows()`(~35行): 男女厕前墙(Z_FRONT面)各一行窗户，贴面不挖洞(框#555+玻璃#bcd4e6)，polygonOffset 防 z-fighting，离墙 0.08/0.10
+
+### 改动文件
+
+- `tools/tree_marker.html`(新) + `models/plane_tree.js`(新) + `js/obstacles.js`(+105) + `server.py`(+6) + `models/buildings.js`(+35) + `maps/campus.map.json`(+1) + `index.html`(+1)
 
 ## v0.76.0 本次会话变更 (2026-07-20)
 

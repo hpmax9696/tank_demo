@@ -7184,7 +7184,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.65.10  ' +
+    'v0.77.0  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7853,7 +7853,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.74.0 | 足球场标线+球门(可碎)+篮球架+厕所修复+坐标校准');
+console.log('🎮 坦克运动demo v0.77.0 | 法国梧桐树丛+厕所窗户+花坛打点');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

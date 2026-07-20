@@ -1249,10 +1249,58 @@
     }
 
     // ═══════════════════════════
+    // 厕所前墙窗户(贴面,不挖洞)
+    // ═══════════════════════════
+    function createToiletWindows() {
+      var winW = 0.7,
+        winH = 0.9,
+        winD = 0.04;
+      var winY = 2.1; // 窗中心距地板高度(高于2m隔断, 低于3m层高)
+      var marginX = 0.6;
+      var availW = TOILET_W - marginX * 2;
+      var spacing = 1.6;
+      var numWin = Math.max(1, Math.floor(availW / spacing));
+      var actualSpacing = availW / numWin;
+      var zWall = Z_FRONT + WALL_T / 2; // 外墙外表面
+      var zFrame = zWall + 0.08; // 窗框外移8cm, 远离墙面防闪烁
+      var zGlass = zWall + 0.1; // 玻璃再外移2cm
+
+      // 窗框+玻璃材质 (polygonOffset 防与墙面 z-fighting)
+      var gMat = new THREE.MeshStandardMaterial({
+        color: 0xbcd4e6,
+        roughness: 0.15,
+        metalness: 0.05,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -2,
+      });
+      var fMat = new THREE.MeshStandardMaterial({
+        color: 0x555555,
+        roughness: 0.4,
+        metalness: 0.3,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -2,
+      });
+
+      for (var floor = 0; floor < 2; floor++) {
+        var y = floor * FLOOR_H + winY;
+        for (var wi = 0; wi < numWin; wi++) {
+          var wx = X_WASH_R + marginX + actualSpacing * (wi + 0.5);
+          // 窗框(稍大, 暗色, 贴于墙面)
+          addBox(winW + 0.06, winH + 0.06, winD, wx, y, zFrame, fMat);
+          // 玻璃(稍小, 浅蓝, 窗框前)
+          addBox(winW, winH, winD, wx, y, zGlass, gMat);
+        }
+      }
+    }
+
+    // ═══════════════════════════
     // 组装
     // ═══════════════════════════
     createFloorsAndRoof();
     createWalls();
+    createToiletWindows();
     createStairs();
     createSecondFloorRailings();
     createWashArea(0);

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.76.0</title>
+    <title>坦克运动demo v0.77.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.76.0</div>
+      <div class="menu-version">v0.77.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🌲 v0.77.0 法国梧桐树丛+厕所窗户 — 工具页打点放置梧桐树丛(每点3-5棵9-12m);
+          精细程序化模型(树干+5枝+70椭球穹顶冠+种子球)+InstancedMesh渲染+campus.treeZones;
+          厕所楼男女厕前墙贴面窗户(框+玻璃,不挖洞); plane_tree.js(260行)+tree_marker.html(320行)
+        </div>
+        <div class="cl-title">
           🌳 v0.76.0 花坛打点系统 — 工具页点击放置ø2m圆形花坛(环柱墙0.5m高×0.3m厚)+中心5m球形树;
           数据存 campus.obstacles.planterZones; 碰撞体r=1.0坦克不可穿过; server.py+5行
         </div>
@@ -842,7 +847,7 @@
           车棚柱长宽双向内收+柱顶拱面避让
         </div>
       </div>
-      <!-- changelog 裁剪：保留最近 4 条 (v0.76.0~v0.72.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.77.0~v0.73.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
@@ -1021,6 +1026,7 @@
     <script src="js/BufferGeometryUtils.js"></script>
     <script src="js/SimplifyModifier.js"></script>
     <script src="models/trees.js"></script>
+    <script src="models/plane_tree.js"></script>
     <script src="models/grass.js"></script>
     <script src="models/terrainTextures.js"></script>
     <script src="models/hexapod_config.js"></script>

@@ -124,15 +124,18 @@ function disposeTreeInstance(od, isOcclusion = false) {
   const imTrunk = od.imTrunk,
     imCrown = od.imCrown,
     imProxy = od.imProxy,
+    imDetail = od.imDetail,
     idx = od.imIndex;
   const hideMat = new THREE.Matrix4().makeScale(0.001, 0.001, 0.001);
   hideMat.setPosition(0, -999, 0);
   if (imTrunk) imTrunk.setMatrixAt(idx, hideMat);
   if (imCrown) imCrown.setMatrixAt(idx, hideMat);
   if (imProxy) imProxy.setMatrixAt(idx, hideMat);
+  if (imDetail) imDetail.setMatrixAt(idx, hideMat);
   if (imTrunk) imTrunk.instanceMatrix.needsUpdate = true;
   if (imCrown) imCrown.instanceMatrix.needsUpdate = true;
   if (imProxy) imProxy.instanceMatrix.needsUpdate = true;
+  if (imDetail) imDetail.instanceMatrix.needsUpdate = true;
   if (!isOcclusion) {
     od.destroyed = true;
   } else {
@@ -1819,6 +1822,120 @@ function createPlanterZones(targetScene) {
   }
 }
 
+// ── 法国梧桐树丛(从 tree_marker.html 工具标记数据生成) ──
+function createTreeZones(targetScene) {
+  var tzCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.treeZones;
+  if (!tzCfg || !tzCfg.length) return;
+
+  var tm = window.TreeModels && window.TreeModels.plane;
+  if (!tm) return;
+
+  var TREE_CLUSTER_RADIUS = 5.0;
+  var MIN_TREES = 3;
+  var MAX_TREES = 5;
+
+  // 收集每个 zone 内的树位置
+  var planeTreePts = [];
+  for (var zi = 0; zi < tzCfg.length; zi++) {
+    var zone = tzCfg[zi];
+    var count = MIN_TREES + Math.floor(Math.random() * (MAX_TREES - MIN_TREES + 1));
+    for (var ti = 0; ti < count; ti++) {
+      var angle = Math.random() * Math.PI * 2;
+      var dist =
+        TREE_CLUSTER_RADIUS * (ti === 0 ? 0.1 + Math.random() * 0.4 : 0.3 + Math.random() * 0.7);
+      planeTreePts.push({
+        x: zone.cx + Math.cos(angle) * dist,
+        z: zone.cz + Math.sin(angle) * dist,
+      });
+    }
+  }
+
+  if (planeTreePts.length === 0) return;
+
+  // ── InstancedMesh ──
+  var dummy = new THREE.Object3D();
+  var totalCount = planeTreePts.length;
+
+  var trunkIM = new THREE.InstancedMesh(tm.trunkGeo, tm.trunkMat, totalCount);
+  trunkIM.castShadow = true;
+  trunkIM.receiveShadow = true;
+
+  var crownIM = new THREE.InstancedMesh(tm.crownGeo, tm.crownMat, totalCount);
+  crownIM.castShadow = false; // 阴影用 proxy
+  crownIM.receiveShadow = true;
+
+  var detailIM = new THREE.InstancedMesh(tm.detailGeo, tm.detailMat, totalCount);
+  detailIM.castShadow = true;
+  detailIM.receiveShadow = true;
+
+  // 阴影代理(宽穹顶)
+  var proxyGeo = new THREE.IcosahedronGeometry(0.42, 1);
+  var proxyPos = proxyGeo.attributes.position;
+  for (var vi = 0; vi < proxyPos.count; vi++) proxyPos.array[vi * 3 + 1] *= 0.7;
+  proxyPos.needsUpdate = true;
+  proxyGeo.computeVertexNormals();
+  var proxyMat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  var crownProxyIM = new THREE.InstancedMesh(proxyGeo, proxyMat, totalCount);
+  crownProxyIM.castShadow = true;
+  crownProxyIM.receiveShadow = false;
+
+  var mpu = window.METERS_PER_UNIT || 1.3;
+  for (var i = 0; i < totalCount; i++) {
+    var p = planeTreePts[i];
+    var targetH = tm.targetHeightMinM + Math.random() * (tm.targetHeightMaxM - tm.targetHeightMinM);
+    var s = targetH / (tm.baseHeight * mpu);
+    var obsY = isVersusMap ? 0 : getTerrainHeight ? getTerrainHeight(p.x, p.z) : 0;
+    var rotY = Math.random() * Math.PI * 2;
+
+    // 树干
+    dummy.position.set(p.x, obsY + tm.trunkOffsetY * s, p.z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.setScalar(s);
+    dummy.updateMatrix();
+    trunkIM.setMatrixAt(i, dummy.matrix);
+
+    // 树冠
+    dummy.position.set(p.x, obsY + tm.crownOffsetY * s, p.z);
+    dummy.updateMatrix();
+    crownIM.setMatrixAt(i, dummy.matrix);
+    crownProxyIM.setMatrixAt(i, dummy.matrix);
+
+    // 细节(枝条+种子球)
+    dummy.position.set(p.x, obsY + tm.detailOffsetY * s, p.z);
+    dummy.updateMatrix();
+    detailIM.setMatrixAt(i, dummy.matrix);
+
+    // 碰撞(树干半径 ~0.21m → 0.3 世界单位含安全余量)
+    obstacleData.push({
+      x: p.x,
+      z: p.z,
+      radius: 0.3,
+      height: tm.baseHeight * s,
+      color: tm.color,
+      type: 'plane_tree',
+      imTrunk: trunkIM,
+      imCrown: crownIM,
+      imProxy: crownProxyIM,
+      imDetail: detailIM,
+      imIndex: i,
+    });
+  }
+
+  trunkIM.instanceMatrix.needsUpdate = true;
+  crownIM.instanceMatrix.needsUpdate = true;
+  crownProxyIM.instanceMatrix.needsUpdate = true;
+  detailIM.instanceMatrix.needsUpdate = true;
+  targetScene.add(trunkIM, crownIM, crownProxyIM, detailIM);
+  obstacleMeshes.push(trunkIM, crownIM, detailIM);
+  if (window._treeIMs) {
+    window._treeIMs.push(trunkIM, crownIM, crownProxyIM, detailIM);
+  }
+}
+
 // ── 西南运动区塑胶跑道(人工打点精确边界, 覆盖 grounds+通道+边缘, 坐落地砖之上/草地之下) ──
 function createSportsTrackZone(targetScene, grounds, boundary) {
   if (!THREE.ShapeGeometry) return;
@@ -2591,6 +2708,8 @@ function createObstacles(targetScene = scene) {
   createToiletZones(targetScene);
   // 花坛区域(从 planter_marker.html 工具标记数据生成)
   createPlanterZones(targetScene);
+  // 法国梧桐树丛(从 tree_marker.html 工具标记数据生成)
+  createTreeZones(targetScene);
   // 足球子场(从 soccer_zone_marker.html 工具标记数据生成)
   if (window.SportsFields && SportsFields.createSoccerFields)
     SportsFields.createSoccerFields(targetScene);
