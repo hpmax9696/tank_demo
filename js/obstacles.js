@@ -946,6 +946,7 @@ function createFootprintBuildings(targetScene, fps) {
   for (var _fi = 0; _fi < fps.length; _fi++) {
     var fp = fps[_fi];
     if (!fp.footprint || fp.footprint.length < 3) continue;
+    var _carportHolePolygon = null; // 车棚敞开区域需从polygon碰撞中挖除
     var shape = _footprintToShape(fp.footprint, true);
     var h = fp.height || 8;
     var _stiltY = (fp.stiltFloor || 0) * 3; // 架空层高度(一楼, 柱子支撑)
@@ -1029,6 +1030,14 @@ function createFootprintBuildings(targetScene, fps) {
             _pillar.name = 'campus-pillar';
             targetScene.add(_pillar);
             obstacleMeshes.push(_pillar);
+            // 柱子碰撞登记(坦克/炮弹可命中, 不可摧毁)
+            obstacleData.push({
+              x: _pa[0] + _pdx * _pt + _nx * _pInset,
+              z: _pa[1] + _pdz * _pt + _nz * _pInset,
+              radius: 0.35,
+              height: _stiltY,
+              type: 'wall',
+            });
           }
         }
       }
@@ -1110,6 +1119,33 @@ function createFootprintBuildings(targetScene, fps) {
           _shellMesh.name = 'campus-dome';
           targetScene.add(_shellMesh);
           obstacleMeshes.push(_shellMesh);
+          // 拱顶加入_campusBuildings用于炮弹Raycaster碰撞检测
+          if (window._campusBuildings) window._campusBuildings.push(_shellMesh);
+          // 车棚敞开区域需从footprint polygon碰撞中挖除
+          var _cry2 = Math.cos(_ry),
+            _sry2 = Math.sin(_ry);
+          var _cpExtLen = _w.w * 1.1; // 脊线方向微扩10%
+          var _cpHalfW = (_w.d / 2) * 1.15; // 拱跨方向取建筑深度一半微扩(比_halfW*1.2更宽)
+          _carportHolePolygon = [
+            [
+              _w.cx - (_cpExtLen / 2) * _cry2 - _cpHalfW * _sry2,
+              _w.cz - (_cpExtLen / 2) * _sry2 + _cpHalfW * _cry2,
+            ],
+            [
+              _w.cx - (_cpExtLen / 2) * _cry2 + _cpHalfW * _sry2,
+              _w.cz - (_cpExtLen / 2) * _sry2 - _cpHalfW * _cry2,
+            ],
+            [
+              _w.cx + (_cpExtLen / 2) * _cry2 + _cpHalfW * _sry2,
+              _w.cz + (_cpExtLen / 2) * _sry2 - _cpHalfW * _cry2,
+            ],
+            [
+              _w.cx + (_cpExtLen / 2) * _cry2 - _cpHalfW * _sry2,
+              _w.cz + (_cpExtLen / 2) * _sry2 + _cpHalfW * _cry2,
+            ],
+          ];
+          // 暴露供调试: window._carportHole = _carportHolePolygon;
+          window._carportHoleDebug = _carportHolePolygon;
         } else {
           // 室内运动场: 拱顶壳(米白)+墙面板(米黄)+蓝色腰线
           var _sportsArchPts = new THREE.EllipseCurve(
@@ -1185,6 +1221,7 @@ function createFootprintBuildings(targetScene, fps) {
           _archShell.receiveShadow = true;
           _archShell.name = 'campus-dome';
           _domeGrp.add(_archShell);
+          if (window._campusBuildings) window._campusBuildings.push(_archShell);
 
           // 拱顶端盖(封住侧面透明: ShapeGeometry覆盖拱面三角区, Z=0和Z=_extLen)
           var _endCapShape = new THREE.Shape();
@@ -1206,11 +1243,13 @@ function createFootprintBuildings(targetScene, fps) {
           _endCap0.position.set(0, 0, 0);
           _endCap0.name = 'campus-dome';
           _domeGrp.add(_endCap0);
+          if (window._campusBuildings) window._campusBuildings.push(_endCap0);
           var _endCap1 = new THREE.Mesh(_endCapGeo, _wallCreamM);
           _endCap1.position.set(0, 0, _extLen);
           _endCap1.rotation.y = Math.PI;
           _endCap1.name = 'campus-dome';
           _domeGrp.add(_endCap1);
+          if (window._campusBuildings) window._campusBuildings.push(_endCap1);
 
           // 墙面分两段: 腰线(Y=3.0)以下绿色漆, 以上米黄
           var _wallGreenM = new THREE.MeshStandardMaterial({
@@ -1228,11 +1267,13 @@ function createFootprintBuildings(targetScene, fps) {
           _wlNXlo.castShadow = true;
           _wlNXlo.name = 'campus-wall';
           _domeGrp.add(_wlNXlo);
+          if (window._campusBuildings) window._campusBuildings.push(_wlNXlo);
           var _wlPXlo = new THREE.Mesh(_longLowerGeo, _wallGreenM);
           _wlPXlo.position.set(+_halfW - 0.125, _lowerH / 2, _extLen / 2);
           _wlPXlo.castShadow = true;
           _wlPXlo.name = 'campus-wall';
           _domeGrp.add(_wlPXlo);
+          if (window._campusBuildings) window._campusBuildings.push(_wlPXlo);
           // 长墙上段(米黄)
           var _longUpperGeo = new THREE.BoxGeometry(0.25, _upperH, _extLen);
           var _wlNXup = new THREE.Mesh(_longUpperGeo, _wallCreamM);
@@ -1240,11 +1281,13 @@ function createFootprintBuildings(targetScene, fps) {
           _wlNXup.castShadow = true;
           _wlNXup.name = 'campus-wall';
           _domeGrp.add(_wlNXup);
+          if (window._campusBuildings) window._campusBuildings.push(_wlNXup);
           var _wlPXup = new THREE.Mesh(_longUpperGeo, _wallCreamM);
           _wlPXup.position.set(+_halfW - 0.125, _beltY + _upperH / 2, _extLen / 2);
           _wlPXup.castShadow = true;
           _wlPXup.name = 'campus-wall';
           _domeGrp.add(_wlPXup);
+          if (window._campusBuildings) window._campusBuildings.push(_wlPXup);
           // 短墙下段(绿色)
           var _endLowerGeo = new THREE.BoxGeometry(2 * _halfW, _lowerH, 0.25);
           var _ew0lo = new THREE.Mesh(_endLowerGeo, _wallGreenM);
@@ -1252,11 +1295,13 @@ function createFootprintBuildings(targetScene, fps) {
           _ew0lo.castShadow = true;
           _ew0lo.name = 'campus-wall';
           _domeGrp.add(_ew0lo);
+          if (window._campusBuildings) window._campusBuildings.push(_ew0lo);
           var _ew1lo = new THREE.Mesh(_endLowerGeo, _wallGreenM);
           _ew1lo.position.set(0, _lowerH / 2, _extLen - 0.125);
           _ew1lo.castShadow = true;
           _ew1lo.name = 'campus-wall';
           _domeGrp.add(_ew1lo);
+          if (window._campusBuildings) window._campusBuildings.push(_ew1lo);
           // 短墙上段(米黄)
           var _endUpperGeo = new THREE.BoxGeometry(2 * _halfW, _upperH, 0.25);
           var _ew0up = new THREE.Mesh(_endUpperGeo, _wallCreamM);
@@ -1264,11 +1309,13 @@ function createFootprintBuildings(targetScene, fps) {
           _ew0up.castShadow = true;
           _ew0up.name = 'campus-wall';
           _domeGrp.add(_ew0up);
+          if (window._campusBuildings) window._campusBuildings.push(_ew0up);
           var _ew1up = new THREE.Mesh(_endUpperGeo, _wallCreamM);
           _ew1up.position.set(0, _beltY + _upperH / 2, _extLen - 0.125);
           _ew1up.castShadow = true;
           _ew1up.name = 'campus-wall';
           _domeGrp.add(_ew1up);
+          if (window._campusBuildings) window._campusBuildings.push(_ew1up);
 
           // 蓝色腰线(漆面极薄, 贴墙外表面, Y=3.0m)
           var _beltThin = 0.02,
@@ -1508,6 +1555,14 @@ function createFootprintBuildings(targetScene, fps) {
             _pillar.name = 'campus-pillar';
             targetScene.add(_pillar);
             obstacleMeshes.push(_pillar);
+            // 角柱碰撞登记(坦克/炮弹可命中, 不可摧毁)
+            obstacleData.push({
+              x: _cw[0],
+              z: _cw[1],
+              radius: 0.28,
+              height: _archY,
+              type: 'wall',
+            });
           }
         }
         for (var _bmi = 0; _bmi < _b7mks.length; _bmi++) {
@@ -1612,6 +1667,8 @@ function createFootprintBuildings(targetScene, fps) {
       height: h,
       type: 'building',
       groupRef: null,
+      minY: _stiltY || undefined, // 架空层开口高度: 地面<此高度时坦克可从柱子间穿过
+      holes: _carportHolePolygon ? [_carportHolePolygon] : undefined, // 车棚敞开区域挖除
     });
   }
 
@@ -1649,7 +1706,8 @@ function createFootprintBuildings(targetScene, fps) {
     _bmesh.receiveShadow = true;
     _bmesh.name = 'campus-bridge';
     targetScene.add(_bmesh);
-    obstacleMeshes.push(_bmesh); // 炮弹Raycaster命中(空中); 不push obstacleData→坦克可从桥下穿行
+    obstacleMeshes.push(_bmesh); // 不push obstacleData→坦克可从桥下穿行(桥是空中连廊)
+    if (window._campusBuildings) window._campusBuildings.push(_bmesh); // 炮弹Raycaster可命中桥体
   }
 }
 
@@ -1721,15 +1779,105 @@ function createToiletZones(targetScene) {
     if (obstacleMeshes) obstacleMeshes.push(inst);
 
     var ud = inst.userData;
-    if (typeof insertObstacle === 'function') {
-      insertObstacle({
-        x: tz.cx,
-        z: tz.cz,
-        radius: rowLen / 2,
-        height: ud.height,
-        type: 'building',
-      });
+    // 厕所碰撞: 从世界空间提取局部AABB再逆变换, 自动适配所有嵌套Group旋转
+    inst.updateMatrixWorld();
+    // 1) 厕所世界空间AABB → 逆变换回inst局部空间 → 得旋转对齐的紧致AABB
+    var _worldBox = new THREE.Box3().setFromObject(inst);
+    var _invWorld = new THREE.Matrix4().copy(inst.matrixWorld).invert();
+    var _localBox = new THREE.Box3();
+    for (var _cx = 0; _cx < 2; _cx++) {
+      for (var _cy = 0; _cy < 2; _cy++) {
+        for (var _cz = 0; _cz < 2; _cz++) {
+          var _wc = new THREE.Vector3(
+            _cx ? _worldBox.max.x : _worldBox.min.x,
+            _cy ? _worldBox.max.y : _worldBox.min.y,
+            _cz ? _worldBox.max.z : _worldBox.min.z
+          );
+          _wc.applyMatrix4(_invWorld);
+          _localBox.expandByPoint(_wc);
+        }
+      }
     }
+    // 2) 局部AABB底部4角 → inst世界矩阵 → 世界空间旋转矩形polygon
+    var _lc = [
+      new THREE.Vector3(_localBox.min.x, _localBox.min.y, _localBox.min.z),
+      new THREE.Vector3(_localBox.max.x, _localBox.min.y, _localBox.min.z),
+      new THREE.Vector3(_localBox.max.x, _localBox.min.y, _localBox.max.z),
+      new THREE.Vector3(_localBox.min.x, _localBox.min.y, _localBox.max.z),
+    ];
+    var _tPoly = _lc.map(function (v) {
+      v.applyMatrix4(inst.matrixWorld);
+      return [v.x, v.z];
+    });
+    var _tCenterX = (_tPoly[0][0] + _tPoly[2][0]) / 2;
+    var _tCenterZ = (_tPoly[0][1] + _tPoly[2][1]) / 2;
+    var _tRadius = Math.max(
+      Math.hypot(_tPoly[0][0] - _tCenterX, _tPoly[0][1] - _tCenterZ),
+      Math.hypot(_tPoly[1][0] - _tCenterX, _tPoly[1][1] - _tCenterZ)
+    );
+    obstacleData.push({
+      x: _tCenterX,
+      z: _tCenterZ,
+      radius: _tRadius,
+      polygon: _tPoly,
+      height: ud.height || 6,
+      type: 'building',
+    });
+    // 厕所 mesh 加入 _campusBuildings 用于炮弹 Raycaster 精确命中
+    if (window._campusBuildings) window._campusBuildings.push(inst);
+
+    // 碰撞体调试可视化 (F9切换): 半透明 footprint + 线框轮廓
+    var _dbgGrp = new THREE.Group();
+    _dbgGrp.name = 'toilet-collider-debug';
+    _dbgGrp.visible = false;
+    // 半透明填充面 (地面高度)
+    var _dbgShape = _footprintToShape(_tPoly, true);
+    var _dbgFillGeo = new THREE.ShapeGeometry(_dbgShape);
+    var _dbgFill = new THREE.Mesh(
+      _dbgFillGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0xff4444,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    _dbgFill.rotation.x = -Math.PI / 2;
+    _dbgFill.position.y = 0.05;
+    _dbgGrp.add(_dbgFill);
+    // 轮廓线
+    var _dbgPts = [];
+    for (var _dpi = 0; _dpi <= _tPoly.length; _dpi++) {
+      var _dp = _tPoly[_dpi % _tPoly.length];
+      _dbgPts.push(new THREE.Vector3(_dp[0], 0.06, _dp[1]));
+    }
+    var _dbgLineGeo = new THREE.BufferGeometry().setFromPoints(_dbgPts);
+    var _dbgLine = new THREE.Line(
+      _dbgLineGeo,
+      new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false })
+    );
+    _dbgGrp.add(_dbgLine);
+    // 高度指示柱 (四角)
+    var _dbgH = ud.height || 6;
+    for (var _dci = 0; _dci < 4; _dci++) {
+      var _dc = _tPoly[_dci];
+      var _dpillarGeo = new THREE.CylinderGeometry(0.15, 0.15, _dbgH, 6);
+      var _dpillar = new THREE.Mesh(
+        _dpillarGeo,
+        new THREE.MeshBasicMaterial({
+          color: 0xff0000,
+          transparent: true,
+          opacity: 0.3,
+          depthTest: false,
+        })
+      );
+      _dpillar.position.set(_dc[0], _dbgH / 2, _dc[1]);
+      _dbgGrp.add(_dpillar);
+    }
+    targetScene.add(_dbgGrp);
+    if (!window._toiletDebugGroups) window._toiletDebugGroups = [];
+    window._toiletDebugGroups.push(_dbgGrp);
   }
 }
 

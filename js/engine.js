@@ -57,6 +57,16 @@ window.addEventListener('keydown', (e) => {
     window._showHexColliders = !window._showHexColliders;
     return;
   }
+  if (e.code === 'F9') {
+    e.preventDefault();
+    var _tdb = window._toiletDebugGroups;
+    if (_tdb && _tdb.length) {
+      var _vis = !_tdb[0].visible;
+      for (var _tdi = 0; _tdi < _tdb.length; _tdi++) _tdb[_tdi].visible = _vis;
+      console.log('🚽 厕所碰撞体 ' + (_vis ? 'ON (红色半透明)' : 'OFF'));
+    }
+    return;
+  }
   if (e.code === 'KeyH' && !e.ctrlKey && !e.altKey && !e.metaKey) {
     shadowEnabled = !shadowEnabled;
     if (sunLight) sunLight.castShadow = shadowEnabled;
@@ -1328,6 +1338,34 @@ function checkCollision(x, z, halfW) {
     : obstacleData;
   for (const obs of checkObs) {
     if (obs.destroyed) continue;
+    // minY: 架空层建筑的地面开口高度，坦克在地面高度<minY时从下方穿过(仅柱子阻挡)
+    if (obs.minY !== undefined) {
+      var _gy = getGroundHeight(x, z);
+      if (_gy < obs.minY) continue;
+    }
+    // holes: 从polygon/box碰撞中挖除的区域(如车棚敞开区域), 点在洞内→跳过碰撞
+    if (obs.holes) {
+      var _inHole = false;
+      for (var _hi = 0; _hi < obs.holes.length; _hi++) {
+        var _hp = obs.holes[_hi];
+        var _inside = false;
+        for (var _hj = 0, _hk = _hp.length - 1; _hj < _hp.length; _hk = _hj++) {
+          if (
+            _hp[_hj][1] > z !== _hp[_hk][1] > z &&
+            x <
+              ((_hp[_hk][0] - _hp[_hj][0]) * (z - _hp[_hj][1])) /
+                (_hp[_hk][1] - _hp[_hj][1] || 1e-9) +
+                _hp[_hj][0]
+          )
+            _inside = !_inside;
+        }
+        if (_inside) {
+          _inHole = true;
+          break;
+        }
+      }
+      if (_inHole) continue;
+    }
     if (obs.polygon) {
       const hit = circleVsPolygon(x, z, hw, obs.polygon);
       if (hit) return { hit: true, pushX: hit.px, pushZ: hit.pz };
@@ -2519,6 +2557,14 @@ function gameLoop() {
             spawnFragments(_bp, '#d4c5a9');
             spawnHitSparks(_bp);
             playGroundHitSound();
+            // 墙面焦痕: face.normal是局部空间, 需用命中对象的world矩阵转到世界空间
+            if (_bhits[0].face && _bhits[0].face.normal && _bhits[0].object) {
+              var _wn = _bhits[0].face.normal.clone();
+              var _hitObj = _bhits[0].object;
+              _hitObj.localToWorld(_wn);
+              _wn.sub(_hitObj.getWorldPosition(new THREE.Vector3())).normalize();
+              spawnWallScorchMark(_bp, _wn);
+            }
             hit = true;
           }
         }
@@ -2876,6 +2922,8 @@ function gameLoop() {
         for (let j = checkObs.length - 1; j >= 0; j--) {
           const od = checkObs[j];
           if (od.destroyed) continue;
+          // 不可摧毁物体(polygon/box建筑 + wall柱子/围墙)不受 HE 溅射影响
+          if (od.polygon || od.box || od.type === 'wall') continue;
           const ox = od.type === 'building' && od.groupRef ? od.groupRef.position.x : od.x;
           const oz = od.type === 'building' && od.groupRef ? od.groupRef.position.z : od.z;
           const dx = hPos.x - ox,
@@ -7853,7 +7901,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.77.0 | 法国梧桐树丛+厕所窗户+花坛打点');
+console.log('🎮 坦克运动demo v0.78.0 | 校园架空层车棚碰撞修复+厕所天桥碰撞+HE守卫+焦痕');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

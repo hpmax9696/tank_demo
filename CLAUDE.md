@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.77.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.0
 
 ## 运行
 
@@ -272,6 +272,37 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.78.0 本次会话变更 (2026-07-20)
+
+### 校园架空层与车棚碰撞体修复 + 厕所天桥碰撞 + HE溅射守卫 + 焦痕修复
+
+- **架空层碰撞修复**: `checkCollision` 增加 `minY` 高度感知（地面高度<minY时跳过polygon/box，仅柱子cylinder阻挡）。教学楼 B5 obstacleData 增加 `minY: _stiltY`（=3m），架空层柱子增加 obstacleData 条目（r=0.35, type='wall'）
+- **车棚碰撞修复**: 四角柱 obstacleData（r=0.28, type='wall'），拱顶 mesh 入 `_campusBuildings`（炮弹 Raycaster 命中）。从体育馆 polygon 挖除车棚区域（`holes` 字段 + point-in-hole 射线法检测）
+- **B7 室内运动场碰撞**: 拱顶壳+端盖+8面墙共11子mesh入 `_campusBuildings`，炮弹可命中 dome 墙壁
+- **厕所碰撞修复**: 抛弃不存在的 `insertObstacle`，用 `inst.matrixWorld` 逆变换计算紧致局部 AABB → 世界空间旋转矩形 polygon。厕所 mesh 入 `_campusBuildings`
+- **天桥碰撞修复**: mesh 入 `_campusBuildings`（坦克仍可从桥下穿行，无 obstacleData）
+- **HE 溅射不可摧毁守卫**: 补充 `if (od.polygon || od.box || od.type === 'wall') continue;`（v0.67.1 声称已添加但代码缺失，本次实测修复）
+- **墙面焦痕修复**: Raycaster `face.normal` 从局部空间经 `hitObj.localToWorld` 转世界空间后调用 `spawnWallScorchMark`
+- **调试可视化**: F9 键切换厕所碰撞体半透明红色显示（footprint 填充面+轮廓线+四角高度柱）
+- **改动文件**: `js/engine.js`(+35行) + `js/obstacles.js`(+120行)
+
+### 碰撞体审查完整结论
+
+| 实体           |   坦克碰撞    |   炮弹碰撞   | 瞄准线 |  可摧毁   | 状态                        |
+| -------------- | :-----------: | :----------: | :----: | :-------: | --------------------------- |
+| 教学楼B5架空层 |   ✅ 仅柱子   |      ✅      |   ✅   |    ❌     | minY+柱子cylinder           |
+| 车棚           |  ✅ 仅四角柱  |   ✅ 拱顶    |   ✅   |    ❌     | holes挖除+柱子cylinder      |
+| B7室内运动场   |    ✅ box     |  ✅ dome墙   |   ✅   |    ❌     | 11子mesh入\_campusBuildings |
+| 厕所           |  ✅ polygon   | ✅ Raycaster |   ✅   |    ❌     | matrixWorld逆变换polygon    |
+| 天桥           | ❌ 穿行(设计) | ✅ Raycaster |   ✅   |    ❌     | 入\_campusBuildings         |
+| HE溅射守卫     |      N/A      |     N/A      |  N/A   | ✅ 已保护 | polygon/box/wall continue   |
+
+### 新增数据结构
+
+- `obstacleData[i].minY`: 可选，地面开口高度。`checkCollision` 中 `getGroundHeight(x,z) < minY` 时跳过 polygon/box
+- `obstacleData[i].holes`: 可选，`[[x,z],...][]` 挖除多边形数组。点在 hole 内时跳过碰撞
+- `window._toiletDebugGroups`: F9 厕所碰撞体调试可视化 Group 数组
 
 ## v0.77.0 本次会话变更 (2026-07-20)
 

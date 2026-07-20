@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.77.0</title>
+    <title>坦克运动demo v0.78.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.77.0</div>
+      <div class="menu-version">v0.78.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,13 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🔧 v0.78.0 校园架空层与车棚碰撞体修复 —
+          checkCollision增加minY高度感知;教学楼B5架空层polygon+minY;
+          车棚四角柱碰撞+拱顶入_campusBuildings; B7室内运动场dome子mesh炮弹碰撞;
+          厕所AABB→polygon精确贴合; 天桥入_campusBuildings; HE溅射不可摧毁守卫;
+          墙面焦痕法线世界空间转换; F9厕所碰撞体调试可视化
+        </div>
+        <div class="cl-title">
           🌲 v0.77.0 法国梧桐树丛+厕所窗户 — 工具页打点放置梧桐树丛(每点3-5棵9-12m);
           精细程序化模型(树干+5枝+70椭球穹顶冠+种子球)+InstancedMesh渲染+campus.treeZones;
           厕所楼男女厕前墙贴面窗户(框+玻璃,不挖洞); plane_tree.js(260行)+tree_marker.html(320行)
@@ -841,13 +848,8 @@
           4篮球场5人/3人制标线+8篮球架(筐高3.05m/2.6m); 整场CanvasTexture标线+UV重映射;
           厕所标志修复(墙内侧→外墙+sRGB色+降至0.616墙高)+高窗外置抬高
         </div>
-        <div class="cl-title">
-          🚻 v0.72.0 厕所区域系统+运动场门窗分化+车棚柱修复 — 工具页画区域→保存→一排大厕所
-          (男厕+洗手区带镜台龙头+女厕); 室内运动场拱顶米白/墙绿漆+蓝腰线+对开门高窗;
-          车棚柱长宽双向内收+柱顶拱面避让
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.77.0~v0.73.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.78.0~v0.73.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.77.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.78.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,18 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.78.0 — 校园架空层车棚碰撞修复+厕所天桥碰撞+HE守卫+焦痕（2026-07-20）
+
+- **架空层**: checkCollision增加minY高度感知; 教学楼B5 polygon增加minY=3跳过地面碰撞; 架空层柱子圆柱碰撞体登记
+- **车棚**: 四角柱圆柱碰撞体登记; 拱顶mesh加入\_campusBuildings炮弹Raycaster命中; hole polygon从体育馆碰撞中挖除
+- **B7室内运动场**: 拱顶壳+端盖+8面墙共11子mesh加入\_campusBuildings, 炮弹可命中dome墙壁
+- **厕所**: 抛弃不存在的insertObstacle, 用inst.matrixWorld逆变换计算紧致polygon; 加入\_campusBuildings
+- **天桥**: mesh加入\_campusBuildings, 炮弹Raycaster可命中桥体; 坦克仍可从桥下穿行(无obstacleData)
+- **HE溅射守卫**: 补充od.polygon||od.box||od.type==='wall' continue守卫(声称v0.67.1修复但代码缺失)
+- **焦痕修复**: Raycaster命中面法线从局部空间转世界空间后再调用spawnWallScorchMark
+- **调试**: F9键切换厕所碰撞体半透明红色可视化(footprint填充+轮廓线+四角高度柱)
+- **改动**: js/engine.js(+35)+js/obstacles.js(+120)+models/buildings.js(厕所碰撞段重写)
 
 ### v0.77.0 — 法国梧桐树丛+厕所窗户（2026-07-20）
 
