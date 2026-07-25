@@ -1471,6 +1471,19 @@ let currentShellType = 'ap';
 let aimPoint = new THREE.Vector3();
 let aimValid = true;
 let aimRaycaster = new THREE.Raycaster();
+// 瞄准目标过滤: 排除半透明建筑(_fadedGroups, 相机遮挡半透明时瞄准应穿透, 不指向半透明建筑)
+function _filterAimTargets(arr) {
+  if (!_fadedGroups || !_fadedGroups.size) return arr;
+  return arr.filter(function (o) {
+    if (_fadedGroups.has(o)) return false;
+    var p = o.parent;
+    while (p) {
+      if (_fadedGroups.has(p)) return false;
+      p = p.parent;
+    }
+    return true;
+  });
+}
 // 高度图射线投射: 沿射线步进+二分找穿地交点, 替代 groundMesh brute-force raycast
 // (groundMesh 131072三角, Three.js无BVH, intersectObject单次14ms → 步进+二分~0.1ms)
 function _raycastGroundHM(ray, maxDist) {
@@ -1590,7 +1603,7 @@ function updateAiming(player, dt) {
     aimRaycaster.setFromCamera(screenPos, camera);
     const _gh = _raycastGroundHM(aimRaycaster.ray);
     const groundHits = _gh ? [{ point: _gh.point, distance: _gh.distance }] : [];
-    const aimTargets = obstacleMeshes.slice();
+    const aimTargets = _filterAimTargets(obstacleMeshes); // 排除半透明建筑(瞄准穿透)
     for (let ei = 0; ei < enemies.length; ei++) {
       const en = enemies[ei];
       if (!en || !en.visible) continue;
@@ -2153,7 +2166,7 @@ function gameLoop() {
         aimRaycaster.setFromCamera(new THREE.Vector2(0, _ndcY), camera);
         var _gHit = _raycastGroundHM(aimRaycaster.ray);
         if (_gHit) _hexAimTarget = _gHit.point.clone();
-        var _oHit = aimRaycaster.intersectObjects(obstacleMeshes, true);
+        var _oHit = aimRaycaster.intersectObjects(_filterAimTargets(obstacleMeshes), true);
         if (
           _oHit.length > 0 &&
           (!_hexAimTarget || _oHit[0].distance < _hexAimTarget.distanceTo(camera.position))
