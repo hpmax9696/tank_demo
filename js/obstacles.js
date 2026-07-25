@@ -1636,6 +1636,14 @@ function createFootprintBuildings(targetScene, fps) {
       // 无 edgeMarks → 不画(原 fallback 已删)
       bldGroup.position.y = _stiltY;
       bldGroup.rotation.x = -Math.PI / 2;
+      // 墙mesh(campus-bld)纳入bldGroup: 统一半透明fade+射线检测(墙原本直接add scene导致fade漏墙+射线检测不到墙)
+      // 清mesh自身变换(bldGroup已提供相同 rotation.x=-PI/2 + stiltY; footprint坐标系一致, 世界位置不变)
+      if (typeof mesh !== 'undefined' && mesh && mesh.parent === targetScene) {
+        targetScene.remove(mesh);
+        mesh.rotation.x = 0;
+        mesh.position.y = 0;
+        bldGroup.add(mesh);
+      }
       targetScene.add(bldGroup);
       bldGroup.userData._isCampusBuilding = true;
       window._campusBuildingGroups.push(bldGroup);
@@ -1904,19 +1912,25 @@ window.setBuildingFade = function (group, opacity) {
     group.traverse(function (c) {
       if (!c.isMesh || !c.material) return;
       var orig = c.material;
+      var origArr = Array.isArray(orig) ? orig : [orig]; // 支持材质数组(墙mesh是[wallMat,roofMat])
       if (!c.userData._origMat) c.userData._origMat = orig;
-      var key = orig.uuid;
-      var fade = matMap[key];
-      if (!fade) {
-        fade = orig.clone();
-        fade.transparent = true;
-        fade.side = THREE.DoubleSide; // 相机穿入建筑内时背面也渲染(不再背面剔除消失)
-        fade.depthWrite = false; // 避免透明排序穿模
-        fade.opacity = 1;
-        matMap[key] = fade;
-        fades.push(fade);
+      var fadeArr = [];
+      for (var mi = 0; mi < origArr.length; mi++) {
+        var om = origArr[mi];
+        var key = om.uuid;
+        var fade = matMap[key];
+        if (!fade) {
+          fade = om.clone();
+          fade.transparent = true;
+          fade.side = THREE.DoubleSide; // 相机穿入建筑内时背面也渲染(不再背面剔除消失)
+          fade.depthWrite = false; // 避免透明排序穿模
+          fade.opacity = 1;
+          matMap[key] = fade;
+          fades.push(fade);
+        }
+        fadeArr.push(fade);
       }
-      c.userData._fadeMat = fade;
+      c.userData._fadeMat = origArr.length === 1 ? fadeArr[0] : fadeArr;
     });
     group.userData._fadeMats = fades;
     group.userData._fadeReady = true;
