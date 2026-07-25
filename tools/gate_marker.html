@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>金福园小学 — 校门打点工具</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eee;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #canvas-wrap {
+        flex: 1;
+        position: relative;
+        cursor: crosshair;
+      }
+      canvas {
+        display: block;
+      }
+      #panel {
+        width: 300px;
+        padding: 16px;
+        background: #16213e;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      h2 {
+        font-size: 16px;
+        color: #e94560;
+        margin-bottom: 4px;
+      }
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+      }
+      .btn-red {
+        background: #e94560;
+        color: #fff;
+      }
+      .btn-green {
+        background: #1a8a4a;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #333;
+        color: #aaa;
+      }
+      #zone-list {
+        max-height: 220px;
+        overflow-y: auto;
+        font-size: 12px;
+      }
+      #zone-list .row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 0;
+        border-bottom: 1px solid #222;
+        cursor: pointer;
+      }
+      #zone-list .row:hover {
+        background: #0f3460;
+      }
+      #zone-list .name {
+        color: #f0a500;
+        font-weight: bold;
+        width: 50px;
+      }
+      #zone-list .info {
+        color: #aaa;
+        flex: 1;
+      }
+      #zone-list .del {
+        color: #e94560;
+        cursor: pointer;
+        padding: 1px 6px;
+      }
+      #status {
+        font-size: 12px;
+        color: #888;
+      }
+      .legend {
+        font-size: 11px;
+        color: #888;
+      }
+      .legend span {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        vertical-align: middle;
+        margin-right: 4px;
+        border-radius: 2px;
+      }
+      .hint {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+      }
+      .slider-row {
+        font-size: 12px;
+        color: #bbb;
+      }
+      .slider-row input {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-wrap"><canvas id="c"></canvas></div>
+    <div id="panel">
+      <h2>🚪 校门标记</h2>
+      <div class="legend">
+        <span style="background: #666"></span>校园围墙
+        <span style="background: #3a5a3a"></span>建筑物
+        <span style="background: #4a4a52"></span>校门(铁栅)
+        <span style="background: #a04030"></span>门柱
+      </div>
+      <div class="hint">
+        🖱️ 点击围墙边 = 放置校门(自动snap到最近边)<br />
+        🖱️ 点击校门 = 选中(高亮白边)<br />
+        🖱️ 拖拽校门 = 沿围墙边移动<br />
+        ⌨️ Delete/Backspace = 删除选中
+      </div>
+      <div class="slider-row">
+        <label>门宽: <span id="w-val">8.0</span>m (选中门后调节)</label>
+        <input type="range" id="width-slider" min="4" max="15" step="0.5" value="8" disabled />
+      </div>
+      <button class="btn btn-red" onclick="deleteSelected()">🗑 删除选中</button>
+      <button class="btn btn-gray" onclick="clearAll()">🗑 清空全部</button>
+      <div id="zone-list"></div>
+      <button class="btn btn-green" onclick="saveZones()">💾 保存到地图</button>
+      <div id="status">就绪</div>
+    </div>
+    <script>
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+
+      let campusData = null;
+      let zones = []; // [{cx, cz, width, ry, name}]
+      let selIdx = -1;
+      let dragMode = null;
+      let dragStart = { x: 0, z: 0 };
+      let mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
+        scale = 1;
+      const DEFAULT_WIDTH = 8.0;
+      const GATE_NAME = '金福园小学';
+
+      async function loadCampus() {
+        try {
+          const r = await fetch('../maps/campus.map.json');
+          campusData = await r.json();
+          zones = (campusData.obstacles.gates || []).map((g) => ({
+            cx: g.cx,
+            cz: g.cz,
+            width: g.width || DEFAULT_WIDTH,
+            ry: g.ry || 0,
+            name: g.name || GATE_NAME,
+          }));
+          fitView();
+          draw();
+          setStatus('已加载, ' + zones.length + ' 个校门');
+        } catch (e) {
+          setStatus('加载失败: ' + e.message);
+        }
+      }
+
+      function fitView() {
+        const b = campusData.obstacles.boundary;
+        let minX = Infinity,
+          maxX = -Infinity,
+          minZ = Infinity,
+          maxZ = -Infinity;
+        for (const p of b) {
+          if (p[0] < minX) minX = p[0];
+          if (p[0] > maxX) maxX = p[0];
+          if (p[1] < minZ) minZ = p[1];
+          if (p[1] > maxZ) maxZ = p[1];
+        }
+        const pad = 10,
+          w = maxX - minX + pad * 2,
+          h = maxZ - minZ + pad * 2;
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        scale = Math.min(cw / w, h / 0 + ch / h);
+        scale = Math.min(cw / w, ch / h);
+        mcx = (minX + maxX) / 2;
+        mcz = (minZ + maxZ) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
+        canvas.width = cw * devicePixelRatio;
+        canvas.height = ch * devicePixelRatio;
+        canvas.style.width = cw + 'px';
+        canvas.style.height = ch + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+
+      function w2c(wx, wz) {
+        return { x: ccx - (wx - mcx) * scale, y: ccy - (wz - mcz) * scale };
+      }
+      function c2w(cx, cy) {
+        return { x: mcx - (cx - ccx) / scale, z: mcz - (cy - ccy) / scale };
+      }
+
+      // snap 到最近 boundary 边: 返回 {cx, cz, ry}(门中心=投影点, ry=外法向)
+      function snapToBoundary(wx, wz) {
+        const b = campusData.obstacles.boundary;
+        const cx0 = b.reduce((s, p) => s + p[0], 0) / b.length,
+          cz0 = b.reduce((s, p) => s + p[1], 0) / b.length;
+        let best = null;
+        for (let i = 0; i < b.length; i++) {
+          const a = b[i],
+            d = b[(i + 1) % b.length];
+          const ex = d[0] - a[0],
+            ez = d[1] - a[1];
+          const L2 = ex * ex + ez * ez;
+          let t = ((wx - a[0]) * ex + (wz - a[1]) * ez) / L2;
+          t = Math.max(0, Math.min(1, t));
+          const px = a[0] + ex * t,
+            pz = a[1] + ez * t;
+          const dist = Math.hypot(wx - px, wz - pz);
+          if (!best || dist < best.dist) best = { px, pz, dist, ex, ez, L: Math.sqrt(L2) };
+        }
+        let nx = -best.ez / best.L,
+          nz = best.ex / best.L;
+        if ((best.px - cx0) * nx + (best.pz - cz0) * nz < 0) {
+          nx = -nx;
+          nz = -nz;
+        }
+        return { cx: best.px, cz: best.pz, ry: Math.atan2(nz, nx) };
+      }
+
+      function draw() {
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        ctx.clearRect(0, 0, cw, ch);
+        if (!campusData) return;
+        ctx.fillStyle = '#d8d4cc';
+        ctx.fillRect(0, 0, cw, ch);
+        const bdry = campusData.obstacles.boundary;
+        drawPoly(bdry, '#ddd', '#666', 2);
+        for (const fp of campusData.obstacles.footprintBuildings || [])
+          drawPoly(fp.footprint, '#3a5a3a', '#2a4a2a', 1);
+        for (const gn of campusData.obstacles.grounds || [])
+          drawPoly(gn.footprint, '#4a8c3f', null, 0);
+        drawPoly(bdry, null, '#666', 2);
+        for (let zi = 0; zi < zones.length; zi++) {
+          const g = zones[zi];
+          const sel = zi === selIdx;
+          const hw = g.width / 2,
+            hd = 0.4;
+          const cos = Math.cos(g.ry),
+            sin = Math.sin(g.ry);
+          const corners = [
+            [-hw, -hd],
+            [hw, -hd],
+            [hw, hd],
+            [-hw, hd],
+          ].map(([x, z]) => w2c(g.cx + x * cos - z * sin, g.cz + x * sin + z * cos));
+          ctx.fillStyle = sel ? 'rgba(120,160,255,0.35)' : 'rgba(74,74,82,0.5)';
+          ctx.strokeStyle = sel ? '#fff' : '#4a4a52';
+          ctx.lineWidth = sel ? 2.5 : 1.5;
+          ctx.beginPath();
+          corners.forEach((c, i) => (i ? ctx.lineTo(c[0], c[1]) : ctx.moveTo(c[0], c[1])));
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#a04030';
+          for (const s of [-1, 1]) {
+            const pp = w2c(g.cx + s * hw * cos, g.cz + s * hw * sin);
+            ctx.fillRect(pp.x - 4, pp.y - 4, 8, 8);
+          }
+          ctx.strokeStyle = '#f0c020';
+          ctx.setLineDash([5, 3]);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(corners[0][0], corners[0][1]);
+          ctx.lineTo(corners[1][0], corners[1][1]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        updateZoneList();
+      }
+
+      function drawPoly(poly, fill, stroke, lw) {
+        if (!poly || poly.length < 2) return;
+        ctx.beginPath();
+        const p0 = w2c(poly[0][0], poly[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < poly.length; i++) {
+          const p = w2c(poly[i][0], poly[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw || 2;
+          ctx.stroke();
+        }
+      }
+
+      function updateZoneList() {
+        const el = document.getElementById('zone-list');
+        el.innerHTML = zones
+          .map((g, i) => {
+            const cls = i === selIdx ? ' style="background:#0f3460"' : '';
+            return (
+              '<div class="row"' +
+              cls +
+              ' onclick="selectZone(' +
+              i +
+              ')"><span class="name">校门' +
+              (i + 1) +
+              '</span>' +
+              '<span class="info">(' +
+              g.cx.toFixed(0) +
+              ',' +
+              g.cz.toFixed(0) +
+              ') ' +
+              g.width.toFixed(1) +
+              'm</span>' +
+              '<span class="del" onclick="event.stopPropagation();deleteZone(' +
+              i +
+              ')">✕</span></div>'
+            );
+          })
+          .join('');
+        const slider = document.getElementById('width-slider');
+        const wval = document.getElementById('w-val');
+        if (selIdx >= 0) {
+          slider.disabled = false;
+          slider.value = zones[selIdx].width;
+          wval.textContent = zones[selIdx].width.toFixed(1);
+        } else {
+          slider.disabled = true;
+          wval.textContent = '—';
+        }
+      }
+
+      function selectZone(i) {
+        selIdx = i;
+        draw();
+      }
+      function setStatus(s) {
+        document.getElementById('status').textContent = s;
+      }
+
+      function hitZone(cx, cy) {
+        for (let i = zones.length - 1; i >= 0; i--) {
+          const g = zones[i];
+          const wx = mcx - (cx - ccx) / scale,
+            wz = mcz - (cy - ccy) / scale;
+          const dx = wx - g.cx,
+            dz = wz - g.cz;
+          const cos = Math.cos(-g.ry),
+            sin = Math.sin(-g.ry);
+          const lx = dx * cos - dz * sin,
+            lz = dx * sin + dz * cos;
+          if (Math.abs(lx) < g.width / 2 + 0.5 && Math.abs(lz) < 0.6) return i;
+        }
+        return -1;
+      }
+
+      canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left,
+          cy = e.clientY - rect.top;
+        const zi = hitZone(cx, cy);
+        if (zi >= 0) {
+          selIdx = zi;
+          dragMode = 'move';
+          setStatus('移动中...');
+          draw();
+          return;
+        }
+        const w = c2w(cx, cy);
+        const s = snapToBoundary(w.x, w.z);
+        if (s) {
+          zones.push({ cx: s.cx, cz: s.cz, width: DEFAULT_WIDTH, ry: s.ry, name: GATE_NAME });
+          selIdx = zones.length - 1;
+          setStatus('放置校门 #' + zones.length + ' (snap到最近边)');
+          draw();
+        }
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (dragMode === 'move' && selIdx >= 0) {
+          const rect = canvas.getBoundingClientRect();
+          const cx = e.clientX - rect.left,
+            cy = e.clientY - rect.top;
+          const w = c2w(cx, cy);
+          const s = snapToBoundary(w.x, w.z);
+          if (s) {
+            zones[selIdx].cx = s.cx;
+            zones[selIdx].cz = s.cz;
+            zones[selIdx].ry = s.ry;
+            draw();
+          }
+        }
+      });
+
+      canvas.addEventListener('mouseup', () => {
+        dragMode = null;
+        draw();
+      });
+
+      document.getElementById('width-slider').addEventListener('input', (e) => {
+        if (selIdx >= 0) {
+          zones[selIdx].width = parseFloat(e.target.value);
+          document.getElementById('w-val').textContent = zones[selIdx].width.toFixed(1);
+          draw();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA'
+          )
+            return;
+          deleteSelected();
+        }
+      });
+
+      function deleteSelected() {
+        if (selIdx < 0) return;
+        zones.splice(selIdx, 1);
+        selIdx = -1;
+        setStatus('已删除');
+        draw();
+      }
+      function deleteZone(i) {
+        zones.splice(i, 1);
+        if (selIdx === i) selIdx = -1;
+        else if (selIdx > i) selIdx--;
+        draw();
+      }
+      function clearAll() {
+        zones = [];
+        selIdx = -1;
+        draw();
+        setStatus('已清空');
+      }
+
+      async function saveZones() {
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'gates', zones: zones }),
+          });
+          const j = await r.json();
+          if (j.ok) setStatus('✅ 已保存到 campus.map.json (' + zones.length + ' 个校门)');
+          else setStatus('❌ 保存失败: ' + (j.error || ''));
+        } catch (e) {
+          setStatus('❌ 保存异常: ' + e.message);
+        }
+      }
+
+      window.addEventListener('resize', () => {
+        if (campusData) {
+          fitView();
+          draw();
+        }
+      });
+      loadCampus();
+    </script>
+  </body>
+</html>

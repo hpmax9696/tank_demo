@@ -2051,6 +2051,182 @@ function createPlanterZones(targetScene) {
   }
 }
 
+// ── 校门(gates: 铁栅门+门柱+校名横梁+黄黑警戒带+禁止出入立牌) ──
+// 校名横梁纹理(深红底金字)
+function _makeGateNameTex(name) {
+  var c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 64;
+  var x = c.getContext('2d');
+  x.fillStyle = '#7a1a1a';
+  x.fillRect(0, 0, 512, 64);
+  x.fillStyle = '#ffd700';
+  x.font = 'bold 36px sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText(name || '金福园小学', 256, 32);
+  var t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+// 黄黑斜纹警戒带纹理
+function _makeTapeTex() {
+  var c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 32;
+  var x = c.getContext('2d');
+  x.fillStyle = '#1a1a1a';
+  x.fillRect(0, 0, 256, 32);
+  x.fillStyle = '#f0c020';
+  for (var i = -32; i < 288; i += 32) {
+    x.beginPath();
+    x.moveTo(i, 0);
+    x.lineTo(i + 16, 0);
+    x.lineTo(i + 48, 32);
+    x.lineTo(i + 32, 32);
+    x.fill();
+  }
+  var t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+// 禁止出入立牌纹理(红圈禁止图标+文字)
+function _makeSignTex() {
+  var c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 192;
+  var x = c.getContext('2d');
+  x.fillStyle = '#f5f5f5';
+  x.fillRect(0, 0, 128, 192);
+  x.strokeStyle = '#cc0000';
+  x.lineWidth = 12;
+  x.beginPath();
+  x.arc(64, 64, 40, 0, Math.PI * 2);
+  x.stroke();
+  x.beginPath();
+  x.moveTo(36, 36);
+  x.lineTo(92, 92);
+  x.stroke();
+  x.fillStyle = '#cc0000';
+  x.font = 'bold 26px sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.fillText('禁止出入', 64, 150);
+  var t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function createGates(targetScene) {
+  var gCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.gates;
+  if (!gCfg || !gCfg.length) return;
+  var pillarMat = new THREE.MeshStandardMaterial({ color: '#a04030', roughness: 0.85 });
+  var grillMat = new THREE.MeshStandardMaterial({
+    color: '#4a4a52',
+    roughness: 0.4,
+    metalness: 0.7,
+  });
+  var nameMat = new THREE.MeshStandardMaterial({
+    map: _makeGateNameTex('金福园小学'),
+    roughness: 0.7,
+  });
+  var tapeMat = new THREE.MeshBasicMaterial({ map: _makeTapeTex(), side: THREE.DoubleSide });
+  var signMat = new THREE.MeshBasicMaterial({ map: _makeSignTex(), side: THREE.DoubleSide });
+  var postMat = new THREE.MeshStandardMaterial({ color: '#666', roughness: 0.5, metalness: 0.6 });
+  var PILLAR_H = 4.5,
+    PILLAR_W = 0.6,
+    GRILL_H = 2.5,
+    TAPE_H = 1.0;
+  var grillBarGeo = new THREE.CylinderGeometry(0.04, 0.04, GRILL_H, 6);
+
+  for (var gi = 0; gi < gCfg.length; gi++) {
+    var g = gCfg[gi];
+    var width = g.width || 8.0;
+    var groundY = getTerrainHeight ? getTerrainHeight(g.cx, g.cz) : 0;
+    var gateGroup = new THREE.Group();
+    gateGroup.name = 'campus-gate';
+    gateGroup.position.set(g.cx, groundY, g.cz);
+    gateGroup.rotation.y = g.ry || 0;
+    var hw = width / 2;
+    // 门柱×2 (局部±hw)
+    var pillarGeo = new THREE.BoxGeometry(PILLAR_W, PILLAR_H, PILLAR_W);
+    [-1, 1].forEach(function (s) {
+      var pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(s * hw, PILLAR_H / 2, 0);
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      gateGroup.add(pillar);
+    });
+    // 门头横梁(校名)
+    var beamGeo = new THREE.BoxGeometry(width + PILLAR_W, 0.8, 0.6);
+    var beam = new THREE.Mesh(beamGeo, nameMat);
+    beam.position.set(0, PILLAR_H + 0.4, 0);
+    beam.castShadow = true;
+    gateGroup.add(beam);
+    // 双扇铁栅门(紧闭对开, 各halfW宽)
+    var halfW = width / 2 - 0.1;
+    [-1, 1].forEach(function (s) {
+      var railGeo = new THREE.BoxGeometry(halfW, 0.06, 0.04);
+      [0.3, GRILL_H - 0.3].forEach(function (y) {
+        var rail = new THREE.Mesh(railGeo, grillMat);
+        rail.position.set((s * halfW) / 2, y, 0);
+        gateGroup.add(rail);
+      });
+      var nBars = Math.max(3, Math.floor(halfW / 0.3));
+      for (var bi = 0; bi <= nBars; bi++) {
+        var bar = new THREE.Mesh(grillBarGeo, grillMat);
+        bar.position.set(s * (halfW - (halfW / nBars) * bi), GRILL_H / 2, 0);
+        bar.castShadow = true;
+        gateGroup.add(bar);
+      }
+    });
+    // 黄黑警戒带(门柱间横拉, 两条错开)
+    var tapeGeo = new THREE.PlaneGeometry(width, TAPE_H);
+    var tape1 = new THREE.Mesh(tapeGeo, tapeMat);
+    tape1.position.set(0, TAPE_H, 0);
+    gateGroup.add(tape1);
+    var tape2 = new THREE.Mesh(tapeGeo, tapeMat);
+    tape2.position.set(0, TAPE_H + 0.3, 0.25);
+    gateGroup.add(tape2);
+    // "禁止出入"立牌(门口外侧)
+    var signGeo = new THREE.PlaneGeometry(0.8, 1.2);
+    var sign = new THREE.Mesh(signGeo, signMat);
+    sign.position.set(0, 1.8, 0.5);
+    gateGroup.add(sign);
+    var signPostGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
+    var signPost = new THREE.Mesh(signPostGeo, postMat);
+    signPost.position.set(0, 0.9, 0.5);
+    gateGroup.add(signPost);
+
+    targetScene.add(gateGroup);
+    if (obstacleMeshes) obstacleMeshes.push(gateGroup);
+    // 碰撞: 门体polygon(type='wall'不可摧毁, 炮弹只留焦痕)
+    var cos = Math.cos(g.ry || 0),
+      sin = Math.sin(g.ry || 0);
+    var poly = [
+      [-hw, -0.3],
+      [hw, -0.3],
+      [hw, 0.3],
+      [-hw, 0.3],
+    ].map(function (p) {
+      return [g.cx + p[0] * cos - p[1] * sin, g.cz + p[0] * sin + p[1] * cos];
+    });
+    obstacleData.push({
+      x: g.cx,
+      z: g.cz,
+      radius: width / 2 + 0.3,
+      polygon: poly,
+      height: PILLAR_H,
+      type: 'wall',
+    });
+    // 半透明(相机遮挡) + 炮弹Raycaster命中
+    if (window._registerCampusBuilding) window._registerCampusBuilding(gateGroup);
+    gateGroup.traverse(function (c) {
+      if (c.isMesh && window._campusBuildings) window._campusBuildings.push(c);
+    });
+  }
+}
+
 // ── 法国梧桐树丛(从 tree_marker.html 工具标记数据生成) ──
 function createTreeZones(targetScene) {
   var tzCfg = currentMapData && currentMapData.obstacles && currentMapData.obstacles.treeZones;
@@ -2277,9 +2453,33 @@ function createGrounds(targetScene, grounds) {
 }
 
 // 沿校园 boundary 建围墙(4m 高, 不可摧毁静态障碍), 坦克被挡在校园内
-function createBoundaryWalls(targetScene, boundary) {
+function createBoundaryWalls(targetScene, boundary, gates) {
   const M = window.CampusMaterials;
   if (!M || !THREE.BoxGeometry || !boundary || boundary.length < 2) return;
+  // 校门开口: 每门算最近边 + t范围, 循环内跳过门段(校门替代墙)
+  const gateSkip = [];
+  if (gates && gates.length) {
+    for (const g of gates) {
+      let best = null;
+      for (let i = 0; i < boundary.length; i++) {
+        const a = boundary[i],
+          b = boundary[(i + 1) % boundary.length];
+        const dx = b[0] - a[0],
+          dz = b[1] - a[1];
+        const L2 = dx * dx + dz * dz;
+        let t = ((g.cx - a[0]) * dx + (g.cz - a[1]) * dz) / L2;
+        t = Math.max(0, Math.min(1, t));
+        const px = a[0] + dx * t,
+          pz = a[1] + dz * t;
+        const d = Math.hypot(g.cx - px, g.cz - pz);
+        if (!best || d < best.d) best = { edgeIdx: i, t, L: Math.sqrt(L2), d };
+      }
+      if (best) {
+        const halfT = (g.width || 8) / 2 / best.L;
+        gateSkip.push({ edgeIdx: best.edgeIdx, tLo: best.t - halfT, tHi: best.t + halfT });
+      }
+    }
+  }
   const WALL_H = 4 / 1.3; // 4米→单位
   const WALL_T = 0.5; // 墙厚(单位)
   const SEG = 12; // 每段墙最大长度(单位), 拆短段保证中心密集→checkCollision queryByDistance 覆盖, 防长墙漏检穿墙
@@ -2336,6 +2536,11 @@ function createBoundaryWalls(targetScene, boundary) {
     for (let s = 0; s < nSeg; s++) {
       const t0 = s / nSeg,
         t1 = (s + 1) / nSeg;
+      // 跳过校门段(门替代墙, 避免穿模)
+      const inGate = gateSkip.some(function (gs) {
+        return i === gs.edgeIdx && !(t1 <= gs.tLo || t0 >= gs.tHi);
+      });
+      if (inGate) continue;
       addWallSeg(a[0] + dx * t0, a[1] + dz * t0, a[0] + dx * t1, a[1] + dz * t1);
     }
   }
@@ -2938,6 +3143,7 @@ function createObstacles(targetScene = scene) {
   createToiletZones(targetScene);
   // 花坛区域(从 planter_marker.html 工具标记数据生成)
   createPlanterZones(targetScene);
+  createGates(targetScene);
   // 法国梧桐树丛(从 tree_marker.html 工具标记数据生成)
   createTreeZones(targetScene);
   // 足球子场(从 soccer_zone_marker.html 工具标记数据生成)
@@ -2945,7 +3151,7 @@ function createObstacles(targetScene = scene) {
     SportsFields.createSoccerFields(targetScene);
 
   if (obsCfg && obsCfg.boundary && obsCfg.boundary.length) {
-    createBoundaryWalls(targetScene, obsCfg.boundary);
+    createBoundaryWalls(targetScene, obsCfg.boundary, obsCfg.gates);
   }
 
   const totalTrees = conePts.length + spherePts.length + oakPts.length;
