@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.3
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.4
 
 ## 运行
 
@@ -272,6 +272,19 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.78.4 本次会话变更 (2026-07-25)
+
+### 校门系统 + hpBar 修复
+
+- **校门模型 createGates**(`js/obstacles.js`): 每门 gateGroup(门柱0.6×4.5m砖红 + 门头横梁CanvasTexture校名"金福园小学" + 双扇铁栅门紧闭对开2.5m深灰金属 + 黄黑斜纹警戒带1m×2条 + "禁止出入"立牌0.8×1.2m红圈图标); CanvasTexture辅助(\_makeGateNameTex/\_makeTapeTex/\_makeSignTex); type='wall' polygon不可摧毁 + \_registerCampusBuilding半透明 + 子mesh入\_campusBuildings炮弹命中
+- **工具页 gate_marker.html**: 照搬planter_marker框架; snapToBoundary(点击→最近boundary边投影+ry=atan2(-ez,ex)边方向+Z朝外); 宽度滑块4-15m + 旋转滑块-180~180°(每门独立); 保存POST /api/solidify {type:'gates'}
+- **draw旋转语义**: Three.js Ry(x'=x cos+z sin, z'=-x sin+z cos)统一(createGates rotation.y顺时针, 工具页draw改同向); hitZone用Ry逆(world→local)
+- **围墙开口裁剪**: createBoundaryWalls(targetScene,boundary,gates) gateSkip算每门最近边+t范围; 段[t0,t1]被门裁剪(画门外部分), 开口精确=门宽, 墙段端紧贴门柱(替代v0.78.3整段跳过致开口过大)
+- **server.py**: solidify_campus + do_POST白名单加 gates 分支
+- **数据**: `campus.obstacles.gates=[{cx,cz,width,ry,name}]`; 消费者 obstacles.js(createGates) + gate_marker.html + server.py
+- **hpBar修复**: enterGame(engine.js:7107) `hpBarGroup.visible=false`误设(应true) → 单人模式血条消失; reloadBar(7106)true正常; 拦截visible setter定位enterGame设reloadBar true但hpBar保持初始false; 7107改true
+- **改动文件**: `tools/gate_marker.html`(新) + `js/obstacles.js`(createGates+createBoundaryWalls裁剪) + `server.py`(gates分支) + `maps/campus.map.json`(gates字段) + `js/engine.js`(hpBar 7107)
 
 ## v0.78.3 本次会话变更 (2026-07-25)
 

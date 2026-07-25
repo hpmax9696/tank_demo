@@ -7947,7 +7947,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.78.3 | 花坛可被炮弹整体摧毁');
+console.log('🎮 坦克运动demo v0.78.4 | 校门系统+hpBar修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

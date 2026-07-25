@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.78.3</title>
+    <title>坦克运动demo v0.78.4</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.78.3</div>
+      <div class="menu-version">v0.78.4</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🚪 v0.78.4 校门系统+hpBar修复 — 校门(铁栅门+门柱+校名横梁+黄黑警戒带+禁止出入立牌);
+          工具页gate_marker打点snap沿围墙边+宽度/旋转滑块; 围墙开口裁剪精确=门宽; createGates模型;
+          server gates分支; 单人hpBar.visible误设false修复
+        </div>
+        <div class="cl-title">
           🌸 v0.78.3 花坛可被炮弹整体摧毁 — obstacleData height 0.5→5(含树木, 炮弹打任意部位命中);
           groupRef
           planterGroup+hideOnly软删除(visible=false不dispose共享几何ringGeo/soilGeo/TreeModels,
@@ -846,13 +851,8 @@
           厕所AABB→polygon精确贴合; 天桥入_campusBuildings; HE溅射不可摧毁守卫;
           墙面焦痕法线世界空间转换; F9厕所碰撞体调试可视化
         </div>
-        <div class="cl-title">
-          🌲 v0.77.0 法国梧桐树丛+厕所窗户 — 工具页打点放置梧桐树丛(每点3-5棵9-12m);
-          精细程序化模型(树干+5枝+70椭球穹顶冠+种子球)+InstancedMesh渲染+campus.treeZones;
-          厕所楼男女厕前墙贴面窗户(框+玻璃,不挖洞); plane_tree.js(260行)+tree_marker.html(320行)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.78.3~v0.77.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.78.4~v0.78.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
