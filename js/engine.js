@@ -7101,7 +7101,7 @@ async function enterGame() {
     visibilityTimer = 0;
     updateObstacleVisibility();
     if (reloadBarGroup) reloadBarGroup.visible = true;
-    if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = false;
+    if (player1 && player1.hpBarGroup) player1.hpBarGroup.visible = true;
     if (player1 && player1.shellLabel) player1.shellLabel.visible = true;
     placeCamera();
     initAudio();
