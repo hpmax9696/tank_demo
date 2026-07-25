@@ -441,7 +441,13 @@ function createFootprintBuildings(targetScene, fps) {
   var M = window.CampusMaterials;
   if (!M || !THREE.ExtrudeGeometry) return;
   window._campusBuildings = [];
-  window._campusBuildingGroups = []; // 建筑顶层Group(相机半透明用, 区别于_campusBuildings的mesh级炮弹检测)
+  window._campusBuildingGroups = []; // 建筑顶层对象(相机半透明用, 区别于_campusBuildings的mesh级炮弹检测)
+  window._registerCampusBuilding = function (obj) {
+    // 标记建筑对象(Group或mesh)+收集到_campusBuildingGroups(射线检测+fade用)
+    if (!obj || !obj.userData) return;
+    obj.userData._isCampusBuilding = true;
+    window._campusBuildingGroups.push(obj);
+  };
   // B7 双栋参数(数据驱动, fallback 硬编码) — 来自 obstacles.b7_buildings
   var _campusB7Buildings =
     currentMapData && currentMapData.obstacles && currentMapData.obstacles.b7_buildings
@@ -1119,6 +1125,7 @@ function createFootprintBuildings(targetScene, fps) {
           _shellMesh.receiveShadow = true;
           _shellMesh.name = 'campus-dome';
           targetScene.add(_shellMesh);
+          window._registerCampusBuilding(_shellMesh);
           obstacleMeshes.push(_shellMesh);
           // 拱顶加入_campusBuildings用于炮弹Raycaster碰撞检测
           if (window._campusBuildings) window._campusBuildings.push(_shellMesh);
@@ -1214,6 +1221,7 @@ function createFootprintBuildings(targetScene, fps) {
             _w.cz - (_extLen / 2) * Math.sin(_ry)
           );
           targetScene.add(_domeGrp);
+          window._registerCampusBuilding(_domeGrp);
           obstacleMeshes.push(_domeGrp);
 
           // 拱顶壳
@@ -1717,6 +1725,7 @@ function createFootprintBuildings(targetScene, fps) {
     _bmesh.receiveShadow = true;
     _bmesh.name = 'campus-bridge';
     targetScene.add(_bmesh);
+    window._registerCampusBuilding(_bmesh);
     obstacleMeshes.push(_bmesh); // 不push obstacleData→坦克可从桥下穿行(桥是空中连廊)
     if (window._campusBuildings) window._campusBuildings.push(_bmesh); // 炮弹Raycaster可命中桥体
   }
@@ -2288,6 +2297,7 @@ function createBoundaryWalls(targetScene, boundary) {
     mesh.receiveShadow = true;
     mesh.name = 'campus-wall';
     targetScene.add(mesh);
+    window._registerCampusBuilding(mesh);
     obstacleMeshes.push(mesh);
     if (window._campusBuildings) window._campusBuildings.push(mesh);
     const nx = -dz / L,

@@ -4507,9 +4507,12 @@ function placeCamera() {
   // 相机遮挡: cam→tank射线被建筑挡时, 整栋建筑半透明(替代有振荡缺陷的前移避障)
   // 相机不动 → 命中集稳定 → 无闪烁。前移避阵有几何反馈循环(原位命中→前移→新射线边界不命中→回原位→振荡)
   var _groups = window._campusBuildingGroups;
-  window._hullOccluded = false;
+  // 注意: 不每帧设_hullOccluded=false(检测每150ms一次, 非检测帧设false会让小地图每150ms闪烁)
+  // 只在检测帧更新; 非检测帧保持上次值(稳定)。_groups为空时才设false
   var _now = performance.now();
-  if (_groups && _groups.length && window.THREE && _now - _lastOccluCheck >= _OCCLU_INTERVAL) {
+  if (!_groups || !_groups.length) {
+    window._hullOccluded = false;
+  } else if (window.THREE && _now - _lastOccluCheck >= _OCCLU_INTERVAL) {
     _lastOccluCheck = _now;
     var _camPos = camera.position;
     var _tankPos = new THREE.Vector3(_camX, groundY + 1.5, _camZ);
