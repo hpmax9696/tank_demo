@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.2
 
 ## 运行
 
@@ -272,6 +272,28 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.78.2 本次会话变更 (2026-07-25)
+
+### 相机建筑遮挡半透明（替代前移避障）
+
+- **移除前移避障+纯半透明**: placeCamera移除前移避障(几何反馈循环: 原位命中→前移→新射线边界不命中→回原位→振荡→"边缘角度"现象); 改为整栋建筑半透明(opacity 0.35); 相机不动→命中集稳定→无闪烁。小地图 `_hullOccluded = 命中集非空`
+- **setBuildingFade**: `window.setBuildingFade(group, opacity)` 按材质 uuid 去重 clone(`transparent+DoubleSide+depthWrite=false`); DoubleSide 解决相机穿入建筑内 FrontSide 背面剔除(墙消失附件浮空); 首次 clone 缓存后续零开销; 支持材质数组 `[wallMat, roofMat]`
+- **墙mesh纳入bldGroup**: 墙mesh(campus-bld)原本直接 `targetScene.add` 不在 bldGroup(campus-bld-detail)→fade 漏墙 + 射线 `intersectObjects(bldGroup树)` 检测不到墙(完全被挡无半透明/墙消失附件浮空); 纳入 bldGroup(清自身变换, bldGroup 提供同变换 `rotation.x=-PI/2 + stiltY`)
+- **围墙/天桥/B7纳入**: `_registerCampusBuilding(obj)` 辅助函数标记 `_isCampusBuilding` + push `_campusBuildingGroups`; 4 处调用(体育馆壳 `_shellMesh` / B7拱顶 `_domeGrp` / 天桥 `_bmesh` / 围墙 46 段); 实测 56 建筑对象全标记
+- **placeCamera半透明状态机**: 降频 150ms 射线 `intersectObjects(_campusBuildingGroups, true)` recursive; 命中 mesh 沿 parent 链找 `_isCampusBuilding` Group; diff 命中集(新增 fade 0.35 / 移除恢复 1)
+- **小地图闪烁修复**: placeCamera 原每帧开头 `_hullOccluded=false` 但检测每 150ms→非检测帧(约9帧) false 导致小地图每 150ms 闪; 改为只在检测帧更新, 非检测帧保持上次值
+- **半透明时瞄准穿透**: `_filterAimTargets(arr)` 过滤 `_fadedGroups`(当前半透明建筑)+parent 链; updateAiming + 狙击/六足两处替换; 半透明时瞄准射线穿过半透明建筑命中后面目标; 非半透明时 `_fadedGroups` 空返回原 arr(零影响)
+- **新增数据结构/全局**: `window._campusBuildingGroups`(建筑顶层对象列表); `window._registerCampusBuilding(obj)`; `window.setBuildingFade(group, opacity)`; engine.js 模块级 `_fadedGroups`(Set) / `_lastOccluCheck` / `_OCCLU_INTERVAL=150`
+- **改动文件**: `js/engine.js`(placeCamera 移除前移+半透明状态机+`_filterAimTargets`) + `js/obstacles.js`(`_campusBuildingGroups` 初始化 + `setBuildingFade` + `_registerCampusBuilding` + 墙mesh 纳入 bldGroup + 4 处标记)
+
+## v0.78.1 本次会话变更 (2026-07-25)
+
+### 厕所碰撞体点变换 + 炮弹递归命中修复
+
+- **厕所碰撞polygon点变换**: 盒变换(`Box3.applyMatrix4` 对轴对齐盒旋转取 8 角 AABB 会膨胀)→点变换(8 角逐个 `applyMatrix4`); 修复旋转楼体进深 5.5m→20.38m(3.7 倍); 实测进深 20.38→6.94m 贴合墙体, 每侧少挡 6.7m
+- **炮弹Raycaster递归**: `intersectObjects(_cb, false)`→`true`; 修复厕所以 Group(无 geometry)入 `_campusBuildings` 时非递归不命中→炮弹穿楼无飞溅/焦痕/地面音效; 命中后 spawnFragments+spawnHitSparks+playGroundHitSound+spawnWallScorchMark
+- **改动文件**: `js/obstacles.js`(厕所碰撞polygon点变换) + `js/engine.js`(炮弹 Raycaster recursive)
 
 ## v0.78.0 本次会话变更 (2026-07-20)
 

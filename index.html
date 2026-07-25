@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.78.1</title>
+    <title>坦克运动demo v0.78.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.78.1</div>
+      <div class="menu-version">v0.78.2</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          📷 v0.78.2 相机建筑遮挡半透明 — 移除前移避障(几何反馈循环振荡)+纯半透明(DoubleSide
+          clone材质去重); 墙mesh纳入bldGroup统一fade; 围墙/天桥/B7拱顶/体育馆壳标记纳入;
+          小地图闪烁修复(检测帧更新); 半透明时瞄准穿透(_filterAimTargets)
+        </div>
+        <div class="cl-title">
           🐛 v0.78.1 厕所碰撞体+炮弹命中修复 — 厕所碰撞polygon点变换(进深20.38→6.94m贴合墙体,
           替代膨胀的盒变换Box3.applyMatrix4);
           炮弹Raycaster递归命中厕所Group(修复飞溅/焦痕/地面音效缺失, false→true)
@@ -844,12 +849,8 @@
           🌳 v0.76.0 花坛打点系统 — 工具页点击放置ø2m圆形花坛(环柱墙0.5m高×0.3m厚)+中心5m球形树;
           数据存 campus.obstacles.planterZones; 碰撞体r=1.0坦克不可穿过; server.py+5行
         </div>
-        <div class="cl-title">
-          🏗️ v0.75.0 二层厕所楼重构+篮球场蓝色塑胶 — 独立建模移植(v8加宽,双跑并排楼梯+平台梁柱+
-          SVG标志+蹲位洁具+栏杆); 4篮球场草地→蓝底+中圈禁区红色; 厕所楼进深7→5.5m+平移1.7m
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.78.1~v0.75.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.78.2~v0.76.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
