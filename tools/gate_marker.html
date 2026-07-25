@@ -278,7 +278,7 @@
             [hw, -hd],
             [hw, hd],
             [-hw, hd],
-          ].map(([x, z]) => w2c(g.cx + x * cos - z * sin, g.cz + x * sin + z * cos));
+          ].map(([x, z]) => w2c(g.cx + x * cos + z * sin, g.cz - x * sin + z * cos));
           ctx.fillStyle = sel ? 'rgba(120,160,255,0.35)' : 'rgba(74,74,82,0.5)';
           ctx.strokeStyle = sel ? '#fff' : '#4a4a52';
           ctx.lineWidth = sel ? 2.5 : 1.5;
@@ -289,7 +289,7 @@
           ctx.stroke();
           ctx.fillStyle = '#a04030';
           for (const s of [-1, 1]) {
-            const pp = w2c(g.cx + s * hw * cos, g.cz + s * hw * sin);
+            const pp = w2c(g.cx + s * hw * cos, g.cz - s * hw * sin);
             ctx.fillRect(pp.x - 4, pp.y - 4, 8, 8);
           }
           ctx.strokeStyle = '#f0c020';
@@ -386,8 +386,8 @@
             wz = mcz - (cy - ccy) / scale;
           const dx = wx - g.cx,
             dz = wz - g.cz;
-          const cos = Math.cos(-g.ry),
-            sin = Math.sin(-g.ry);
+          const cos = Math.cos(g.ry),
+            sin = Math.sin(g.ry);
           const lx = dx * cos - dz * sin,
             lz = dx * sin + dz * cos;
           if (Math.abs(lx) < g.width / 2 + 0.5 && Math.abs(lz) < 0.6) return i;

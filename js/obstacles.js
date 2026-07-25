@@ -2536,12 +2536,31 @@ function createBoundaryWalls(targetScene, boundary, gates) {
     for (let s = 0; s < nSeg; s++) {
       const t0 = s / nSeg,
         t1 = (s + 1) / nSeg;
-      // 跳过校门段(门替代墙, 避免穿模)
-      const inGate = gateSkip.some(function (gs) {
-        return i === gs.edgeIdx && !(t1 <= gs.tLo || t0 >= gs.tHi);
-      });
-      if (inGate) continue;
-      addWallSeg(a[0] + dx * t0, a[1] + dz * t0, a[0] + dx * t1, a[1] + dz * t1);
+      // 段被校门裁剪: 画门外部分(开口精确=门宽, 门柱紧密连接围墙)
+      let segs = [{ t0: t0, t1: t1 }];
+      for (let gi2 = 0; gi2 < gateSkip.length; gi2++) {
+        const gs = gateSkip[gi2];
+        if (i !== gs.edgeIdx) continue;
+        const cut = [];
+        for (let si2 = 0; si2 < segs.length; si2++) {
+          const seg = segs[si2];
+          if (seg.t1 <= gs.tLo || seg.t0 >= gs.tHi) {
+            cut.push(seg);
+            continue;
+          }
+          if (seg.t0 < gs.tLo) cut.push({ t0: seg.t0, t1: gs.tLo });
+          if (seg.t1 > gs.tHi) cut.push({ t0: gs.tHi, t1: seg.t1 });
+        }
+        segs = cut;
+      }
+      for (let si3 = 0; si3 < segs.length; si3++) {
+        addWallSeg(
+          a[0] + dx * segs[si3].t0,
+          a[1] + dz * segs[si3].t0,
+          a[0] + dx * segs[si3].t1,
+          a[1] + dz * segs[si3].t1
+        );
+      }
     }
   }
 }
