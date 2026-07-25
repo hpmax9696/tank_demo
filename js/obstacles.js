@@ -2038,13 +2038,15 @@ function createPlanterZones(targetScene) {
     targetScene.add(planterGroup);
     if (obstacleMeshes) obstacleMeshes.push(planterGroup);
 
-    // 碰撞登记(简单圆柱, 坦克不可穿过花坛)
+    // 碰撞登记(简单圆柱, 坦克不可穿过花坛; height含树木高度让炮弹打任意部位都命中→整体摧毁)
     obstacleData.push({
       x: pz.cx,
       z: pz.cz,
       radius: PLANTER_OUTER_R,
-      height: WALL_HEIGHT,
+      height: 5.0, // 含树木(5m), 炮弹任意高度命中花坛→整体摧毁
       type: 'building',
+      groupRef: planterGroup, // 摧毁时隐藏整个花坛(墙+泥土+树木)
+      hideOnly: true, // 共享几何(ringGeo/soilGeo/TreeModels)→软删除visible=false不dispose(同球门)
     });
   }
 }

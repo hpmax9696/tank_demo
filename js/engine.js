@@ -2654,14 +2654,19 @@ function gameLoop() {
             if (od.type === 'building') {
               if (od.groupRef) {
                 const obs = od.groupRef;
-                if (obs.parent) obs.parent.remove(obs);
-                obs.traverse((c) => {
-                  if (c.geometry) c.geometry.dispose();
-                  // campus- 前缀 = 模块级共享材质(球场/球门/篮球架), 绝不 dispose
-                  if (c.material && !String(c.name).startsWith('campus-')) c.material.dispose();
-                });
-                const meshIdx = obstacleMeshes.indexOf(obs);
-                if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                if (od.hideOnly) {
+                  // 软删除(共享几何/材质不dispose): 花坛ringGeo/soilGeo/TreeModels等
+                  obs.visible = false;
+                } else {
+                  if (obs.parent) obs.parent.remove(obs);
+                  obs.traverse((c) => {
+                    if (c.geometry) c.geometry.dispose();
+                    // campus- 前缀 = 模块级共享材质(球场/球门/篮球架), 绝不 dispose
+                    if (c.material && !String(c.name).startsWith('campus-')) c.material.dispose();
+                  });
+                  const meshIdx = obstacleMeshes.indexOf(obs);
+                  if (meshIdx >= 0) obstacleMeshes.splice(meshIdx, 1);
+                }
               } else if (od.imBuilding) {
                 disposeBuildingInstance(od);
               }
