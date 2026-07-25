@@ -2551,7 +2551,9 @@ function gameLoop() {
         if (_slen > 0.001) {
           _sdir.normalize();
           const _rcS = new THREE.Raycaster(prevPos, _sdir, 0, _slen + 0.5);
-          const _bhits = _rcS.intersectObjects(window._campusBuildings, false);
+          // recursive=true: 厕所createToilet返回Group(无geometry), 非递归不命中(炮弹穿楼无效果);
+          // 其他建筑(围墙/B7/天桥)都是Mesh, 递归无害。实测: false命中0, true命中厕所墙面
+          const _bhits = _rcS.intersectObjects(window._campusBuildings, true);
           if (_bhits.length > 0) {
             const _bp = _bhits[0].point.clone();
             spawnFragments(_bp, '#d4c5a9');
@@ -7901,7 +7903,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.78.0 | 校园架空层车棚碰撞修复+厕所天桥碰撞+HE守卫+焦痕');
+console.log('🎮 坦克运动demo v0.78.1 | 厕所碰撞体点变换+炮弹递归命中修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

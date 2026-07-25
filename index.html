@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.78.0</title>
+    <title>坦克运动demo v0.78.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.78.0</div>
+      <div class="menu-version">v0.78.1</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,11 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🐛 v0.78.1 厕所碰撞体+炮弹命中修复 — 厕所碰撞polygon点变换(进深20.38→6.94m贴合墙体,
+          替代膨胀的盒变换Box3.applyMatrix4);
+          炮弹Raycaster递归命中厕所Group(修复飞溅/焦痕/地面音效缺失, false→true)
+        </div>
+        <div class="cl-title">
           🔧 v0.78.0 校园架空层与车棚碰撞体修复 —
           checkCollision增加minY高度感知;教学楼B5架空层polygon+minY;
           车棚四角柱碰撞+拱顶入_campusBuildings; B7室内运动场dome子mesh炮弹碰撞;
@@ -843,13 +848,8 @@
           🏗️ v0.75.0 二层厕所楼重构+篮球场蓝色塑胶 — 独立建模移植(v8加宽,双跑并排楼梯+平台梁柱+
           SVG标志+蹲位洁具+栏杆); 4篮球场草地→蓝底+中圈禁区红色; 厕所楼进深7→5.5m+平移1.7m
         </div>
-        <div class="cl-title">
-          ⚽ v0.73.0 球场标线+球门+篮球架 — 足球场2子场标线+4球门(双柱可碎,撞门框停);
-          4篮球场5人/3人制标线+8篮球架(筐高3.05m/2.6m); 整场CanvasTexture标线+UV重映射;
-          厕所标志修复(墙内侧→外墙+sRGB色+降至0.616墙高)+高窗外置抬高
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.78.0~v0.73.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.78.1~v0.75.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

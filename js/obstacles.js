@@ -1779,26 +1779,34 @@ function createToiletZones(targetScene) {
     if (obstacleMeshes) obstacleMeshes.push(inst);
 
     var ud = inst.userData;
-    // 厕所碰撞: 从世界空间提取局部AABB再逆变换, 自动适配所有嵌套Group旋转
-    inst.updateMatrixWorld();
-    // 1) 厕所世界空间AABB → 逆变换回inst局部空间 → 得旋转对齐的紧致AABB
-    var _worldBox = new THREE.Box3().setFromObject(inst);
+    // 厕所碰撞: 点变换取楼体真实footprint(轴对齐), 4角正变换为世界旋转矩形
+    // 注: 不能对轴对齐Box3做带旋转的applyMatrix4(盒变换=取8角AABB, 斜放后膨胀)——
+    //     inst有旋转时进深方向实测膨胀3.7倍(5.5m→20.38m)。必须用8角点逐个applyMatrix4(点变换不膨胀),
+    //     再union成inst局部AABB(楼体innerG仅Ry(π)+平移, 在inst局部轴对齐, AABB精确贴合)。
+    inst.updateMatrixWorld(true);
     var _invWorld = new THREE.Matrix4().copy(inst.matrixWorld).invert();
     var _localBox = new THREE.Box3();
-    for (var _cx = 0; _cx < 2; _cx++) {
-      for (var _cy = 0; _cy < 2; _cy++) {
-        for (var _cz = 0; _cz < 2; _cz++) {
-          var _wc = new THREE.Vector3(
-            _cx ? _worldBox.max.x : _worldBox.min.x,
-            _cy ? _worldBox.max.y : _worldBox.min.y,
-            _cz ? _worldBox.max.z : _worldBox.min.z
-          );
-          _wc.applyMatrix4(_invWorld);
-          _localBox.expandByPoint(_wc);
-        }
+    var _m4 = new THREE.Matrix4();
+    var _pt = new THREE.Vector3();
+    inst.traverse(function (child) {
+      if (child.isMesh && child.geometry) {
+        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+        var _bb = child.geometry.boundingBox;
+        _m4.multiplyMatrices(_invWorld, child.matrixWorld); // P' = invWorld × meshWorld × P → inst局部
+        for (var _i = 0; _i < 2; _i++)
+          for (var _j = 0; _j < 2; _j++)
+            for (var _k = 0; _k < 2; _k++) {
+              _pt.set(
+                _i ? _bb.max.x : _bb.min.x,
+                _j ? _bb.max.y : _bb.min.y,
+                _k ? _bb.max.z : _bb.min.z
+              );
+              _pt.applyMatrix4(_m4);
+              _localBox.expandByPoint(_pt);
+            }
       }
-    }
-    // 2) 局部AABB底部4角 → inst世界矩阵 → 世界空间旋转矩形polygon
+    });
+    // 局部AABB底部4角 → inst世界矩阵 → 世界空间旋转矩形polygon
     var _lc = [
       new THREE.Vector3(_localBox.min.x, _localBox.min.y, _localBox.min.z),
       new THREE.Vector3(_localBox.max.x, _localBox.min.y, _localBox.min.z),
