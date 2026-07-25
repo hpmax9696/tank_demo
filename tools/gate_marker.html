@@ -137,8 +137,12 @@
         ⌨️ Delete/Backspace = 删除选中
       </div>
       <div class="slider-row">
-        <label>门宽: <span id="w-val">8.0</span>m (选中门后调节)</label>
+        <label>门宽: <span id="w-val">8.0</span>m</label>
         <input type="range" id="width-slider" min="4" max="15" step="0.5" value="8" disabled />
+      </div>
+      <div class="slider-row">
+        <label>门朝向: <span id="r-val">0°</span></label>
+        <input type="range" id="rot-slider" min="-180" max="180" step="5" value="0" disabled />
       </div>
       <button class="btn btn-red" onclick="deleteSelected()">🗑 删除选中</button>
       <button class="btn btn-gray" onclick="clearAll()">🗑 清空全部</button>
@@ -238,13 +242,14 @@
           const dist = Math.hypot(wx - px, wz - pz);
           if (!best || dist < best.dist) best = { px, pz, dist, ex, ez, L: Math.sqrt(L2) };
         }
-        let nx = -best.ez / best.L,
-          nz = best.ex / best.L;
-        if ((best.px - cx0) * nx + (best.pz - cz0) * nz < 0) {
-          nx = -nx;
-          nz = -nz;
+        // 门轴沿边(局部X沿ex,ez方向, 门平行围墙), +Z=法向n(-ez,ex)朝外(立牌/警戒带朝外)
+        let zx = -best.ez / best.L,
+          zz = best.ex / best.L;
+        let ry = Math.atan2(-best.ez, best.ex); // 门轴沿边方向
+        if ((best.px - cx0) * zx + (best.pz - cz0) * zz < 0) {
+          ry += Math.PI; // +Z朝内 → 反向(门轴反向门对称, +Z朝外)
         }
-        return { cx: best.px, cz: best.pz, ry: Math.atan2(nz, nx) };
+        return { cx: best.px, cz: best.pz, ry: ry };
       }
 
       function draw() {
@@ -348,13 +353,21 @@
           .join('');
         const slider = document.getElementById('width-slider');
         const wval = document.getElementById('w-val');
+        const rslider = document.getElementById('rot-slider');
+        const rval = document.getElementById('r-val');
         if (selIdx >= 0) {
           slider.disabled = false;
           slider.value = zones[selIdx].width;
           wval.textContent = zones[selIdx].width.toFixed(1);
+          rslider.disabled = false;
+          const deg = Math.round((zones[selIdx].ry * 180) / Math.PI);
+          rslider.value = deg;
+          rval.textContent = deg + '°';
         } else {
           slider.disabled = true;
           wval.textContent = '—';
+          rslider.disabled = true;
+          rval.textContent = '—';
         }
       }
 
@@ -429,6 +442,13 @@
         if (selIdx >= 0) {
           zones[selIdx].width = parseFloat(e.target.value);
           document.getElementById('w-val').textContent = zones[selIdx].width.toFixed(1);
+          draw();
+        }
+      });
+      document.getElementById('rot-slider').addEventListener('input', (e) => {
+        if (selIdx >= 0) {
+          zones[selIdx].ry = (parseFloat(e.target.value) * Math.PI) / 180;
+          document.getElementById('r-val').textContent = e.target.value + '°';
           draw();
         }
       });
