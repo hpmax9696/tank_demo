@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.2
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.3
 
 ## 运行
 
@@ -272,6 +272,16 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.78.3 本次会话变更 (2026-07-25)
+
+### 花坛可被炮弹整体摧毁
+
+- **根因**: createPlanterZones obstacleData `height=WALL_HEIGHT(0.5)` 只墙高 → 炮弹打树木上部(y>0.8)超 `obsTopLimit` 跳过圆柱 → 穿过; 且无 `groupRef` → 摧毁逻辑不触发; 共享几何(ringGeo/soilGeo/TreeModels)不能 dispose
+- **修复**: obstacleData `height 0.5→5`(含树木, 炮弹打任意部位命中圆柱) + `groupRef=planterGroup` + `hideOnly=true`; 摧毁逻辑 `od.hideOnly → visible=false` 软删除(不 dispose 共享几何, 同球门做法)
+- **实测**: 12 花坛 height=5+hideOnly+groupRef, visible 可控, 0 错误
+- **改动文件**: `js/obstacles.js`(createPlanterZones obstacleData) + `js/engine.js`(炮弹摧毁逻辑 hideOnly 分支)
+- **新增 obstacleData 字段**: `hideOnly`(布尔, 摧毁时 visible=false 不 dispose 共享几何)
 
 ## v0.78.2 本次会话变更 (2026-07-25)
 

@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.78.2
+# CODEBUDDY.md — v0.78.3
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
