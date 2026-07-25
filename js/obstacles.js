@@ -441,6 +441,7 @@ function createFootprintBuildings(targetScene, fps) {
   var M = window.CampusMaterials;
   if (!M || !THREE.ExtrudeGeometry) return;
   window._campusBuildings = [];
+  window._campusBuildingGroups = []; // 建筑顶层Group(相机半透明用, 区别于_campusBuildings的mesh级炮弹检测)
   // B7 双栋参数(数据驱动, fallback 硬编码) — 来自 obstacles.b7_buildings
   var _campusB7Buildings =
     currentMapData && currentMapData.obstacles && currentMapData.obstacles.b7_buildings
@@ -1636,6 +1637,8 @@ function createFootprintBuildings(targetScene, fps) {
       bldGroup.position.y = _stiltY;
       bldGroup.rotation.x = -Math.PI / 2;
       targetScene.add(bldGroup);
+      bldGroup.userData._isCampusBuilding = true;
+      window._campusBuildingGroups.push(bldGroup);
       obstacleMeshes.push(mesh);
       obstacleMeshes.push(bldGroup);
     }
@@ -1776,6 +1779,8 @@ function createToiletZones(targetScene) {
     inst.rotation.y = tz.ry + baseRot + (Math.PI * 148) / 180;
     inst.name = 'toilet';
     targetScene.add(inst);
+    inst.userData._isCampusBuilding = true;
+    window._campusBuildingGroups.push(inst);
     if (obstacleMeshes) obstacleMeshes.push(inst);
 
     var ud = inst.userData;
@@ -1888,6 +1893,49 @@ function createToiletZones(targetScene) {
     window._toiletDebugGroups.push(_dbgGrp);
   }
 }
+
+// 建筑整体半透明(相机遮挡时): 按材质去重clone(DoubleSide解决相机在内背面剔除), 缓存避免重复clone
+window.setBuildingFade = function (group, opacity) {
+  if (!group || !group.userData) return;
+  // 首次: 按材质uuid去重clone, 一次性建好fade副本
+  if (opacity < 1 && !group.userData._fadeReady) {
+    var matMap = {}; // orig.uuid -> fadeMat
+    var fades = [];
+    group.traverse(function (c) {
+      if (!c.isMesh || !c.material) return;
+      var orig = c.material;
+      if (!c.userData._origMat) c.userData._origMat = orig;
+      var key = orig.uuid;
+      var fade = matMap[key];
+      if (!fade) {
+        fade = orig.clone();
+        fade.transparent = true;
+        fade.side = THREE.DoubleSide; // 相机穿入建筑内时背面也渲染(不再背面剔除消失)
+        fade.depthWrite = false; // 避免透明排序穿模
+        fade.opacity = 1;
+        matMap[key] = fade;
+        fades.push(fade);
+      }
+      c.userData._fadeMat = fade;
+    });
+    group.userData._fadeMats = fades;
+    group.userData._fadeReady = true;
+  }
+  if (opacity < 1) {
+    // 应用半透明: 设opacity + 切到fade副本
+    for (var i = 0; i < group.userData._fadeMats.length; i++) {
+      group.userData._fadeMats[i].opacity = opacity;
+    }
+    group.traverse(function (c) {
+      if (c.isMesh && c.userData._fadeMat) c.material = c.userData._fadeMat;
+    });
+  } else if (group.userData._fadeReady) {
+    // 恢复: 切回原材质
+    group.traverse(function (c) {
+      if (c.isMesh && c.userData._origMat) c.material = c.userData._origMat;
+    });
+  }
+};
 
 // ── 花坛区域(planterZones: 每个位置生成圆形环柱花坛+中心树木) ──
 function createPlanterZones(targetScene) {

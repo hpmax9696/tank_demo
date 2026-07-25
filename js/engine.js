@@ -4301,6 +4301,10 @@ const CAMERA_BEHIND_VS = 14.4; // 双人模式后方距离
 const CAMERA_ABOVE_VS = 9.5; // 双人模式上方高度
 const CAMERA_LOOK_Y = 2.5; // lookAt 高度-单人模式（抬高视线，坦克下移到下1/3处）
 const CAMERA_LOOK_Y_VS = 2.8; // lookAt 高度-双人模式
+// 相机建筑遮挡半透明状态机
+let _fadedGroups = new Set(); // 当前半透明的建筑Group
+let _lastOccluCheck = 0; // 上次检测时间(performance.now)
+const _OCCLU_INTERVAL = 150; // 检测间隔ms(降频, 避免每帧射线+材质切换开销)
 const CAMERA_MOUSE_SENSITIVITY = 0.004; // 鼠标灵敏度 (rad/px)
 let cameraYaw = 0; // 摄像机偏航角，由鼠标横轴累积驱动
 
@@ -4500,10 +4504,13 @@ function placeCamera() {
     groundY + CAMERA_ABOVE + shakeY,
     _camZ - cfz * CAMERA_BEHIND + shakeZ
   );
-  // 相机避障: 相机→坦克视线被建筑挡时, 相机升高到该建筑顶以上(越过建筑俯视坦克, 不停在墙前)
-  var _cb = window._campusBuildings;
+  // 相机遮挡: cam→tank射线被建筑挡时, 整栋建筑半透明(替代有振荡缺陷的前移避障)
+  // 相机不动 → 命中集稳定 → 无闪烁。前移避阵有几何反馈循环(原位命中→前移→新射线边界不命中→回原位→振荡)
+  var _groups = window._campusBuildingGroups;
   window._hullOccluded = false;
-  if (_cb && _cb.length && window.THREE) {
+  var _now = performance.now();
+  if (_groups && _groups.length && window.THREE && _now - _lastOccluCheck >= _OCCLU_INTERVAL) {
+    _lastOccluCheck = _now;
     var _camPos = camera.position;
     var _tankPos = new THREE.Vector3(_camX, groundY + 1.5, _camZ);
     var _rd = new THREE.Vector3().subVectors(_tankPos, _camPos);
@@ -4511,13 +4518,29 @@ function placeCamera() {
     if (_rl > 1) {
       _rd.normalize();
       var _ray = new THREE.Raycaster(_camPos, _rd, 0, _rl);
-      var _hh = _ray.intersectObjects(_cb, false);
-      if (_hh.length > 0 && _hh[0].distance < _rl - 1) {
-        window._hullOccluded = true;
-        // 前移到坦克后方3单位(越过中间的建筑, 让建筑落到相机身后不挡视线) + 下降平视(不俯视突兀)
-        camera.position.copy(_tankPos).addScaledVector(_rd, -3);
-        camera.position.y = _tankPos.y + 1.2;
+      var _hh = _ray.intersectObjects(_groups, true); // recursive: 命中Group子mesh(含厕所Group)
+      // 收集命中建筑Group(命中mesh沿parent链找_isCampusBuilding)
+      var _hitGroups = new Set();
+      for (var _hi = 0; _hi < _hh.length; _hi++) {
+        var _p = _hh[_hi].object;
+        while (_p && !_p.userData._isCampusBuilding) _p = _p.parent;
+        if (_p) _hitGroups.add(_p);
       }
+      window._hullOccluded = _hitGroups.size > 0;
+      // 新命中 → fade(0.35)
+      _hitGroups.forEach(function (g) {
+        if (!_fadedGroups.has(g)) {
+          window.setBuildingFade(g, 0.35);
+          _fadedGroups.add(g);
+        }
+      });
+      // 不再命中 → 恢复(切回原材质)
+      _fadedGroups.forEach(function (g) {
+        if (!_hitGroups.has(g)) {
+          window.setBuildingFade(g, 1);
+          _fadedGroups.delete(g);
+        }
+      });
     }
   }
   camera.lookAt(_camX + cfx * 8, groundY + CAMERA_LOOK_Y, _camZ + cfz * 8);
