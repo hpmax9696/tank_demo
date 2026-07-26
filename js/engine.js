@@ -1988,6 +1988,10 @@ function gameLoop() {
     camera.updateProjectionMatrix();
 
     const dt = Math.min(clock.getDelta(), 0.1); // 防止大帧间隔
+    // P3: 校园丧尸刷新(每帧计时, 仅 spawnConfig.enabled 激活时)
+    if (window.CampusSpawner && CampusSpawner.isActive()) {
+      CampusSpawner.update(dt, currentMapData, enemies, scene, getGroundHeight);
+    }
     // ── 天空系统更新 ──
     if (typeof SkySystem !== 'undefined') SkySystem.update(dt);
     // ── 首次进入游戏时请求指针锁定 ──
@@ -5494,6 +5498,17 @@ function createEnemies() {
         '🔄 分散巡逻起点: ' + enemies.length + '辆车 | 路线长度=' + pathLen + ' | 分布在路径上'
       );
     }
+  }
+  // P3: 校园刷新系统(仅 spawnConfig.enabled 激活, 其他地图零影响)
+  if (window.CampusSpawner && CampusSpawner.init(currentMapData)) {
+    CampusSpawner.initialPopulate(
+      currentMapData,
+      enemies,
+      scene,
+      getGroundHeight,
+      worldHalfW,
+      worldHalfD
+    );
   }
 }
 
