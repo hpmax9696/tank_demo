@@ -5403,7 +5403,7 @@ function createEnemies() {
       model.userData._noTerrainPitch = true;
     }
     // AI 运行时数据
-    const isZombieAI = ecfg.type === 'zombie';
+    const isZombieAI = model.userData.enemyType === 'zombie';
     const isHexapodAI = ecfg.type === 'hexapod';
     model.ai = {
       state: isZombieAI ? 'idle' : 'patrol', // 丧尸从 IDLE 起步
