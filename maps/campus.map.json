@@ -559,5 +559,18 @@
         "cz": -47.526211764705884
       }
     ]
+  },
+  "spawnConfig": {
+    "enabled": true,
+    "initialCount": 15,
+    "interval": 20,
+    "batch": 6,
+    "cap": 30,
+    "ratio": {
+      "student_m": 0.4,
+      "student_f": 0.35,
+      "teacher_m": 0.15,
+      "teacher_f": 0.1
+    }
   }
 }

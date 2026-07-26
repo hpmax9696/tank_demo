@@ -149,6 +149,12 @@ def solidify_campus(payload):
     # 校门 gates (gate_marker.html 保存, 每门width独立)
     if payload.get('type') == 'gates' and 'zones' in payload and payload['zones'] is not None:
         obs['gates'] = payload['zones']
+    # 校园敌人 + 刷新配置 (enemy_marker.html 保存, 顶层字段而非 obstacles 内)
+    if payload.get('type') == 'enemies':
+        if 'enemies' in payload and payload['enemies'] is not None:
+            data['enemies'] = payload['enemies']
+        if 'spawnConfig' in payload and payload['spawnConfig'] is not None:
+            data['spawnConfig'] = payload['spawnConfig']
     # b7_buildings edgeMarks (室内运动场/车棚 空调标记)
     for k, v in (payload.get('b7_edgeMarks') or {}).items():
         i = int(k)
@@ -198,7 +204,7 @@ class TankDemoHandler(http.server.SimpleHTTPRequestHandler):
                 data = json.loads(body)
 
                 # campus 命名/B7/厕所区域/足球场 保存分支
-                if data.get('type') in ('campus', 'toiletZones', 'soccerFields', 'planterZones', 'treeZones', 'gates'):
+                if data.get('type') in ('campus', 'toiletZones', 'soccerFields', 'planterZones', 'treeZones', 'gates', 'enemies'):
                     saved_path = solidify_campus(data)
                     self._json_ok({'file': saved_path})
                     return
