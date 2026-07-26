@@ -677,6 +677,7 @@
     building: BUILDING_CONFIG,
     enemy: ENEMY_CONFIG,
     hexapod: (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {},
+    humanoid: (window.HumanoidConfig && window.HumanoidConfig.HUMANOID_BASE) || {},
   };
   let currentModelType;
 
@@ -689,6 +690,9 @@
     },
     get HEXAPOD_CONFIG() {
       return (window.HexapodConfig && window.HexapodConfig.HEXAPOD_CONFIG) || {};
+    },
+    get HUMANOID_BASE() {
+      return (window.HumanoidConfig && window.HumanoidConfig.HUMANOID_BASE) || {};
     },
     MODEL_CONFIGS,
   };

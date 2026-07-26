@@ -481,6 +481,7 @@
     </script>
 
     <script src="models/hexapod_config.js"></script>
+    <script src="models/humanoid_config.js"></script>
     <script src="models/tiger_v16_builder.js"></script>
     <script src="models/model_configs.js"></script>
     <script src="js/pe_shape_editor.js"></script>
@@ -1072,6 +1073,8 @@
             return new THREE.SphereGeometry(s[0], seg[0] || 8, seg[1] || 6);
           case 'Torus':
             return new THREE.TorusGeometry(s[0], s[1] || 0.05, seg[0] || 8, seg[1] || 12);
+          case 'Plane':
+            return new THREE.PlaneGeometry(s[0], s[1] || s[0], seg[0] || 1, seg[1] || 1);
           case 'Lathe': {
             const profile = node.profile || [
               [0.5, 0],
@@ -2663,6 +2666,20 @@
             hexRoot.updateMatrixWorld(true);
           }
         }
+        // 校园丧尸：贴地（脚底 y=0）
+        if (currentModelType === 'humanoid') {
+          var humRoot = null;
+          modelRoot.children.forEach(function (c) {
+            if (c.name === 'root') humRoot = c;
+          });
+          if (humRoot) {
+            humRoot.position.y = 0;
+            humRoot.updateMatrixWorld(true);
+            var hbox = new THREE.Box3().setFromObject(humRoot);
+            humRoot.position.y = -hbox.min.y;
+            humRoot.updateMatrixWorld(true);
+          }
+        }
         // 六足战车始终线框；虎式仅在调试色模式显示轮廓线
         if (
           currentModelType === 'hexapod' ||
@@ -3397,6 +3414,7 @@
           '🏠 建筑': 'building',
           '👾 敌人': 'enemy',
           '🦗 六足战车': 'hexapod',
+          '🧟 校园丧尸': 'humanoid',
         };
         let _camoCtrl = null;
         function _buildCamoCtrl(folder) {
