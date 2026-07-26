@@ -923,6 +923,223 @@
         return g;
     }
 
+    // ═══════════════════════════════════════════════════════
+    // ─── ④ 校园人形丧尸（基骨架变体 + 校服/正装贴图）───
+    // ═══════════════════════════════════════════════════════
+    let _humanoidTexCache = null;
+    let _humanoidMatCache = {};
+
+    // 4.1 createHumanoidMaterials() — 校服/皮肤/校徽/斜纹 Canvas 程序化贴图
+    function createHumanoidMaterials() {
+        if (_humanoidTexCache) return _humanoidTexCache;
+        // polo_white：白底 + 极细珠地网眼（微光泽）
+        const polo = document.createElement('canvas');
+        polo.width = polo.height = 128;
+        const pctx = polo.getContext('2d');
+        pctx.fillStyle = '#f4f4f0';
+        pctx.fillRect(0, 0, 128, 128);
+        for (let i = 0; i < 1200; i++) {
+            pctx.fillStyle = `rgba(210,210,200,${0.15 + Math.random() * 0.25})`;
+            pctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+        }
+        // skin_zombie：白皙 → 轻微灰绿偏色 + 少量暗斑（轻度丧尸化）
+        const skin = document.createElement('canvas');
+        skin.width = skin.height = 128;
+        const sctx = skin.getContext('2d');
+        sctx.fillStyle = '#c9cfc0';
+        sctx.fillRect(0, 0, 128, 128);
+        for (let i = 0; i < 400; i++) {
+            sctx.fillStyle = `rgba(150,165,140,${0.1 + Math.random() * 0.2})`;
+            sctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+        }
+        for (let i = 0; i < 6; i++) {
+            // 少量暗斑
+            const cx = Math.random() * 128,
+                cy = Math.random() * 128,
+                r = 4 + Math.random() * 8;
+            const g = sctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            g.addColorStop(0, 'rgba(110,120,95,0.4)');
+            g.addColorStop(1, 'rgba(110,120,95,0)');
+            sctx.fillStyle = g;
+            sctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+        // school_badge：绿树 + 橙色"金福园小学"
+        const badge = document.createElement('canvas');
+        badge.width = 128;
+        badge.height = 128;
+        const bctx = badge.getContext('2d');
+        bctx.fillStyle = 'rgba(0,0,0,0)';
+        bctx.clearRect(0, 0, 128, 128);
+        bctx.fillStyle = '#3a8a3a'; // 树冠（三重叠圆）
+        [
+            [64, 48, 22],
+            [52, 55, 16],
+            [76, 55, 16],
+        ].forEach(([x, y, r]) => {
+            bctx.beginPath();
+            bctx.arc(x, y, r, 0, Math.PI * 2);
+            bctx.fill();
+        });
+        bctx.fillStyle = '#6b4a2a';
+        bctx.fillRect(60, 60, 8, 22); // 树干
+        bctx.fillStyle = '#d88a2a';
+        bctx.font = 'bold 13px sans-serif';
+        bctx.textAlign = 'center';
+        bctx.fillText('金福园小学', 64, 104); // 橙色校名（中文，风险见 plan 末）
+        // shoulder_stripes：红/粉/绿斜条（单侧不对称）
+        const strp = document.createElement('canvas');
+        strp.width = strp.height = 128;
+        const tctx = strp.getContext('2d');
+        tctx.clearRect(0, 0, 128, 128);
+        const cols = ['#d83232', '#e88a9a', '#3a8a3a'];
+        for (let i = 0; i < 4; i++) {
+            tctx.fillStyle = cols[i % 3];
+            tctx.save();
+            tctx.translate(64, 64);
+            tctx.rotate(-0.5);
+            tctx.fillRect(-12 + i * 8, -80, 5, 160);
+            tctx.restore();
+        }
+        const make = (cv) => {
+            const t = new THREE.CanvasTexture(cv);
+            t.colorSpace = THREE.SRGBColorSpace;
+            return t;
+        };
+        _humanoidTexCache = {
+            polo: make(polo),
+            skin: make(skin),
+            badge: make(badge),
+            stripes: make(strp),
+        };
+        return _humanoidTexCache;
+    }
+
+    // 4.2 人形材质字典（按 materialId 查/建，缓存）
+    function getHumanoidMat(id) {
+        if (_humanoidMatCache[id]) return _humanoidMatCache[id];
+        const tex = _humanoidTexCache || createHumanoidMaterials();
+        const DEFS = {
+            polo_white: { map: 'polo', color: 0xffffff, roughness: 0.7 },
+            teacher_shirt: { color: 0xf2f2ee, roughness: 0.65 },
+            blouse_white: { color: 0xf6f6f2, roughness: 0.65 },
+            skin_zombie: { map: 'skin', color: 0xffffff, roughness: 0.85 },
+            eye_glow: { color: 0x000000, emissive: 0xff3300, emissiveIntensity: 3 },
+            hair_black: { color: 0x1a1a1a, roughness: 0.8 },
+            scarf_red: { color: 0xc8202a, roughness: 0.7 },
+            collar_red: { color: 0xc8202a, roughness: 0.65 },
+            button_white: { color: 0xf8f8f8, roughness: 0.5 },
+            shorts_red: { color: 0xb81c28, roughness: 0.7 },
+            trousers_grey: { color: 0x3a3a42, roughness: 0.7 },
+            shoes_blue: { color: 0x22335a, roughness: 0.55 },
+            shoes_white: { color: 0xf0f0ec, roughness: 0.55 },
+            leather_black: { color: 0x18181c, roughness: 0.4, metalness: 0.1 },
+            tie_blue: { color: 0x1f3a6a, roughness: 0.6 },
+            frame_dark: { color: 0x222222, roughness: 0.5 },
+            briefcase_brown: { color: 0x5a3a22, roughness: 0.55 },
+            metal_gold: { color: 0xc8a040, roughness: 0.3, metalness: 0.7 },
+            school_badge: { map: 'badge', color: 0xffffff, roughness: 0.7, transparent: true },
+            shoulder_stripes: { map: 'stripes', color: 0xffffff, roughness: 0.7, transparent: true },
+        };
+        const d = DEFS[id] || { color: 0x888888, roughness: 0.75 };
+        const cfg = { color: d.color, roughness: d.roughness, metalness: d.metalness || 0.0 };
+        if (d.map) cfg.map = tex[d.map];
+        if (d.emissive !== undefined) {
+            cfg.emissive = d.emissive;
+            cfg.emissiveIntensity = d.emissiveIntensity;
+        }
+        if (d.transparent) cfg.transparent = true;
+        _humanoidMatCache[id] = new THREE.MeshStandardMaterial(cfg);
+        return _humanoidMatCache[id];
+    }
+
+    // 4.3 buildHumanoidRig(config, parent) — 递归构建（仿 buildZombieFromConfig，独立材质/不注入 blood_drip）
+    function buildHumanoidRig(config, parent) {
+        function createGeometry(node) {
+            switch (node.type) {
+                case 'Box': {
+                    const [w, h, d] = node.size;
+                    return new THREE.BoxGeometry(w, h, d);
+                }
+                case 'Cylinder': {
+                    const [rT, h, rB] = node.size;
+                    return new THREE.CylinderGeometry(rT, rB, h, node.segments || 8);
+                }
+                case 'Sphere': {
+                    const [r] = node.size;
+                    const s = node.segments || [8, 6];
+                    return new THREE.SphereGeometry(r, s[0], s[1]);
+                }
+                case 'Plane': {
+                    const [w, h] = node.size;
+                    return new THREE.PlaneGeometry(w, h);
+                }
+                case 'Torus': {
+                    const [r, tube] = node.size;
+                    return new THREE.TorusGeometry(r, tube, 6, 12);
+                }
+                default:
+                    return null;
+            }
+        }
+        function buildNode(node, parentObj, pivotComp) {
+            pivotComp = pivotComp || [0, 0, 0];
+            if (node.type === 'Group') {
+                const g = new THREE.Group();
+                g.name = node.name;
+                if (node.position) g.position.set(...node.position);
+                if (node.rotation) g.rotation.set(...node.rotation);
+                if (node.scale) g.scale.set(...node.scale);
+                parentObj.add(g);
+                if (node.children) node.children.forEach((c) => buildNode(c, g, [0, 0, 0]));
+                return;
+            }
+            const geo = createGeometry(node);
+            if (!geo) return;
+            geo.center();
+            const mat = node.materialId
+                ? getHumanoidMat(node.materialId)
+                : new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.75 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.name = node.name + '_mesh';
+            const pos = node.position
+                ? [
+                    node.position[0] + pivotComp[0],
+                    node.position[1] + pivotComp[1],
+                    node.position[2] + pivotComp[2],
+                  ]
+                : pivotComp;
+            const group = new THREE.Group();
+            group.name = node.name;
+            group.position.set(pos[0], pos[1], pos[2]);
+            if (node.scale) group.scale.set(...node.scale);
+            parentObj.add(group);
+            let rotTarget = group;
+            if (node.pivot) {
+                const pivot = new THREE.Group();
+                pivot.name = node.name + '_pivot';
+                pivot.position.set(node.pivot[0], node.pivot[1], node.pivot[2]);
+                group.add(pivot);
+                mesh.position.set(-node.pivot[0], -node.pivot[1], -node.pivot[2]);
+                pivot.add(mesh);
+                rotTarget = pivot;
+                group.userData.pivot = pivot;
+            } else {
+                group.add(mesh);
+            }
+            if (node.rotation) rotTarget.rotation.set(...node.rotation);
+            const childComp = node.pivot ? [-node.pivot[0], -node.pivot[1], -node.pivot[2]] : [0, 0, 0];
+            if (node.children) node.children.forEach((c) => buildNode(c, rotTarget, childComp));
+        }
+        buildNode(config, parent);
+        parent.traverse((c) => {
+            if (c.isMesh) {
+                c.castShadow = true;
+                c.receiveShadow = true;
+            }
+        });
+        return parent;
+    }
+
     // ─── 暴露到全局 ───
     window.EnemyModels = {
         createAssaultVehicle,
