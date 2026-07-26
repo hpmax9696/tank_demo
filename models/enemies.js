@@ -1140,11 +1140,424 @@
         return parent;
     }
 
+    // 4.4 createHumanoidAnimationSystem(root) — rest-pose 偏移动画（复用 AnimationSystem 类）
+    function createHumanoidAnimationSystem(root) {
+        const HC = window.HumanoidConfig;
+        const P = {},
+            O = {};
+        HC.JOINT_NAMES.forEach((n) => {
+            P[n] = root.getObjectByName(n + '_pivot');
+            O[n] = root.getObjectByName(n);
+        });
+        O.root = root.getObjectByName('root');
+        P.root = O.root;
+        if (!P.torso) console.warn('HumanoidAnim: pivots not found');
+        const asys = new AnimationSystem(root); // 复用现有类
+        asys._restPoses = HC.REST_POSES; // 启用 rest-pose 偏移
+        // 动作：关键帧值作偏移量，叠加到 REST_POSES（_restKey: '节点:轴'）
+        // Idle 2.0s
+        asys.define('Idle', 2.0, [
+            {
+                target: P.torso,
+                prop: 'rotation',
+                axis: 'z',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: 0.03 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: O.pelvis,
+                prop: 'position',
+                axis: 'y',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: 0.02 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.head,
+                prop: 'rotation',
+                axis: 'z',
+                _restKey: 'head:z',
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: -0.04 },
+                    { t: 1, v: 0 },
+                ],
+            },
+        ]);
+        // Walk 1.4s
+        asys.define('Walk', 1.4, [
+            {
+                target: O.pelvis,
+                prop: 'position',
+                axis: 'y',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: 0.04 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.l_upper_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.1 },
+                    { t: 0.25, v: -0.5 },
+                    { t: 0.5, v: 0.1 },
+                    { t: 0.75, v: 0.5 },
+                    { t: 1, v: -0.1 },
+                ],
+            },
+            {
+                target: P.r_upper_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0.5 },
+                    { t: 0.25, v: 0.1 },
+                    { t: 0.5, v: -0.1 },
+                    { t: 0.75, v: -0.5 },
+                    { t: 1, v: 0.5 },
+                ],
+            },
+            {
+                target: P.l_lower_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: -0.4 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.r_lower_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.4 },
+                    { t: 0.5, v: 0 },
+                    { t: 1, v: -0.4 },
+                ],
+            },
+            {
+                target: P.l_upper_arm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: -0.3 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.r_upper_arm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.3 },
+                    { t: 0.5, v: 0 },
+                    { t: 1, v: -0.3 },
+                ],
+            },
+        ]);
+        // Run 0.8s（学生快）
+        asys.define('Run', 0.8, [
+            {
+                target: P.torso,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 1, v: 0.2 },
+                ],
+            },
+            {
+                target: O.pelvis,
+                prop: 'position',
+                axis: 'y',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: 0.07 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.l_upper_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.1 },
+                    { t: 0.25, v: -0.7 },
+                    { t: 0.5, v: 0.1 },
+                    { t: 0.75, v: 0.8 },
+                    { t: 1, v: -0.1 },
+                ],
+            },
+            {
+                target: P.r_upper_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0.8 },
+                    { t: 0.25, v: 0.1 },
+                    { t: 0.5, v: -0.1 },
+                    { t: 0.75, v: -0.7 },
+                    { t: 1, v: 0.8 },
+                ],
+            },
+            {
+                target: P.l_lower_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: -0.6 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.r_lower_leg,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.6 },
+                    { t: 0.5, v: 0 },
+                    { t: 1, v: -0.6 },
+                ],
+            },
+            {
+                target: P.l_upper_arm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.5, v: -0.6 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.r_upper_arm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.6 },
+                    { t: 0.5, v: 0 },
+                    { t: 1, v: -0.6 },
+                ],
+            },
+        ]);
+        // Attack 1.0s（右爪击）
+        asys.define('Attack', 1.0, [
+            {
+                target: P.r_upper_arm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -0.4 },
+                    { t: 0.35, v: -1.8 },
+                    { t: 1, v: -0.4 },
+                ],
+            },
+            {
+                target: P.r_forearm,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: -1.6 },
+                    { t: 0.35, v: -0.1 },
+                    { t: 1, v: -1.6 },
+                ],
+            },
+            {
+                target: P.torso,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.3, v: 0.25 },
+                    { t: 1, v: 0 },
+                ],
+            },
+        ]);
+        // Stagger 0.5s（受击硬直）
+        asys.define('Stagger', 0.5, [
+            {
+                target: P.torso,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.2, v: -0.3 },
+                    { t: 1, v: 0 },
+                ],
+            },
+            {
+                target: P.head,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.15, v: -0.4 },
+                    { t: 1, v: 0 },
+                ],
+            },
+        ]);
+        // Die 1.5s（前扑瘫软）
+        asys.define('Die', 1.5, [
+            {
+                target: P.root,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.333, v: Math.PI * 0.48 },
+                    { t: 1, v: Math.PI * 0.5 },
+                ],
+            },
+            {
+                target: O.root,
+                prop: 'position',
+                axis: 'y',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.333, v: -0.15 },
+                    { t: 0.667, v: -0.45 },
+                    { t: 1, v: -0.45 },
+                ],
+            },
+            {
+                target: P.torso,
+                prop: 'rotation',
+                axis: 'x',
+                _restKey: null,
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.333, v: -0.15 },
+                    { t: 1, v: -0.35 },
+                ],
+            },
+            {
+                target: P.l_upper_arm,
+                prop: 'rotation',
+                axis: 'z',
+                _restKey: 'l_upper_arm:z',
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.667, v: -0.6 },
+                    { t: 1, v: -0.8 },
+                ],
+            },
+            {
+                target: P.r_upper_arm,
+                prop: 'rotation',
+                axis: 'z',
+                _restKey: 'r_upper_arm:z',
+                keys: [
+                    { t: 0, v: 0 },
+                    { t: 0.667, v: 0.6 },
+                    { t: 1, v: 0.8 },
+                ],
+            },
+        ]);
+        return asys;
+    }
+
+    // 4.5 createCampusZombie({variant, heightM, seed}) — 游戏实例工厂
+    function createCampusZombie(opts) {
+        opts = opts || {};
+        const HC = window.HumanoidConfig;
+        const variant = opts.variant || 'student_m';
+        const heightM = opts.heightM != null ? opts.heightM : 1.4;
+        // seed → 随机体貌（简单 Mulberry32）
+        let s = (opts.seed != null ? opts.seed : Math.floor(Math.random() * 1e9)) >>> 0;
+        const rng = () => {
+            s = (s + 0x6d2b79f5) | 0;
+            let t = Math.imul(s ^ (s >>> 15), 1 | s);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        const vr = HC.HUMANOID_VARIANTS[variant].bodyRange;
+        const rand = (a, b) => a + rng() * (b - a);
+        const params = {
+            height: heightM,
+            build: vr.build ? rand(vr.build[0], vr.build[1]) : HC.BODY_PARAMS.build.default,
+            hunch: vr.hunch ? rand(vr.hunch[0], vr.hunch[1]) : HC.BODY_PARAMS.hunch.default,
+            curves: vr.curves ? rand(vr.curves[0], vr.curves[1]) : 0,
+        };
+        const config = HC.buildHumanoid(variant, params);
+        const root = new THREE.Group();
+        root.name = 'campusZombie_root';
+        buildHumanoidRig(config, root);
+        // 包围盒缩放到目标身高（单位 = heightM / 1.3）
+        const bbox = new THREE.Box3().setFromObject(root);
+        const curH = bbox.max.y - bbox.min.y;
+        const targetUnits = heightM / 1.3; // METERS_PER_UNIT
+        const scale = curH > 0 ? targetUnits / curH : 1;
+        root.scale.setScalar(scale);
+        root.position.y = -bbox.min.y * scale;
+        // 头身比：矮→头大（额外头部放大，已含在 BASE；此处不再调）
+        // LOD 远距圆柱
+        const skeletonGroup = new THREE.Group();
+        skeletonGroup.name = '_skeleton';
+        while (root.children.length > 0) skeletonGroup.add(root.children[0]);
+        root.add(skeletonGroup);
+        const isTeacher = variant.startsWith('teacher');
+        const cylGeo = new THREE.CylinderGeometry(0.25, 0.35, targetUnits, 6);
+        const cylMat = new THREE.MeshBasicMaterial({ color: isTeacher ? 0x3a3a42 : 0x556633 });
+        const cylMesh = new THREE.Mesh(cylGeo, cylMat);
+        cylMesh.position.y = targetUnits / 2;
+        cylMesh.visible = false;
+        cylMesh.name = '_lodCylinder';
+        root.add(cylMesh);
+        root.userData._skeletonGroup = skeletonGroup;
+        root.userData._lodCylinder = cylMesh;
+        // 动画系统
+        const asys = createHumanoidAnimationSystem(root);
+        root.userData._animSystem = asys;
+        root.userData.enemyType = 'zombie'; // 关键：让 enemyAI isZombie 判定为真，走丧尸状态机
+        root.userData.variant = variant; // 变体名（外观/工厂用）
+        root.userData._seed = s;
+        asys.play('Idle', true);
+        return root;
+    }
+
     // ─── 暴露到全局 ───
     window.EnemyModels = {
         createAssaultVehicle,
         createZombie,
         createZombieMaterials,
+        createCampusZombie,
+        createHumanoidMaterials,
         createHexapod,
         AnimationSystem,
     };
