@@ -659,8 +659,18 @@
     return slot; // 自带固定材质（eye_glow/hair_black/...）
   }
 
+  // ── addon 子树材质占位递归解析（clone 后、push 前调用）
+  // addon 来自 ADDON_LIBRARY，不走 deriveNode，其子树里的 __cloth__/__skin__
+  // 需在此解析为变体材质，否则 Task2 getMat 查不到 → 灰球
+  function resolveAddonMaterials(node, variantMaterials) {
+    if (node.materialId) {
+      node.materialId = resolveMaterialId(node.materialId, variantMaterials);
+    }
+    if (node.children) node.children.forEach((c) => resolveAddonMaterials(c, variantMaterials));
+  }
+
   // ── 深拷贝配置树 + 应用体型派生 + 材质覆写
-  function deriveNode(node, params, variant, addons) {
+  function deriveNode(node, params, variant) {
     const out = Object.assign({}, node);
     // 材质覆写
     if (node.materialId) out.materialId = resolveMaterialId(node.materialId, variant.materials);
@@ -674,8 +684,7 @@
     }
     // build → 四肢粗细（非教师女时按 build 调）
     // 递归
-    if (node.children)
-      out.children = node.children.map((c) => deriveNode(c, params, variant, addons));
+    if (node.children) out.children = node.children.map((c) => deriveNode(c, params, variant));
     return out;
   }
 
@@ -695,7 +704,7 @@
       curves: params.curves != null ? params.curves : variant.bodyRange.curves || 0,
     };
     // 1) 深拷贝 BASE + 派生
-    const tree = deriveNode(HUMANOID_BASE, p, variant, variant.addons);
+    const tree = deriveNode(HUMANOID_BASE, p, variant);
     // 2) 追加装饰节点
     variant.addons.forEach((key) => {
       const def = ADDON_LIBRARY[key];
@@ -716,6 +725,8 @@
         }
         parentNode.children = parentNode.children || [];
         const clone = JSON.parse(JSON.stringify(def.node));
+        // addon 子树占位材质解析（I-1: __cloth__/__skin__ → 变体材质）
+        resolveAddonMaterials(clone, variant.materials);
         // 右侧镜像（r_foot / r_* 父节点上的 addon X 取反）
         if (par === 'r_foot' || par === 'r_forearm') mirrorX(clone);
         // curves 放大 bust/hips
