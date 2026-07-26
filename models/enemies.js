@@ -983,7 +983,9 @@
         bctx.fillStyle = '#6b4a2a';
         bctx.fillRect(60, 60, 8, 22); // 树干
         bctx.fillStyle = '#d88a2a';
-        bctx.font = 'bold 13px sans-serif';
+        // 字体 fallback：Windows Microsoft YaHei / macOS PingFang SC / 通用 sans-serif
+        // （headless chromium 无中文字体会渲染方块，但生产环境正常）
+        bctx.font = 'bold 13px "Microsoft YaHei","PingFang SC","Heiti SC",sans-serif';
         bctx.textAlign = 'center';
         bctx.fillText('金福园小学', 64, 104); // 橙色校名（中文，风险见 plan 末）
         // shoulder_stripes：红/粉/绿斜条（单侧不对称）

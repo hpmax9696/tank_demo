@@ -5344,22 +5344,28 @@ function createEnemies() {
       }
       model = window.EnemyModels.createAssaultVehicle();
     } else if (ecfg.type === 'zombie') {
-      model = window.EnemyModels.createZombie();
-    } else if (
-      ecfg.type === 'student_m' ||
-      ecfg.type === 'student_f' ||
-      ecfg.type === 'teacher_m' ||
-      ecfg.type === 'teacher_f'
-    ) {
-      // 校园人形丧尸：身高随机（学生 1.1-1.5m / 教师 1.55-1.75m）
-      const isTeacher = ecfg.type.startsWith('teacher');
-      const hRange = isTeacher ? [1.55, 1.75] : [1.1, 1.5];
-      const heightM = hRange[0] + Math.random() * (hRange[1] - hRange[0]);
-      model = window.EnemyModels.createCampusZombie({
-        variant: ecfg.type,
-        heightM,
-        seed: ecfg._seed,
-      });
+      // 校园人形丧尸：type=zombie + variant=student_m/student_f/teacher_m/teacher_f
+      // （P1 v0.78.5: 数据格式对齐普通丧尸，type='zombie' 让所有 engine 网关 (cfg.type==='zombie')
+      //  自动通过；variant 字段保留具体变体名供工厂/外观区分）
+      const _campusVariant = ecfg.variant;
+      if (
+        _campusVariant === 'student_m' ||
+        _campusVariant === 'student_f' ||
+        _campusVariant === 'teacher_m' ||
+        _campusVariant === 'teacher_f'
+      ) {
+        // 校园人形丧尸：身高随机（学生 1.1-1.5m / 教师 1.55-1.75m）
+        const isTeacher = _campusVariant.startsWith('teacher');
+        const hRange = isTeacher ? [1.55, 1.75] : [1.1, 1.5];
+        const heightM = hRange[0] + Math.random() * (hRange[1] - hRange[0]);
+        model = window.EnemyModels.createCampusZombie({
+          variant: _campusVariant,
+          heightM,
+          seed: ecfg._seed,
+        });
+      } else {
+        model = window.EnemyModels.createZombie();
+      }
     } else if (ecfg.type === 'hexapod') {
       model = window.EnemyModels.createHexapod();
     } else {
@@ -5389,13 +5395,14 @@ function createEnemies() {
     model.hp = ecfg.hp || 60;
     model.userData = model.userData || {};
     // 人形变体统一标记 enemyType='zombie' 让 enemyAI 走丧尸 8 状态机；变体名另存
+    // P1 v0.78.5: 校园变体识别改用 ecfg.variant（数据格式 type='zombie'+variant）
     const _isCampusVariant =
-      ecfg.type === 'student_m' ||
-      ecfg.type === 'student_f' ||
-      ecfg.type === 'teacher_m' ||
-      ecfg.type === 'teacher_f';
+      ecfg.variant === 'student_m' ||
+      ecfg.variant === 'student_f' ||
+      ecfg.variant === 'teacher_m' ||
+      ecfg.variant === 'teacher_f';
     model.userData.enemyType = _isCampusVariant ? 'zombie' : ecfg.type;
-    if (_isCampusVariant) model.userData.variant = ecfg.type;
+    if (_isCampusVariant) model.userData.variant = ecfg.variant;
     model.userData.enemyId = ecfg.id;
     model.userData.maxHp = model.hp;
     // 丧尸/六足/校园人形变体保持直立（不随地形俯仰）
