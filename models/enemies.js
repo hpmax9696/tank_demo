@@ -1088,7 +1088,10 @@
             if (node.type === 'Group') {
                 const g = new THREE.Group();
                 g.name = node.name;
-                if (node.position) g.position.set(...node.position);
+                // Group 也加 pivotComp（addon 包装 Group 挂在 parent pivot 上，需补偿到 mesh 中心基准）
+                if (node.position)
+                    g.position.set(node.position[0] + pivotComp[0], node.position[1] + pivotComp[1], node.position[2] + pivotComp[2]);
+                else g.position.set(pivotComp[0], pivotComp[1], pivotComp[2]);
                 if (node.rotation) g.rotation.set(...node.rotation);
                 if (node.scale) g.scale.set(...node.scale);
                 parentObj.add(g);
