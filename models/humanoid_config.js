@@ -69,7 +69,7 @@
                 name: 'l_upper_arm',
                 type: 'Cylinder',
                 size: [0.1, 0.45, 0.1],
-                position: [-0.35, 0.4, 0],
+                position: [-0.32, 0.3, 0],
                 rotation: [0, 0, -0.1],
                 pivot: [0, 0.2, 0],
                 materialId: '__skin__',
@@ -88,7 +88,7 @@
                 name: 'r_upper_arm',
                 type: 'Cylinder',
                 size: [0.1, 0.45, 0.1],
-                position: [0.35, 0.4, 0],
+                position: [0.32, 0.3, 0],
                 rotation: [0, 0, 0.1],
                 pivot: [0, 0.2, 0],
                 materialId: '__skin__',
@@ -238,12 +238,12 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.16, -0.02],
+        position: [0, 0.14, -0.03],
         children: [
           {
             name: 'ah_m',
             type: 'Box',
-            size: [0.26, 0.16, 0.26],
+            size: [0.44, 0.18, 0.44],
             position: [0, 0, 0],
             materialId: 'hair_black',
           },
@@ -254,7 +254,7 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.05, -0.16],
+        position: [0, 0.08, -0.22],
         children: [
           {
             name: 'ah_pt',
@@ -287,8 +287,8 @@
       node: {
         name: 'ah_fr',
         type: 'Box',
-        size: [0.22, 0.07, 0.08],
-        position: [0, 0.12, 0.14],
+        size: [0.22, 0.07, 0.06],
+        position: [0, 0.1, 0.21],
         materialId: 'hair_black',
       },
     },
@@ -298,7 +298,7 @@
         name: 'ah_bun',
         type: 'Sphere',
         size: [0.1],
-        position: [0, 0.2, -0.08],
+        position: [0, 0.22, -0.16],
         materialId: 'hair_black',
         segments: [6, 5],
       },
@@ -340,7 +340,7 @@
       parent: 'torso',
       node: {
         type: 'Group',
-        position: [0, 0.34, 0.18],
+        position: [0, 0.36, 0.19],
         children: [
           {
             name: 'ah_col_l',
@@ -365,7 +365,7 @@
       parent: 'torso',
       node: {
         type: 'Group',
-        position: [0, 0.2, 0.19],
+        position: [0, 0.25, 0.2],
         children: [
           {
             name: 'ah_pl',
@@ -536,7 +536,7 @@
       parent: 'torso',
       node: {
         type: 'Group',
-        position: [0, 0.12, 0.16],
+        position: [0, 0.2, 0.17],
         children: [
           {
             name: 'ah_bust_l',
@@ -561,7 +561,7 @@
       parent: 'pelvis',
       node: {
         type: 'Group',
-        position: [0, -0.05, 0],
+        position: [0, -0.1, 0],
         children: [
           {
             name: 'ah_hips',
@@ -588,7 +588,7 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.03, 0.16],
+        position: [0, 0.03, 0.21],
         children: [
           {
             name: 'ah_gl_l',
