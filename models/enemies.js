@@ -1568,6 +1568,11 @@
     window.ModelRegistry.register('enemies', '装甲突击车', makeAssaultVehicle);
     window.ModelRegistry.register('enemies', '丧尸', makeZombie);
     window.ModelRegistry.register('enemies', '六足战车', makeHexapod);
+    // 校园人形丧尸预览（固定 seed 与 campus.map.json 测试数据一致，便于在主菜单模型预览看清外观）
+    window.ModelRegistry.register('enemies', '学生(男)', () => createCampusZombie({ variant: 'student_m', heightM: 1.3, seed: 1001 }));
+    window.ModelRegistry.register('enemies', '学生(女)', () => createCampusZombie({ variant: 'student_f', heightM: 1.3, seed: 1002 }));
+    window.ModelRegistry.register('enemies', '教师(男)', () => createCampusZombie({ variant: 'teacher_m', heightM: 1.65, seed: 1003 }));
+    window.ModelRegistry.register('enemies', '教师(女)', () => createCampusZombie({ variant: 'teacher_f', heightM: 1.6, seed: 1004 }));
 
     console.log('🧟 敌方单位模型已就绪 | 装甲突击车 + 程序化丧尸(骨架动画) + 六足战车');
 
