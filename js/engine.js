@@ -5345,6 +5345,21 @@ function createEnemies() {
       model = window.EnemyModels.createAssaultVehicle();
     } else if (ecfg.type === 'zombie') {
       model = window.EnemyModels.createZombie();
+    } else if (
+      ecfg.type === 'student_m' ||
+      ecfg.type === 'student_f' ||
+      ecfg.type === 'teacher_m' ||
+      ecfg.type === 'teacher_f'
+    ) {
+      // 校园人形丧尸：身高随机（学生 1.1-1.5m / 教师 1.55-1.75m）
+      const isTeacher = ecfg.type.startsWith('teacher');
+      const hRange = isTeacher ? [1.55, 1.75] : [1.1, 1.5];
+      const heightM = hRange[0] + Math.random() * (hRange[1] - hRange[0]);
+      model = window.EnemyModels.createCampusZombie({
+        variant: ecfg.type,
+        heightM,
+        seed: ecfg._seed,
+      });
     } else if (ecfg.type === 'hexapod') {
       model = window.EnemyModels.createHexapod();
     } else {
@@ -5373,11 +5388,18 @@ function createEnemies() {
     }
     model.hp = ecfg.hp || 60;
     model.userData = model.userData || {};
-    model.userData.maxHp = model.hp;
-    model.userData.enemyType = ecfg.type;
+    // 人形变体统一标记 enemyType='zombie' 让 enemyAI 走丧尸 8 状态机；变体名另存
+    const _isCampusVariant =
+      ecfg.type === 'student_m' ||
+      ecfg.type === 'student_f' ||
+      ecfg.type === 'teacher_m' ||
+      ecfg.type === 'teacher_f';
+    model.userData.enemyType = _isCampusVariant ? 'zombie' : ecfg.type;
+    if (_isCampusVariant) model.userData.variant = ecfg.type;
     model.userData.enemyId = ecfg.id;
-    // 丧尸不需要地形俯仰（人形单位应保持直立）；六足由hexapod_anim自己管理
-    if (ecfg.type === 'zombie' || ecfg.type === 'hexapod') {
+    model.userData.maxHp = model.hp;
+    // 丧尸/六足/校园人形变体保持直立（不随地形俯仰）
+    if (model.userData.enemyType === 'zombie' || ecfg.type === 'hexapod') {
       model.userData._noTerrainPitch = true;
     }
     // AI 运行时数据
