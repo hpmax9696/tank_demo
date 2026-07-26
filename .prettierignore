@@ -1,0 +1,7 @@
+# .prettierignore
+# 这些文件是 4 空格手格式（与 .prettierrc tabWidth:2 不兼容），
+# prettier hook (.claude/hooks/format-on-save.js) 会在每次 Edit 后整体重排为 2 空格，
+# 破坏既有代码风格并产生巨大 diff。列入此处让 prettier 跳过。
+#
+# 详见 SDD task-2 报告（.superpowers/sdd/task-2-report.md）。
+models/enemies.js
