@@ -58,8 +58,50 @@ def _find_config_bounds(text, const_name):
     return start, end
 
 
+def _find_variant_bounds(text, parent_const, variant_key):
+    """定位 const PARENT = {...} 块内 variant_key: {...} 子对象的字符区间。
+    返回 (val_start, val_end)：从 variant_key 冒号后的 '{' 到匹配的 '}'。找不到返回 (None, None)。"""
+    ps, pe = _find_config_bounds(text, parent_const)
+    if ps is None:
+        return None, None
+    parent_block = text[ps:pe]
+    m = re.search(r'\b' + re.escape(variant_key) + r'\s*:\s*\{', parent_block)
+    if not m:
+        return None, None
+    brace_start = m.end() - 1  # m.end() 指向 '{' 之后, -1 回到 '{'
+    depth = 0
+    i = brace_start
+    while i < len(parent_block):
+        c = parent_block[i]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return ps + brace_start, ps + i + 1
+        i += 1
+    return None, None
+
+
 def solidify_config(model_type, config_json_str):
     """将配置 JSON 写入对应源文件的配置常量。"""
+    # 人形按变体固化：modelType 形如 'humanoid:student_m'
+    if model_type.startswith('humanoid:'):
+        variant_key = model_type.split(':', 1)[1]
+        filepath = 'models/humanoid_config.js'
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f'源文件不存在: {filepath}')
+        with open(filepath, 'r', encoding='utf-8') as f:
+            text = f.read()
+        vs, ve = _find_variant_bounds(text, 'HUMANOID_VARIANTS', variant_key)
+        if vs is None:
+            raise ValueError(f'variant {variant_key} 未在 HUMANOID_VARIANTS 中找到')
+        config_obj = json.loads(config_json_str)
+        formatted = json.dumps(config_obj, indent=2, ensure_ascii=False)
+        new_text = text[:vs] + formatted + text[ve:]
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(new_text)
+        return filepath
     if model_type not in MODEL_MAP:
         raise ValueError(f'未知模型类型: {model_type}')
 

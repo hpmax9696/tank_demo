@@ -1905,10 +1905,22 @@
                 ? '虎式坦克'
                 : currentModelType;
 
+        var solidifyPayload;
+        if (currentModelType === 'humanoid' && window.HumanoidConfig) {
+          // 人形按变体固化：发 HUMANOID_VARIANTS[variant] 子对象（非骨架树）
+          solidifyPayload = {
+            modelType: 'humanoid:' + _humanoidEdit.variant,
+            config: JSON.parse(
+              JSON.stringify(window.HumanoidConfig.HUMANOID_VARIANTS[_humanoidEdit.variant])
+            ),
+          };
+        } else {
+          solidifyPayload = { modelType: currentModelType, config: saveData.config };
+        }
         fetch('/api/solidify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modelType: currentModelType, config: saveData.config }),
+          body: JSON.stringify(solidifyPayload),
         })
           .then(function (r) {
             if (r.ok) return r.json();
