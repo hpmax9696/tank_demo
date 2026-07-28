@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.78.4</title>
+    <title>坦克运动demo v0.79.0</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.78.4</div>
+      <div class="menu-version">v0.79.0</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,13 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🏭 v0.79.0 校园丧尸模型工厂接入 —
+          humanoid_factory自包含6动作(Idle/Walk/Run/Attack/Stagger/Die)工厂展台桥接;
+          工厂6项接入(Plane支持+MODEL_CONFIGS+MATERIAL_DEFS+getModelAnims/buildAnimList+体型参数GUI+脚本);
+          solidify单变体固化(_find_variant_bounds嵌套定位HUMANOID_VARIANTS[key]); rebuildModel
+          window.modelRoot fresh
+        </div>
+        <div class="cl-title">
           🚪 v0.78.4 校门系统+hpBar修复 — 校门(铁栅门+门柱+校名横梁+黄黑警戒带+禁止出入立牌);
           工具页gate_marker打点snap沿围墙边+宽度/旋转滑块; 围墙开口裁剪精确=门宽; createGates模型;
           server gates分支; 单人hpBar.visible误设false修复
@@ -844,15 +851,8 @@
           替代膨胀的盒变换Box3.applyMatrix4);
           炮弹Raycaster递归命中厕所Group(修复飞溅/焦痕/地面音效缺失, false→true)
         </div>
-        <div class="cl-title">
-          🔧 v0.78.0 校园架空层与车棚碰撞体修复 —
-          checkCollision增加minY高度感知;教学楼B5架空层polygon+minY;
-          车棚四角柱碰撞+拱顶入_campusBuildings; B7室内运动场dome子mesh炮弹碰撞;
-          厕所AABB→polygon精确贴合; 天桥入_campusBuildings; HE溅射不可摧毁守卫;
-          墙面焦痕法线世界空间转换; F9厕所碰撞体调试可视化
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.78.4~v0.78.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.0~v0.78.1) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.78.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.0
 
 ## 运行
 
@@ -270,6 +270,28 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.79.0 本次会话变更 (2026-07-28)
+
+### 校园丧尸模型工厂接入（P4，feature/campus-zombies-p4 → master）
+
+- **`js/humanoid_factory.js` 工厂展台桥接**(新建~210行): 自包含6动作(Idle/Walk/Run/Attack/Stagger/Die)+keyframe lerp+REST_POSES偏移, 镜像 `enemies.js:createHumanoidAnimationSystem`(工厂页**不加载**enemies.js故自包含; spec非目标"不做跨模型共享动画库"允许关键帧镜像)。暴露 `window.HumanoidAnims`(names/durations/directions/turnRates/categories/collectRefs/updateFrame/resetState/destroyPivots/restorePlates) 接口与 `HexapodAnims` 同构(+categories 供 `_buildAnimList`)
+- **工厂6项接入**(`model_factory.html`): ①`createGeometry` 加 `case 'Plane'`(校徽/斜纹 addon 用 type:'Plane',不加则 default return null 渲染报错——**硬阻塞**) ②加载 humanoid_config.js 脚本(hexapod_config 后) ③MODEL_CONFIGS 加 humanoid entry+getter(`models/model_configs.js`) ④modelOptions 加 `'🧟 校园丧尸':'humanoid'` ⑤rebuildModel 人形贴地(仿 hexapod bbox.min.y) ⑥MATERIAL_DEFS 补20个人形 materialId 纯色(polo_white/skin_zombie/eye_glow 等, Canvas 贴图留 P6) ⑦getModelAnims 加 `humanoid: window.HumanoidAnims||null` ⑧`_buildAnimList` `categories=(ma.categories)||[默认]`(hexapod 无 categories 走 fallback 零回归)
+- **体型参数 GUI(工厂新能力)**: buildGUI 加「🧍 体型参数」文件夹, 变体下拉(student_m/f+teacher_m/f)+height/build/hunch/curves 滑块; `_applyHumanoidEdit` 调 `buildHumanoid(variant,params)` 重建 MODEL_CONFIGS.humanoid+rebuildModel(穿校服实时预览); 暴露 `window._applyHumanoidEdit`
+- **solidify humanoid 单变体固化**(`server.py`+`model_factory.html`): 新增 `_find_variant_bounds(text,parent_const,variant_key)` 嵌套定位(先 `_find_config_bounds` 定位 HUMANOID_VARIANTS 顶层块→块内正则找 variant_key:→数括号匹配); `solidify_config` 解析 `humanoid:variant` 后缀; `_doSave` 人形分支发 `{modelType:'humanoid:'+variant, config:HUMANOID_VARIANTS[variant]}`。**修正 spec 5.5 误判**——`_find_config_bounds` 只认顶层 const, 嵌套 variant 需新 helper
+- **rebuildModel window.modelRoot fresh 修复**: 原 `window.modelRoot=modelRoot`(L4660 一次性赋值)在 rebuildModel 换引用后 stale; 在 rebuildModel 开头加 `window.modelRoot=modelRoot`, 每次 rebuild 保持 fresh(humanoid_factory.collectRefs 依赖; hexapod 也受益)
+- **执行方式**: Task1 用 subagent(sonnet)+reviewer Approved; Task2 起因 **Claude API 周/月限额 429**(限额 2026-07-28 10:51 重置)改主 session(glm-5.2)内联执行(executing-plans 模式), 每 task CDP/Playwright 验证 0 错误
+- **改动文件**: `js/humanoid_factory.js`(新) + `model_factory.html`(+106) + `models/model_configs.js`(+humanoid entry; prettier 膨胀 700 行语义零变更) + `server.py`(+42) + index/README/CLAUDE/CODEBUDDY/trae(版本同步)
+- **验证**: Playwright 切人形→穿校服(校徽 ah_badge+红领巾 ah_sc_knot)→动画展台6动作5分类→变体切女教师(胸 ah_bust_l+裙 ah_gskirt)→固化(server 200+字段完整+buildHumanoid 仍工作); 截图视觉确认(白Polo+红领巾+灰绿皮肤+972tris+体型GUI); 0 控制台错误全程
+- **关联(P1-P3 文档滞后补记)**: `models/humanoid_config.js`(P1,基骨架+变体+buildHumanoid) / `js/campus_spawner.js`(P3,定时门刷新) / `models/enemies.js` createCampusZombie+createHumanoidAnimationSystem(P1) 文件结构段未逐行补, 见各 plan 文档
+
+### 已知问题（新增/更新）
+
+1. humanoid_factory 关键帧与 enemies.js createHumanoidAnimationSystem 镜像(两份独立, 改动作改两处; Z 档统一)
+2. model_configs.js prettier 膨胀 36→700 行(语义零变更, reviewer 程序验证; 可加 .prettierignore 恢复紧凑)
+3. Die 动画 root.position.y 偏移可能穿地(工厂预览可接受, resetState 复位)
 
 ---
 

@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.78.4** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.0** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,15 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.79.0 — 校园丧尸模型工厂接入（2026-07-28）
+
+- **humanoid_factory.js 工厂展台桥接**: 自包含6动作(Idle/Walk/Run/Attack/Stagger/Die)+keyframe lerp+REST_POSES偏移, 镜像enemies.js createHumanoidAnimationSystem(工厂页不加载enemies.js故自包含); 暴露window.HumanoidAnims接口与HexapodAnims同构(+categories)
+- **工厂6项接入**: createGeometry加Plane case(校徽/斜纹片addon用,不加则渲染报错) + humanoid_config.js脚本加载 + MODEL_CONFIGS humanoid entry + modelOptions🧟校园丧尸 + rebuildModel人形贴地 + MATERIAL_DEFS补20个人形materialId纯色 + getModelAnims humanoid分支 + \_buildAnimList categories分支(hexapod无categories走fallback零回归)
+- **体型参数GUI(工厂新能力)**: 变体下拉(student_m/student_f/teacher_m/teacher_f) + height/build/hunch/curves滑块 + \_applyHumanoidEdit实时buildHumanoid重建(穿校服预览)
+- **solidify单变体固化**: server.py新增\_find_variant_bounds嵌套定位HUMANOID_VARIANTS[key](修正_find_config_bounds只认顶层const的局限) + solidify_config解析humanoid:variant + \_doSave人形分支
+- **rebuildModel修复**: window.modelRoot每次rebuild保持fresh(humanoid_factory.collectRefs依赖,修正原一次性快照stale隐患)
+- **执行方式**: Task1用subagent(sonnet)+reviewer通过; Task2起因Claude API周/月限额429改主session(glm-5.2)内联执行(executing-plans模式), 每 task CDP/Playwright验证0错误
 
 ### v0.78.4 — 校门系统+hpBar修复（2026-07-25）
 
@@ -1536,7 +1545,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.78.4）
+### 代码规模（截至 v0.79.0）
 
 | 分类             | 文件                                                                                                                                                                                                          |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
