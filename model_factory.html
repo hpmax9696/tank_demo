@@ -2051,6 +2051,7 @@
           },
 
           hexapod: window.HexapodAnims || null,
+          humanoid: window.HumanoidAnims || null,
 
           building: null,
           enemy: null,
@@ -2511,7 +2512,7 @@
         var ma = getModelAnims();
         if (!ma || !ma.names) return;
         // 分类标签（索引基于 _hexaAnimNames 顺序, 共21个）
-        var categories = [
+        var categories = (ma && ma.categories) || [
           { label: '── 待机 ──', at: 0 },
           { label: '── 行进 (前进/后退) ──', at: 1 },
           { label: '── 平移 (步行) ──', at: 5 },
