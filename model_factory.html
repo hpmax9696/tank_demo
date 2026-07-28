@@ -482,6 +482,7 @@
 
     <script src="models/hexapod_config.js"></script>
     <script src="models/humanoid_config.js"></script>
+    <script src="js/humanoid_factory.js"></script>
     <script src="models/tiger_v16_builder.js"></script>
     <script src="models/model_configs.js"></script>
     <script src="js/pe_shape_editor.js"></script>
@@ -2640,6 +2641,7 @@
         nodeMap.clear();
         guiFolderMap.clear();
         modelRoot = new THREE.Group();
+        window.modelRoot = modelRoot; // P4: 每次 rebuild 保持 fresh（humanoid_factory.collectRefs 依赖）
 
         MODEL_CONFIGS[currentModelType] = JSON.parse(
           JSON.stringify(MODEL_CONFIGS[currentModelType])
