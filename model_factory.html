@@ -2646,6 +2646,21 @@
         addBolts(nodeMap.get('右主动轮'), 7);
       }
 
+      // ── 人形体型编辑状态（工厂专用）──
+      var _humanoidEdit = {
+        variant: 'student_m',
+        params: { height: 1.3, build: 0.5, hunch: 0.2, curves: 0 },
+      };
+      function _applyHumanoidEdit() {
+        if (currentModelType !== 'humanoid' || !window.HumanoidConfig) return;
+        var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
+        if (tree) {
+          MODEL_CONFIGS.humanoid = tree;
+          rebuildModel();
+        }
+      }
+      window._applyHumanoidEdit = _applyHumanoidEdit;
+
       function rebuildModel() {
         _camoJungleTex = null;
         _camoDesertTex = null;
@@ -3494,6 +3509,33 @@
         modelFolder.open();
 
         _buildCamoCtrl(modelFolder);
+
+        // 人形体型参数（仅 humanoid 显示）
+        if (currentModelType === 'humanoid' && window.HumanoidConfig) {
+          var bodyF = gui.addFolder('🧍 体型参数');
+          var BP = window.HumanoidConfig.BODY_PARAMS;
+          var variantOptions = {};
+          Object.keys(window.HumanoidConfig.HUMANOID_VARIANTS).forEach(function (k) {
+            variantOptions[window.HumanoidConfig.HUMANOID_VARIANTS[k].name] = k;
+          });
+          bodyF
+            .add(_humanoidEdit, 'variant', variantOptions)
+            .name('变体')
+            .onChange(function () {
+              _applyHumanoidEdit();
+            });
+          var _bodyNameMap = { height: '身高', build: '体型', hunch: '驼背', curves: '曲线' };
+          Object.keys(BP).forEach(function (k) {
+            _humanoidEdit.params[k] = BP[k].default;
+            bodyF
+              .add(_humanoidEdit.params, k, BP[k].range[0], BP[k].range[1], 0.01)
+              .name(_bodyNameMap[k] || k)
+              .onChange(function () {
+                _applyHumanoidEdit();
+              });
+          });
+          bodyF.open();
+        }
 
         // --- 全选（独立按钮）---
         const selectAllFolder = gui.addFolder('✅ 全选部件');
