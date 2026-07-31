@@ -2668,12 +2668,12 @@
         var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
         if (tree) {
           MODEL_CONFIGS.humanoid = tree;
-          rebuildModel();
+          rebuildModel(true); // skipGUI: 滑块拖动时只重建模型几何，不销毁 GUI（避免打断拖动）
         }
       }
       window._applyHumanoidEdit = _applyHumanoidEdit;
 
-      function rebuildModel() {
+      function rebuildModel(skipGUI) {
         _camoJungleTex = null;
         _camoDesertTex = null;
         _camoTropicalDesertTex = null;
@@ -2759,20 +2759,22 @@
 
         addWheelBolts();
         updateTriCount();
-        if (gui) {
-          gui.destroy();
-          gui = null;
+        if (!skipGUI) {
+          if (gui) {
+            gui.destroy();
+            gui = null;
+          }
+          buildGUI();
+          // 默认折叠所有顶层节点，保持面板整洁
+          ptCollapsed.clear();
+          var topCfg = MODEL_CONFIGS[currentModelType];
+          if (topCfg && topCfg.children) {
+            for (var ci = 0; ci < topCfg.children.length; ci++)
+              ptCollapsed.add(topCfg.children[ci].name);
+          }
+          refreshPartTree();
+          updateAnimButton();
         }
-        buildGUI();
-        // 默认折叠所有顶层节点，保持面板整洁
-        ptCollapsed.clear();
-        var topCfg = MODEL_CONFIGS[currentModelType];
-        if (topCfg && topCfg.children) {
-          for (var ci = 0; ci < topCfg.children.length; ci++)
-            ptCollapsed.add(topCfg.children[ci].name);
-        }
-        refreshPartTree();
-        updateAnimButton();
       }
 
       // ============================================================
