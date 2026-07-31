@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.0</title>
+    <title>坦克运动demo v0.79.1</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.0</div>
+      <div class="menu-version">v0.79.1</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,14 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          📍 v0.79.1 校园敌人放置工具页 — enemy_marker.html(fork toilet_zone_marker);
+          7类型敌人圆点CRUD(4校园丧尸+assault/zombie/hexapod)+视野圈+巡逻折线; 行为面板(8字段+3模式
+          reactive/aggressive/none); 巡逻点编辑;
+          刷新配置(enabled/数量/间隔/批/上限+4比例)+门提取(extractDoors边中点)+门圆点拖动;
+          保存POST{enemies,spawnConfig}(扁平enemy+position[x,y,z]+patrolPath[[x,z]]+doors[[x,z]]);
+          游戏零改动
+        </div>
+        <div class="cl-title">
           🏭 v0.79.0 校园丧尸模型工厂接入 —
           humanoid_factory自包含6动作(Idle/Walk/Run/Attack/Stagger/Die)工厂展台桥接;
           工厂6项接入(Plane支持+MODEL_CONFIGS+MATERIAL_DEFS+getModelAnims/buildAnimList+体型参数GUI+脚本);
@@ -846,13 +854,8 @@
           clone材质去重); 墙mesh纳入bldGroup统一fade; 围墙/天桥/B7拱顶/体育馆壳标记纳入;
           小地图闪烁修复(检测帧更新); 半透明时瞄准穿透(_filterAimTargets)
         </div>
-        <div class="cl-title">
-          🐛 v0.78.1 厕所碰撞体+炮弹命中修复 — 厕所碰撞polygon点变换(进深20.38→6.94m贴合墙体,
-          替代膨胀的盒变换Box3.applyMatrix4);
-          炮弹Raycaster递归命中厕所Group(修复飞溅/焦痕/地面音效缺失, false→true)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.0~v0.78.1) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.1~v0.78.2) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

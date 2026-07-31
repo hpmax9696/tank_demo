@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.0
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.1
 
 ## 运行
 
@@ -270,6 +270,34 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.79.1 本次会话变更 (2026-07-31)
+
+### 校园敌人放置工具页（P5，feature/campus-zombies-p5 → master）
+
+- **`tools/enemy_marker.html` 新建**(~700行, fork `tools/toilet_zone_marker.html`): 校园敌人放置工具页。7 类型敌人圆点 CRUD（student_m/student_f/teacher_m/teacher_f + assault/zombie/hexapod，色块图标）+ 视野虚线圈（viewDist 半径）+ 巡逻折线（patrolPath）
+- **行为面板**(剥自 `map_editor.html:1064-1102` + `editor_entities.js:442-587`，去批量): 8 字段（HP/速度/视野/攻击伤害/攻击冷却/掉落概率/回血量/击杀得分）+ 3 模式按钮（reactive/aggressive/none），选中敌人时回填+写入**扁平字段**
+- **巡逻点编辑**: 巡逻模式按钮切换，点击画布给选中敌人加巡逻点（橙色折线+序号点），清除按钮
+- **刷新配置面板**: enabled/initialCount/interval/batch/cap + 4 比例（student_m/f/teacher_m/f）+ 门提取（`extractDoors` 复制自 `campus_spawner._extractDoors` corridor 边中点）+ 门圆点可视化拖动
+- **保存**: POST `/api/solidify {type:'enemies', enemies, spawnConfig}`（server.py L195-199 整体替换）。落盘格式：**扁平 enemy**（hp/speed/.../reactive/aggressive 直接挂根，**不套 cfg**）+ `position:[x,y,z]` 3 元数组 + `patrolPath:[[x,z],...]` 二元组 + `spawnConfig.doors:[[x,z],...]`
+- **游戏零改动**: `createEnemies`(P1) + `campus_spawner`(P3) 已消费 `enemies` + `spawnConfig`，本 plan 零改动 engine.js/campus_spawner/enemies.js
+- **暴露**: `enemies`/`campusData`/`spawnConfig`/`newEnemy`/`saveEnemies` 到 window（CDP/测试，loadCampus 末尾 fresh）
+- **执行方式**: 用户选内联执行（P5 单文件 fork，task 耦合高）；一次建完工具页（Task 1-4 合并）+ Playwright 端到端验证（Task 5）
+- **改动文件**: `tools/enemy_marker.html`(新) + `docs/superpowers/plans/2026-07-31-campus-zombies-p5-enemy-marker.md`(plan) + index/README/CLAUDE/CODEBUDDY/trae(版本同步)
+- **验证**: Playwright 放 teacher_f+hp150+巡逻2点+cap40 → 保存 → 重载确认(savedHp150+savedPatrol2+savedPos[8,0,8]+scDoors6)；截图视觉确认(底图+敌人圆点+视野圈+蓝色门方块+7类型按钮+行为面板+刷新配置+敌人列表)；0 控制台错误
+
+### 数据格式（消费者同步）
+
+- `campus.map.json` 顶层 `enemies[]`：扁平字段（不套 cfg）+ `position[x,y,z]` + `patrolPath[[x,z]]`（工具页写入；createEnemies/campus_spawner 消费）
+- `campus.map.json` 顶层 `spawnConfig{}`：enabled/initialCount/interval/batch/cap/ratio/doors（doors 由工具页 extractDoors 提取落盘；之前无 doors 走 campus_spawner.\_extractDoors 兜底）
+- 消费者: `js/engine.js`(createEnemies) + `js/campus_spawner.js` + `tools/enemy_marker.html`(读写) + `server.py`(solidify_campus enemies 分支)
+
+### 已知问题（新增）
+
+1. 工具页测试保存会写 campus.map.json（P5 验证后已 git checkout 恢复 P1 测试数据；用户首次用工具页配置真实数据后落盘）
+2. 门位置用 corridor 边中点近似（spawner 实际 ±1.25m 随机扰动，中点足够；精确"每间教室一扇门"留后续，参考 obstacles.js:912-944）
 
 ---
 
