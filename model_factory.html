@@ -2669,9 +2669,24 @@
         if (tree) {
           MODEL_CONFIGS.humanoid = tree;
           rebuildModel(true); // skipGUI: 滑块拖动时只重建模型几何，不销毁 GUI（避免打断拖动）
+          // height 缩放：按 params.height 把人形归一到 height/1.3 单位（仿 createCampusZombie 包围盒缩放）
+          var humRoot = modelRoot.getObjectByName('root');
+          if (humRoot) {
+            var bbox = new THREE.Box3().setFromObject(humRoot);
+            var curH = bbox.max.y - bbox.min.y;
+            var targetUnits = _humanoidEdit.params.height / 1.3; // METERS_PER_UNIT
+            var hScale = curH > 0 ? targetUnits / curH : 1;
+            humRoot.scale.setScalar(hScale);
+            humRoot.position.y = 0;
+            humRoot.updateMatrixWorld(true);
+            var bbox2 = new THREE.Box3().setFromObject(humRoot);
+            humRoot.position.y = -bbox2.min.y;
+            humRoot.updateMatrixWorld(true);
+          }
         }
       }
       window._applyHumanoidEdit = _applyHumanoidEdit;
+      window._humanoidEdit = _humanoidEdit; // 暴露编辑状态供 CDP/测试
 
       function rebuildModel(skipGUI) {
         _camoJungleTex = null;

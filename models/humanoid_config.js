@@ -683,7 +683,24 @@
     if (node.name === 'torso' && node.size && params.curves > 0) {
       out.size = [node.size[0] * (1 - params.curves * 0.15), node.size[1], node.size[2]];
     }
-    // build → 四肢粗细（非教师女时按 build 调）
+    // build → 肢体粗细（四肢半径/宽深放大，长度 Y 不变）
+    if (node.size) {
+      var _isLimb =
+        node.name === 'l_upper_arm' ||
+        node.name === 'r_upper_arm' ||
+        node.name === 'l_forearm' ||
+        node.name === 'r_forearm' ||
+        node.name === 'l_upper_leg' ||
+        node.name === 'r_upper_leg' ||
+        node.name === 'l_lower_leg' ||
+        node.name === 'r_lower_leg';
+      if (_isLimb) {
+        var _bF = 0.7 + params.build * 0.6; // 0→0.7瘦 / 0.5→1.0 / 1→1.3壮
+        out.size = node.size.map(function (v, i) {
+          return i === 1 ? v : v * _bF;
+        });
+      }
+    }
     // 递归
     if (node.children) out.children = node.children.map((c) => deriveNode(c, params, variant));
     return out;
