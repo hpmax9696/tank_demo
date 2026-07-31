@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>金福园小学 — 校园敌人放置工具</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        color: #eee;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #canvas-wrap {
+        flex: 1;
+        position: relative;
+        cursor: crosshair;
+      }
+      canvas {
+        display: block;
+      }
+      #panel {
+        width: 320px;
+        padding: 12px;
+        background: #16213e;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      h2 {
+        font-size: 15px;
+        color: #e94560;
+        margin-bottom: 2px;
+      }
+      h3 {
+        font-size: 13px;
+        color: #f0a500;
+        margin-top: 6px;
+        margin-bottom: 2px;
+      }
+      h4 {
+        font-size: 12px;
+        color: #8bc;
+        margin-top: 4px;
+        margin-bottom: 2px;
+      }
+      .btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .btn-red {
+        background: #e94560;
+        color: #fff;
+      }
+      .btn-green {
+        background: #1a8a4a;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #333;
+        color: #aaa;
+      }
+      .type-btn {
+        padding: 4px 8px;
+        margin: 2px;
+        border: 1px solid #555;
+        border-radius: 3px;
+        color: #fff;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .type-btn.active {
+        outline: 2px solid #ffd34d;
+        outline-offset: 1px;
+      }
+      #enemy-list {
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 12px;
+      }
+      #enemy-list .row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 4px;
+        border-bottom: 1px solid #222;
+        cursor: pointer;
+      }
+      #enemy-list .row:hover {
+        background: #0f3460;
+      }
+      #enemy-list .row.selected {
+        background: #3a2a0a;
+      }
+      #enemy-list .del {
+        color: #e94560;
+        padding: 1px 6px;
+      }
+      #status {
+        font-size: 12px;
+        color: #888;
+      }
+      .legend {
+        font-size: 11px;
+        color: #888;
+      }
+      .legend span {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        vertical-align: middle;
+        margin-right: 4px;
+        border-radius: 2px;
+      }
+      .hint {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.6;
+      }
+      .cfg-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 2px 0;
+      }
+      .cfg-row label {
+        width: 78px;
+        font-size: 12px;
+        color: #bbb;
+      }
+      .cfg-row input {
+        flex: 1;
+        width: 60px;
+        padding: 2px 4px;
+        background: #222;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 2px;
+      }
+      .cfg-modes {
+        display: flex;
+        gap: 4px;
+        margin: 4px 0;
+      }
+      .cfg-mode-btn {
+        flex: 1;
+        padding: 3px 4px;
+        font-size: 11px;
+        background: #333;
+        color: #ccc;
+        border: 1px solid #555;
+        border-radius: 2px;
+        cursor: pointer;
+      }
+      .cfg-mode-btn.active {
+        background: #4a6a2e;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-wrap"><canvas id="c"></canvas></div>
+    <div id="panel">
+      <h2>🧟 校园敌人放置工具</h2>
+      <div>
+        <span class="hint">类型:</span>
+        <button class="type-btn" data-type="student_m" style="background: #556633">学生男</button>
+        <button class="type-btn" data-type="student_f" style="background: #6a7a44">学生女</button>
+        <button class="type-btn" data-type="teacher_m" style="background: #3a3a42">教师男</button>
+        <button class="type-btn" data-type="teacher_f" style="background: #4a4a52">教师女</button>
+        <button class="type-btn" data-type="assault" style="background: #4a5c2e">突击车</button>
+        <button class="type-btn" data-type="zombie" style="background: #7a3a3a">丧尸</button>
+        <button class="type-btn" data-type="hexapod" style="background: #2a4a6a">六足</button>
+        <button class="btn btn-gray" id="patrol-mode-btn">🚶 巡逻(关)</button>
+      </div>
+      <div class="legend">
+        <span style="background: #3a5a3a"></span>建筑 <span style="background: #4a8c3f"></span>草地
+        <span style="background: #556633; border-radius: 50%"></span>敌人
+        <span style="background: #ff8c28; border-radius: 50%"></span>巡逻点
+        <span style="background: #3a7adf"></span>门
+      </div>
+      <div class="hint">
+        🖱️ 点击空白 = 放置当前类型敌人<br />
+        🖱️ 点击敌人 = 选中(黄边)<br />
+        🖱️ 拖拽敌人 = 平移<br />
+        🚶 巡逻模式 + 点击画布 = 给选中敌人加巡逻点<br />
+        🖱️ 拖拽蓝色门 = 移动门<br />
+        ⌨️ Delete = 删除选中敌人
+      </div>
+      <button class="btn btn-red" onclick="deleteSelected()">🗑 删除选中</button>
+      <button class="btn btn-gray" onclick="clearAll()">🗑 清空全部</button>
+      <div id="enemy-list"></div>
+
+      <div id="behavior-panel" style="display: none">
+        <h3>⚙ 行为参数 <span id="batch-tag"></span></h3>
+        <div class="cfg-row">
+          <label>HP</label><input type="number" id="cfg-hp" min="1" max="999" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>速度</label><input type="number" id="cfg-speed" min="0.1" max="20" step="0.1" />
+        </div>
+        <div class="cfg-row">
+          <label>视野(m)</label><input type="number" id="cfg-view" min="5" max="200" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>攻击伤害</label><input type="number" id="cfg-atkdmg" min="1" max="100" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>攻击冷却(s)</label
+          ><input type="number" id="cfg-atkcd" min="0.5" max="30" step="0.1" />
+        </div>
+        <div class="cfg-row">
+          <label>掉落概率</label><input type="number" id="cfg-drop" min="0" max="1" step="0.05" />
+        </div>
+        <div class="cfg-row">
+          <label>回血量</label><input type="number" id="cfg-heal" min="0" max="100" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>击杀得分</label><input type="number" id="cfg-score" min="0" max="9999" step="1" />
+        </div>
+        <div class="cfg-modes">
+          <button class="cfg-mode-btn" data-mode="reactive">被动(反击)</button>
+          <button class="cfg-mode-btn" data-mode="aggressive">主动(追击)</button>
+          <button class="cfg-mode-btn" data-mode="none">不反击</button>
+        </div>
+        <div id="cfg-patrol-preview" class="hint"></div>
+        <button class="btn btn-gray" id="clear-patrol-btn" style="margin-top: 4px">
+          🗑 清除当前敌人巡逻点
+        </button>
+      </div>
+
+      <div id="spawn-panel">
+        <h3>🔄 刷新配置</h3>
+        <div class="cfg-row"><label>启用</label><input type="checkbox" id="sp-enabled" /></div>
+        <div class="cfg-row">
+          <label>初始数量</label><input type="number" id="sp-initial" min="0" max="100" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>间隔(s)</label><input type="number" id="sp-interval" min="5" max="120" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>每批</label><input type="number" id="sp-batch" min="1" max="20" step="1" />
+        </div>
+        <div class="cfg-row">
+          <label>上限</label><input type="number" id="sp-cap" min="1" max="100" step="1" />
+        </div>
+        <h4>比例(学生男/女/教师男/女)</h4>
+        <div class="cfg-row">
+          <label>学生男</label><input type="number" id="sp-r-sm" min="0" max="1" step="0.05" />
+        </div>
+        <div class="cfg-row">
+          <label>学生女</label><input type="number" id="sp-r-sf" min="0" max="1" step="0.05" />
+        </div>
+        <div class="cfg-row">
+          <label>教师男</label><input type="number" id="sp-r-tm" min="0" max="1" step="0.05" />
+        </div>
+        <div class="cfg-row">
+          <label>教师女</label><input type="number" id="sp-r-tf" min="0" max="1" step="0.05" />
+        </div>
+        <h4>门(刷新点) <button class="btn btn-gray" id="reextract-doors">↻ 重新提取</button></h4>
+        <div class="hint" id="doors-count"></div>
+      </div>
+
+      <button class="btn btn-green" onclick="saveEnemies()">💾 保存到地图</button>
+      <div id="status">就绪</div>
+    </div>
+    <script>
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+
+      let campusData = null;
+      let enemies = []; // {id,type,variant?,_seed,x,z,hp,speed,viewDist,attackDamage,attackCooldown,dropRate,dropHeal,score,reactive,aggressive,patrolPath:[]}
+      let selIdx = -1;
+      let curType = 'student_m';
+      let patrolMode = false;
+      let spawnConfig = null;
+      let dragMode = null; // 'move' | 'door'
+      let dragOffset = { x: 0, y: 0 };
+      let dragDoor = -1;
+      let mcx = 0,
+        mcz = 0,
+        ccx = 0,
+        ccy = 0,
+        scale = 1;
+
+      const TYPE_COLORS = {
+        student_m: '#556633',
+        student_f: '#6a7a44',
+        teacher_m: '#3a3a42',
+        teacher_f: '#4a4a52',
+        assault: '#4a5c2e',
+        zombie: '#7a3a3a',
+        hexapod: '#2a4a6a',
+      };
+      const TYPE_DEFAULTS = {
+        student_m: {
+          type: 'zombie',
+          variant: 'student_m',
+          hp: 40,
+          speed: 2.0,
+          viewDist: 25,
+          attackDamage: 8,
+          attackCooldown: 1.5,
+          dropRate: 0.25,
+          dropHeal: 30,
+          score: 50,
+        },
+        student_f: {
+          type: 'zombie',
+          variant: 'student_f',
+          hp: 40,
+          speed: 2.0,
+          viewDist: 25,
+          attackDamage: 8,
+          attackCooldown: 1.5,
+          dropRate: 0.25,
+          dropHeal: 30,
+          score: 50,
+        },
+        teacher_m: {
+          type: 'zombie',
+          variant: 'teacher_m',
+          hp: 120,
+          speed: 1.0,
+          viewDist: 40,
+          attackDamage: 20,
+          attackCooldown: 2.5,
+          dropRate: 0.25,
+          dropHeal: 30,
+          score: 200,
+        },
+        teacher_f: {
+          type: 'zombie',
+          variant: 'teacher_f',
+          hp: 120,
+          speed: 1.0,
+          viewDist: 40,
+          attackDamage: 20,
+          attackCooldown: 2.5,
+          dropRate: 0.25,
+          dropHeal: 30,
+          score: 200,
+        },
+        assault: {
+          type: 'assault',
+          variant: null,
+          hp: 60,
+          speed: 5.0,
+          viewDist: 50,
+          attackDamage: 15,
+          attackCooldown: 3.0,
+          dropRate: 0.25,
+          dropHeal: 30,
+          score: 100,
+        },
+        zombie: {
+          type: 'zombie',
+          variant: null,
+          hp: 40,
+          speed: 2.5,
+          viewDist: 35,
+          attackDamage: 10,
+          attackCooldown: 1.5,
+          dropRate: 0.3,
+          dropHeal: 20,
+          score: 50,
+        },
+        hexapod: {
+          type: 'hexapod',
+          variant: null,
+          hp: 100,
+          speed: 4.5,
+          viewDist: 60,
+          attackDamage: 15,
+          attackCooldown: 0.15,
+          dropRate: 0.35,
+          dropHeal: 40,
+          score: 200,
+        },
+      };
+      const CFG_FIELDS = [
+        ['cfg-hp', 'hp'],
+        ['cfg-speed', 'speed'],
+        ['cfg-view', 'viewDist'],
+        ['cfg-atkdmg', 'attackDamage'],
+        ['cfg-atkcd', 'attackCooldown'],
+        ['cfg-drop', 'dropRate'],
+        ['cfg-heal', 'dropHeal'],
+        ['cfg-score', 'score'],
+      ];
+      const SP_FIELDS = [
+        ['sp-initial', 'initialCount', 'value'],
+        ['sp-interval', 'interval', 'value'],
+        ['sp-batch', 'batch', 'value'],
+        ['sp-cap', 'cap', 'value'],
+        ['sp-r-sm', 'student_m', 'ratio'],
+        ['sp-r-sf', 'student_f', 'ratio'],
+        ['sp-r-tm', 'teacher_m', 'ratio'],
+        ['sp-r-tf', 'teacher_f', 'ratio'],
+      ];
+
+      function newEnemy(typeKey, x, z) {
+        const d = TYPE_DEFAULTS[typeKey] || TYPE_DEFAULTS.student_m;
+        return {
+          id: 'e' + Math.random().toString(36).slice(2, 8),
+          type: d.type,
+          variant: d.variant,
+          _seed: Math.floor(Math.random() * 1e6),
+          x: x,
+          z: z,
+          hp: d.hp,
+          speed: d.speed,
+          viewDist: d.viewDist,
+          attackDamage: d.attackDamage,
+          attackCooldown: d.attackCooldown,
+          dropRate: d.dropRate,
+          dropHeal: d.dropHeal,
+          score: d.score,
+          reactive: true,
+          aggressive: false,
+          patrolPath: [],
+        };
+      }
+
+      function extractDoors(data) {
+        const doors = [];
+        const blds = (data && data.obstacles && data.obstacles.footprintBuildings) || [];
+        for (const b of blds) {
+          const fp = b.footprint;
+          const marks = b.edgeMarks || [];
+          for (const m of marks) {
+            if (m.type !== 'corridor') continue;
+            const ei = m.ei;
+            if (ei == null || !fp || !fp[ei]) continue;
+            const a = fp[ei],
+              c = fp[(ei + 1) % fp.length];
+            doors.push([(a[0] + c[0]) / 2, (a[1] + c[1]) / 2]);
+          }
+        }
+        return doors;
+      }
+
+      // ---- 加载 ----
+      async function loadCampus() {
+        try {
+          const r = await fetch('../maps/campus.map.json');
+          campusData = await r.json();
+          enemies = (campusData.enemies || []).map((e) => ({
+            id: e.id || 'e' + Math.random().toString(36).slice(2, 7),
+            type: e.type || 'zombie',
+            variant: e.variant || null,
+            _seed: e._seed != null ? e._seed : Math.floor(Math.random() * 1e6),
+            x: e.position ? e.position[0] : 0,
+            z: e.position ? e.position[2] : 0,
+            hp: e.hp != null ? e.hp : 40,
+            speed: e.speed != null ? e.speed : 2.0,
+            viewDist: e.viewDist != null ? e.viewDist : 25,
+            attackDamage: e.attackDamage != null ? e.attackDamage : 8,
+            attackCooldown: e.attackCooldown != null ? e.attackCooldown : 1.5,
+            dropRate: e.dropRate != null ? e.dropRate : 0.25,
+            dropHeal: e.dropHeal != null ? e.dropHeal : 30,
+            score: e.score != null ? e.score : 50,
+            reactive: e.reactive !== undefined ? e.reactive : true,
+            aggressive: e.aggressive !== undefined ? e.aggressive : false,
+            patrolPath: (e.patrolPath || []).map((p) => [p[0], p[1]]),
+          }));
+          spawnConfig = Object.assign(
+            {
+              enabled: true,
+              initialCount: 15,
+              interval: 20,
+              batch: 6,
+              cap: 30,
+              ratio: { student_m: 0.4, student_f: 0.35, teacher_m: 0.15, teacher_f: 0.1 },
+              doors: null,
+            },
+            campusData.spawnConfig || {}
+          );
+          if (!spawnConfig.doors) spawnConfig.doors = extractDoors(campusData);
+          fitView();
+          draw();
+          window.enemies = enemies;
+          window.campusData = campusData;
+          window.spawnConfig = spawnConfig;
+          updateEnemyList();
+          syncSpawnPanel();
+          setStatus(
+            '已加载 ' +
+              enemies.length +
+              ' 个敌人, ' +
+              (spawnConfig.doors ? spawnConfig.doors.length : 0) +
+              ' 个门'
+          );
+        } catch (e) {
+          setStatus('加载失败: ' + e.message);
+        }
+      }
+
+      function fitView() {
+        const b = campusData.obstacles.boundary;
+        let minX = Infinity,
+          maxX = -Infinity,
+          minZ = Infinity,
+          maxZ = -Infinity;
+        for (const p of b) {
+          if (p[0] < minX) minX = p[0];
+          if (p[0] > maxX) maxX = p[0];
+          if (p[1] < minZ) minZ = p[1];
+          if (p[1] > maxZ) maxZ = p[1];
+        }
+        const pad = 10,
+          w = maxX - minX + pad * 2,
+          h = maxZ - minZ + pad * 2;
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        scale = Math.min(cw / w, ch / h);
+        mcx = (minX + maxX) / 2;
+        mcz = (minZ + maxZ) / 2;
+        ccx = cw / 2;
+        ccy = ch / 2;
+        canvas.width = cw * devicePixelRatio;
+        canvas.height = ch * devicePixelRatio;
+        canvas.style.width = cw + 'px';
+        canvas.style.height = ch + 'px';
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      function w2c(wx, wz) {
+        return { x: ccx - (wx - mcx) * scale, y: ccy - (wz - mcz) * scale };
+      }
+      function c2w(cx, cy) {
+        return { x: mcx - (cx - ccx) / scale, z: mcz - (cy - ccy) / scale };
+      }
+
+      // ---- 渲染 ----
+      function draw() {
+        const cw = canvas.parentElement.clientWidth,
+          ch = canvas.parentElement.clientHeight;
+        ctx.clearRect(0, 0, cw, ch);
+        if (!campusData) return;
+        ctx.fillStyle = '#d8d4cc';
+        ctx.fillRect(0, 0, cw, ch);
+        const bdry = campusData.obstacles.boundary;
+        drawPoly(bdry, '#ddd', '#666', 2);
+        for (const fp of campusData.obstacles.footprintBuildings || [])
+          drawPoly(fp.footprint, '#3a5a3a', '#2a4a2a', 1);
+        for (const gn of campusData.obstacles.grounds || [])
+          drawPoly(gn.footprint, '#4a8c3f', null, 0);
+        drawPoly(bdry, null, '#666', 2);
+        // 门（蓝色方块，先画，敌人叠上层）
+        const doors = (spawnConfig && spawnConfig.doors) || [];
+        for (let di = 0; di < doors.length; di++) {
+          const dc = w2c(doors[di][0], doors[di][1]);
+          ctx.fillStyle = '#3a7adf';
+          ctx.fillRect(dc.x - 4, dc.y - 4, 8, 8);
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(dc.x - 4, dc.y - 4, 8, 8);
+        }
+        // 敌人
+        for (let i = 0; i < enemies.length; i++) {
+          const en = enemies[i];
+          const c = w2c(en.x, en.z);
+          const col = TYPE_COLORS[en.type] || (en.variant ? TYPE_COLORS[en.variant] : '#888');
+          if (en.viewDist) {
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, en.viewDist * scale, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,200,80,0.2)';
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          if (en.patrolPath && en.patrolPath.length) {
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y);
+            for (let pi = 0; pi < en.patrolPath.length; pi++) {
+              const pp = w2c(en.patrolPath[pi][0], en.patrolPath[pi][1]);
+              ctx.lineTo(pp.x, pp.y);
+            }
+            ctx.strokeStyle = 'rgba(255,140,40,0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            for (let pi = 0; pi < en.patrolPath.length; pi++) {
+              const pp = w2c(en.patrolPath[pi][0], en.patrolPath[pi][1]);
+              ctx.beginPath();
+              ctx.arc(pp.x, pp.y, 4, 0, Math.PI * 2);
+              ctx.fillStyle = '#ff8c28';
+              ctx.fill();
+            }
+          }
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 7, 0, Math.PI * 2);
+          ctx.fillStyle = col;
+          ctx.fill();
+          ctx.strokeStyle = i === selIdx ? '#ffd34d' : '#fff';
+          ctx.lineWidth = i === selIdx ? 3 : 1.5;
+          ctx.stroke();
+        }
+      }
+
+      function drawPoly(poly, fill, stroke, lw) {
+        if (!poly || poly.length < 2) return;
+        ctx.beginPath();
+        const p0 = w2c(poly[0][0], poly[0][1]);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < poly.length; i++) {
+          const p = w2c(poly[i][0], poly[i][1]);
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw || 2;
+          ctx.stroke();
+        }
+      }
+
+      function hitEnemy(cx, cy) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const c = w2c(enemies[i].x, enemies[i].z);
+          const dx = cx - c.x,
+            dy = cy - c.y;
+          if (dx * dx + dy * dy <= 100) return i;
+        }
+        return -1;
+      }
+
+      // ---- 列表 + 面板 ----
+      function updateEnemyList() {
+        const el = document.getElementById('enemy-list');
+        el.innerHTML = enemies
+          .map((en, i) => {
+            const cls = i === selIdx ? 'row selected' : 'row';
+            const label =
+              (en.variant || en.type) + ' (' + Math.round(en.x) + ',' + Math.round(en.z) + ')';
+            return (
+              '<div class="' +
+              cls +
+              '" onclick="selectEnemy(' +
+              i +
+              ')"><span style="flex:1">' +
+              label +
+              '</span><span class="del" onclick="event.stopPropagation();deleteEnemy(' +
+              i +
+              ')">✕</span></div>'
+            );
+          })
+          .join('');
+      }
+      function selectEnemy(i) {
+        selIdx = i;
+        syncPanel();
+        draw();
+        updateEnemyList();
+      }
+      function deleteEnemy(i) {
+        enemies.splice(i, 1);
+        if (selIdx === i) selIdx = -1;
+        else if (selIdx > i) selIdx--;
+        syncPanel();
+        draw();
+        updateEnemyList();
+      }
+
+      function syncPanel() {
+        const panel = document.getElementById('behavior-panel');
+        if (selIdx < 0 || !enemies[selIdx]) {
+          panel.style.display = 'none';
+          return;
+        }
+        panel.style.display = 'block';
+        const en = enemies[selIdx];
+        CFG_FIELDS.forEach((pair) => {
+          const el = document.getElementById(pair[0]);
+          if (el) el.value = en[pair[1]];
+        });
+        document.querySelectorAll('.cfg-mode-btn').forEach((b) => {
+          const m = b.dataset.mode;
+          const active =
+            (m === 'reactive' && en.reactive === true && en.aggressive !== true) ||
+            (m === 'aggressive' && en.aggressive === true) ||
+            (m === 'none' && en.reactive === false && en.aggressive !== true);
+          b.classList.toggle('active', active);
+        });
+        const pv = document.getElementById('cfg-patrol-preview');
+        pv.innerHTML = en.patrolPath.length
+          ? '巡逻(' +
+            en.patrolPath.length +
+            '): ' +
+            en.patrolPath
+              .map((p) => '(' + Math.round(p[0]) + ',' + Math.round(p[1]) + ')')
+              .join('→')
+          : '无巡逻点（切巡逻模式点击画布添加）';
+      }
+      CFG_FIELDS.forEach((pair) => {
+        const el = document.getElementById(pair[0]);
+        if (el)
+          el.addEventListener('input', () => {
+            if (selIdx < 0) return;
+            const v = parseFloat(el.value);
+            if (!isNaN(v)) {
+              enemies[selIdx][pair[1]] = v;
+              draw();
+            }
+          });
+      });
+      document.querySelectorAll('.cfg-mode-btn').forEach((b) => {
+        b.addEventListener('click', () => {
+          if (selIdx < 0) return;
+          const m = b.dataset.mode;
+          if (m === 'reactive') {
+            enemies[selIdx].reactive = true;
+            enemies[selIdx].aggressive = false;
+          } else if (m === 'aggressive') {
+            enemies[selIdx].reactive = false;
+            enemies[selIdx].aggressive = true;
+          } else {
+            enemies[selIdx].reactive = false;
+            enemies[selIdx].aggressive = false;
+          }
+          syncPanel();
+        });
+      });
+      document.getElementById('clear-patrol-btn').addEventListener('click', () => {
+        if (selIdx >= 0) {
+          enemies[selIdx].patrolPath = [];
+          syncPanel();
+          draw();
+          updateEnemyList();
+        }
+      });
+
+      function syncSpawnPanel() {
+        document.getElementById('sp-enabled').checked = !!spawnConfig.enabled;
+        document.getElementById('sp-initial').value = spawnConfig.initialCount;
+        document.getElementById('sp-interval').value = spawnConfig.interval;
+        document.getElementById('sp-batch').value = spawnConfig.batch;
+        document.getElementById('sp-cap').value = spawnConfig.cap;
+        const r = spawnConfig.ratio || {};
+        document.getElementById('sp-r-sm').value = r.student_m != null ? r.student_m : 0.4;
+        document.getElementById('sp-r-sf').value = r.student_f != null ? r.student_f : 0.35;
+        document.getElementById('sp-r-tm').value = r.teacher_m != null ? r.teacher_m : 0.15;
+        document.getElementById('sp-r-tf').value = r.teacher_f != null ? r.teacher_f : 0.1;
+        document.getElementById('doors-count').textContent =
+          '门数: ' + (spawnConfig.doors || []).length + ' (蓝色方块, 可拖动)';
+      }
+      document.getElementById('sp-enabled').addEventListener('change', (e) => {
+        spawnConfig.enabled = e.target.checked;
+      });
+      SP_FIELDS.forEach((pair) => {
+        const el = document.getElementById(pair[0]);
+        if (!el) return;
+        el.addEventListener('input', () => {
+          const v = parseFloat(el.value);
+          if (pair[2] === 'ratio') {
+            spawnConfig.ratio = spawnConfig.ratio || {};
+            spawnConfig.ratio[pair[1]] = isNaN(v) ? 0 : v;
+          } else spawnConfig[pair[1]] = isNaN(v) ? 0 : v;
+        });
+      });
+      document.getElementById('reextract-doors').addEventListener('click', () => {
+        spawnConfig.doors = extractDoors(campusData);
+        syncSpawnPanel();
+        draw();
+      });
+
+      // ---- 类型按钮 + 巡逻模式 ----
+      document.querySelectorAll('.type-btn').forEach((b) => {
+        b.addEventListener('click', () => {
+          curType = b.dataset.type;
+          document.querySelectorAll('.type-btn').forEach((x) => x.classList.remove('active'));
+          b.classList.add('active');
+        });
+      });
+      document.querySelector('.type-btn[data-type="student_m"]').classList.add('active');
+      document.getElementById('patrol-mode-btn').addEventListener('click', function () {
+        patrolMode = !patrolMode;
+        this.textContent = '🚶 巡逻(' + (patrolMode ? '开' : '关') + ')';
+        this.style.background = patrolMode ? '#1a8a4a' : '#333';
+        this.style.color = patrolMode ? '#fff' : '#aaa';
+      });
+
+      // ---- 交互 ----
+      canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left,
+          cy = e.clientY - rect.top;
+        // 门命中优先
+        const doors = (spawnConfig && spawnConfig.doors) || [];
+        for (let di = 0; di < doors.length; di++) {
+          const dc = w2c(doors[di][0], doors[di][1]);
+          if (Math.abs(cx - dc.x) <= 6 && Math.abs(cy - dc.y) <= 6) {
+            dragDoor = di;
+            return;
+          }
+        }
+        if (patrolMode && selIdx >= 0) {
+          const w = c2w(cx, cy);
+          enemies[selIdx].patrolPath.push([w.x, w.z]);
+          syncPanel();
+          draw();
+          updateEnemyList();
+          return;
+        }
+        const hi = hitEnemy(cx, cy);
+        if (hi >= 0) {
+          selIdx = hi;
+          dragMode = 'move';
+          const ec = w2c(enemies[hi].x, enemies[hi].z);
+          dragOffset = { x: cx - ec.x, y: cy - ec.y };
+        } else {
+          const w = c2w(cx, cy);
+          enemies.push(newEnemy(curType, w.x, w.z));
+          selIdx = enemies.length - 1;
+          dragMode = 'move';
+          dragOffset = { x: 0, y: 0 };
+          setStatus('新建 ' + curType + ' #' + enemies.length);
+        }
+        syncPanel();
+        draw();
+        updateEnemyList();
+      });
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left,
+          cy = e.clientY - rect.top;
+        if (dragDoor >= 0) {
+          const w = c2w(cx, cy);
+          spawnConfig.doors[dragDoor] = [w.x, w.z];
+          draw();
+          return;
+        }
+        if (dragMode === 'move' && selIdx >= 0) {
+          const w = c2w(cx - dragOffset.x, cy - dragOffset.y);
+          enemies[selIdx].x = w.x;
+          enemies[selIdx].z = w.z;
+          draw();
+          updateEnemyList();
+        }
+      });
+      canvas.addEventListener('mouseup', () => {
+        dragMode = null;
+        dragDoor = -1;
+      });
+      canvas.addEventListener('mouseleave', () => {
+        dragMode = null;
+        dragDoor = -1;
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA'
+          )
+            return;
+          deleteSelected();
+        }
+      });
+      function deleteSelected() {
+        if (selIdx < 0) return;
+        enemies.splice(selIdx, 1);
+        selIdx = -1;
+        setStatus('已删除');
+        syncPanel();
+        draw();
+        updateEnemyList();
+      }
+      function clearAll() {
+        if (!confirm('清空全部敌人？(spawnConfig 保留)')) return;
+        enemies = [];
+        selIdx = -1;
+        setStatus('已清空');
+        syncPanel();
+        draw();
+        updateEnemyList();
+      }
+
+      function setStatus(s) {
+        document.getElementById('status').textContent = s;
+      }
+
+      // ---- 保存 ----
+      async function saveEnemies() {
+        const payload = {
+          type: 'enemies',
+          enemies: enemies.map((e) => {
+            const o = {
+              id: e.id,
+              type: e.type,
+              _seed: e._seed,
+              position: [e.x, 0, e.z],
+              patrolPath: e.patrolPath.map((p) => [p[0], p[1]]),
+              hp: e.hp,
+              speed: e.speed,
+              viewDist: e.viewDist,
+              attackDamage: e.attackDamage,
+              attackCooldown: e.attackCooldown,
+              dropRate: e.dropRate,
+              dropHeal: e.dropHeal,
+              score: e.score,
+              reactive: e.reactive,
+              aggressive: e.aggressive,
+            };
+            if (e.variant) o.variant = e.variant;
+            return o;
+          }),
+          spawnConfig: spawnConfig,
+        };
+        setStatus('⏳ 保存中...');
+        try {
+          const r = await fetch('/api/solidify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const j = await r.json();
+          if (j.ok) setStatus('✅ 已保存 ' + payload.enemies.length + ' 个敌人到 campus.map.json');
+          else setStatus('❌ 保存失败: ' + (j.error || ''));
+        } catch (e) {
+          setStatus('❌ 保存异常: ' + e.message);
+        }
+      }
+
+      window.addEventListener('resize', () => {
+        if (campusData) {
+          fitView();
+          draw();
+        }
+      });
+      window.newEnemy = newEnemy;
+      window.saveEnemies = saveEnemies;
+      loadCampus();
+    </script>
+  </body>
+</html>
