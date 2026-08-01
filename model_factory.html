@@ -526,11 +526,11 @@
           emissive: 0xc08010,
           emissiveIntensity: 0.15,
         },
-        // ── 校园人形丧尸（纯色近似，Canvas 贴图留 P6）──
-        polo_white: { color: 0xf4f4f0, roughness: 0.7, metalness: 0.0 },
+        // ── 校园人形丧尸（Canvas 贴图，P6 精修）──
+        polo_white: { color: 0xffffff, roughness: 0.7, metalness: 0.0, map: 'polo' },
         teacher_shirt: { color: 0xf2f2ee, roughness: 0.65, metalness: 0.0 },
         blouse_white: { color: 0xf6f6f2, roughness: 0.65, metalness: 0.0 },
-        skin_zombie: { color: 0xc9cfc0, roughness: 0.85, metalness: 0.0 },
+        skin_zombie: { color: 0xffffff, roughness: 0.85, metalness: 0.0, map: 'skin' },
         eye_glow: {
           color: 0x110000,
           roughness: 0.4,
@@ -551,10 +551,105 @@
         frame_dark: { color: 0x222222, roughness: 0.5, metalness: 0.1 },
         briefcase_brown: { color: 0x5a3a22, roughness: 0.55, metalness: 0.0 },
         metal_gold: { color: 0xc8a040, roughness: 0.3, metalness: 0.7 },
-        school_badge: { color: 0xffffff, roughness: 0.7, metalness: 0.0 },
-        shoulder_stripes: { color: 0xd83232, roughness: 0.7, metalness: 0.0 },
+        school_badge: {
+          color: 0xffffff,
+          roughness: 0.7,
+          metalness: 0.0,
+          map: 'badge',
+          transparent: true,
+        },
+        shoulder_stripes: {
+          color: 0xffffff,
+          roughness: 0.7,
+          metalness: 0.0,
+          map: 'stripes',
+          transparent: true,
+        },
         default: { color: 0x888888, roughness: 0.6, metalness: 0.2 },
       };
+
+      // ── 人形 Canvas 贴图（复刻 enemies.js:createHumanoidMaterials，两侧统一）──
+      let _humanoidTexCache = null;
+      function createHumanoidTextures() {
+        if (_humanoidTexCache) return _humanoidTexCache;
+        // polo_white：白底 + 珠地网眼
+        const polo = document.createElement('canvas');
+        polo.width = polo.height = 128;
+        const pctx = polo.getContext('2d');
+        pctx.fillStyle = '#f4f4f0';
+        pctx.fillRect(0, 0, 128, 128);
+        for (let i = 0; i < 1200; i++) {
+          pctx.fillStyle = `rgba(210,210,200,${0.15 + Math.random() * 0.25})`;
+          pctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+        }
+        // skin_zombie：灰绿 + 斑点 + 暗斑
+        const skin = document.createElement('canvas');
+        skin.width = skin.height = 128;
+        const sctx = skin.getContext('2d');
+        sctx.fillStyle = '#c9cfc0';
+        sctx.fillRect(0, 0, 128, 128);
+        for (let i = 0; i < 400; i++) {
+          sctx.fillStyle = `rgba(150,165,140,${0.1 + Math.random() * 0.2})`;
+          sctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+        }
+        for (let i = 0; i < 6; i++) {
+          const cx = Math.random() * 128,
+            cy = Math.random() * 128,
+            r = 4 + Math.random() * 8;
+          const g = sctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+          g.addColorStop(0, 'rgba(110,120,95,0.4)');
+          g.addColorStop(1, 'rgba(110,120,95,0)');
+          sctx.fillStyle = g;
+          sctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+        // school_badge：绿树 + 橙色校名
+        const badge = document.createElement('canvas');
+        badge.width = badge.height = 128;
+        const bctx = badge.getContext('2d');
+        bctx.clearRect(0, 0, 128, 128);
+        bctx.fillStyle = '#3a8a3a';
+        [
+          [64, 48, 22],
+          [52, 55, 16],
+          [76, 55, 16],
+        ].forEach(([x, y, r]) => {
+          bctx.beginPath();
+          bctx.arc(x, y, r, 0, Math.PI * 2);
+          bctx.fill();
+        });
+        bctx.fillStyle = '#6b4a2a';
+        bctx.fillRect(60, 60, 8, 22);
+        bctx.fillStyle = '#d88a2a';
+        bctx.font = 'bold 13px "Microsoft YaHei","PingFang SC","Heiti SC",sans-serif';
+        bctx.textAlign = 'center';
+        bctx.fillText('金福园小学', 64, 104);
+        // shoulder_stripes：红/粉/绿斜条
+        const strp = document.createElement('canvas');
+        strp.width = strp.height = 128;
+        const tctx = strp.getContext('2d');
+        tctx.clearRect(0, 0, 128, 128);
+        const cols = ['#d83232', '#e88a9a', '#3a8a3a'];
+        for (let i = 0; i < 4; i++) {
+          tctx.fillStyle = cols[i % 3];
+          tctx.save();
+          tctx.translate(64, 64);
+          tctx.rotate(-0.5);
+          tctx.fillRect(-12 + i * 8, -80, 5, 160);
+          tctx.restore();
+        }
+        const make = (cv) => {
+          const t = new THREE.CanvasTexture(cv);
+          t.colorSpace = THREE.SRGBColorSpace;
+          return t;
+        };
+        _humanoidTexCache = {
+          polo: make(polo),
+          skin: make(skin),
+          badge: make(badge),
+          stripes: make(strp),
+        };
+        return _humanoidTexCache;
+      }
 
       let _camoJungleTex = null,
         _camoDesertTex = null,
@@ -656,7 +751,13 @@
           }
         }
         const def = MATERIAL_DEFS[matId] || MATERIAL_DEFS.default;
-        const mat = new THREE.MeshStandardMaterial({ ...def });
+        const cfg = Object.assign({}, def);
+        if (def.map) {
+          const tex = (createHumanoidTextures() || {})[def.map];
+          if (tex) cfg.map = tex;
+          else delete cfg.map;
+        }
+        const mat = new THREE.MeshStandardMaterial(cfg);
         if (
           currentCamoType &&
           currentCamoType !== 'debug' &&
