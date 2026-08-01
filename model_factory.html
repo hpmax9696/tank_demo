@@ -1097,8 +1097,10 @@
               s[1],
               seg[0] || 6
             );
-          case 'Sphere':
-            return new THREE.SphereGeometry(s[0], seg[0] || 8, seg[1] || 6);
+          case 'Sphere': {
+            const tl = node.thetaLength != null ? node.thetaLength : Math.PI;
+            return new THREE.SphereGeometry(s[0], seg[0] || 8, seg[1] || 6, 0, Math.PI * 2, 0, tl);
+          }
           case 'Torus':
             return new THREE.TorusGeometry(s[0], s[1] || 0.05, seg[0] || 8, seg[1] || 12);
           case 'Plane':

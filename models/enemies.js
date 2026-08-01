@@ -1069,7 +1069,8 @@
                 case 'Sphere': {
                     const [r] = node.size;
                     const s = node.segments || [8, 6];
-                    return new THREE.SphereGeometry(r, s[0], s[1]);
+                    const tl = node.thetaLength != null ? node.thetaLength : Math.PI;
+                    return new THREE.SphereGeometry(r, s[0], s[1], 0, Math.PI * 2, 0, tl);
                 }
                 case 'Plane': {
                     const [w, h] = node.size;
