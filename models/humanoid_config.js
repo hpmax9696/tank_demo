@@ -197,6 +197,7 @@
       name: '学生(女)',
       materials: { cloth: 'polo_white', skin: 'skin_zombie' },
       addons: [
+        'short_hair_m',
         'ponytail_f',
         'fringe_f',
         'red_scarf',
@@ -227,7 +228,15 @@
     teacher_f: {
       name: '教师(女)',
       materials: { cloth: 'blouse_white', skin: 'skin_zombie' },
-      addons: ['bun_f', 'bust', 'hips', 'skirt_grey', 'leather_shoes', 'necklace_opt'],
+      addons: [
+        'short_hair_m',
+        'bun_f',
+        'bust',
+        'hips',
+        'skirt_grey',
+        'leather_shoes',
+        'necklace_opt',
+      ],
       bodyRange: { height: [1.55, 1.75], hunch: [0, 0.05], build: [0.3, 0.45], curves: [0.6, 0.9] },
     },
   };
@@ -245,6 +254,7 @@
             type: 'Sphere',
             size: [0.22],
             position: [0, 0, 0],
+            thetaLength: Math.PI / 2,
             materialId: 'hair_black',
             segments: [12, 10],
           },
