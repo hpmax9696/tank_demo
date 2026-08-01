@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.1
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.2
 
 ## 运行
 
@@ -270,6 +270,25 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.79.2 本次会话变更 (2026-08-01)
+
+### 校园丧尸校服精修（P6，feature/campus-zombies-p6 → master）
+
+- **Sphere thetaLength 支持**(两侧 createGeometry): `models/enemies.js` buildHumanoidRig 的 `case 'Sphere'`（锚点 `const s = node.segments || [8, 6]`）+ `model_factory.html` createGeometry 的 Sphere case，加 `node.thetaLength != null ? node.thetaLength : Math.PI`（默认 π 全球，向后兼容）。**只改 buildHumanoidRig**，不碰 enemies.js 另两处 Sphere（L515 createZombie / L1669）
+- **头发半球 + 女生发型 base**(`humanoid_config.js`): `short_hair_m` ah_m Sphere 加 `thetaLength: Math.PI/2`（真半球，扣头顶不再全球没入；读码发现已是 Sphere r=0.22 非 spec 假设的 Box）；`student_f`/`teacher_f` addons 在 ponytail_f/bun_f 前加 `short_hair_m`（马尾/发髻在半球头发 base 上，非光头）
+- **hips 几何修复**(`humanoid_config.js`，用户指出): 居中球（position z=0）→ 后侧扁椭球（`position:[0,-0.02,-0.1]` 后移 + `scale:[1,0.85,0.55]` X胯宽/Y臀扁/Z前后浅）；curves 放大（`scaleGroup(clone, 0.6+curves*0.8)` uniform）保持 X>Y>Z 比例，后侧凸、前侧（z 正）因 scale 0.55 压扁基本不凸。修复"前后两侧同时膨大"不合理问题
+- **工厂 Canvas 贴图**(`model_factory.html`): `getMaterial` 加 `createHumanoidTextures()`（复刻 `enemies.js:createHumanoidMaterials` 的 4 张 Canvas：polo 1200 珠地点/skin 400 斑点+6 暗斑/badge 绿树 3 圆+树干+橙"金福园小学"+YaHei fallback/stripes 红粉绿 4 斜条）+ `MATERIAL_DEFS` 的 polo_white/skin_zombie/school_badge/shoulder_stripes 加 `map` 字段 + `getMaterial` 命中 `def.map` 时把字符串 key 转 CanvasTexture。与游戏两侧统一
+- **改动文件**: `model_factory.html`(+119) + `models/enemies.js`(+2) + `models/humanoid_config.js`(+13) + spec/plan 文档 + index/README/CLAUDE/CODEBUDDY/trae(版本同步)
+- **验证**: Playwright teacher_f 截图（发髻在头发 base + 胸前凸 + **臀后凸/前侧不凸** hips 修复视觉确认）+ student_m canvas 像素（珠地 33% 非白/校徽 16% 彩色/斜纹 22% 彩色/skin 暗斑）+ 全程 review Approved + 0 错误
+- **执行方式**: subagent-driven（Task 1-4 各派 sonnet implementer + reviewer Approved；Task 5 验证 controller 自做）
+
+### 已知问题（新增）
+
+1. P6 贴图在 headless 截图（低分辨率）下不可辨（珠地点 sub-pixel / 校徽 0.07 单位几像素）；用户浏览器高分辨率 + 近看可见（canvas 像素内容已确认正确）
+2. 头发半球 thetaLength=π/2 是上半球（头顶以上），头侧覆盖度有限——必要时微调 thetaLength（如 π/2+0.3）或 Group position y
 
 ---
 

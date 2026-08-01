@@ -7991,7 +7991,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.1 | 校园敌人放置工具页');
+console.log('🎮 坦克运动demo v0.79.2 | 校园丧尸校服精修');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

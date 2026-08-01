@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.1</title>
+    <title>坦克运动demo v0.79.2</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.1</div>
+      <div class="menu-version">v0.79.2</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,13 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🎨 v0.79.2 校园丧尸校服精修 — Sphere thetaLength支持(两侧createGeometry,默认π向后兼容);
+          short_hair_m半球(thetaLength
+          π/2,非全球没入)+女生发型base(student_f马尾/teacher_f发髻在头发上非光头);
+          hips居中球→后侧扁椭球(scale[1,0.85,0.55]+后移,curves放大不前凸);
+          工厂Canvas贴图(polo珠地/skin暗斑/badge校徽/stripes斜条,与游戏enemies.js统一)
+        </div>
+        <div class="cl-title">
           📍 v0.79.1 校园敌人放置工具页 — enemy_marker.html(fork toilet_zone_marker);
           7类型敌人圆点CRUD(4校园丧尸+assault/zombie/hexapod)+视野圈+巡逻折线; 行为面板(8字段+3模式
           reactive/aggressive/none); 巡逻点编辑;
@@ -849,13 +856,8 @@
           planterGroup+hideOnly软删除(visible=false不dispose共享几何ringGeo/soilGeo/TreeModels,
           同球门)
         </div>
-        <div class="cl-title">
-          📷 v0.78.2 相机建筑遮挡半透明 — 移除前移避障(几何反馈循环振荡)+纯半透明(DoubleSide
-          clone材质去重); 墙mesh纳入bldGroup统一fade; 围墙/天桥/B7拱顶/体育馆壳标记纳入;
-          小地图闪烁修复(检测帧更新); 半透明时瞄准穿透(_filterAimTargets)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.1~v0.78.2) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.2~v0.78.3) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
