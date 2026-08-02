@@ -2577,6 +2577,18 @@
         const duration = (ma.durations || [4000])[animPhase - 1] || 4000;
         const t = Math.min(elapsed / duration, 1);
         ma.updateFrame(dt, t, elapsed, duration, animPhase - 1);
+        // 校园丧尸展台每帧动态贴地：Die 躺倒/骨盆波动/动画切换后 root.position.y 都会偏，
+        // 统一按当前姿态包围盒贴地（先归零测 bbox，再抬升到脚底 y=0）
+        if (currentModelType === 'humanoid') {
+          var _hr = modelRoot.getObjectByName('root');
+          if (_hr) {
+            _hr.position.y = 0;
+            _hr.updateMatrixWorld(true);
+            var _hb = new THREE.Box3().setFromObject(_hr);
+            _hr.position.y = -_hb.min.y;
+            _hr.updateMatrixWorld(true);
+          }
+        }
         if (t >= 1) {
           // 受击踉跄: 一次性播放, 完毕后回待机
           if (animPhase - 1 === 21) {
@@ -2584,7 +2596,7 @@
             return;
           }
           // 死亡: 一次性播放, 停留1.5s后回待机(便于观察)
-          if (animPhase - 1 === 22) {
+          if (animPhase - 1 === 22 || (currentModelType === 'humanoid' && animPhase - 1 === 5)) {
             setTimeout(function () {
               jumpToAnim(0);
             }, 1500);
@@ -2771,21 +2783,9 @@
         var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
         if (tree) {
           MODEL_CONFIGS.humanoid = tree;
-          rebuildModel(true); // skipGUI: 滑块拖动时只重建模型几何，不销毁 GUI（避免打断拖动）
-          // height 缩放：按 params.height 把人形归一到 height/1.3 单位（仿 createCampusZombie 包围盒缩放）
-          var humRoot = modelRoot.getObjectByName('root');
-          if (humRoot) {
-            var bbox = new THREE.Box3().setFromObject(humRoot);
-            var curH = bbox.max.y - bbox.min.y;
-            var targetUnits = _humanoidEdit.params.height / 1.3; // METERS_PER_UNIT
-            var hScale = curH > 0 ? targetUnits / curH : 1;
-            humRoot.scale.setScalar(hScale);
-            humRoot.position.y = 0;
-            humRoot.updateMatrixWorld(true);
-            var bbox2 = new THREE.Box3().setFromObject(humRoot);
-            humRoot.position.y = -bbox2.min.y;
-            humRoot.updateMatrixWorld(true);
-          }
+          // skipGUI: 滑块拖动时只重建模型几何，不销毁 GUI（避免打断拖动）
+          // height 归一已统一移入 rebuildModel humanoid 分支（_params 存在时每次执行）
+          rebuildModel(true);
         }
       }
       window._applyHumanoidEdit = _applyHumanoidEdit;
@@ -2819,6 +2819,18 @@
         MODEL_CONFIGS[currentModelType] = JSON.parse(
           JSON.stringify(MODEL_CONFIGS[currentModelType])
         );
+        // 校园丧尸：配置树未经 buildHumanoid 处理（首次进入/autoLoad 恢复）时，
+        // 用当前变体参数构建——否则渲染 HUMANOID_BASE 白模（无服饰发型、未缩放体型）
+        if (
+          currentModelType === 'humanoid' &&
+          window.HumanoidConfig &&
+          !MODEL_CONFIGS.humanoid._params
+        ) {
+          MODEL_CONFIGS.humanoid = window.HumanoidConfig.buildHumanoid(
+            _humanoidEdit.variant,
+            _humanoidEdit.params
+          );
+        }
         const cfg = MODEL_CONFIGS[currentModelType];
         if (cfg) {
           buildFromConfig(cfg, modelRoot, showHelpersGlobal, nodeMap);
@@ -2841,7 +2853,7 @@
             hexRoot.updateMatrixWorld(true);
           }
         }
-        // 校园丧尸：贴地（脚底 y=0）
+        // 校园丧尸：贴地（脚底 y=0）+ 体型 height 归一（height/1.3 单位，自 _applyHumanoidEdit 移入统一处理）
         if (currentModelType === 'humanoid') {
           var humRoot = null;
           modelRoot.children.forEach(function (c) {
@@ -2850,8 +2862,16 @@
           if (humRoot) {
             humRoot.position.y = 0;
             humRoot.updateMatrixWorld(true);
-            var hbox = new THREE.Box3().setFromObject(humRoot);
-            humRoot.position.y = -hbox.min.y;
+            if (MODEL_CONFIGS.humanoid._params) {
+              var hbox1 = new THREE.Box3().setFromObject(humRoot);
+              var curH = hbox1.max.y - hbox1.min.y;
+              var targetUnits = MODEL_CONFIGS.humanoid._params.height / 1.3;
+              var hScale = curH > 0 ? targetUnits / curH : 1;
+              humRoot.scale.setScalar(hScale);
+              humRoot.updateMatrixWorld(true);
+            }
+            var hbox2 = new THREE.Box3().setFromObject(humRoot);
+            humRoot.position.y = -hbox2.min.y;
             humRoot.updateMatrixWorld(true);
           }
         }

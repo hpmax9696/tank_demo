@@ -55,7 +55,7 @@
           target: O.pelvis,
           prop: 'position',
           axis: 'y',
-          restKey: null,
+          restKey: 'pelvis:y',
           keys: [
             { t: 0, v: 0 },
             { t: 0.5, v: 0.02 },
@@ -79,7 +79,7 @@
           target: O.pelvis,
           prop: 'position',
           axis: 'y',
-          restKey: null,
+          restKey: 'pelvis:y',
           keys: [
             { t: 0, v: 0 },
             { t: 0.5, v: 0.04 },
@@ -92,11 +92,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.1 },
-            { t: 0.25, v: -0.5 },
-            { t: 0.5, v: 0.1 },
-            { t: 0.75, v: 0.5 },
-            { t: 1, v: -0.1 },
+            { t: 0, v: 0.6 },
+            { t: 0.25, v: 0 },
+            { t: 0.5, v: -0.25 },
+            { t: 0.75, v: 0 },
+            { t: 1, v: 0.6 },
           ],
         },
         {
@@ -105,11 +105,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: 0.5 },
-            { t: 0.25, v: 0.1 },
-            { t: 0.5, v: -0.1 },
-            { t: 0.75, v: -0.5 },
-            { t: 1, v: 0.5 },
+            { t: 0, v: -0.25 },
+            { t: 0.25, v: 0 },
+            { t: 0.5, v: 0.6 },
+            { t: 0.75, v: 0 },
+            { t: 1, v: -0.25 },
           ],
         },
         {
@@ -119,7 +119,9 @@
           restKey: null,
           keys: [
             { t: 0, v: 0 },
-            { t: 0.5, v: -0.4 },
+            { t: 0.25, v: -0.3 },
+            { t: 0.5, v: -0.6 },
+            { t: 0.75, v: -0.3 },
             { t: 1, v: 0 },
           ],
         },
@@ -129,9 +131,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.4 },
+            { t: 0, v: -0.6 },
+            { t: 0.25, v: -0.3 },
             { t: 0.5, v: 0 },
-            { t: 1, v: -0.4 },
+            { t: 0.75, v: -0.3 },
+            { t: 1, v: -0.6 },
           ],
         },
         {
@@ -140,9 +144,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: -0.3 },
-            { t: 1, v: 0 },
+            { t: 0, v: -0.35 },
+            { t: 0.25, v: -0.1 },
+            { t: 0.5, v: 0.35 },
+            { t: 0.75, v: -0.1 },
+            { t: 1, v: -0.35 },
           ],
         },
         {
@@ -151,9 +157,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.3 },
-            { t: 0.5, v: 0 },
-            { t: 1, v: -0.3 },
+            { t: 0, v: 0.35 },
+            { t: 0.25, v: 0.1 },
+            { t: 0.5, v: -0.35 },
+            { t: 0.75, v: 0.1 },
+            { t: 1, v: 0.35 },
           ],
         },
       ],
@@ -164,18 +172,19 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: 0 },
-            { t: 1, v: 0.2 },
+            { t: 0, v: 0.3 },
+            { t: 0.5, v: 0.15 },
+            { t: 1, v: 0.3 },
           ],
         },
         {
           target: O.pelvis,
           prop: 'position',
           axis: 'y',
-          restKey: null,
+          restKey: 'pelvis:y',
           keys: [
             { t: 0, v: 0 },
-            { t: 0.5, v: 0.07 },
+            { t: 0.5, v: 0.08 },
             { t: 1, v: 0 },
           ],
         },
@@ -185,11 +194,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.1 },
-            { t: 0.25, v: -0.7 },
-            { t: 0.5, v: 0.1 },
-            { t: 0.75, v: 0.8 },
-            { t: 1, v: -0.1 },
+            { t: 0, v: 0.8 },
+            { t: 0.25, v: 0 },
+            { t: 0.5, v: -0.35 },
+            { t: 0.75, v: 0 },
+            { t: 1, v: 0.8 },
           ],
         },
         {
@@ -198,11 +207,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: 0.8 },
-            { t: 0.25, v: 0.1 },
-            { t: 0.5, v: -0.1 },
-            { t: 0.75, v: -0.7 },
-            { t: 1, v: 0.8 },
+            { t: 0, v: -0.35 },
+            { t: 0.25, v: 0 },
+            { t: 0.5, v: 0.8 },
+            { t: 0.75, v: 0 },
+            { t: 1, v: -0.35 },
           ],
         },
         {
@@ -212,7 +221,9 @@
           restKey: null,
           keys: [
             { t: 0, v: 0 },
-            { t: 0.5, v: -0.6 },
+            { t: 0.25, v: -0.4 },
+            { t: 0.5, v: -0.7 },
+            { t: 0.75, v: -0.4 },
             { t: 1, v: 0 },
           ],
         },
@@ -222,9 +233,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.6 },
+            { t: 0, v: -0.7 },
+            { t: 0.25, v: -0.4 },
             { t: 0.5, v: 0 },
-            { t: 1, v: -0.6 },
+            { t: 0.75, v: -0.4 },
+            { t: 1, v: -0.7 },
           ],
         },
         {
@@ -233,9 +246,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: -0.6 },
-            { t: 1, v: 0 },
+            { t: 0, v: -0.5 },
+            { t: 0.25, v: -0.15 },
+            { t: 0.5, v: 0.5 },
+            { t: 0.75, v: -0.15 },
+            { t: 1, v: -0.5 },
           ],
         },
         {
@@ -244,9 +259,11 @@
           axis: 'x',
           restKey: null,
           keys: [
-            { t: 0, v: -0.6 },
-            { t: 0.5, v: 0 },
-            { t: 1, v: -0.6 },
+            { t: 0, v: 0.5 },
+            { t: 0.25, v: 0.15 },
+            { t: 0.5, v: -0.5 },
+            { t: 0.75, v: 0.15 },
+            { t: 1, v: 0.5 },
           ],
         },
       ],
@@ -446,7 +463,21 @@
     _t = 0;
     _loop = true;
     _root.rotation.set(0, 0, 0); // Die 改了 root.rotation，复位
-    collectRefs(); // 重新抓 ref + 复位关节到 rest（collectRefs 内 _curKey='Idle'）
+    // 全关节复位到 REST 基线：Die 等动画改过的关节（torso x / arm z 等）在 Idle 无对应 track，
+    // 不复位会残留变形（用户观察"死亡后播放其他动画变形"）
+    Object.keys(_P).forEach(function (n) {
+      var pv = _P[n];
+      if (pv && pv !== _root) {
+        pv.rotation.set(0, 0, 0);
+        var rx = _rest[n + ':x'],
+          ry = _rest[n + ':y'],
+          rz = _rest[n + ':z'];
+        if (rx !== undefined) pv.rotation.x = rx;
+        if (ry !== undefined) pv.rotation.y = ry;
+        if (rz !== undefined) pv.rotation.z = rz;
+      }
+    });
+    collectRefs(); // 重新抓 ref（collectRefs 内 _curKey='Idle'）
   }
 
   function destroyPivots() {

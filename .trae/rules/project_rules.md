@@ -39,34 +39,36 @@ python -m http.server 8080 --bind 127.0.0.1
 
 ## 关键文件
 
-| 文件                                    | 行数  | 核心内容                                                        |
-| --------------------------------------- | :---: | --------------------------------------------------------------- |
-| `index.html`                            | ~1047 | 主游戏框架（UI+菜单+脚本加载+训练配置）                         |
-| `js/engine.js`                          | ~7631 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）         |
-| `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                               |
-| `model_factory.html`                    | ~4758 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试） |
-| `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                               |
-| `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）    |
-| `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                 |
-| `js/editor_entities.js`                 | ~653  | 实体管理（标记+CRUD+配置面板+列表+建筑朝向）                    |
-| `js/editor_waterBridge.js`              | ~659  | 水体桥梁（水面+河床+桥梁检测）                                  |
-| `js/editor_data.js`                     | ~504  | 数据持久化（蓝图+JSON+init）                                    |
-| `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                     |
-| `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）       |
-| `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                   |
-| `models/enemies.js`                     | ~1324 | 装甲突击车 + 程序化丧尸                                         |
-| `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                  |
-| `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                             |
-| `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）           |
-| `js/hexapod_factory.js`                 | ~884  | 六足工厂适配器（nodeMap→legRefs+IK测试+转弯验证）               |
-| `js/hexapod_enemy.js`                   | ~328  | 六足游戏适配器（训练场/战斗模式CCD IK+卡住检测）                |
-| `js/hexapod_probe.js`                   | ~208  | 六足步态探针（F7/F8采样+Stats/Compare+localStorage）            |
-| `js/hexapod_aimLine.js`                 | ~295  | 加特林双瞄准线（双段着色+5层碰撞+颜色状态机）                   |
-| `js/playerControllers/manager.js`       | ~122  | 玩家控制器管理器（可插拔注册+update分发+能力探测）              |
-| `js/playerControllers/hexapodPlayer.js` | ~1408 | 六足玩家控制器（WASD+加特林+导弹+锁定+AI托管）                  |
-| `combat/enemyAI.js`                     | ~1280 | AI 状态机（巡逻→追击→绕圈+六足ENGAGE+武器优先级）               |
-| `combat/scoreSystem.js`                 | ~127  | 积分系统                                                        |
-| `js/fireSmokeParticles.js`              | ~572  | 粒子系统（DamageEffects+ExplosionEffects）                      |
+| 文件                                    | 行数  | 核心内容                                                                       |
+| --------------------------------------- | :---: | ------------------------------------------------------------------------------ |
+| `index.html`                            | ~1066 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                        |
+| `js/engine.js`                          | ~8046 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                        |
+| `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                              |
+| `model_factory.html`                    | ~5000 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试）                |
+| `js/humanoid_factory.js`                | ~505  | 人形工厂展台桥接（6动作关键帧+lerp+REST偏移+全关节复位）                       |
+| `models/humanoid_config.js`             | ~859  | 人形配置（BASE骨架+BODY_PARAMS+4变体+ADDON_LIBRARY+WRAP_ADDONS+buildHumanoid） |
+| `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                              |
+| `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                   |
+| `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                                |
+| `js/editor_entities.js`                 | ~653  | 实体管理（标记+CRUD+配置面板+列表+建筑朝向）                                   |
+| `js/editor_waterBridge.js`              | ~659  | 水体桥梁（水面+河床+桥梁检测）                                                 |
+| `js/editor_data.js`                     | ~504  | 数据持久化（蓝图+JSON+init）                                                   |
+| `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                                    |
+| `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）                      |
+| `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                                  |
+| `models/enemies.js`                     | ~1965 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config）               |
+| `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                                 |
+| `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                                            |
+| `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）                          |
+| `js/hexapod_factory.js`                 | ~884  | 六足工厂适配器（nodeMap→legRefs+IK测试+转弯验证）                              |
+| `js/hexapod_enemy.js`                   | ~328  | 六足游戏适配器（训练场/战斗模式CCD IK+卡住检测）                               |
+| `js/hexapod_probe.js`                   | ~208  | 六足步态探针（F7/F8采样+Stats/Compare+localStorage）                           |
+| `js/hexapod_aimLine.js`                 | ~295  | 加特林双瞄准线（双段着色+5层碰撞+颜色状态机）                                  |
+| `js/playerControllers/manager.js`       | ~122  | 玩家控制器管理器（可插拔注册+update分发+能力探测）                             |
+| `js/playerControllers/hexapodPlayer.js` | ~1408 | 六足玩家控制器（WASD+加特林+导弹+锁定+AI托管）                                 |
+| `combat/enemyAI.js`                     | ~1280 | AI 状态机（巡逻→追击→绕圈+六足ENGAGE+武器优先级）                              |
+| `combat/scoreSystem.js`                 | ~127  | 积分系统                                                                       |
+| `js/fireSmokeParticles.js`              | ~572  | 粒子系统（DamageEffects+ExplosionEffects）                                     |
 
 ### model_factory.html 关键行
 
@@ -239,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.2 — 校园丧尸校服精修(Sphere thetaLength+头发半球+hips扁椭球+工厂Canvas贴图)；v0.79.1 校园敌人放置工具页；v0.79.0 校园丧尸模型工厂接入）
+## 当前版本（v0.79.3 — 校园丧尸人形精修(白模修复+衣物build联动+男教师长裤+步态方向+展台贴地/复位+女生裙锥形化)；v0.79.2 校园丧尸校服精修；v0.79.1 校园敌人放置工具页）
 
 ### 关键参数
 
@@ -265,17 +267,22 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 - 代码修改后自动用 Chrome headless CDP 抓取控制台错误
 - 无误后才通知用户；有错则自行修复再验证，直到通过
 
-### 已知问题 (v0.65.13)
+### 已知问题 (v0.79.3)
 
-| #   | 问题                                     | 状态           |
-| --- | ---------------------------------------- | -------------- |
-| 1   | ~~坦克AI远距离对峙/出界~~                | v0.65.1 已修复 |
-| 2   | ~~坦克AI托管偶发驶入池塘~~               | v0.65.1 已修复 |
-| 3   | avg fps 41.5 仍非稳定 60（剩余 GC 20ms） | 待 P-burst-3   |
-| 4   | 坡地一头翘起一头陷地（坦克/敌人偶发）    | 待修复         |
-| 5   | 对山丘目标弹道偏低                       | 待修复         |
-| 6   | 六足武器俯仰旋转轴不正确                 | 待校准         |
-| 7   | ~~建筑 IM 合并 141→18（已修复）~~        | v0.65.3 已修复 |
+| #   | 问题                                                    | 状态                          |
+| --- | ------------------------------------------------------- | ----------------------------- |
+| 1   | ~~首次切校园丧尸白模~~                                  | v0.79.3 已修复                |
+| 2   | ~~衣物不随 build 变粗穿模~~                             | v0.79.3 已修复                |
+| 3   | ~~男教师裤子像短裤~~                                    | v0.79.3 已修复                |
+| 4   | ~~步态方向反/前踢后蹬等幅~~                             | v0.79.3 已修复                |
+| 5   | ~~展台沉地 + Die 后变形~~                               | v0.79.3 已修复                |
+| 6   | ~~女生裙长到脚脖子/迈步穿模~~                           | v0.79.3 已修复                |
+| 7   | 裙摆边缘 Run 极限余量 0.025~0.028（已数学覆盖）         | 动态中不可辨                  |
+| 8   | `ah_sh_l` 命名冲突（短裤裤腿 vs 鞋，findNode 取第一个） | 渲染无影响，测试用 \_addonKey |
+| 9   | avg fps 41.5 仍非稳定 60（剩余 GC 20ms）                | 待 P-burst-3                  |
+| 10  | 坡地一头翘起一头陷地（坦克/敌人偶发）                   | 待修复                        |
+| 11  | 对山丘目标弹道偏低                                      | 待修复                        |
+| 12  | 六足武器俯仰旋转轴不正确                                | 待校准                        |
 
 ### 待完成任务
 

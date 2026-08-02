@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.2
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.3
 
 ## 运行
 
@@ -17,13 +17,13 @@ python server.py
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏框架 (~1047行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~7631行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── index.html         # 核心游戏框架 (~1066行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~8046行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
 ├── js/                # 游戏模块（12个）
 │   ├── waters.js      # 水体模块 (~326行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
 │   ├── debugcolliders.js  # 碰撞可视化 (~122行)：F3切换(默认关)，从运行时数据反向生成
-│   ├── obstacles.js   # 环境对象 (~878行)：树木/建筑/InstancedMesh管理
+│   ├── obstacles.js   # 环境对象 (~3188行)：树木/建筑/InstancedMesh管理
 │   ├── shells.js      # 炮弹系统 (~363行)：炮弹+碎片对象池(P-burst-2)
 │   ├── audio.js       # 音频系统 (~322行)：锁定音+卡壳音+爆炸音
 │   ├── fireSmokeParticles.js  # 粒子系统 (~572行)
@@ -52,13 +52,13 @@ python server.py
 │   ├── editor_waterBridge.js # 水体桥梁 (~659行)：水面+河床+桥梁检测
 │   ├── editor_data.js        # 数据持久化 (~504行)：蓝图+JSON+init
 │   └── editor_terrainPaint.js # 地形绘制 (~335行)：笔刷+高度图画布
-├── model_factory.html # 程序化模型编辑器 (~4758行)
+├── model_factory.html # 程序化模型编辑器 (~5000行)
 ├── models/            # 模型文件 (GLB主力 + 程序化兜底)
-│   ├── enemies.js     # 敌方单位模型 (~1324行)：装甲突击车+程序化丧尸
+│   ├── enemies.js     # 敌方单位模型 (~1965行)：装甲突击车+程序化丧尸
 │   ├── t34_v16_builder.js # T-34/85 v1.6 坦克构建器 (~1441行)：\_TANK_PROFILE 共享动画框架
 │   ├── tiger_v16_builder.js # 虎式 I 坦克构建器 (~904行)：MG34+马蹄形炮塔+沙漠迷彩
 │   └── buildings.js   # 建筑模型 (~385行)：3种建筑+category分类+阴影
-├── server.py          # 开发服务器 (~145行)：静态文件 + POST /api/solidify 固化端点
+├── server.py          # 开发服务器 (~324行)：静态文件 + POST /api/solidify 固化端点
 ├── maps/              # .map.json 地图配置
 ├── combat/            # AI状态机 + 积分系统
 │   ├── enemyAI.js     # AI状态机 (~1280行)：巡逻→追击→绕圈+六足ENGAGE+武器优先级
@@ -270,6 +270,29 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.79.3 本次会话变更 (2026-08-03)
+
+### 校园丧尸人形精修（白模修复 + 衣物联动 + 步态 + 裙锥形化）
+
+- **首次切换白模修复**(`model_factory.html`): `MODEL_CONFIGS.humanoid` 初始 = `HUMANOID_BASE`(model_configs.js:680, 纯骨架白模), 切模型/autoLoad 只调 rebuildModel 不触发变体构建 → **rebuildModel 入口守卫**: 配置树无 `_params`(buildHumanoid 标记)时自动 buildHumanoid(当前变体+参数); height 归一(1.4/1.3)从 \_applyHumanoidEdit 移入 rebuildModel humanoid 分支统一执行
+- **衣物随 build 联动**(`humanoid_config.js`): WRAP_ADDONS 表驱动——包裹衣物尺寸 = 派生后肢体半径 + 固定间隙(袖口 0.01/短裤裤 0.03/裙腰 0.02/裙摆 0.34~0.41), build 0/0.5/1 全档间隙恒定不穿模; 裙 = **锥形 Cylinder**(腰口细 gap 0.02 被上衣盖住→pelvis 不 grow 与 torso 协调; 裙摆按 Run 极限表面位移 `√(0.13²+(摆长×sin0.8)²)+腿半径` 覆盖)
+- **上衣下摆包裹保证**: pelvis 半宽/深 = max(原值×_bF, 裤裙半宽+0.02) **单向联动**(build 大增宽, 小不回缩防收窄破怀); torso 完全不动(校徽/条纹/领带挂件贴前表面, 增厚会被吞)
+- **男教师长裤**: 原裤高 0.5(≈47cm 短裤感)→ 拆**大腿段**(挂 l_upper_leg pivot, 高 0.6)+**小腿段**(trousers_grey_calf 挂 l_lower_leg pivot, 高 0.7)盖到脚踝; DUAL_LEG_ADDONS 双挂左右腿(Box 中心 x=0 无需镜像); 裤腿随髋摆/膝弯
+- **步态方向修正**(`humanoid_factory.js`): Three.js 绕 X 轴 rotation.x>0=后蹬/负=前踢——原关键帧方向写反(后蹬写 -0.6 实为前踢)→ Walk 后蹬 +0.6/前踢 -0.25, Run 后蹬 +0.8/前踢 -0.35, 膝弯清障 -0.6/-0.7, 对侧摆臂 ±0.35/±0.5
+- **展台沉地修复**: pelvis.position.y 关键帧绝对赋值 0(骨盆 0.375 砸地) → REST_POSES 加 `'pelvis:y': 0.375` + Idle/Walk/Run 三轨改 restKey 偏移; updateAnimShowcase 对 humanoid **每帧动态贴地**(position.y = -bbox.min.y, Die 躺倒/切换全贴地); Die 一次性播放停留 1.5s 回待机(humanoid index 5 与六足 22 同分支)
+- **resetState 全关节复位**(`humanoid_factory.js`): Die 改过的关节(torso x/arm z)在 Idle 无 track 残留变形 → 全 pivot rotation 复位到 REST 基线后 collectRefs
+- **女生裙比例**: 裙腰口对齐衣服下摆(pelvis 局部 0.175 内, torso 底沿衔接)、裙摆上移露小腿(学生摆 -0.25 → 露 0.62 单位, 教师摆 -0.35 → 露 0.52)
+- **改动文件**: `model_factory.html`(+58/-) + `js/humanoid_factory.js`(+121/-) + `models/humanoid_config.js`(+150/-) + index/README/CLAUDE/CODEBUDDY/trae(版本同步)
+- **验证**: Playwright 全链路(首次白模 12 断言 / 包裹矩阵四变体×build 12/12 / 关键帧方向 / 展台贴地 7/7 / Die 复位 / 裙 Run 极限覆盖 10/10 / 男教师长裤) + 游戏校园地图 0 错误
+- **执行方式**: 主 session 内联(systematic-debugging 流程, 逐问题根因→修复→验证)
+
+### 已知问题（新增）
+
+1. 裙摆边缘与大腿的临界重叠在 Run 极限(0.8rad)下余量 0.025~0.028(已数学覆盖, 动态中不可辨)
+2. `ah_sh_l` 命名冲突: 短裤裤腿与鞋(shoes_blue/white/leather_shoes)同名, findNode/getObjectByName 取第一个——测试需用 \_addonKey 或关节子树定位(渲染无影响)
 
 ---
 

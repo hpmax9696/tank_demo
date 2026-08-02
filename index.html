@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.2</title>
+    <title>坦克运动demo v0.79.3</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.2</div>
+      <div class="menu-version">v0.79.3</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,15 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🧟 v0.79.3 校园丧尸人形精修 —
+          首次切换白模修复(rebuildModel守卫自动buildHumanoid+height归一统一);
+          衣物随build联动(袖口/短裤/长裤/裙WRAP_ADDONS保持包裹间隙);
+          上衣下摆(pelvis)单向联动包裹裤裙(torso不动防挂件被吞);
+          男教师长裤(拆大腿段挂髋+小腿段挂膝,盖到脚踝); 步态方向修正(后蹬>前踢×2,膝弯清障,对侧摆臂);
+          展台每帧贴地+Die一次性回待机; resetState全关节复位(REST基线);
+          女生裙锥形化(腰口细被上衣盖住,裙摆按Run极限覆盖)+缩短露小腿
+        </div>
+        <div class="cl-title">
           🎨 v0.79.2 校园丧尸校服精修 — Sphere thetaLength支持(两侧createGeometry,默认π向后兼容);
           short_hair_m半球(thetaLength
           π/2,非全球没入)+女生发型base(student_f马尾/teacher_f发髻在头发上非光头);
@@ -850,14 +859,8 @@
           工具页gate_marker打点snap沿围墙边+宽度/旋转滑块; 围墙开口裁剪精确=门宽; createGates模型;
           server gates分支; 单人hpBar.visible误设false修复
         </div>
-        <div class="cl-title">
-          🌸 v0.78.3 花坛可被炮弹整体摧毁 — obstacleData height 0.5→5(含树木, 炮弹打任意部位命中);
-          groupRef
-          planterGroup+hideOnly软删除(visible=false不dispose共享几何ringGeo/soilGeo/TreeModels,
-          同球门)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.2~v0.78.3) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.3~v0.78.4) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

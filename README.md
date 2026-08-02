@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.2** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.3** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,18 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.79.3 — 校园丧尸人形精修（2026-08-03）
+
+- **首次切换白模修复**: `MODEL_CONFIGS.humanoid` 初始 = `HUMANOID_BASE` 白模（无服饰/未缩放），切模型/autoLoad 只调 rebuildModel 不触发变体构建 → `rebuildModel` 入口加守卫（配置树无 `_params` 时自动 buildHumanoid）+ height 归一统一移入 rebuildModel
+- **衣物随 build 联动**: WRAP_ADDONS 表（袖口 0.01 / 裤 0.03 / 裙 0.02 腰 + 0.34~0.41 摆）——包裹衣物尺寸 = 肢体半径×_bF + 固定间隙，build 0/0.5/1 全档不穿模
+- **上衣下摆包裹保证**: pelvis 半宽/深 = max(原值×_bF, 裤裙半宽+0.02) 单向联动（build 小不回缩）；torso 不动（校徽/条纹/领带挂件贴前表面，增厚会被吞）
+- **男教师长裤**: 裤高 0.5(≈47cm 短裤感)→拆大腿段(挂髋 pivot)+小腿段(挂膝 pivot)盖到脚踝，随髋摆/膝弯
+- **步态方向修正**: Three.js rotation.x>0=后蹬、<0=前踢——原关键帧方向写反（前踢 0.55/后蹬 0.6 实为双前踢）→ 后蹬 0.6/0.8、前踢 0.25/0.35、膝弯清障 -0.6/-0.7、对侧摆臂
+- **展台沉地修复**: pelvis.position.y 关键帧绝对赋值 0（骨盆从 0.375 砸地）→ REST_POSES 加 `pelvis:y:0.375` + 三轨改 restKey 偏移；展台每帧动态贴地（Die 躺倒/动画切换均贴地）+ Die 一次性播放停留回待机
+- **resetState 全关节复位**: Die 用过的关节（torso x/arm z）在 Idle 无 track 残留变形 → 全 pivot 复位到 REST 基线
+- **女生裙锥形化**: 裙 = 锥形 Cylinder（腰口 = 腿半径+0.02 细，被上衣盖住 → pelvis 不再 grow，与 torso 协调）；裙摆半径按 Run 极限(0.8rad) 大腿表面位移 `√(0.13²+(摆长×sin0.8)²)+腿半径`（学生摆 -0.25 → 0.46，教师摆 -0.35 → 0.53）；裙摆上移露小腿（学生 0.62 / 教师 0.52 单位）
+- 验证: 全链路 Playwright 断言（包裹矩阵 12/12 + 关键帧方向 + 贴地 7/7 + Die 复位 + 裙 Run 极限覆盖）+ 游戏校园地图 0 错误
 
 ### v0.79.2 — 校园丧尸校服精修（2026-08-01）
 
@@ -1561,20 +1573,21 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.2）
+### 代码规模（截至 v0.79.3）
 
-| 分类             | 文件                                                                                                                                                                                                          |      行数      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
-| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                                 |  1047 + 7631   |
-| 游戏模块 (12个)  | waters(326) bridges(165) debugcolliders(122) obstacles(958) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) + sportsFields(400)                                    |      3577      |
-| 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                                         |      2973      |
-| 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                              |      1530      |
-| 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                               |      5036      |
-| 模型工厂         | `model_factory.html`                                                                                                                                                                                          |      4758      |
-| 模型系统 (15个)  | enemies(1324) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) configs(36) hexapod_config(70) profiled_extrude(116) |      5766      |
-| 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                                |      1407      |
-| 地图加载         | `maploader.js`                                                                                                                                                                                                |      191       |
-| **总计**         | **54 个源文件**                                                                                                                                                                                               | **~34,345 行** |
+| 分类             | 文件                                                                                                                                                                                              |      行数      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
+| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1066 + 8046   |
+| 游戏模块 (13个)  | waters(326) bridges(165) debugcolliders(122) obstacles(3188) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) sportsFields(400) + humanoid_factory(505) |      6712      |
+| 人形系统 (2个)   | humanoid_config(859) humanoid_factory(505)                                                                                                                                                        |      1364      |
+| 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
+| 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
+| 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
+| 模型工厂         | `model_factory.html`                                                                                                                                                                              |      5000      |
+| 模型系统 (14个)  | enemies(1965) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6955      |
+| 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
+| 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |
+| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~37,234 行** |
 
 ---
 

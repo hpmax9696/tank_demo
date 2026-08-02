@@ -220,6 +220,7 @@
         'tie_opt',
         'glasses_opt',
         'trousers_grey',
+        'trousers_grey_calf',
         'leather_shoes',
         'briefcase_opt',
       ],
@@ -446,26 +447,14 @@
       },
     },
     shorts_m: {
-      parent: 'pelvis',
+      // 裤腿挂腿关节（l_upper_leg_pivot 下，随腿旋转防迈步穿模）；buildHumanoid 双挂 r 侧
+      parent: 'l_upper_leg',
       node: {
-        type: 'Group',
-        position: [0, -0.1, 0],
-        children: [
-          {
-            name: 'ah_sh_l',
-            type: 'Box',
-            size: [0.18, 0.26, 0.22],
-            position: [-0.12, 0, 0],
-            materialId: 'shorts_red',
-          },
-          {
-            name: 'ah_sh_r',
-            type: 'Box',
-            size: [0.18, 0.26, 0.22],
-            position: [0.12, 0, 0],
-            materialId: 'shorts_red',
-          },
-        ],
+        name: 'ah_sh_l',
+        type: 'Box',
+        size: [0.18, 0.26, 0.22],
+        position: [0, -0.13, 0], // 髋下 0.13，腰口盖住大腿根（髋）
+        materialId: 'shorts_red',
       },
     },
     pleated_skirt_f: {
@@ -473,33 +462,32 @@
       node: {
         name: 'ah_skirt',
         type: 'Cylinder',
-        size: [0.26, 0.3, 0.26],
-        position: [0, -0.18, 0],
+        size: [0.14, 0.425, 0.46],
+        position: [0, -0.0375, 0],
         materialId: 'shorts_red',
         segments: [16, 1],
       },
-    }, // 扁圆柱模拟裙
+    }, // 学生短裙：腰口贴 pelvis 底(0.2)，裙摆膝上露小腿；大腿段摆动在裙内（半径0.3 覆盖后蹬位移），膝以下裙外自由
     trousers_grey: {
-      parent: 'pelvis',
+      // 长裤大腿段：挂腿关节（随髋转）；buildHumanoid 双挂 r 侧。膝以下由 trousers_grey_calf 覆盖
+      parent: 'l_upper_leg',
       node: {
-        type: 'Group',
-        position: [0, -0.1, 0],
-        children: [
-          {
-            name: 'ah_tr_l',
-            type: 'Box',
-            size: [0.18, 0.5, 0.22],
-            position: [-0.12, 0, 0],
-            materialId: 'trousers_grey',
-          },
-          {
-            name: 'ah_tr_r',
-            type: 'Box',
-            size: [0.18, 0.5, 0.22],
-            position: [0.12, 0, 0],
-            materialId: 'trousers_grey',
-          },
-        ],
+        name: 'ah_tr_l',
+        type: 'Box',
+        size: [0.18, 0.6, 0.22],
+        position: [0, -0.3, 0], // 髋下 0.3，覆盖髋到膝上
+        materialId: 'trousers_grey',
+      },
+    },
+    trousers_grey_calf: {
+      // 长裤小腿段：挂小腿关节（随膝弯，防膝弯穿模）；buildHumanoid 双挂 r 侧
+      parent: 'l_lower_leg',
+      node: {
+        name: 'ah_tc_l',
+        type: 'Box',
+        size: [0.18, 0.7, 0.22],
+        position: [0, -0.35, 0], // 膝下 0.35，覆盖膝到脚踝
+        materialId: 'trousers_grey',
       },
     },
     skirt_grey: {
@@ -507,12 +495,12 @@
       node: {
         name: 'ah_gskirt',
         type: 'Cylinder',
-        size: [0.26, 0.42, 0.26],
-        position: [0, -0.24, 0],
+        size: [0.14, 0.525, 0.53],
+        position: [0, -0.0875, 0],
         materialId: 'trousers_grey',
         segments: [16, 1],
       },
-    },
+    }, // 教师中长裙：腰口贴 pelvis 底(0.2)，裙摆膝下一点露小腿（悬垂静态）
     shoes_blue: {
       parent: 'l_foot',
       node: {
@@ -662,6 +650,7 @@
     'head:z': 0.08,
     'l_upper_arm:z': -0.1,
     'r_upper_arm:z': 0.1,
+    'pelvis:y': 0.375, // HUMANOID_BASE pelvis.position[1]；动画 keyframe v 为距此基线的偏移
   };
 
   // ── 节点材质槽位映射（__cloth__/__skin__ 占位 → 变体材质覆写）
@@ -717,6 +706,38 @@
     return out;
   }
 
+  // ── 包裹肢体的衣物 addon（袖口/短裤/长裤/裙）：尺寸随 build 派生保持包裹间隙，防肢体变粗穿模
+  // limb: 被包裹的肢体节点（deriveNode 已按 build 派生其 size）；gap: 每侧间隙（单位）
+  const WRAP_ADDONS = {
+    polo_cuff_l: { limb: 'l_forearm', gap: 0.01 },
+    polo_cuff_r: { limb: 'r_forearm', gap: 0.01 },
+    shorts_m: { limb: 'l_upper_leg', gap: 0.03 },
+    trousers_grey: { limb: 'l_upper_leg', gap: 0.03 },
+    trousers_grey_calf: { limb: 'l_lower_leg', gap: 0.03 },
+    // 裙 = 锥形 Cylinder：腰口(rTop) = 腿半径+0.02（细，被上衣下摆盖住，pelvis 无需加大）
+    // 裙摆(rBottom) 按 Run 极限(0.8rad)大腿表面位移 = sqrt(髋X偏移0.13² + (摆长×sin0.8)²) + 腿半径
+    //   学生裙摆 -0.25（摆长0.4）→ 0.435 → 0.46；教师裙摆 -0.35（摆长0.5）→ 0.502 → 0.53
+    pleated_skirt_f: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.34 },
+    skirt_grey: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.41 },
+  };
+  // 双侧裤腿部件：addon 双挂到左右腿关节（裤腿随腿旋转防穿模；Box 中心 x=0 无需镜像）
+  const DUAL_LEG_ADDONS = {
+    shorts_m: ['l_upper_leg', 'r_upper_leg'],
+    trousers_grey: ['l_upper_leg', 'r_upper_leg'],
+    trousers_grey_calf: ['l_lower_leg', 'r_lower_leg'],
+  };
+  // addon 子树递归重算包裹尺寸：Cylinder 半径 / Box 全宽深 = 肢体半径 + gap（gapBottom 用于锥形裙摆）
+  function applyWrapScale(node, rLimb, gap, gapBottom) {
+    if (node.size) {
+      if (node.type === 'Cylinder') {
+        node.size = [rLimb + gap, node.size[1], rLimb + (gapBottom != null ? gapBottom : gap)];
+      } else if (node.type === 'Box') {
+        node.size = [(rLimb + gap) * 2, node.size[1], (rLimb + gap) * 2];
+      }
+    }
+    if (node.children) node.children.forEach((c) => applyWrapScale(c, rLimb, gap, gapBottom));
+  }
+
   // ── 主装配：buildHumanoid(variantKey, params) → config 树
   function buildHumanoid(variantKey, params) {
     const variant = HUMANOID_VARIANTS[variantKey];
@@ -735,6 +756,7 @@
     // 1) 深拷贝 BASE + 派生
     const tree = deriveNode(HUMANOID_BASE, p, variant);
     // 2) 追加装饰节点
+    var wrapMax = 0; // 裤/裙最终半宽（半径）最大值，供下摆包裹保证
     variant.addons.forEach((key) => {
       const def = ADDON_LIBRARY[key];
       if (!def) {
@@ -742,10 +764,12 @@
         return;
       }
       // shoes_* / leather_shoes 等单脚 addon：同时挂 l_foot 与 r_foot
+      // 裤腿（short/long/calf）：双挂到左右腿关节（随腿旋转防迈步穿模）
       const parents =
-        key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
+        DUAL_LEG_ADDONS[key] ||
+        (key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
           ? ['l_foot', 'r_foot']
-          : [def.parent];
+          : [def.parent]);
       parents.forEach((par, idx) => {
         const parentNode = findNode(tree, par);
         if (!parentNode) {
@@ -757,13 +781,45 @@
         // addon 子树占位材质解析（I-1: __cloth__/__skin__ → 变体材质）
         resolveAddonMaterials(clone, variant.materials);
         // 右侧镜像（r_foot / r_* 父节点上的 addon X 取反）
-        if (par === 'r_foot' || par === 'r_forearm') mirrorX(clone);
+        if (
+          par === 'r_foot' ||
+          par === 'r_forearm' ||
+          par === 'r_upper_leg' ||
+          par === 'r_lower_leg'
+        )
+          mirrorX(clone);
         // curves 放大 bust/hips
         if (key === 'bust' || key === 'hips') scaleGroup(clone, 0.6 + p.curves * 0.8);
+        // 包裹肢体的衣物：尺寸跟随派生后肢体粗细（limb 已在 deriveNode 按 build 派生）
+        const wrap = WRAP_ADDONS[key];
+        if (wrap) {
+          const limbNode = findNode(tree, wrap.limb);
+          if (limbNode && limbNode.size) {
+            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom);
+            // 收集包裹宽度（下摆包裹保证用）：Box 半宽 / Cylinder 半径
+            const wrapFirst = clone.children ? clone.children[0] : clone;
+            if (wrapFirst && wrapFirst.size) {
+              const w = wrapFirst.type === 'Box' ? wrapFirst.size[0] / 2 : wrapFirst.size[0];
+              if (w > wrapMax) wrapMax = w;
+            }
+          }
+        }
         clone._addonKey = key + (idx > 0 ? '_r' : '');
         parentNode.children.push(clone);
       });
     });
+    // 3) 上衣下摆（pelvis，polo/衬衫下摆延伸到骨盆）随 build 单向联动 + 包裹保证：
+    //    半宽/半深 ≥ max(原值×_bF, 裤裙半宽 + 0.02)，build 小不回缩（防收窄破怀）
+    //    不动 torso：徽章/条纹/领带等挂件贴其前表面，增厚会被吞
+    if (wrapMax > 0) {
+      const pelvisNode = findNode(tree, 'pelvis');
+      if (pelvisNode && pelvisNode.size) {
+        const _bF = 0.7 + p.build * 0.6;
+        const needFull = (wrapMax + 0.02) * 2;
+        const grow = (v) => Math.max(v, v * _bF, needFull);
+        pelvisNode.size = [grow(pelvisNode.size[0]), pelvisNode.size[1], grow(pelvisNode.size[2])];
+      }
+    }
     // 3) 整体 height 缩放到目标身高（单位 = height/1.3，BASE 默认高约 1.5 单位 → 1.95m，需缩放）
     //    最终缩放在 createCampusZombie 用包围盒归一到 height/1.3 单位；这里只存 params.height
     tree._params = p;
