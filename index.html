@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.3</title>
+    <title>坦克运动demo v0.79.4</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.3</div>
+      <div class="menu-version">v0.79.4</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,13 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          ⚡ v0.79.4 性能修复 — 训练场手动模式fps崩根因: updateAiming的
+          aimTargets污染obstacleMeshes(每帧push敌人→数组线性暴涨→raycast目标暴涨);
+          敌方炮弹命中玩家碰撞体→player1无position抛TypeError+误扣血(改正确玩家受伤路径);
+          弹道线零分配(几何/向量复用防GC累积)+敌人圆柱检测+障碍物距离过滤;
+          瞄准丧尸射线-圆柱检测替代780子mesh递归raycast
+        </div>
+        <div class="cl-title">
           🧟 v0.79.3 校园丧尸人形精修 —
           首次切换白模修复(rebuildModel守卫自动buildHumanoid+height归一统一);
           衣物随build联动(袖口/短裤/长裤/裙WRAP_ADDONS保持包裹间隙);
@@ -854,13 +861,8 @@
           solidify单变体固化(_find_variant_bounds嵌套定位HUMANOID_VARIANTS[key]); rebuildModel
           window.modelRoot fresh
         </div>
-        <div class="cl-title">
-          🚪 v0.78.4 校门系统+hpBar修复 — 校门(铁栅门+门柱+校名横梁+黄黑警戒带+禁止出入立牌);
-          工具页gate_marker打点snap沿围墙边+宽度/旋转滑块; 围墙开口裁剪精确=门宽; createGates模型;
-          server gates分支; 单人hpBar.visible误设false修复
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.3~v0.78.4) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.4~v0.79.0) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

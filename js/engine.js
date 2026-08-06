@@ -1599,15 +1599,35 @@ function updateAiming(player, dt) {
   } else if (groundMesh) {
     const ndcX = (mouseX / window.innerWidth) * 2 - 1;
     const ndcY = -(mouseY / window.innerHeight) * 2 + 1;
-    const screenPos = new THREE.Vector2(ndcX, ndcY);
-    aimRaycaster.setFromCamera(screenPos, camera);
+    _aimV2d.set(ndcX, ndcY);
+    aimRaycaster.setFromCamera(_aimV2d, camera);
     const _gh = _raycastGroundHM(aimRaycaster.ray);
     const groundHits = _gh ? [{ point: _gh.point, distance: _gh.distance }] : [];
-    const aimTargets = _filterAimTargets(obstacleMeshes); // 排除半透明建筑(瞄准穿透)
+    // v0.79.4 fix(严重): _filterAimTargets 在无半透明建筑时返回原数组(obstacleMeshes),
+    // 下方敌人循环 aimTargets.push(en) 会把敌人每帧 push 进 obstacleMeshes → 数组线性暴涨
+    // → raycast 目标暴涨 → 训练场手动模式 fps 崩(AI托管跳过updateAiming不触发)。必须拷贝。
+    const aimTargets = _filterAimTargets(obstacleMeshes).slice(); // 排除半透明建筑(瞄准穿透) + 拷贝防污染
+    // v0.79.4 perf: 丧尸用射线-圆柱检测替代整mesh递归raycast(校园图30丧尸×26子mesh=780目标, 16ms/帧)
+    let zombieHitT = null;
     for (let ei = 0; ei < enemies.length; ei++) {
       const en = enemies[ei];
       if (!en || !en.visible) continue;
-      if (en.cfg && en.cfg.type === 'hexapod') {
+      if (en.cfg && en.cfg.type === 'zombie') {
+        const _r = aimRaycaster.ray;
+        const _dx = _r.origin.x - en.position.x;
+        const _dz = _r.origin.z - en.position.z;
+        const _a = _r.direction.x * _r.direction.x + _r.direction.z * _r.direction.z;
+        if (_a < 1e-9) continue;
+        const _b = 2 * (_dx * _r.direction.x + _dz * _r.direction.z);
+        const _c = _dx * _dx + _dz * _dz - 0.4 * 0.4; // r=0.4 丧尸包围柱
+        const _disc = _b * _b - 4 * _a * _c;
+        if (_disc < 0) continue;
+        const _t = (-_b - Math.sqrt(_disc)) / (2 * _a);
+        if (_t < 0) continue;
+        const _y = _r.origin.y + _r.direction.y * _t;
+        if (_y < en.position.y || _y > en.position.y + 1.8) continue; // h=1.8
+        if (zombieHitT == null || _t < zombieHitT) zombieHitT = _t;
+      } else if (en.cfg && en.cfg.type === 'hexapod') {
         en.traverse(function (c) {
           if (c.isMesh) {
             const pn = (c.parent && c.parent.name) || '';
@@ -1619,22 +1639,27 @@ function updateAiming(player, dt) {
       }
     }
     const obsHits = aimRaycaster.intersectObjects(aimTargets, true);
-
     let targetAim = null;
     let hitObs = false;
-    if (groundHits.length > 0) targetAim = groundHits[0].point.clone();
+    if (groundHits.length > 0) targetAim = _aimP.copy(groundHits[0].point);
     if (
       obsHits.length > 0 &&
       (!targetAim || obsHits[0].distance < targetAim.distanceTo(camera.position))
     ) {
-      targetAim = obsHits[0].point.clone();
+      targetAim = _aimP.copy(obsHits[0].point);
+      hitObs = true;
+    }
+    // v0.79.4 perf: 丧尸圆柱命中并入(与障碍mesh同样视为命中, 零分配)
+    if (zombieHitT != null && (!targetAim || zombieHitT < targetAim.distanceTo(camera.position))) {
+      targetAim = _aimP
+        .copy(aimRaycaster.ray.origin)
+        .addScaledVector(aimRaycaster.ray.direction, zombieHitT);
       hitObs = true;
     }
     // 狙击模式天空瞄准兜底: 射线打不到地面时，用相机前向200m做虚拟瞄准点
     if (!targetAim && _sniperMode) {
-      var _camDir2 = new THREE.Vector3();
-      camera.getWorldDirection(_camDir2);
-      targetAim = camera.position.clone().add(_camDir2.multiplyScalar(200));
+      camera.getWorldDirection(_aimCamDir);
+      targetAim = _aimP.copy(camera.position).addScaledVector(_aimCamDir, 200);
     }
 
     aimValid = false;
@@ -1765,6 +1790,26 @@ function updateAiming(player, dt) {
   }
 }
 
+// v0.79.4 perf: 弹道线零分配 —— 几何/临时向量全复用
+// ① raycast 目标瘦身: 04a丧尸图 654障碍物+30敌人×26子mesh=1434目标 → 距离过滤+圆柱检测
+// ② GC 累积根治: 原每帧 dispose+new BufferGeometry + 70×Vector3 → 堆增长 → fps 单调降到个位数
+const _trajRc = new THREE.Raycaster();
+const _trajPrev = new THREE.Vector3(); // 上一采样点(免 70×new Vector3)
+const _trajTmp = new THREE.Vector3(); // 通用临时
+const _trajSeg = new THREE.Vector3(); // 段方向
+const _trajHit = new THREE.Vector3(); // 命中点(trajDot 用)
+const _trajArr = new Float32Array(80 * 3); // 预分配(samples=70 最多 72 点, 留余量)
+
+// v0.79.4 perf: updateAiming 零分配(手动模式独有, 原每帧 10+ 临时对象 → GC 累积 → 手动崩AI不崩)
+const _aimV2d = new THREE.Vector2(); // screenPos
+const _aimP = new THREE.Vector3(); // targetAim(命中点)
+const _aimD = new THREE.Vector3(); // diff
+const _aimW = new THREE.Vector3(); // worldTarget
+const _aimDir = new THREE.Vector3(); // worldDir/localDir/obsDir
+const _aimCamDir = new THREE.Vector3(); // 狙击天空兜底
+const _aimQ = new THREE.Quaternion(); // invQ
+const _aimRc = new THREE.Raycaster(); // 瞄准有效判定 raycast
+
 function updateTrajectoryLine(player) {
   // 模块化角色(六足等)无炮塔/弹道, 隐藏弹道线
   if (window.PlayerControllerManager && window.PlayerControllerManager.isActive()) {
@@ -1830,20 +1875,29 @@ function updateTrajectoryLine(player) {
   const totalTime = MAX_DIST / (SPEED * Math.cos(Math.max(Math.abs(player.barrelElevation), 0.01)));
   const dt = totalTime / samples;
 
-  const points = [];
-  const rc = new THREE.Raycaster();
-  let hitPoint = null;
+  const rc = _trajRc;
+  const prev = _trajPrev; // 上一采样点(复用)
+  const segDir = _trajSeg; // 段方向(复用)
+  const hitVec = _trajHit; // 命中点(复用)
+  const arr = _trajArr; // 预分配数组(复用)
+  let n = 0; // 已写入点数
+  let hitIdx = -1; // 命中点在数组中的索引
   let hitGround = false;
 
-  const hitTargets = [...obstacleMeshes];
+  // v0.79.4 perf: 距离过滤 —— 只对弹道线射程内的障碍物 mesh raycast
+  const hitTargets = [];
+  const maxDist2 = MAX_DIST * MAX_DIST;
+  for (const _m of obstacleMeshes) {
+    if (_m && _m.position && barrelPos.distanceToSquared(_m.position) < maxDist2)
+      hitTargets.push(_m);
+  }
   const enemyDefs = [];
   if (gameMode === 'combat' || isTrainingMode) {
     for (const en of enemies) {
       if (!en || !en.visible) continue;
       if (en.ai && en.ai.state === 'dead') continue;
-      // 六足用包围柱检测(避免腿mesh截断射线), 其他敌人用完整mesh
+      // v0.79.4 perf: 敌人不进 raycast 列表(30×26子mesh递归太贵), 用下方圆柱检测(enemyDefs)替代
       const isHex = en.cfg && en.cfg.type === 'hexapod';
-      if (!isHex) hitTargets.push(en);
       const isZombie = en.cfg && en.cfg.type === 'zombie';
       const eR = isZombie ? 0.4 : isHex ? 1.0 : 1.0;
       const eH = isZombie ? 1.8 : isHex ? 2.0 : 0.8;
@@ -1878,38 +1932,43 @@ function updateTrajectoryLine(player) {
     const y = barrelPos.y + barrelDir.y * SPEED * t - 0.5 * GRAVITY * t * t;
     const z = barrelPos.z + barrelDir.z * SPEED * t;
 
-    const p = new THREE.Vector3(x, y, z);
-
     const groundH = getGroundHeight(x, z);
     if (y < groundH && i > 0) {
-      const prev = points[points.length - 1];
       const prevGH = getGroundHeight(prev.x, prev.z);
       if (prev.y > prevGH) {
         const frac = (prev.y - prevGH) / (prev.y - prevGH + (groundH - y));
-        hitPoint = prev.clone().lerp(p, frac);
+        hitVec.copy(prev).lerp(_trajTmp.set(x, y, z), frac);
+        arr[n * 3] = hitVec.x;
+        arr[n * 3 + 1] = hitVec.y;
+        arr[n * 3 + 2] = hitVec.z;
+        hitIdx = n++;
         hitGround = true;
-        points.push(hitPoint);
         break;
       }
     }
 
     if (i > 0 && !hitGround) {
-      const prev = points[points.length - 1];
-      // 细线射线检测（Mesh表面命中）
-      rc.set(prev.clone(), p.clone().sub(prev).normalize());
-      rc.far = p.distanceTo(prev);
+      // 细线射线检测（Mesh表面命中）—— 零分配: prev/segDir 复用
+      const ddx = x - prev.x,
+        ddy = y - prev.y,
+        ddz = z - prev.z;
+      const segLen = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz) || 1e-9;
+      segDir.set(ddx / segLen, ddy / segLen, ddz / segLen);
+      rc.set(prev, segDir);
+      rc.far = segLen;
       const hits = rc.intersectObjects(hitTargets, true);
       if (hits.length > 0) {
-        hitPoint = hits[0].point.clone();
-        points.push(hitPoint);
+        hitVec.copy(hits[0].point);
+        arr[n * 3] = hitVec.x;
+        arr[n * 3 + 1] = hitVec.y;
+        arr[n * 3 + 2] = hitVec.z;
+        hitIdx = n++;
         break;
       }
       // 炮弹体积检测（边缘擦过）
       const shellR = 0.18;
-      const segLen = p.distanceTo(prev);
-      const segDir = new THREE.Vector3().subVectors(p, prev).normalize();
       const checkObs = window._obstacleGrid
-        ? window._obstacleGrid.queryByDistance(p.x, p.z, 50)
+        ? window._obstacleGrid.queryByDistance(x, z, 50)
         : obstacleData;
       for (let ji = checkObs.length - 1; ji >= 0; ji--) {
         const od = checkObs[ji];
@@ -1929,13 +1988,16 @@ function updateTrajectoryLine(player) {
         const perp = Math.sqrt(Math.max(0, dx * dx + dz * dz - proj * proj));
         if (perp > oR) continue;
         const fracT = Math.max(0, Math.min(1, proj / Math.max(segLen, 0.001)));
-        const projY = prev.y + (p.y - prev.y) * fracT;
+        const projY = prev.y + (y - prev.y) * fracT;
         if (projY < oY - 0.3 || projY > oY + oH + 0.3) continue;
-        hitPoint = prev.clone().addScaledVector(segDir, Math.max(0, Math.min(segLen, proj)));
-        points.push(hitPoint);
+        hitVec.copy(prev).addScaledVector(segDir, Math.max(0, Math.min(segLen, proj)));
+        arr[n * 3] = hitVec.x;
+        arr[n * 3 + 1] = hitVec.y;
+        arr[n * 3 + 2] = hitVec.z;
+        hitIdx = n++;
         break;
       }
-      if (hitPoint) break;
+      if (hitIdx >= 0) break;
       for (let ei = enemyDefs.length - 1; ei >= 0; ei--) {
         const ed = enemyDefs[ei];
         const eR = ed.radius + shellR;
@@ -1946,29 +2008,35 @@ function updateTrajectoryLine(player) {
         const eperp = Math.sqrt(Math.max(0, ex * ex + ez * ez - eproj * eproj));
         if (eperp > eR) continue;
         const efrac = Math.max(0, Math.min(1, eproj / Math.max(segLen, 0.001)));
-        const ey = prev.y + (p.y - prev.y) * efrac;
+        const ey = prev.y + (y - prev.y) * efrac;
         if (ey < ed.y - 0.3 || ey > ed.y + ed.height + 0.3) continue;
-        hitPoint = prev.clone().addScaledVector(segDir, Math.max(0, Math.min(segLen, eproj)));
-        points.push(hitPoint);
+        hitVec.copy(prev).addScaledVector(segDir, Math.max(0, Math.min(segLen, eproj)));
+        arr[n * 3] = hitVec.x;
+        arr[n * 3 + 1] = hitVec.y;
+        arr[n * 3 + 2] = hitVec.z;
+        hitIdx = n++;
         break;
       }
-      if (hitPoint) break;
+      if (hitIdx >= 0) break;
     }
-    points.push(p);
+    arr[n * 3] = x;
+    arr[n * 3 + 1] = y;
+    arr[n * 3 + 2] = z;
+    prev.set(x, y, z);
+    n++;
   }
 
-  trajLine.geometry.dispose();
-  const arr = new Float32Array(points.length * 3);
-  for (let i = 0; i < points.length; i++) {
-    arr[i * 3] = points[i].x;
-    arr[i * 3 + 1] = points[i].y;
-    arr[i * 3 + 2] = points[i].z;
+  // 几何复用(零GC): 只在容量不足时重建, 每帧只更新内容+drawRange
+  const posAttr = trajLine.geometry.getAttribute('position');
+  if (!posAttr || posAttr.array.length < arr.length) {
+    trajLine.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  } else {
+    posAttr.needsUpdate = true;
   }
-  trajLine.geometry = new THREE.BufferGeometry();
-  trajLine.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  trajLine.geometry.setDrawRange(0, n);
 
-  if (hitPoint) {
-    trajDot.position.copy(hitPoint);
+  if (hitIdx >= 0) {
+    trajDot.position.copy(hitVec);
     trajDot.visible = true;
   } else {
     trajDot.visible = false;
@@ -2707,21 +2775,38 @@ function gameLoop() {
           var csHit = CollisionSystem.raycastShell(prevPos, s.mesh.position, s.owner || player1);
           if (csHit) {
             var en = csHit.unit;
-            if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
-              window.EnemyAI.onEnemyDamaged(en, s.damage || SHELL_DAMAGE, s.owner || player1);
-            }
-            hit = true;
-            spawnHitSparks(csHit.point);
-            playHitSound();
-            if (en.hp <= 0) {
-              en.dead = true;
-              spawnFragments(
-                new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
-                '#4a5c2e'
-              );
-              playExplosionSound();
-              en.visible = false;
-              if (isTrainingMode) _killEnemyInTraining(en);
+            // v0.79.4 fix(严重): 敌方炮弹会命中玩家碰撞体 → csHit.unit = player1(手动模式包装对象无.position)
+            // ① 误调 onEnemyDamaged(player1) 把玩家当敌人扣血 ② hp<=0 时 en.position.x 抛 TypeError
+            // → 每帧 gameLoop try-catch 中断 → 训练场手动模式 fps 崩(AI托管 player1 挂兼容接口不触发)
+            if (en === player1) {
+              // 敌方炮弹命中玩家: 走玩家受伤路径(与丧尸攻击相同的扣血逻辑)
+              if (!player1._invincibleUntil || performance.now() >= player1._invincibleUntil) {
+                player1.hp = Math.max(0, (player1.hp || 0) - (s.damage || SHELL_DAMAGE));
+                if (player1.hp <= 0 && !player1.dead) {
+                  if (isTrainingMode) _killPlayerInTraining();
+                  else showGameOverScreen();
+                }
+              }
+              hit = true;
+              spawnHitSparks(csHit.point);
+              playHitSound();
+            } else if (en && en.position) {
+              if (!en._invincibleUntil || performance.now() >= en._invincibleUntil) {
+                window.EnemyAI.onEnemyDamaged(en, s.damage || SHELL_DAMAGE, s.owner || player1);
+              }
+              hit = true;
+              spawnHitSparks(csHit.point);
+              playHitSound();
+              if (en.hp <= 0) {
+                en.dead = true;
+                spawnFragments(
+                  new THREE.Vector3(en.position.x, en.position.y + 1, en.position.z),
+                  '#4a5c2e'
+                );
+                playExplosionSound();
+                en.visible = false;
+                if (isTrainingMode) _killEnemyInTraining(en);
+              }
             }
           }
         } else {
@@ -7991,7 +8076,9 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.3 | 校园丧尸人形精修');
+console.log(
+  '🎮 坦克运动demo v0.79.4 | 性能修复: 弹道线/瞄准零分配 + obstacleMeshes污染修复 + 玩家碰撞命中修复'
+);
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

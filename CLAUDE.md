@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.3
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.4
 
 ## 运行
 
@@ -17,8 +17,8 @@ python server.py
 ## 文件结构
 
 ```
-├── index.html         # 核心游戏框架 (~1066行)：UI框架+菜单+脚本加载
-├── js/engine.js        # 游戏引擎 (~8046行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
+├── index.html         # 核心游戏框架 (~1068行)：UI框架+菜单+脚本加载
+├── js/engine.js        # 游戏引擎 (~8133行)：状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击
 ├── js/                # 游戏模块（12个）
 │   ├── waters.js      # 水体模块 (~326行)：池塘水面+河流alphaMap遮罩平面+碰撞体+动画
 │   ├── bridges.js     # 桥梁模块 (~165行)：编辑器桥+参数化桥+碰撞检测+可视化
@@ -270,6 +270,23 @@ legGroup (Y旋转=水平摆角)
 查看 **CODEBUDDY.md** — 关键参数表、架构详解、已知问题、待完成任务、交接流程
 
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
+
+---
+
+## v0.79.4 本次会话变更 (2026-08-04)
+
+### 训练场手动模式 fps 崩根因修复 + 弹道线/瞄准零分配（性能专项）
+
+用户报告：04a/金福园小学性能异常低下 + 训练场 t34 手动操控一段时间后 fps 崩到个位数（AI 托管正常 160+）。经 systematic-debugging 全流程定位 3 个独立根因：
+
+- **根因1（主因，训练场手动崩）**: `updateAiming` 的 `aimTargets = _filterAimTargets(obstacleMeshes)` —— `_filterAimTargets` 在 `_fadedGroups` 空时**直接返回原数组**（v0.78.2 校园半透明特性引入）→ `aimTargets === obstacleMeshes` → 敌人循环 `aimTargets.push(en)` **每帧把敌方坦克 push 进 obstacleMeshes** → 数组线性暴涨（实测 535→1707，每帧 +1）→ 弹道线/瞄准/MG 的 raycast 目标线性暴涨 → 每帧开销线性涨 → fps 崩。**手动模式 updateAiming 每帧跑 → 崩；AI 托管跳过 → 不崩**（完美解释用户观察）。修复：`.slice()` 拷贝。定位方法：`Array.prototype.push` 钩子（addInitScript 早于引擎脚本）抓 push 调用栈 → `updateAiming:1635`
+- **根因2（控制台 TypeError）**: 敌方炮弹命中玩家碰撞体 → `CollisionSystem.raycastShell` 返回 `csHit.unit = player1`（手动模式 player1 是包装对象**无 position**，AI 托管挂兼容接口才有）→ 误调 `onEnemyDamaged(player1)` 把玩家当敌人扣血 + 玩家残血后 `en.position.x` 抛 TypeError → 每帧 try-catch 中断 gameLoop（v0.66.0 碰撞体系统引入）。修复：`csHit.unit === player1` 分支走正确玩家受伤路径（hp 扣减 + `_killPlayerInTraining`）
+- **根因3（04a/金福园卡）**: `updateTrajectoryLine` 每帧 `dispose + new BufferGeometry` + 70×`new Vector3` + `prev.clone()`（60fps 每分钟 ~27 万对象）→ 老生代 GC 负担逐帧累积 → fps 单调下降（真机 4 分钟长跑 30.9→14.6 验证；禁几何重建后 21.6→29.1 回升）→ 修复：**零分配**（模块级 `_trajArr` Float32Array 预分配 + `_trajPrev/_trajTmp/_trajSeg/_trajHit` 复用 + 几何只更新 `setDrawRange`/`needsUpdate` 不重建 + `setDrawRange` 渲染）+ 敌人圆柱检测替代 780 子 mesh 递归 raycast + 障碍物 150m 距离过滤 + `_trajRc` 复用
+- **瞄准优化**（同根因延伸）: 丧尸射线-圆柱检测替代整 mesh 递归 raycast（校园图 30 丧尸×26 子 mesh = 780 目标，16ms/帧）+ `_aimV2d/_aimP/_aimD/_aimW/_aimDir/_aimCamDir/_aimQ/_aimRc` 零分配
+- **验证**: 训练场手动交战 2 分钟 **fps 10-29 → 168-180 稳定**，obstacleMeshes 恒定 24，combat 阶段 42→0.35-0.67ms，gameLoop error 0；04a 弹道线 57→7ms；三图 0 错误
+- **方法论沉淀**: ① headless rAF 被软渲染钳制 4fps + 后台节流 → 帧时间不可用，必须**有头 + 真 GPU（RTX 5060）+ 反节流参数**（`--disable-renderer-backgrounding` 等）长跑复现；② 游戏内置 `perfDisplay`（物理/战斗/更新/渲染 4 阶段探针）直接定位 combat 段暴涨；③ `Array.prototype.push` 钩子抓数组污染调用栈；④ 阶段对比（T1 vs T2 profile）看增长热点
+- **改动文件**: `js/engine.js`（aimTargets slice + 玩家碰撞分支 + 弹道线零分配重写 + 瞄准零分配 + 丧尸圆柱）+ index/README/CLAUDE/CODEBUDDY/trae（版本同步 v0.79.4）
+- **已知问题（新）**: 无。弹道线/瞄准零分配后与虎式时期（v0.65.13）idle 性能相当（165 vs 174fps）
 
 ---
 
