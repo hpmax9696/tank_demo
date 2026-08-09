@@ -1057,6 +1057,43 @@
     // 4.3 buildHumanoidRig(config, parent) — 递归构建（仿 buildZombieFromConfig，独立材质/不注入 blood_drip）
     function buildHumanoidRig(config, parent) {
         function createGeometry(node) {
+            const S3 = Math.sqrt(3) / 2;
+            function mkTaperedBox(bw, h, bd, tw, td, ox, oz) {
+                const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
+                const v = [], idx = []; let vi = 0;
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                q([-hw,0,-hd],[hw,0,-hd],[hw,0,hd],[-hw,0,hd]);
+                q([-thw+ox,h,-thd+oz],[-thw+ox,h,thd+oz],[thw+ox,h,thd+oz],[thw+ox,h,-thd+oz]);
+                q([-hw,0,-hd],[-thw+ox,h,-thd+oz],[thw+ox,h,-thd+oz],[hw,0,-hd]);
+                q([hw,0,hd],[thw+ox,h,thd+oz],[-thw+ox,h,thd+oz],[-hw,0,hd]);
+                q([-hw,0,hd],[-thw+ox,h,thd+oz],[-thw+ox,h,-thd+oz],[-hw,0,-hd]);
+                q([hw,0,-hd],[thw+ox,h,-thd+oz],[thw+ox,h,thd+oz],[hw,0,hd]);
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+            }
+            function mkTaperedHex(bw, h, bd, tw, td, ox, oz) {
+                const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
+                const v = [], idx = []; let vi = 0;
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const fan = (p) => { v.push(...p.reduce((a,x)=>a.concat(x),[])); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3,vi,vi+3,vi+4,vi,vi+4,vi+5); vi+=6; };
+                fan([[hw,0,0],[hw/2,0,hd*S3],[-hw/2,0,hd*S3],[-hw,0,0],[-hw/2,0,-hd*S3],[hw/2,0,-hd*S3]]);
+                fan([[thw+ox,h,oz],[thw/2+ox,h,-thd*S3+oz],[-thw/2+ox,h,-thd*S3+oz],[-thw+ox,h,oz],[-thw/2+ox,h,thd*S3+oz],[thw/2+ox,h,thd*S3+oz]]);
+                q([hw,0,0],[thw+ox,h,oz],[thw/2+ox,h,thd*S3+oz],[hw/2,0,hd*S3]);
+                q([hw/2,0,hd*S3],[thw/2+ox,h,thd*S3+oz],[-thw/2+ox,h,thd*S3+oz],[-hw/2,0,hd*S3]);
+                q([-hw/2,0,hd*S3],[-thw/2+ox,h,thd*S3+oz],[-thw+ox,h,oz],[-hw,0,0]);
+                q([-hw,0,0],[-thw+ox,h,oz],[-thw/2+ox,h,-thd*S3+oz],[-hw/2,0,-hd*S3]);
+                q([-hw/2,0,-hd*S3],[-thw/2+ox,h,-thd*S3+oz],[thw/2+ox,h,-thd*S3+oz],[hw/2,0,-hd*S3]);
+                q([hw/2,0,-hd*S3],[thw/2+ox,h,-thd*S3+oz],[thw+ox,h,oz],[hw,0,0]);
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+            }
+            function mkWedge(bwB, bwT, bh, depth) {
+                const hb = bwB / 2, ht = bwT / 2, hm = (hb + ht) / 2, hh = bh / 2;
+                const A=[-hb,-hh,0],B=[hb,-hh,0],C=[ht,hh,0],D=[-ht,hh,0],E=[-hm,0,depth],F=[hm,0,depth];
+                const v = [], idx = []; let vi = 0;
+                const q = (a, b, c, d) => { v.push(...a,...b,...c,...d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const t = (a, b, c) => { v.push(...a,...b,...c); idx.push(vi,vi+1,vi+2); vi+=3; };
+                q(A,B,C,D); q(A,B,F,E); q(D,E,F,C); t(A,E,D); t(B,C,F);
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+            }
             switch (node.type) {
                 case 'Box': {
                     const [w, h, d] = node.size;
@@ -1080,6 +1117,9 @@
                     const [r, tube] = node.size;
                     return new THREE.TorusGeometry(r, tube, 6, 12);
                 }
+                case 'TaperedBox': { const s = node.size; return mkTaperedBox(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0); }
+                case 'TaperedHex': { const s = node.size; return mkTaperedHex(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0); }
+                case 'Wedge': { const s = node.size; return mkWedge(s[0], s[1] != null ? s[1] : s[0], s[2] != null ? s[2] : 0.1, s[3] != null ? s[3] : 0.1); }
                 default:
                     return null;
             }
@@ -1514,12 +1554,20 @@
         };
         const vr = HC.HUMANOID_VARIANTS[variant].bodyRange;
         const rand = (a, b) => a + rng() * (b - a);
-        const params = {
-            height: heightM,
-            build: vr.build ? rand(vr.build[0], vr.build[1]) : HC.BODY_PARAMS.build.default,
-            hunch: vr.hunch ? rand(vr.hunch[0], vr.hunch[1]) : HC.BODY_PARAMS.hunch.default,
-            curves: vr.curves ? rand(vr.curves[0], vr.curves[1]) : 0,
-        };
+        // 教师(成人)固定一套体型（不再随机），学生(儿童)保留随机高矮胖瘦
+        const params = (variant === 'teacher_m' || variant === 'teacher_f')
+            ? {
+                  height: heightM,
+                  build: vr.build ? vr.build[0] : HC.BODY_PARAMS.build.default,
+                  hunch: vr.hunch ? vr.hunch[0] : HC.BODY_PARAMS.hunch.default,
+                  curves: variant === 'teacher_f' ? 0.7 : 0,
+              }
+            : {
+                  height: heightM,
+                  build: vr.build ? rand(vr.build[0], vr.build[1]) : HC.BODY_PARAMS.build.default,
+                  hunch: vr.hunch ? rand(vr.hunch[0], vr.hunch[1]) : HC.BODY_PARAMS.hunch.default,
+                  curves: vr.curves ? rand(vr.curves[0], vr.curves[1]) : 0,
+              };
         const config = HC.buildHumanoid(variant, params);
         const root = new THREE.Group();
         root.name = 'campusZombie_root';

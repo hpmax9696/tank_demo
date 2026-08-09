@@ -166,6 +166,166 @@
     ],
   };
 
+  // ①b 三副骨架：关节名/结构一字对齐 HUMANOID_BASE（深拷贝派生），仅 size 与肩宽按变体分化（见 buildHumanoid 选骨架 + 各 base 尺寸）
+  const STUDENT_BASE = JSON.parse(JSON.stringify(HUMANOID_BASE));
+  const TEACHER_M_BASE = JSON.parse(JSON.stringify(HUMANOID_BASE));
+  const TEACHER_F_BASE = JSON.parse(JSON.stringify(HUMANOID_BASE));
+  const SKELETON_BY_VARIANT = {
+    student_m: STUDENT_BASE,
+    student_f: STUDENT_BASE,
+    teacher_m: TEACHER_M_BASE,
+    teacher_f: TEACHER_F_BASE,
+  };
+
+  // ①c 骨架尺寸差异化：setBone 同步 size + pivot(=size/2) + 直接子 position（防 size 改后 pivot 硬编码错位 → 空隙/手臂超肩）
+  // pivotAt: 'top'(关节在顶=四肢肩/髋/膝) | 'bottom'(关节在底=躯干腰/颈/头颈接)
+  function setBone(root, name, newH, pivotAt, newR) {
+    var find = function (n, nm) {
+      if (n.name === nm) return n;
+      if (n.children)
+        for (var i = 0; i < n.children.length; i++) {
+          var r = find(n.children[i], nm);
+          if (r) return r;
+        }
+      return null;
+    };
+    var node = find(root, name);
+    if (!node || !node.size) return;
+    var isSphere = node.type === 'Sphere';
+    var idx = isSphere ? 0 : 1;
+    if (newR != null && !isSphere) {
+      node.size[0] = newR;
+      node.size[2] = newR;
+    }
+    var oldH = node.size[idx];
+    if (oldH === newH) return;
+    var ratio = newH / oldH;
+    node.size[idx] = newH;
+    if (node.pivot) {
+      var half = isSphere ? newH : newH / 2;
+      node.pivot[1] = pivotAt === 'top' ? half : -half;
+    }
+    // 直接子 position y 按比例缩（子挂此节点，size 缩则子位置同比例缩保持衔接）
+    if (node.children)
+      node.children.forEach(function (c) {
+        if (c.position) c.position[1] = +(c.position[1] * ratio).toFixed(4);
+      });
+  }
+  function setShoulder(root, x) {
+    var walk = function (node) {
+      if (node.name === 'l_upper_arm') node.position[0] = -x;
+      if (node.name === 'r_upper_arm') node.position[0] = x;
+      if (node.children) node.children.forEach(walk);
+    };
+    walk(root);
+  }
+  function setNeckRadius(root, r) {
+    // neck Cylinder size[rTop, h, rBot]；头缩小后脖子显粗，按变体收细
+    var find = function (n, nm) {
+      if (n.name === nm) return n;
+      if (n.children)
+        for (var i = 0; i < n.children.length; i++) {
+          var x = find(n.children[i], nm);
+          if (x) return x;
+        }
+      return null;
+    };
+    var n = find(root, 'neck');
+    if (n && n.size) {
+      n.size[0] = r;
+      n.size[2] = r;
+    }
+  }
+  // 学生（儿童）：原比例已近儿童，仅加长过短手臂（pivot 同步=臂半，防上端超肩）
+  setBone(STUDENT_BASE, 'l_upper_arm', 0.52, 'top');
+  setBone(STUDENT_BASE, 'r_upper_arm', 0.52, 'top');
+  setBone(STUDENT_BASE, 'l_forearm', 0.48, 'top');
+  setBone(STUDENT_BASE, 'r_forearm', 0.48, 'top');
+  setShoulder(STUDENT_BASE, 0.3);
+  // 教师（成人男性）：加长腿 + 加长臂 + 缩头（躯干/颈/骨盆保持原 size，避免头颈躯干衔接空隙）；靠腿长+头缩达成人比例
+  setBone(TEACHER_M_BASE, 'l_upper_leg', 0.65, 'top');
+  setBone(TEACHER_M_BASE, 'r_upper_leg', 0.65, 'top');
+  setBone(TEACHER_M_BASE, 'l_lower_leg', 0.6, 'top');
+  setBone(TEACHER_M_BASE, 'r_lower_leg', 0.6, 'top');
+  setBone(TEACHER_M_BASE, 'l_upper_arm', 0.55, 'top');
+  setBone(TEACHER_M_BASE, 'r_upper_arm', 0.55, 'top');
+  setBone(TEACHER_M_BASE, 'l_forearm', 0.5, 'top');
+  setBone(TEACHER_M_BASE, 'r_forearm', 0.5, 'top');
+  setBone(TEACHER_M_BASE, 'head', 0.17, 'bottom');
+  setShoulder(TEACHER_M_BASE, 0.36);
+  setNeckRadius(TEACHER_M_BASE, 0.09);
+  // 教师（成人女性）：最长腿 + 细臂 + 最小头 + 窄肩（S 曲线：骨架长腿窄肩 + curves 收腰放大 bust/hips）
+  setBone(TEACHER_F_BASE, 'l_upper_leg', 0.7, 'top', 0.1);
+  setBone(TEACHER_F_BASE, 'r_upper_leg', 0.7, 'top', 0.1);
+  setBone(TEACHER_F_BASE, 'l_lower_leg', 0.65, 'top', 0.085);
+  setBone(TEACHER_F_BASE, 'r_lower_leg', 0.65, 'top', 0.085);
+  setBone(TEACHER_F_BASE, 'l_upper_arm', 0.52, 'top', 0.08);
+  setBone(TEACHER_F_BASE, 'r_upper_arm', 0.52, 'top', 0.08);
+  setBone(TEACHER_F_BASE, 'l_forearm', 0.47, 'top', 0.065);
+  setBone(TEACHER_F_BASE, 'r_forearm', 0.47, 'top', 0.065);
+  setBone(TEACHER_F_BASE, 'head', 0.16, 'bottom');
+  setShoulder(TEACHER_F_BASE, 0.28);
+  setNeckRadius(TEACHER_F_BASE, 0.085);
+  // 女教师躯干沙漏化：torso(Box) → Group(两 TaperedBox 沙漏：肩0.52→腰0.30→臀0.48)，腰在中心衔接
+  // 配合 curves(bust/hips) + skirt 形成女性 S 曲线；颈/臂原子保留挂 torso
+  (function () {
+    var f = function (n, nm) {
+      if (n.name === nm) return n;
+      if (n.children)
+        for (var i = 0; i < n.children.length; i++) {
+          var r = f(n.children[i], nm);
+          if (r) return r;
+        }
+      return null;
+    };
+    var torso = f(TEACHER_F_BASE, 'torso');
+    if (torso) {
+      var orig = torso.children || [];
+      delete torso.size;
+      delete torso._slot;
+      torso.type = 'Group';
+      // TaperedBox size[底宽,高,底深,顶宽,顶深,offX,offZ]；torso 原 size[0.6,0.75,0.38]，半高0.375
+      torso.children = [
+        {
+          name: 'torso_upper',
+          type: 'TaperedBox',
+          size: [0.3, 0.375, 0.22, 0.52, 0.3, 0, 0],
+          position: [0, 0.1875, 0],
+          materialId: '__cloth__',
+        },
+        {
+          name: 'torso_lower',
+          type: 'TaperedBox',
+          size: [0.56, 0.375, 0.32, 0.3, 0.22, 0, 0], // 臀端膨大0.48→0.56 盖腿根
+          position: [0, -0.1875, 0],
+          materialId: '__cloth__',
+        },
+      ].concat(orig);
+    }
+  })();
+
+  // 教师取消上衣下摆：pelvis 显裤/裙色（男裤腰 / 女裙腰，skirt_grey 同 trousers_grey 材质）
+  // 替代原衣服延伸（避免立方体衣服包裹裤/裙上半的视觉），衬衫/上衣扎进裤裙
+  (function () {
+    var f = function (n, nm) {
+      if (n.name === nm) return n;
+      if (n.children)
+        for (var i = 0; i < n.children.length; i++) {
+          var r = f(n.children[i], nm);
+          if (r) return r;
+        }
+      return null;
+    };
+    var pm = f(TEACHER_M_BASE, 'pelvis');
+    if (pm) pm.materialId = 'trousers_grey';
+    var pf = f(TEACHER_F_BASE, 'pelvis');
+    if (pf) {
+      pf.materialId = 'trousers_grey';
+      pf.type = 'TaperedHex'; // 椭圆台替代立方体（臀端宽、腰端窄，衔接沙漏躯干+裙）
+      pf.size = [0.62, 0.36, 0.5, 0.54, 0.44]; // 放大[臀宽, 高, 臀深, 腰宽, 腰深]
+    }
+  })();
+
   // ② 体型参数（工厂体型滑块读它；本 plan 用 buildHumanoid 内部派生）
   const BODY_PARAMS = {
     height: { default: 1.4, range: [1.0, 1.8] },
@@ -470,23 +630,25 @@
     }, // 学生短裙：腰口贴 pelvis 底(0.2)，裙摆膝上露小腿；大腿段摆动在裙内（半径0.3 覆盖后蹬位移），膝以下裙外自由
     trousers_grey: {
       // 长裤大腿段：挂腿关节（随髋转）；buildHumanoid 双挂 r 侧。膝以下由 trousers_grey_calf 覆盖
+      // size[1]=大腿长(0.45)略余；position=0 中心对齐大腿mesh中心（childComp -0.2 已含髋下偏移）
       parent: 'l_upper_leg',
       node: {
         name: 'ah_tr_l',
         type: 'Box',
-        size: [0.18, 0.6, 0.22],
-        position: [0, -0.3, 0], // 髋下 0.3，覆盖髋到膝上
+        size: [0.18, 0.68, 0.22],
+        position: [0, 0, 0],
         materialId: 'trousers_grey',
       },
     },
     trousers_grey_calf: {
       // 长裤小腿段：挂小腿关节（随膝弯，防膝弯穿模）；buildHumanoid 双挂 r 侧
+      // size[1]=小腿长(0.42)；position=0 中心对齐小腿mesh中心（旧 -0.35 叠 childComp -0.2 致底端贴地，腿视觉长一倍）
       parent: 'l_lower_leg',
       node: {
         name: 'ah_tc_l',
         type: 'Box',
-        size: [0.18, 0.7, 0.22],
-        position: [0, -0.35, 0], // 膝下 0.35，覆盖膝到脚踝
+        size: [0.18, 0.6, 0.22],
+        position: [0, 0, 0],
         materialId: 'trousers_grey',
       },
     },
@@ -532,48 +694,28 @@
       },
     },
     bust: {
+      // 女性胸部：楔形（底面贴上躯干前面、顶线为胸最突出处），替代原两球
       parent: 'torso',
       node: {
-        type: 'Group',
-        position: [0, 0.2, 0.17],
-        children: [
-          {
-            name: 'ah_bust_l',
-            type: 'Sphere',
-            size: [0.11],
-            position: [-0.1, 0, 0.02],
-            materialId: '__cloth__',
-            segments: [7, 6],
-          },
-          {
-            name: 'ah_bust_r',
-            type: 'Sphere',
-            size: [0.11],
-            position: [0.1, 0, 0.02],
-            materialId: '__cloth__',
-            segments: [7, 6],
-          },
-        ],
+        name: 'ah_bust',
+        type: 'Wedge',
+        size: [0.28, 0.4, 0.16, 0.14], // 底面梯形[靠腰窄bwBottom, 靠肩宽bwTop, 胸高, 突出]
+        position: [0, 0.16, 0.2], // 胸位(躯干上部) + 前(z+)
+        materialId: '__cloth__',
       },
     },
     hips: {
-      parent: 'pelvis',
+      // 臀部：楔形贴下躯干(torso_lower 沙漏下段)后面，顶线为臀最突出处
+      parent: 'torso',
       node: {
-        type: 'Group',
-        position: [0, -0.1, 0],
-        children: [
-          {
-            name: 'ah_hips',
-            type: 'Sphere',
-            size: [0.3],
-            position: [0, -0.02, -0.1],
-            scale: [1, 0.85, 0.55],
-            materialId: '__cloth__',
-            segments: [8, 6],
-          },
-        ],
+        name: 'ah_hips',
+        type: 'Wedge',
+        size: [0.48, 0.3, 0.18, 0.12], // 底面梯形[靠腿宽bwBottom, 靠腰窄bwTop, 臀高, 突出]
+        position: [0, -0.28, -0.18], // 臀位(底边与 torso_lower 底重合) + 后(z-)
+        rotation: [0, Math.PI, 0], // 朝后突出
+        materialId: '__cloth__',
       },
-    }, // 沿 Y 压扁由 buildHumanoid scale 处理
+    },
     tie_opt: {
       parent: 'torso',
       node: {
@@ -751,10 +893,11 @@
       build:
         params.build != null ? params.build : variant.bodyRange.build || BODY_PARAMS.build.default,
       hunch: params.hunch != null ? params.hunch : variant.bodyRange.hunch[0],
-      curves: params.curves != null ? params.curves : variant.bodyRange.curves || 0,
+      curves: params.curves != null ? params.curves : variantKey === 'teacher_f' ? 0.7 : 0,
     };
-    // 1) 深拷贝 BASE + 派生
-    const tree = deriveNode(HUMANOID_BASE, p, variant);
+    // 1) 深拷贝 BASE + 派生（按变体选骨架：学生共享 STUDENT_BASE / 教师男女各一套）
+    var base = SKELETON_BY_VARIANT[variantKey] || HUMANOID_BASE;
+    const tree = deriveNode(base, p, variant);
     // 2) 追加装饰节点
     var wrapMax = 0; // 裤/裙最终半宽（半径）最大值，供下摆包裹保证
     variant.addons.forEach((key) => {
@@ -811,7 +954,8 @@
     // 3) 上衣下摆（pelvis，polo/衬衫下摆延伸到骨盆）随 build 单向联动 + 包裹保证：
     //    半宽/半深 ≥ max(原值×_bF, 裤裙半宽 + 0.02)，build 小不回缩（防收窄破怀）
     //    不动 torso：徽章/条纹/领带等挂件贴其前表面，增厚会被吞
-    if (wrapMax > 0) {
+    // 教师取消上衣下摆（扎裤/裙）：不 grow pelvis（pelvis 显裤/裙色而非衣服延伸）
+    if (wrapMax > 0 && variantKey !== 'teacher_m' && variantKey !== 'teacher_f') {
       const pelvisNode = findNode(tree, 'pelvis');
       if (pelvisNode && pelvisNode.size) {
         const _bF = 0.7 + p.build * 0.6;

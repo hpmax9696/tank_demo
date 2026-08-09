@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.4 — 性能修复: 训练场手动fps崩根因(aimTargets污染obstacleMeshes+玩家碰撞命中) + 弹道线/瞄准零分配；v0.79.3 校园丧尸人形精修；v0.79.2 校园丧尸校服精修）
+## 当前版本（v0.79.5 — 校园丧尸三副骨架(STUDENT/TEACHER_M/TEACHER_F BASE)+比例重定+女教师S曲线(沙漏躯干/椭圆pelvis/胸臀楔形Wedge)+鞋修复(裤段贴地+rebuildModel排除手臂指尖)+取消上衣下摆+教师固定/学生随机；v0.79.4 性能修复）
 
 ### 关键参数
 

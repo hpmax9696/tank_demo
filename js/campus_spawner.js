@@ -127,7 +127,7 @@
   function _spawnEnemy(variant, x, z, enemies, scene, getGroundHeight) {
     const isTeacher = variant.indexOf('teacher') === 0;
     const hRange = isTeacher ? [1.55, 1.75] : [1.1, 1.5];
-    const heightM = hRange[0] + Math.random() * (hRange[1] - hRange[0]);
+    const heightM = isTeacher ? 1.65 : hRange[0] + Math.random() * (hRange[1] - hRange[0]);
     const model = window.EnemyModels.createCampusZombie({ variant, heightM, seed: _seedCnt++ });
     const gy = typeof getGroundHeight === 'function' ? getGroundHeight(x, z) : 0;
     model.position.set(x, gy, z);

@@ -806,6 +806,44 @@
         return geo;
       }
 
+      // 楔形：底面梯形(bwBottom→bwTop 沿 y 变宽)在 z=0 + 顶线(z=depth 突出)；4 侧面(2 梯形上下 + 2 三角左右)
+      // 用于女性胸(底:靠肩宽 bwTop / 靠腰窄 bwBottom)/臀(底:靠腿宽 bwBottom / 靠腰窄 bwTop)
+      function buildWedge(bwBottom, bwTop, bh, depth) {
+        const hb = bwBottom / 2,
+          ht = bwTop / 2,
+          hm = (hb + ht) / 2,
+          hh = bh / 2;
+        const A = [-hb, -hh, 0],
+          B = [hb, -hh, 0],
+          C = [ht, hh, 0],
+          D = [-ht, hh, 0];
+        const E = [-hm, 0, depth],
+          F = [hm, 0, depth];
+        const verts = [],
+          idx = [];
+        let vi = 0;
+        function quad(a, b, c, d) {
+          verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+          idx.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+          vi += 4;
+        }
+        function tri(a, b, c) {
+          verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+          idx.push(vi, vi + 1, vi + 2);
+          vi += 3;
+        }
+        quad(A, B, C, D); // 底面 z=0（法线 -z 朝后）
+        quad(A, B, F, E); // 下侧面(梯形，法线朝下前)
+        quad(D, E, F, C); // 上侧面(梯形，法线朝上前)
+        tri(A, E, D); // 左侧面(三角，法线 -x)
+        tri(B, C, F); // 右侧面(三角，法线 +x)
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
       // 椭圆六棱台：底面和顶面是压扁的六边形
       // size: [底宽, 高, 底深, 顶宽, 顶深]
       function buildTaperedHex(bw, h, bd, tw, td, ox = 0, oz = 0) {
@@ -1206,6 +1244,14 @@
             return new THREE.TorusGeometry(s[0], s[1] || 0.05, seg[0] || 8, seg[1] || 12);
           case 'Plane':
             return new THREE.PlaneGeometry(s[0], s[1] || s[0], seg[0] || 1, seg[1] || 1);
+          case 'Wedge':
+            // size: [底面下宽(bwBottom), 底面上宽(bwTop), 底高, 突出深度]
+            return buildWedge(
+              s[0],
+              s[1] != null ? s[1] : s[0],
+              s[2] != null ? s[2] : 0.1,
+              s[3] != null ? s[3] : 0.1
+            );
           case 'Lathe': {
             const profile = node.profile || [
               [0.5, 0],
@@ -2862,16 +2908,35 @@
           if (humRoot) {
             humRoot.position.y = 0;
             humRoot.updateMatrixWorld(true);
+            // 身高归一 + 贴地：按头顶到脚底（排除下垂手臂指尖，防臂长致身高虚高/脚悬浮）
+            var _headTop = -Infinity,
+              _footBottom = Infinity;
+            humRoot.traverse(function (c) {
+              if (!c.isMesh) return;
+              var nn = c.name || '';
+              if (nn.indexOf('upper_arm') >= 0 || nn.indexOf('forearm') >= 0) return; // 排除手臂
+              var bb = new THREE.Box3().setFromObject(c);
+              if (!isFinite(bb.min.x)) return;
+              if (bb.max.y > _headTop) _headTop = bb.max.y;
+              if (bb.min.y < _footBottom) _footBottom = bb.min.y;
+            });
             if (MODEL_CONFIGS.humanoid._params) {
-              var hbox1 = new THREE.Box3().setFromObject(humRoot);
-              var curH = hbox1.max.y - hbox1.min.y;
+              var curH = _headTop - _footBottom;
               var targetUnits = MODEL_CONFIGS.humanoid._params.height / 1.3;
               var hScale = curH > 0 ? targetUnits / curH : 1;
               humRoot.scale.setScalar(hScale);
               humRoot.updateMatrixWorld(true);
             }
-            var hbox2 = new THREE.Box3().setFromObject(humRoot);
-            humRoot.position.y = -hbox2.min.y;
+            // scale 后按脚底重测贴地（仍排除手臂）
+            _footBottom = Infinity;
+            humRoot.traverse(function (c) {
+              if (!c.isMesh) return;
+              var nn = c.name || '';
+              if (nn.indexOf('upper_arm') >= 0 || nn.indexOf('forearm') >= 0) return;
+              var bb = new THREE.Box3().setFromObject(c);
+              if (isFinite(bb.min.x) && bb.min.y < _footBottom) _footBottom = bb.min.y;
+            });
+            humRoot.position.y = -_footBottom;
             humRoot.updateMatrixWorld(true);
           }
         }
@@ -3673,7 +3738,9 @@
           bodyF
             .add(_humanoidEdit, 'variant', variantOptions)
             .name('变体')
-            .onChange(function () {
+            .onChange(function (v) {
+              // 切变体重置曲线：女教师 0.7（S 曲线基准），其他 0
+              _humanoidEdit.params.curves = v === 'teacher_f' ? 0.7 : 0;
               _applyHumanoidEdit();
             });
           var _bodyNameMap = { height: '身高', build: '体型', hunch: '驼背', curves: '曲线' };

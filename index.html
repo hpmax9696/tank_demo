@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.4</title>
+    <title>坦克运动demo v0.79.5</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.4</div>
+      <div class="menu-version">v0.79.5</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,14 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🧍 v0.79.5 校园丧尸三副骨架+比例重定 — 男教师裤段ah_tc_l size匹配腿长+position修贴地;
+          rebuildModel贴地排除手臂指尖(防臂长致身高虚高/脚悬浮);
+          HUMANOID_BASE拆三副(STUDENT/TEACHER_M/TEACHER_F BASE)+buildHumanoid选骨架;
+          setBone同步size+pivot+子pos(防空隙/手臂超肩); 学生加长臂/男教师长腿/女教师S曲线;
+          女教师沙漏躯干(TaperedBox×2)+椭圆pelvis(TaperedHex)+胸臀楔形(Wedge梯形底)+curves0.7+胳膊腿细;
+          取消上衣下摆(教师pelvis裤裙色); 游戏侧教师固定体型/学生随机
+        </div>
+        <div class="cl-title">
           ⚡ v0.79.4 性能修复 — 训练场手动模式fps崩根因: updateAiming的
           aimTargets污染obstacleMeshes(每帧push敌人→数组线性暴涨→raycast目标暴涨);
           敌方炮弹命中玩家碰撞体→player1无position抛TypeError+误扣血(改正确玩家受伤路径);
@@ -854,15 +862,8 @@
           保存POST{enemies,spawnConfig}(扁平enemy+position[x,y,z]+patrolPath[[x,z]]+doors[[x,z]]);
           游戏零改动
         </div>
-        <div class="cl-title">
-          🏭 v0.79.0 校园丧尸模型工厂接入 —
-          humanoid_factory自包含6动作(Idle/Walk/Run/Attack/Stagger/Die)工厂展台桥接;
-          工厂6项接入(Plane支持+MODEL_CONFIGS+MATERIAL_DEFS+getModelAnims/buildAnimList+体型参数GUI+脚本);
-          solidify单变体固化(_find_variant_bounds嵌套定位HUMANOID_VARIANTS[key]); rebuildModel
-          window.modelRoot fresh
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.4~v0.79.0) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.5~v0.79.1) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
