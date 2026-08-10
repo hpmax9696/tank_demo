@@ -995,7 +995,7 @@
   // setBone 同步 size+pivot+子position（衔接保证）；手是新增关节（通用拓扑含手）
   var WORKING_SKELETON = JSON.parse(JSON.stringify(HUMANOID_BASE));
   setBone(WORKING_SKELETON, 'torso', 0.307, 'bottom');
-  setBone(WORKING_SKELETON, 'neck', 0.061, 'bottom');
+  setBone(WORKING_SKELETON, 'neck', 0.061, 'bottom', 0.045);
   setBone(WORKING_SKELETON, 'head', 0.094, 'bottom');
   setBone(WORKING_SKELETON, 'l_upper_arm', 0.275, 'top', 0.052);
   setBone(WORKING_SKELETON, 'r_upper_arm', 0.275, 'top', 0.052);
@@ -1039,14 +1039,18 @@
       });
     });
   })();
-  // 躯干沙漏化：上下两 TaperedBox（肩臀宽/腰窄，写实成人腰线）；保留 torso 关节 position/rotation/pivot + 原子（颈/臂）
+  // 躯干沙漏化：上下两 TaperedBox（肩臀宽/腰窄）；腰线=pivot 旋转中心（衔接稳）；去前倾（姿态交动画）；颈/臂重定位接 torso_upper 顶
   (function () {
     var t = findNode(WORKING_SKELETON, 'torso');
     if (t) {
       var orig = t.children || [];
       delete t.size;
       delete t._slot;
+      delete t.pivot; // 去 Box pivot，Group 原点=腰
+      t.position = [0, 0.0675, 0.04]; // 原点=腰=骨盆顶（去前倾+去pivot，精确衔接）
+      t.rotation = [0, 0, 0]; // 去前倾（精确衔接；姿态交动画/rest pose）
       t.type = 'Group';
+      // 腰=pivot=torso原点-0.1535；torso_upper 底=腰(-0.1535)顶=0；torso_lower 底=臀(-0.3075)顶=腰(-0.1535)
       t.children = [
         {
           name: 'torso_upper',
@@ -1063,6 +1067,12 @@
           materialId: '__skin__',
         },
       ].concat(orig);
+      var nk = findNode(WORKING_SKELETON, 'neck');
+      if (nk) nk.position[1] = 0.1845; // 颈中心，底=torso_upper 顶(0.154)
+      ['l_upper_arm', 'r_upper_arm'].forEach(function (nm) {
+        var a = findNode(WORKING_SKELETON, nm);
+        if (a) a.position[1] = 0.0165; // 肩=torso_upper 顶(0.154)，中心=肩-half(0.1375)
+      });
     }
   })();
 
