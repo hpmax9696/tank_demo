@@ -2213,7 +2213,9 @@
           // lazy 反查 controller（rebuild GUI 后旧 domElement 失效，新 widget 自动重填）
           let ctrl = widget.__peCtrl;
           if (!ctrl && gui) {
-            ctrl = gui.controllersRecursive().find((c) => c.domElement === widget);
+            ctrl = gui
+              .controllersRecursive()
+              .find((c) => c.domElement.closest('.hasSlider') === widget);
             if (ctrl) widget.__peCtrl = ctrl;
           }
           if (!ctrl) return;
