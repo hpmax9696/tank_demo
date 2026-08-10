@@ -994,558 +994,310 @@
   // WORKING_SKELETON：工厂骨架模式的编辑对象 —— 写实 7.5 头身通用拓扑白模
   // setBone 同步 size+pivot+子position（衔接保证）；手是新增关节（通用拓扑含手）
   var WORKING_SKELETON = {
-  "name": "root",
-  "type": "Group",
-  "position": [
-    0.08,
-    0.1626,
-    0
-  ],
-  "rotation": [
-    0,
-    0,
-    0
-  ],
-  "children": [
-    {
-      "name": "pelvis",
-      "type": "Box",
-      "size": [
-        0.3,
-        0.135,
-        0.22
-      ],
-      "position": [
-        0,
-        0.375,
-        0.04
-      ],
-      "materialId": "__cloth__",
-      "children": [
-        {
-          "name": "torso",
-          "type": "Group",
-          "position": [
-            0,
-            0.0675,
-            0.04
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "materialId": "__cloth__",
-          "children": [
-            {
-              "name": "torso_upper",
-              "type": "TaperedBox",
-              "size": [
-                0.22,
-                0.29,
-                0.16,
-                0.31,
-                0.2,
-                0,
-                0
-              ],
-              "position": [
-                0,
-                0.299,
-                -0.04
-              ],
-              "materialId": "__skin__",
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            },
-            {
-              "name": "torso_lower",
-              "type": "TaperedBox",
-              "size": [
-                0.3,
-                0.154,
-                0.22,
-                0.22,
-                0.16,
-                0,
-                0
-              ],
-              "position": [
-                0,
-                0.077,
-                -0.04
-              ],
-              "materialId": "__skin__",
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            },
-            {
-              "name": "neck",
-              "type": "Cylinder",
-              "size": [
-                0.04,
-                0.061,
-                0.04
-              ],
-              "position": [
-                0,
-                0.4745,
-                -0.05
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                -0.0305,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "head",
-                  "type": "Sphere",
-                  "size": [
-                    0.094
-                  ],
-                  "position": [
-                    0,
-                    0.0874,
-                    0.0032
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.094,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "segments": [
-                    6,
-                    5
-                  ],
-                  "children": [
-                    {
-                      "name": "l_eye_glow",
-                      "type": "Sphere",
-                      "size": [
-                        0.02
-                      ],
-                      "position": [
-                        0.03,
-                        0.02,
-                        0.07
-                      ],
-                      "materialId": "eye_glow",
-                      "segments": [
-                        5,
-                        4
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    },
-                    {
-                      "name": "r_eye_glow",
-                      "type": "Sphere",
-                      "size": [
-                        0.02
-                      ],
-                      "position": [
-                        -0.03,
-                        0.02,
-                        0.07
-                      ],
-                      "materialId": "eye_glow",
-                      "segments": [
-                        5,
-                        4
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            },
-            {
-              "name": "l_upper_arm",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.275,
-                0.052
-              ],
-              "position": [
-                0.19,
-                0.3065,
-                -0.04
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                0.1375,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "l_forearm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.045,
-                    0.255,
-                    0.045
-                  ],
-                  "position": [
-                    0,
-                    -0.2567,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1275,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_hand",
-                      "type": "Box",
-                      "size": [
-                        0.052,
-                        0.104,
-                        0.045
-                      ],
-                      "position": [
-                        0,
-                        -0.18,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.052,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            },
-            {
-              "name": "r_upper_arm",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.275,
-                0.052
-              ],
-              "position": [
-                -0.19,
-                0.3065,
-                -0.04
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                0.1375,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "r_forearm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.045,
-                    0.255,
-                    0.045
-                  ],
-                  "position": [
-                    0,
-                    -0.2567,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1275,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_hand",
-                      "type": "Box",
-                      "size": [
-                        0.052,
-                        0.104,
-                        0.045
-                      ],
-                      "position": [
-                        0,
-                        -0.18,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.052,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            }
-          ],
-          "visible": true
-        },
-        {
-          "name": "l_upper_leg",
-          "type": "Cylinder",
-          "size": [
-            0.061,
-            0.33,
-            0.061
-          ],
-          "position": [
-            0.075,
-            -0.05,
-            0
-          ],
-          "pivot": [
-            0,
-            0.165,
-            0
-          ],
-          "materialId": "__skin__",
-          "children": [
-            {
-              "name": "l_lower_leg",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.33,
-                0.052
-              ],
-              "position": [
-                0,
-                -0.308,
-                0
-              ],
-              "pivot": [
-                0,
-                0.165,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "l_foot",
-                  "type": "Box",
-                  "size": [
-                    0.112,
-                    0.045,
-                    0.225
-                  ],
-                  "position": [
-                    0,
-                    -0.1571,
-                    0.06
-                  ],
-                  "pivot": [
-                    0,
-                    0.05,
-                    -0.1
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        },
-        {
-          "name": "r_upper_leg",
-          "type": "Cylinder",
-          "size": [
-            0.061,
-            0.33,
-            0.061
-          ],
-          "position": [
-            -0.075,
-            -0.05,
-            0
-          ],
-          "pivot": [
-            0,
-            0.165,
-            0
-          ],
-          "materialId": "__skin__",
-          "children": [
-            {
-              "name": "r_lower_leg",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.33,
-                0.052
-              ],
-              "position": [
-                0,
-                -0.308,
-                0
-              ],
-              "pivot": [
-                0,
-                0.165,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "r_foot",
-                  "type": "Box",
-                  "size": [
-                    0.112,
-                    0.045,
-                    0.225
-                  ],
-                  "position": [
-                    0,
-                    -0.1571,
-                    0.06
-                  ],
-                  "pivot": [
-                    0,
-                    0.05,
-                    -0.1
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        }
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "visible": true
-    }
-  ],
-  "visible": true
-};
+    name: 'root',
+    type: 'Group',
+    position: [0.08, 0.1626, 0],
+    rotation: [0, 0, 0],
+    children: [
+      {
+        name: 'pelvis',
+        type: 'Box',
+        size: [0.3, 0.135, 0.22],
+        position: [0, 0.375, 0.04],
+        materialId: '__cloth__',
+        children: [
+          {
+            name: 'torso',
+            type: 'Group',
+            position: [0, 0.0675, 0.04],
+            rotation: [0, 0, 0],
+            materialId: '__cloth__',
+            children: [
+              {
+                name: 'torso_upper',
+                type: 'TaperedBox',
+                size: [0.22, 0.29, 0.16, 0.31, 0.2, 0, 0],
+                position: [0, 0.299, -0.04],
+                materialId: '__skin__',
+                rotation: [0, 0, 0],
+                visible: true,
+              },
+              {
+                name: 'torso_lower',
+                type: 'TaperedBox',
+                size: [0.3, 0.154, 0.22, 0.22, 0.16, 0, 0],
+                position: [0, 0.077, -0.04],
+                materialId: '__skin__',
+                rotation: [0, 0, 0],
+                visible: true,
+              },
+              {
+                name: 'neck',
+                type: 'Cylinder',
+                size: [0.04, 0.061, 0.04],
+                position: [0, 0.4745, -0.05],
+                rotation: [0, 0, 0],
+                pivot: [0, -0.0305, 0],
+                materialId: '__skin__',
+                children: [
+                  {
+                    name: 'head',
+                    type: 'Sphere',
+                    size: [0.094],
+                    position: [0, 0.0874, 0.0032],
+                    rotation: [0, 0, 0],
+                    pivot: [0, -0.094, 0],
+                    materialId: '__skin__',
+                    segments: [6, 5],
+                    children: [
+                      {
+                        name: 'l_eye_glow',
+                        type: 'Sphere',
+                        size: [0.02],
+                        position: [0.03, 0.02, 0.07],
+                        materialId: 'eye_glow',
+                        segments: [5, 4],
+                        rotation: [0, 0, 0],
+                        visible: true,
+                      },
+                      {
+                        name: 'r_eye_glow',
+                        type: 'Sphere',
+                        size: [0.02],
+                        position: [-0.03, 0.02, 0.07],
+                        materialId: 'eye_glow',
+                        segments: [5, 4],
+                        rotation: [0, 0, 0],
+                        visible: true,
+                      },
+                    ],
+                    visible: true,
+                  },
+                ],
+                visible: true,
+              },
+              {
+                name: 'l_upper_arm',
+                type: 'Cylinder',
+                size: [0.052, 0.275, 0.052],
+                position: [0.19, 0.3065, -0.04],
+                rotation: [0, 0, 0],
+                pivot: [0, 0.1375, 0],
+                materialId: '__skin__',
+                children: [
+                  {
+                    name: 'l_forearm',
+                    type: 'Cylinder',
+                    size: [0.045, 0.255, 0.045],
+                    position: [0, -0.2567, 0],
+                    pivot: [0, 0.1275, 0],
+                    materialId: '__skin__',
+                    children: [
+                      {
+                        name: 'l_hand',
+                        type: 'Box',
+                        size: [0.052, 0.104, 0.045],
+                        position: [0, -0.18, 0],
+                        pivot: [0, 0.052, 0],
+                        materialId: '__skin__',
+                        rotation: [0, 0, 0],
+                        visible: true,
+                      },
+                    ],
+                    rotation: [0, 0, 0],
+                    visible: true,
+                  },
+                ],
+                visible: true,
+              },
+              {
+                name: 'r_upper_arm',
+                type: 'Cylinder',
+                size: [0.052, 0.275, 0.052],
+                position: [-0.19, 0.3065, -0.04],
+                rotation: [0, 0, 0],
+                pivot: [0, 0.1375, 0],
+                materialId: '__skin__',
+                children: [
+                  {
+                    name: 'r_forearm',
+                    type: 'Cylinder',
+                    size: [0.045, 0.255, 0.045],
+                    position: [0, -0.2567, 0],
+                    pivot: [0, 0.1275, 0],
+                    materialId: '__skin__',
+                    children: [
+                      {
+                        name: 'r_hand',
+                        type: 'Box',
+                        size: [0.052, 0.104, 0.045],
+                        position: [0, -0.18, 0],
+                        pivot: [0, 0.052, 0],
+                        materialId: '__skin__',
+                        rotation: [0, 0, 0],
+                        visible: true,
+                      },
+                    ],
+                    rotation: [0, 0, 0],
+                    visible: true,
+                  },
+                ],
+                visible: true,
+              },
+            ],
+            visible: true,
+          },
+          {
+            name: 'l_upper_leg',
+            type: 'Cylinder',
+            size: [0.061, 0.33, 0.061],
+            position: [0.075, -0.05, 0],
+            pivot: [0, 0.165, 0],
+            materialId: '__skin__',
+            children: [
+              {
+                name: 'l_lower_leg',
+                type: 'Cylinder',
+                size: [0.052, 0.33, 0.052],
+                position: [0, -0.308, 0],
+                pivot: [0, 0.165, 0],
+                materialId: '__skin__',
+                children: [
+                  {
+                    name: 'l_foot',
+                    type: 'Box',
+                    size: [0.112, 0.045, 0.225],
+                    position: [0, -0.1571, 0.06],
+                    pivot: [0, 0.05, -0.1],
+                    materialId: '__skin__',
+                    rotation: [0, 0, 0],
+                    visible: true,
+                  },
+                ],
+                rotation: [0, 0, 0],
+                visible: true,
+              },
+            ],
+            rotation: [0, 0, 0],
+            visible: true,
+          },
+          {
+            name: 'r_upper_leg',
+            type: 'Cylinder',
+            size: [0.061, 0.33, 0.061],
+            position: [-0.075, -0.05, 0],
+            pivot: [0, 0.165, 0],
+            materialId: '__skin__',
+            children: [
+              {
+                name: 'r_lower_leg',
+                type: 'Cylinder',
+                size: [0.052, 0.33, 0.052],
+                position: [0, -0.308, 0],
+                pivot: [0, 0.165, 0],
+                materialId: '__skin__',
+                children: [
+                  {
+                    name: 'r_foot',
+                    type: 'Box',
+                    size: [0.112, 0.045, 0.225],
+                    position: [0, -0.1571, 0.06],
+                    pivot: [0, 0.05, -0.1],
+                    materialId: '__skin__',
+                    rotation: [0, 0, 0],
+                    visible: true,
+                  },
+                ],
+                rotation: [0, 0, 0],
+                visible: true,
+              },
+            ],
+            rotation: [0, 0, 0],
+            visible: true,
+          },
+        ],
+        rotation: [0, 0, 0],
+        visible: true,
+      },
+    ],
+    visible: true,
+  };
 
-  
-
-  
-
-  
   var SKELETON_VERSIONS = {};
 
-  // MODELS：四变体字面值 tree（Phase 2 烘焙填充；此处占位用旧 buildHumanoid 让工厂变体模式能显示）
+  // 从基底派生比例版本（相对 factor，兼容 swapX 后人物视角；setBean 同步 size+pivot+子pos）
+  function _deriveProportion(base, cfg) {
+    var tree = JSON.parse(JSON.stringify(base));
+    function deriveBone(name, factor, pivotAt) {
+      var bn = findNode(base, name);
+      if (!bn || !bn.size) return;
+      var idx = bn.type === 'Sphere' ? 0 : 1;
+      setBone(tree, name, bn.size[idx] * factor, pivotAt);
+    }
+    if (cfg.head) deriveBone('head', cfg.head, 'bottom');
+    if (cfg.leg)
+      ['l_upper_leg', 'r_upper_leg', 'l_lower_leg', 'r_lower_leg'].forEach(function (n) {
+        deriveBone(n, cfg.leg, 'top');
+      });
+    if (cfg.arm)
+      ['l_upper_arm', 'r_upper_arm', 'l_forearm', 'r_forearm'].forEach(function (n) {
+        deriveBone(n, cfg.arm, 'top');
+      });
+    if (cfg.shoulder) {
+      var bs = findNode(base, 'l_upper_arm');
+      if (bs && bs.position) {
+        var tl = findNode(tree, 'l_upper_arm'),
+          tr = findNode(tree, 'r_upper_arm');
+        if (tl) tl.position[0] = bs.position[0] * cfg.shoulder;
+        if (tr) tr.position[0] = -bs.position[0] * cfg.shoulder;
+      }
+    }
+    return tree;
+  }
+  // 冻结三比例版本（写实分化：男肩宽/女窄肩长腿小头/儿童头大腿短）+ 中性基底
+  SKELETON_VERSIONS['v1-成年中性-20260810'] = {
+    date: '2026-08-10',
+    note: '微调定稿中性基底',
+    tree: JSON.parse(JSON.stringify(WORKING_SKELETON)),
+  };
+  SKELETON_VERSIONS['v1-成年男-20260810'] = {
+    date: '2026-08-10',
+    note: '成年男(肩宽1.15)',
+    tree: _deriveProportion(WORKING_SKELETON, { shoulder: 1.15 }),
+  };
+  SKELETON_VERSIONS['v1-成年女-20260810'] = {
+    date: '2026-08-10',
+    note: '成年女(窄肩0.9/长腿1.05/小头0.95)',
+    tree: _deriveProportion(WORKING_SKELETON, { shoulder: 0.9, leg: 1.05, head: 0.95 }),
+  };
+  SKELETON_VERSIONS['v1-儿童-20260810'] = {
+    date: '2026-08-10',
+    note: '儿童(头大1.25/腿短0.85/窄肩0.9)',
+    tree: _deriveProportion(WORKING_SKELETON, { head: 1.25, leg: 0.85, shoulder: 0.9, arm: 0.9 }),
+  };
+
+  // MODELS：四变体裸体（从骨架版本烘焙，Phase 1 裸体无 addon；学生男女同参数分开存）
   var MODELS = {};
-  Object.keys(HUMANOID_VARIANTS).forEach(function (vk) {
-    MODELS[vk] = { _skeletonVer: null, tree: buildHumanoid(vk, {}), anims: null };
-  });
+  MODELS.student_m = {
+    _skeletonVer: 'v1-儿童-20260810',
+    tree: bakeModel('v1-儿童-20260810', { addons: [] }),
+    anims: null,
+  };
+  MODELS.student_f = {
+    _skeletonVer: 'v1-儿童-20260810',
+    tree: bakeModel('v1-儿童-20260810', { addons: [] }),
+    anims: null,
+  };
+  MODELS.teacher_m = {
+    _skeletonVer: 'v1-成年男-20260810',
+    tree: bakeModel('v1-成年男-20260810', { addons: [] }),
+    anims: null,
+  };
+  MODELS.teacher_f = {
+    _skeletonVer: 'v1-成年女-20260810',
+    tree: bakeModel('v1-成年女-20260810', { addons: [] }),
+    anims: null,
+  };
 
   // bakeModel：从骨架版本烘焙字面值 tree（复用 deriveNode + addon 注入逻辑）
   //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons }
