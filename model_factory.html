@@ -2914,6 +2914,7 @@
         params: { height: 1.3, build: 0.5, hunch: 0.2, curves: 0 },
       };
       var _humanoidMode = 'variant'; // 'skeleton' | 'variant'（Task 3 工厂骨架/变体模式切换）
+      var _humanoidSkelVer = null; // 骨架模式选的版本：null=WORKING_SKELETON，或 SKELETON_VERSIONS key
       function _applyHumanoidEdit() {
         if (currentModelType !== 'humanoid' || !window.HumanoidConfig) return;
         var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
@@ -2960,9 +2961,10 @@
         //   variant  → 深拷贝 MODELS[当前变体].tree（Phase 2 烘焙；不存在时兜底 buildHumanoid）
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
           if (_humanoidMode === 'skeleton') {
-            MODEL_CONFIGS.humanoid = JSON.parse(
-              JSON.stringify(window.HumanoidConfig.WORKING_SKELETON)
-            );
+            var _skelSrc = _humanoidSkelVer
+              ? window.HumanoidConfig.SKELETON_VERSIONS[_humanoidSkelVer].tree
+              : window.HumanoidConfig.WORKING_SKELETON;
+            MODEL_CONFIGS.humanoid = JSON.parse(JSON.stringify(_skelSrc));
           } else {
             var _hm = window.HumanoidConfig.MODELS[_humanoidEdit.variant];
             MODEL_CONFIGS.humanoid = _hm
@@ -3836,6 +3838,17 @@
               rebuildModel();
             });
           modeF.add({ freeze: freezeSkeleton }, 'freeze').name('❄️ 冻结版本(骨架模式)');
+          var _verOpts = { '(工作骨架)': null };
+          window.HumanoidConfig.getSkeletonList().forEach(function (k) {
+            _verOpts[k] = k;
+          });
+          modeF
+            .add({ ver: _humanoidSkelVer }, 'ver', _verOpts)
+            .name('骨架版本(review)')
+            .onChange(function (v) {
+              _humanoidSkelVer = v;
+              if (_humanoidMode === 'skeleton') rebuildModel();
+            });
           modeF.open();
         }
 
