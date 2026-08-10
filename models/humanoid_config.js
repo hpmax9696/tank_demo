@@ -1005,7 +1005,7 @@
   setBone(WORKING_SKELETON, 'r_upper_leg', 0.33, 'top', 0.061);
   setBone(WORKING_SKELETON, 'l_lower_leg', 0.33, 'top', 0.052);
   setBone(WORKING_SKELETON, 'r_lower_leg', 0.33, 'top', 0.052);
-  setShoulder(WORKING_SKELETON, 0.14);
+  setShoulder(WORKING_SKELETON, 0.19);
   // 左右按人物视角（人物面朝+z，左手=+x）：l_/r_ 节点 position[0] 取反
   (function () {
     function walk(n) {
@@ -1074,6 +1074,17 @@
         if (a) a.position[1] = 0.3065; // 肩=torso_upper 顶(0.444)，中心=肩-half(0.1375)
       });
     }
+  })();
+  // 髋宽收窄(腿并拢/骨盆覆盖大腿根) + 眼贴头表面(setBean不同步子z,head缩后眼悬空于z0.16)
+  (function () {
+    ['l_upper_leg', 'r_upper_leg'].forEach(function (nm) {
+      var leg = findNode(WORKING_SKELETON, nm);
+      if (leg) leg.position[0] = nm[0] === 'l' ? 0.075 : -0.075;
+    });
+    var le = findNode(WORKING_SKELETON, 'l_eye_glow'),
+      re = findNode(WORKING_SKELETON, 'r_eye_glow');
+    if (le) le.position = [0.03, 0.02, 0.085];
+    if (re) re.position = [-0.03, 0.02, 0.085];
   })();
 
   // SKELETON_VERSIONS：冻结版本库（Task 4 填三比例版本；此处空）
