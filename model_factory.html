@@ -1785,6 +1785,37 @@
       currentCamoType = currentModelType === 'tiger_v16' ? 'debug' : 'jungle';
 
       // ============================================================
+      // 6.5 部件名中文显示映射（仅 UI 显示层，底层 configNode.name 保持英文不动）
+      // ============================================================
+      // humanoid 骨架英文关节名 → 中文显示名。name 是系统引用键(deriveNode/nodeMap/
+      // buildFromConfig/动画 collectRefs 都按英文 name 查找)，绝不可改；这里只在"给人看
+      // 的显示层"翻译。非 humanoid 模型(六足/坦克)不命中映射，displayLabel 原样返回 name。
+      var HUMANOID_NAME_CN = {
+        root: '根',
+        pelvis: '骨盆',
+        torso: '躯干',
+        neck: '颈',
+        head: '头',
+        l_eye_glow: '左眼',
+        r_eye_glow: '右眼',
+        l_upper_arm: '左上臂',
+        l_forearm: '左前臂',
+        l_hand: '左手',
+        r_upper_arm: '右上臂',
+        r_forearm: '右前臂',
+        r_hand: '右手',
+        l_upper_leg: '左大腿',
+        l_lower_leg: '左小腿',
+        l_foot: '左脚',
+        r_upper_leg: '右大腿',
+        r_lower_leg: '右小腿',
+        r_foot: '右脚',
+      };
+      function displayLabel(name) {
+        return (currentModelType === 'humanoid' && HUMANOID_NAME_CN[name]) || name;
+      }
+
+      // ============================================================
       // 7. Three.js 初始化
       // ============================================================
       import * as THREE from 'three';
@@ -1972,9 +2003,9 @@
         const icon = document.createElement('span');
         icon.className = 'pt-icon';
         icon.textContent = hasChildren ? (cfg.type === 'Group' ? '⚙' : '📁') : '◼';
-        // 名称
+        // 名称（显示层：humanoid 显示中文，底层 cfg.name 保持英文不动）
         const name = document.createElement('span');
-        name.textContent = cfg.name;
+        name.textContent = displayLabel(cfg.name);
         name.style.overflow = 'hidden';
         name.style.textOverflow = 'ellipsis';
         row.appendChild(toggle);
@@ -3066,7 +3097,9 @@
           paths.reverse();
           el.innerHTML =
             '📍 ' +
-            paths.map((p, i) => `<span>${p}</span>`).join('<span class="sep-arrow">→</span>');
+            paths
+              .map((p, i) => `<span>${displayLabel(p)}</span>`)
+              .join('<span class="sep-arrow">→</span>');
         } else {
           el.innerHTML = `📍 已选 <span>${selectedParts.size}</span> 个部件`;
         }
@@ -4043,7 +4076,7 @@
           if (!info) return;
           const { group, mesh, rotTarget } = info;
 
-          const folder = parentGui.addFolder(`🔧 ${configNode.name}`);
+          const folder = parentGui.addFolder(`🔧 ${displayLabel(configNode.name)}`);
           guiFolderMap.set(configNode.name, folder);
           // 全部默认展开，方便编辑
 

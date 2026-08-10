@@ -991,8 +991,54 @@
   }
 
   // ═══ 新数据层（Phase 1）：版本化骨架 + 字面值变体 + 烘焙工具 ═══
-  // WORKING_SKELETON：工厂骨架模式的编辑对象（Task 2 替换为精细白模；此处先用现有 BASE 让框架跑通）
+  // WORKING_SKELETON：工厂骨架模式的编辑对象 —— 写实 7.5 头身通用拓扑白模
+  // setBone 同步 size+pivot+子position（衔接保证）；手是新增关节（通用拓扑含手）
   var WORKING_SKELETON = JSON.parse(JSON.stringify(HUMANOID_BASE));
+  setBone(WORKING_SKELETON, 'torso', 0.307, 'bottom');
+  setBone(WORKING_SKELETON, 'neck', 0.061, 'bottom');
+  setBone(WORKING_SKELETON, 'head', 0.094, 'bottom');
+  setBone(WORKING_SKELETON, 'l_upper_arm', 0.275, 'top', 0.052);
+  setBone(WORKING_SKELETON, 'r_upper_arm', 0.275, 'top', 0.052);
+  setBone(WORKING_SKELETON, 'l_forearm', 0.255, 'top', 0.045);
+  setBone(WORKING_SKELETON, 'r_forearm', 0.255, 'top', 0.045);
+  setBone(WORKING_SKELETON, 'l_upper_leg', 0.33, 'top', 0.061);
+  setBone(WORKING_SKELETON, 'r_upper_leg', 0.33, 'top', 0.061);
+  setBone(WORKING_SKELETON, 'l_lower_leg', 0.33, 'top', 0.052);
+  setBone(WORKING_SKELETON, 'r_lower_leg', 0.33, 'top', 0.052);
+  setShoulder(WORKING_SKELETON, 0.28);
+  // 左右按人物视角（人物面朝+z，左手=+x）：l_/r_ 节点 position[0] 取反
+  (function () {
+    function walk(n) {
+      if (n.position && (n.name[0] === 'l' || n.name[0] === 'r')) n.position[0] = -n.position[0];
+      if (n.children) n.children.forEach(walk);
+    }
+    walk(WORKING_SKELETON);
+  })();
+  (function () {
+    var p = findNode(WORKING_SKELETON, 'pelvis');
+    if (p) p.size = [0.4, 0.135, 0.34];
+    var fl = findNode(WORKING_SKELETON, 'l_foot');
+    if (fl) fl.size = [0.112, 0.045, 0.225];
+    var fr = findNode(WORKING_SKELETON, 'r_foot');
+    if (fr) fr.size = [0.112, 0.045, 0.225];
+    // 手（新增关节，挂前臂末端；关节名 l_hand/r_hand 进通用拓扑）
+    [
+      ['l_forearm', 'l_hand'],
+      ['r_forearm', 'r_hand'],
+    ].forEach(function (pair) {
+      var fa = findNode(WORKING_SKELETON, pair[0]);
+      if (!fa) return;
+      fa.children = fa.children || [];
+      fa.children.push({
+        name: pair[1],
+        type: 'Box',
+        size: [0.052, 0.104, 0.045],
+        position: [0, -0.18, 0],
+        pivot: [0, 0.052, 0],
+        materialId: '__skin__',
+      });
+    });
+  })();
 
   // SKELETON_VERSIONS：冻结版本库（Task 4 填三比例版本；此处空）
   var SKELETON_VERSIONS = {};
