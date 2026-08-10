@@ -26,7 +26,7 @@ CAMPUS_MAP = 'maps/campus.map.json'
 
 def _find_config_bounds(text, const_name):
     """在 JS 源码中找到 const CONST_NAME = {...}; 的起止位置。"""
-    pattern = rf'const\s+{const_name}\s*=\s*'
+    pattern = rf'(?:const|var|let)\s+{const_name}\s*=\s*'
     m = re.search(pattern, text)
     if not m:
         return None, None
@@ -83,8 +83,52 @@ def _find_variant_bounds(text, parent_const, variant_key):
     return None, None
 
 
+def _find_var_block_bounds(text, start_var, next_var):
+    """定位 `var START_VAR = ...` 到下一个 `var NEXT_VAR = ...` 之间的字符区间。
+    用于 WORKING_SKELETON 构建块（var WS = JSON.parse + setBean/IIFE）整体替换为字面值。"""
+    ms = re.search(rf'var\s+{start_var}\s*=', text)
+    if not ms:
+        return None, None
+    mn = re.search(rf'\n\s*var\s+{next_var}\s*=', text[ms.start():])
+    if not mn:
+        return None, None
+    return ms.start(), ms.start() + mn.start()
+
+
 def solidify_config(model_type, config_json_str):
     """将配置 JSON 写入对应源文件的配置常量。"""
+    # 人形骨架固化：WORKING_SKELETON 构建块整体替换为字面值（用户微调后保存）
+    if model_type == 'humanoid_skeleton':
+        filepath = 'models/humanoid_config.js'
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f'源文件不存在: {filepath}')
+        with open(filepath, 'r', encoding='utf-8') as f:
+            text = f.read()
+        vs, ve = _find_var_block_bounds(text, 'WORKING_SKELETON', 'SKELETON_VERSIONS')
+        if vs is None:
+            raise ValueError('WORKING_SKELETON 构建块未找到')
+        config_obj = json.loads(config_json_str)
+        formatted = 'var WORKING_SKELETON = ' + json.dumps(config_obj, indent=2, ensure_ascii=False) + ';'
+        new_text = text[:vs] + formatted + '\n\n  ' + text[ve:]
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(new_text)
+        return filepath
+    # 人形骨架版本库固化：SKELETON_VERSIONS = {...}（冻结版本写入）
+    if model_type == 'humanoid_versions':
+        filepath = 'models/humanoid_config.js'
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f'源文件不存在: {filepath}')
+        with open(filepath, 'r', encoding='utf-8') as f:
+            text = f.read()
+        vs, ve = _find_config_bounds(text, 'SKELETON_VERSIONS')
+        if vs is None:
+            raise ValueError('SKELETON_VERSIONS 未找到')
+        config_obj = json.loads(config_json_str)
+        formatted = 'var SKELETON_VERSIONS = ' + json.dumps(config_obj, indent=2, ensure_ascii=False) + ';'
+        new_text = text[:vs] + formatted + text[ve:]
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(new_text)
+        return filepath
     # 人形按变体固化：modelType 形如 'humanoid:student_m'
     if model_type.startswith('humanoid:'):
         variant_key = model_type.split(':', 1)[1]

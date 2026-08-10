@@ -2089,13 +2089,22 @@
 
         var solidifyPayload;
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
-          // 人形按变体固化：发 HUMANOID_VARIANTS[variant] 子对象（非骨架树）
-          solidifyPayload = {
-            modelType: 'humanoid:' + _humanoidEdit.variant,
-            config: JSON.parse(
-              JSON.stringify(window.HumanoidConfig.HUMANOID_VARIANTS[_humanoidEdit.variant])
-            ),
-          };
+          if (_humanoidMode === 'skeleton') {
+            // 骨架模式：写回 WORKING_SKELETON + 固化骨架构建块（用户微调后保存）
+            window.HumanoidConfig.WORKING_SKELETON = JSON.parse(JSON.stringify(cfg));
+            solidifyPayload = {
+              modelType: 'humanoid_skeleton',
+              config: JSON.parse(JSON.stringify(cfg)),
+            };
+          } else {
+            // 变体模式：HUMANOID_VARIANTS（Phase 2/3 改 MODELS[variant].tree）
+            solidifyPayload = {
+              modelType: 'humanoid:' + _humanoidEdit.variant,
+              config: JSON.parse(
+                JSON.stringify(window.HumanoidConfig.HUMANOID_VARIANTS[_humanoidEdit.variant])
+              ),
+            };
+          }
         } else {
           solidifyPayload = { modelType: currentModelType, config: saveData.config };
         }
@@ -2118,6 +2127,51 @@
         console.log(
           '💾 已保存: ' + modelLabel + ' (' + new Date(saveData.timestamp).toLocaleString() + ')'
         );
+      }
+
+      // ❄️ 冻结骨架版本：把当前 WORKING_SKELETON 存入 SKELETON_VERSIONS（命名）+ 固化
+      function freezeSkeleton() {
+        if (currentModelType !== 'humanoid' || _humanoidMode !== 'skeleton') return;
+        syncConfigFromScene(MODEL_CONFIGS.humanoid);
+        window.HumanoidConfig.WORKING_SKELETON = JSON.parse(JSON.stringify(MODEL_CONFIGS.humanoid));
+        var vers = window.HumanoidConfig.getSkeletonList();
+        var maxN = 0;
+        vers.forEach(function (k) {
+          var m = k.match(/^v(\d+)/);
+          if (m) maxN = Math.max(maxN, +m[1]);
+        });
+        var t = new Date();
+        var dateStr =
+          t.getFullYear() +
+          '-' +
+          String(t.getMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(t.getDate()).padStart(2, '0');
+        var key = prompt('冻结骨架版本名（可改/加备注）', 'v' + (maxN + 1) + '-' + dateStr);
+        if (!key) return;
+        var note = prompt('备注（可选）', '') || '';
+        window.HumanoidConfig.SKELETON_VERSIONS[key] = {
+          date: dateStr,
+          note: note,
+          tree: JSON.parse(JSON.stringify(window.HumanoidConfig.WORKING_SKELETON)),
+        };
+        fetch('/api/solidify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modelType: 'humanoid_versions',
+            config: JSON.parse(JSON.stringify(window.HumanoidConfig.SKELETON_VERSIONS)),
+          }),
+        })
+          .then(function (r) {
+            return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status));
+          })
+          .then(function (res) {
+            console.log('❄️ 已冻结版本 ' + key + ' → ' + res.file);
+          })
+          .catch(function (err) {
+            console.log('⚠️ 冻结失败: ' + err.message);
+          });
       }
 
       // 快照：先同步 3D→config，再深拷贝 config。一次拖拽只产生一个快照
@@ -3779,6 +3833,7 @@
               _humanoidMode = v;
               rebuildModel();
             });
+          modeF.add({ freeze: freezeSkeleton }, 'freeze').name('❄️ 冻结版本(骨架模式)');
           modeF.open();
         }
 
