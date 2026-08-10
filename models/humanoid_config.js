@@ -1055,23 +1055,23 @@
         {
           name: 'torso_upper',
           type: 'TaperedBox',
-          size: [0.32, 0.154, 0.22, 0.4, 0.26, 0, 0],
-          position: [0, 0.077, 0],
+          size: [0.32, 0.29, 0.22, 0.4, 0.26, 0, 0],
+          position: [0, 0.299, 0],
           materialId: '__skin__',
         },
         {
           name: 'torso_lower',
           type: 'TaperedBox',
           size: [0.4, 0.154, 0.26, 0.32, 0.22, 0, 0],
-          position: [0, -0.077, 0],
+          position: [0, 0.077, 0],
           materialId: '__skin__',
         },
       ].concat(orig);
       var nk = findNode(WORKING_SKELETON, 'neck');
-      if (nk) nk.position[1] = 0.1845; // 颈中心，底=torso_upper 顶(0.154)
+      if (nk) nk.position[1] = 0.4745; // 颈中心，底=torso_upper 顶(0.444)
       ['l_upper_arm', 'r_upper_arm'].forEach(function (nm) {
         var a = findNode(WORKING_SKELETON, nm);
-        if (a) a.position[1] = 0.0165; // 肩=torso_upper 顶(0.154)，中心=肩-half(0.1375)
+        if (a) a.position[1] = 0.3065; // 肩=torso_upper 顶(0.444)，中心=肩-half(0.1375)
       });
     }
   })();
