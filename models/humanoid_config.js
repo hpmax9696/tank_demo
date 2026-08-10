@@ -990,6 +990,64 @@
     if (node.children) node.children.forEach((c) => scaleGroup(c, s));
   }
 
+  // ═══ 新数据层（Phase 1）：版本化骨架 + 字面值变体 + 烘焙工具 ═══
+  // WORKING_SKELETON：工厂骨架模式的编辑对象（Task 2 替换为精细白模；此处先用现有 BASE 让框架跑通）
+  var WORKING_SKELETON = JSON.parse(JSON.stringify(HUMANOID_BASE));
+
+  // SKELETON_VERSIONS：冻结版本库（Task 4 填三比例版本；此处空）
+  var SKELETON_VERSIONS = {};
+
+  // MODELS：四变体字面值 tree（Phase 2 烘焙填充；此处占位用旧 buildHumanoid 让工厂变体模式能显示）
+  var MODELS = {};
+  Object.keys(HUMANOID_VARIANTS).forEach(function (vk) {
+    MODELS[vk] = { _skeletonVer: null, tree: buildHumanoid(vk, {}), anims: null };
+  });
+
+  // bakeModel：从骨架版本烘焙字面值 tree（复用 deriveNode + addon 注入逻辑）
+  //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons }
+  function bakeModel(skeletonVer, params) {
+    var ver = SKELETON_VERSIONS[skeletonVer];
+    if (!ver) {
+      console.warn('bakeModel: 未知骨架版本', skeletonVer);
+      return null;
+    }
+    params = params || {};
+    // 深拷贝版本骨架 + 派生（复用 deriveNode：build/curves/hunch 缩放）
+    var variant = { materials: HUMANOID_VARIANTS.student_m.materials, addons: params.addons || [] };
+    var tree = deriveNode(
+      JSON.parse(JSON.stringify(ver.tree)),
+      {
+        height: params.height != null ? params.height : 1.4,
+        build: params.build != null ? params.build : BODY_PARAMS.build.default,
+        hunch: params.hunch != null ? params.hunch : 0.2,
+        curves: params.curves != null ? params.curves : 0,
+      },
+      variant
+    );
+    // addon 注入（复用 buildHumanoid 的 L900-953 逻辑：解析材质/镜像/curves 放大/WRAP 包裹）
+    (params.addons || []).forEach(function (key) {
+      var def = ADDON_LIBRARY[key];
+      if (!def) return;
+      var parents = def.parent ? [def.parent] : [];
+      parents.forEach(function (par) {
+        var parentNode = findNode(tree, par);
+        if (!parentNode) return;
+        parentNode.children = parentNode.children || [];
+        var clone = JSON.parse(JSON.stringify(def.node));
+        resolveAddonMaterials(clone, variant.materials);
+        parentNode.children.push(clone);
+      });
+    });
+    tree._params = { height: params.height != null ? params.height : 1.4 };
+    return tree;
+  }
+  function getSkeletonList() {
+    return Object.keys(SKELETON_VERSIONS);
+  }
+  function getVariantList() {
+    return Object.keys(MODELS);
+  }
+
   window.HumanoidConfig = {
     HUMANOID_BASE,
     BODY_PARAMS,
@@ -997,7 +1055,18 @@
     ADDON_LIBRARY,
     JOINT_NAMES,
     REST_POSES,
-    buildHumanoid,
+    buildHumanoid, // 旧接口（Phase 1 游戏侧仍用）
+    SKELETON_VERSIONS,
+    WORKING_SKELETON,
+    MODELS, // 新数据层
+    bakeModel,
+    getSkeletonList,
+    getVariantList,
   };
-  console.log('🧑 人形配置已就绪 | 变体:', Object.keys(HUMANOID_VARIANTS).join('/'));
+  console.log(
+    '🧑 人形配置已就绪 | 变体:',
+    Object.keys(HUMANOID_VARIANTS).join('/'),
+    '| 骨架版本:',
+    Object.keys(SKELETON_VERSIONS).length
+  );
 })();
