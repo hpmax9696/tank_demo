@@ -1039,6 +1039,32 @@
       });
     });
   })();
+  // 躯干沙漏化：上下两 TaperedBox（肩臀宽/腰窄，写实成人腰线）；保留 torso 关节 position/rotation/pivot + 原子（颈/臂）
+  (function () {
+    var t = findNode(WORKING_SKELETON, 'torso');
+    if (t) {
+      var orig = t.children || [];
+      delete t.size;
+      delete t._slot;
+      t.type = 'Group';
+      t.children = [
+        {
+          name: 'torso_upper',
+          type: 'TaperedBox',
+          size: [0.32, 0.154, 0.22, 0.4, 0.26, 0, 0],
+          position: [0, 0.077, 0],
+          materialId: '__skin__',
+        },
+        {
+          name: 'torso_lower',
+          type: 'TaperedBox',
+          size: [0.4, 0.154, 0.26, 0.32, 0.22, 0, 0],
+          position: [0, -0.077, 0],
+          materialId: '__skin__',
+        },
+      ].concat(orig);
+    }
+  })();
 
   // SKELETON_VERSIONS：冻结版本库（Task 4 填三比例版本；此处空）
   var SKELETON_VERSIONS = {};
