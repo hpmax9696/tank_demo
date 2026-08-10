@@ -1005,7 +1005,7 @@
   setBone(WORKING_SKELETON, 'r_upper_leg', 0.33, 'top', 0.061);
   setBone(WORKING_SKELETON, 'l_lower_leg', 0.33, 'top', 0.052);
   setBone(WORKING_SKELETON, 'r_lower_leg', 0.33, 'top', 0.052);
-  setShoulder(WORKING_SKELETON, 0.28);
+  setShoulder(WORKING_SKELETON, 0.14);
   // 左右按人物视角（人物面朝+z，左手=+x）：l_/r_ 节点 position[0] 取反
   (function () {
     function walk(n) {
@@ -1016,7 +1016,7 @@
   })();
   (function () {
     var p = findNode(WORKING_SKELETON, 'pelvis');
-    if (p) p.size = [0.4, 0.135, 0.34];
+    if (p) p.size = [0.3, 0.135, 0.22];
     var fl = findNode(WORKING_SKELETON, 'l_foot');
     if (fl) fl.size = [0.112, 0.045, 0.225];
     var fr = findNode(WORKING_SKELETON, 'r_foot');
@@ -1055,14 +1055,14 @@
         {
           name: 'torso_upper',
           type: 'TaperedBox',
-          size: [0.32, 0.29, 0.22, 0.4, 0.26, 0, 0],
+          size: [0.22, 0.29, 0.16, 0.31, 0.2, 0, 0],
           position: [0, 0.299, 0],
           materialId: '__skin__',
         },
         {
           name: 'torso_lower',
           type: 'TaperedBox',
-          size: [0.4, 0.154, 0.26, 0.32, 0.22, 0, 0],
+          size: [0.3, 0.154, 0.22, 0.22, 0.16, 0, 0],
           position: [0, 0.077, 0],
           materialId: '__skin__',
         },
