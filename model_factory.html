@@ -2824,6 +2824,7 @@
         variant: 'student_m',
         params: { height: 1.3, build: 0.5, hunch: 0.2, curves: 0 },
       };
+      var _humanoidMode = 'variant'; // 'skeleton' | 'variant'（Task 3 工厂骨架/变体模式切换）
       function _applyHumanoidEdit() {
         if (currentModelType !== 'humanoid' || !window.HumanoidConfig) return;
         var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
@@ -2865,17 +2866,20 @@
         MODEL_CONFIGS[currentModelType] = JSON.parse(
           JSON.stringify(MODEL_CONFIGS[currentModelType])
         );
-        // 校园丧尸：配置树未经 buildHumanoid 处理（首次进入/autoLoad 恢复）时，
-        // 用当前变体参数构建——否则渲染 HUMANOID_BASE 白模（无服饰发型、未缩放体型）
-        if (
-          currentModelType === 'humanoid' &&
-          window.HumanoidConfig &&
-          !MODEL_CONFIGS.humanoid._params
-        ) {
-          MODEL_CONFIGS.humanoid = window.HumanoidConfig.buildHumanoid(
-            _humanoidEdit.variant,
-            _humanoidEdit.params
-          );
+        // 校园丧尸：按编辑模式加载配置树
+        //   skeleton → 深拷贝 WORKING_SKELETON（骨架白模，无 _params，跳过 height 归一仅贴地）
+        //   variant  → 深拷贝 MODELS[当前变体].tree（Phase 2 烘焙；不存在时兜底 buildHumanoid）
+        if (currentModelType === 'humanoid' && window.HumanoidConfig) {
+          if (_humanoidMode === 'skeleton') {
+            MODEL_CONFIGS.humanoid = JSON.parse(
+              JSON.stringify(window.HumanoidConfig.WORKING_SKELETON)
+            );
+          } else {
+            var _hm = window.HumanoidConfig.MODELS[_humanoidEdit.variant];
+            MODEL_CONFIGS.humanoid = _hm
+              ? JSON.parse(JSON.stringify(_hm.tree))
+              : window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
+          }
         }
         const cfg = MODEL_CONFIGS[currentModelType];
         if (cfg) {
@@ -3726,6 +3730,22 @@
         modelFolder.open();
 
         _buildCamoCtrl(modelFolder);
+
+        // 人形编辑模式切换（仅 humanoid 显示；骨架模式加载 WORKING_SKELETON，变体模式加载 MODELS[variant].tree）
+        if (currentModelType === 'humanoid' && window.HumanoidConfig) {
+          var modeF = gui.addFolder('🔀 编辑模式');
+          modeF
+            .add({ mode: _humanoidMode }, 'mode', {
+              '🧍 变体(特色)': 'variant',
+              '🦴 骨架(共通)': 'skeleton',
+            })
+            .name('模式')
+            .onChange(function (v) {
+              _humanoidMode = v;
+              rebuildModel();
+            });
+          modeF.open();
+        }
 
         // 人形体型参数（仅 humanoid 显示）
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
