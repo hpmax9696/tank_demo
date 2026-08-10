@@ -1085,6 +1085,13 @@
       re = findNode(WORKING_SKELETON, 'r_eye_glow');
     if (le) le.position = [0.03, 0.02, 0.085];
     if (re) re.position = [-0.03, 0.02, 0.085];
+    // 平视直立（去颈/头前倾）+ 骨盆 z 对齐躯干（背面不凸出）
+    var nk = findNode(WORKING_SKELETON, 'neck');
+    if (nk) nk.rotation = [0, 0, 0];
+    var hd = findNode(WORKING_SKELETON, 'head');
+    if (hd) hd.rotation = [0, 0, 0];
+    var pv = findNode(WORKING_SKELETON, 'pelvis');
+    if (pv) pv.position[2] = 0.04;
   })();
 
   // SKELETON_VERSIONS：冻结版本库（Task 4 填三比例版本；此处空）
