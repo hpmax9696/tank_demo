@@ -1264,6 +1264,32 @@
     }
     return tree;
   }
+  // 只给 v1-成年女：胸 RidgeBox 五边形脊线 + 臀 TaperedBox 底面偏移（不污染共享 WORKING_SKELETON）
+  function _applyFemaleCurves(tree) {
+    var find = function (n, nm) {
+      if (n.name === nm) return n;
+      if (n.children)
+        for (var i = 0; i < n.children.length; i++) {
+          var r = find(n.children[i], nm);
+          if (r) return r;
+        }
+      return null;
+    };
+    var tu = find(tree, 'torso_upper');
+    if (tu) {
+      tu.type = 'RidgeBox';
+      tu.size = [0.22, 0.29, 0.16, 0.31, 0.2, 0, 0, 0.2, 0.04];
+    }
+    var tl = find(tree, 'torso_lower');
+    if (tl) {
+      tl.size = [0.3, 0.154, 0.22, 0.22, 0.16, 0, 0, 0, -0.04];
+    }
+    var pv = find(tree, 'pelvis');
+    if (pv) {
+      pv.type = 'TaperedBox';
+      pv.size = [0.3, 0.135, 0.22, 0.3, 0.22, 0, -0.04, 0, 0];
+    }
+  }
   // 冻结三比例版本（写实分化：男肩宽/女窄肩长腿小头/儿童头大腿短）+ 中性基底
   SKELETON_VERSIONS['v1-成年中性-20260810'] = {
     date: '2026-08-10',
@@ -1277,8 +1303,12 @@
   };
   SKELETON_VERSIONS['v1-成年女-20260810'] = {
     date: '2026-08-10',
-    note: '成年女(窄肩0.9/长腿1.05/小头0.95)',
-    tree: _deriveProportion(WORKING_SKELETON, { shoulder: 0.9, leg: 1.05, head: 0.95 }),
+    note: '成年女(窄肩0.9/长腿1.05/小头0.95 + 胸脊线/臀后凸)',
+    tree: (function () {
+      var t = _deriveProportion(WORKING_SKELETON, { shoulder: 0.9, leg: 1.05, head: 0.95 });
+      _applyFemaleCurves(t);
+      return t;
+    })(),
   };
   SKELETON_VERSIONS['v1-儿童-20260810'] = {
     date: '2026-08-10',
