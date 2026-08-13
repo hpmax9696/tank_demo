@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.7
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.8
 
 ## 运行
 
@@ -272,6 +272,17 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.8 本次会话变更 (2026-08-13)
+
+### 模型工厂 Three.js 本地化（修复 ERR_QUIC_PROTOCOL_ERROR）
+
+用户报模型工厂控制台 `ERR_QUIC_PROTOCOL_ERROR`（three.module.js / OrbitControls.js 加载失败）。定位：`model_factory.html` 的 importmap 走 **unpkg CDN**，浏览器访问 CDN 时 QUIC/UDP 网络层失败（环境网络问题，非本地服务）。
+
+- **CDN→本地**: importmap 三个依赖全部本地化——`js/three.module.js`(1.27MB) + `js/addons/controls/OrbitControls.js` + `js/addons/geometries/RoundedBoxGeometry.js` + `js/lil-gui.esm.js`，均从 unpkg three@0.160.0 / lil-gui@0.18.0 原样下载（已验证无内部外部 import，OrbitControls/RoundedBoxGeometry 仅 import 'three'）
+- **效果**: 模型工厂完全离线可用，不再受 CDN/QUIC 干扰
+- **验证**: Playwright 0 控制台错误 + canvas/modelRoot/HumanoidConfig/HumanoidAnims/部件树全部正常 + 网络面板 0 unpkg 请求
+- **改动文件**: `model_factory.html`(importmap) + `js/three.module.js`(新) + `js/addons/controls/OrbitControls.js`(新) + `js/addons/geometries/RoundedBoxGeometry.js`(新) + `js/lil-gui.esm.js`(新) + index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.8)
 
 ## v0.79.7 本次会话变更 (2026-08-13)
 

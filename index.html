@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.7</title>
+    <title>坦克运动demo v0.79.8</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.7</div>
+      <div class="menu-version">v0.79.8</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          📦 v0.79.8 模型工厂 Three.js 本地化 —
+          three.module.js/OrbitControls/RoundedBoxGeometry/lil-gui
+          从 unpkg CDN 改为本地文件(修复 ERR_QUIC_PROTOCOL_ERROR
+          导致的模块加载失败), 离线可用
+        </div>
+        <div class="cl-title">
           🧭 v0.79.7 模型工厂坐标轴修复 —
           红X/绿Y/蓝Z标准右手系(修复曾为适配六足战车做X↔Z交换
           导致"改z却动x"的标签错位,部件参数与标签坐标系现已一致);
@@ -851,17 +857,8 @@
           弹道线零分配(几何/向量复用防GC累积)+敌人圆柱检测+障碍物距离过滤;
           瞄准丧尸射线-圆柱检测替代780子mesh递归raycast
         </div>
-        <div class="cl-title">
-          🧟 v0.79.3 校园丧尸人形精修 —
-          首次切换白模修复(rebuildModel守卫自动buildHumanoid+height归一统一);
-          衣物随build联动(袖口/短裤/长裤/裙WRAP_ADDONS保持包裹间隙);
-          上衣下摆(pelvis)单向联动包裹裤裙(torso不动防挂件被吞);
-          男教师长裤(拆大腿段挂髋+小腿段挂膝,盖到脚踝); 步态方向修正(后蹬>前踢×2,膝弯清障,对侧摆臂);
-          展台每帧贴地+Die一次性回待机; resetState全关节复位(REST基线);
-          女生裙锥形化(腰口细被上衣盖住,裙摆按Run极限覆盖)+缩短露小腿
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.7~v0.79.3) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.8~v0.79.4) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

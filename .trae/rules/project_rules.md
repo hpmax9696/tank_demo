@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.7 — 模型工厂坐标轴X/Z标反修复(红X/绿Y/蓝Z标准右手系,原X↔Z交换导致"改z动x"误解)+底栏「🧭 坐标轴」方位标识开关+engine.js调试版本号补同步；v0.79.6 成年女胸臀曲线+儿童眼睛修复）
+## 当前版本（v0.79.8 — 模型工厂Three.js本地化(unpkg CDN→本地js/three.module.js+addons+lil-gui,修复ERR_QUIC_PROTOCOL_ERROR模块加载失败,离线可用)；v0.79.7 模型工厂坐标轴X/Z标反修复+方位标识开关）
 
 ### 关键参数
 
