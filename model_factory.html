@@ -839,6 +839,7 @@
           hd = bd / 2,
           thw = tw / 2,
           thd = td / 2;
+        ridgeY = Math.min(Math.max(ridgeY, 0), h);
         const wRidge = bw + (ridgeY / h) * (tw - bw);
         const hwr = wRidge / 2;
         const zFrontAtRidge = hd + (ridgeY / h) * (thd + oz - hd);
@@ -4600,7 +4601,7 @@
                   rebuild();
                 });
               ridgeF
-                .add(r, 'ridgeZ', -1, 1, 0.005)
+                .add(r, 'ridgeZ', 0, 1, 0.005)
                 .name('脊线凸出')
                 .onChange((v) => {
                   saveUndo('RBridgeZ');

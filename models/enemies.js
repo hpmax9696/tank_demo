@@ -1073,6 +1073,7 @@
             }
             function mkRidgeBox(bw, h, bd, tw, td, ox, oz, ridgeY, ridgeZ) {
                 const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
+                ridgeY = Math.min(Math.max(ridgeY, 0), h);
                 const wRidge = bw + (ridgeY / h) * (tw - bw);
                 const hwr = wRidge / 2;
                 const zFrontAtRidge = hd + (ridgeY / h) * (thd + oz - hd);
