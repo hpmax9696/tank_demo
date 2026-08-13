@@ -7407,7 +7407,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.77.0  ' +
+    'v0.79.7  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +

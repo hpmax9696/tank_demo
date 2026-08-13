@@ -1,2 +1,5 @@
 - [model-switching-setup](model-switching-setup.md) — DeepSeek/GLM 切换脚本用法 + 系统环境变量优先级陷阱
 - [model-switching-trigger](model-switching-trigger.md) — 口语触发词"切换到deepseek/智谱/glm"时自动执行切换脚本
+- [dsh-handoff-checklist](dsh-handoff-checklist.md) — 其他AI(DSH等)接管开发时的强制同步清单，保证 Claude Code 可随时恢复
+- [superpowers-on-demand](superpowers-on-demand.md) — Superpowers 按需启用约定：保留但默认不用，调用前必须询问用户（2026-08-13）
+- [vision-tool](vision-tool.md) — vision.py 识图工具用法：模型无视觉能力时用它调 Qwen3.5-Omni-Flash 看图（2026-08-13 实测可用）

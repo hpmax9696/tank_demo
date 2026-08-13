@@ -44,7 +44,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html`                            | ~1068 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
 | `js/engine.js`                          | ~8133 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
-| `model_factory.html`                    | ~5378 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox）  |
+| `model_factory.html`                    | ~5382 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关）  |
 | `js/humanoid_factory.js`                | ~505  | 人形工厂展台桥接（6动作关键帧+lerp+REST偏移+全关节复位）                    |
 | `models/humanoid_config.js`             | ~1408 | 人形配置（BASE骨架+SKELETON_VERSIONS+\_applyFemaleCurves+buildHumanoid）    |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.5 — 校园丧尸三副骨架(STUDENT/TEACHER_M/TEACHER_F BASE)+比例重定+女教师S曲线(沙漏躯干/椭圆pelvis/胸臀楔形Wedge)+鞋修复(裤段贴地+rebuildModel排除手臂指尖)+取消上衣下摆+教师固定/学生随机；v0.79.4 性能修复）
+## 当前版本（v0.79.7 — 模型工厂坐标轴X/Z标反修复(红X/绿Y/蓝Z标准右手系,原X↔Z交换导致"改z动x"误解)+底栏「🧭 坐标轴」方位标识开关+engine.js调试版本号补同步；v0.79.6 成年女胸臀曲线+儿童眼睛修复）
 
 ### 关键参数
 

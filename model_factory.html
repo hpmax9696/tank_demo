@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -404,7 +404,8 @@
     <div id="path-breadcrumb">📍 未选中</div>
     <div id="selection-box"></div>
     <div id="bottom-bar">
-      <button id="toggle-helpers">🔲 切换对齐辅助框 (BoxHelper)</button>
+      <button id="toggle-helpers">🔲 隐藏对齐辅助框</button>
+      <button id="toggle-axes">🧭 隐藏坐标轴</button>
       <button id="toggle-anim">🎬 动画展台</button>
       <button id="toggle-iktest" disabled>🦿 单腿IK测试</button>
       <button id="toggle-turntest" disabled>🔁 转弯验证</button>
@@ -2001,41 +2002,35 @@
       ground.position.y = 0;
       ground.receiveShadow = true;
       scene.add(ground);
-      // XYZ坐标轴 + 文字标签（红Z/绿Y/蓝X — X↔Z交换适配六足战车朝向）
+      // XYZ坐标轴 + 文字标签（红=+X / 绿=+Y / 蓝=+Z 标准Three.js右手系）
+      // 注: 曾为适配六足战车做 X↔Z 交换(红标Z/蓝标X), 与部件参数坐标系冲突导致"改z动x"误解, 已改回标准
+      let axesGroup = new THREE.Group();
       (function addLabeledAxes() {
         const len = 3.0,
           o = new THREE.Vector3(0, 0.01, 0);
-        // 红=Z轴(+X世界方向), 蓝=X轴(+Z世界方向)
-        const matZp = new THREE.LineBasicMaterial({ color: 0xff0000 });
-        const matZn = new THREE.LineBasicMaterial({ color: 0x880000 });
+        // 红=X轴(+X世界方向), 绿=Y轴, 蓝=Z轴(+Z世界方向)
+        const matXp = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const matXn = new THREE.LineBasicMaterial({ color: 0x880000 });
         const matY = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-        const matXp = new THREE.LineBasicMaterial({ color: 0x0000ff });
-        const matXn = new THREE.LineBasicMaterial({ color: 0x000088 });
-        scene.add(
+        const matZp = new THREE.LineBasicMaterial({ color: 0x0000ff });
+        const matZn = new THREE.LineBasicMaterial({ color: 0x000088 });
+        axesGroup.add(
           new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(len, 0.01, 0)]),
             matXp
-          )
-        );
-        scene.add(
+          ),
           new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(-len, 0.01, 0)]),
             matXn
-          )
-        );
-        scene.add(
+          ),
           new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(0, len, 0)]),
             matY
-          )
-        );
-        scene.add(
+          ),
           new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(0, 0.01, len)]),
             matZp
-          )
-        );
-        scene.add(
+          ),
           new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([o, new THREE.Vector3(0, 0.01, -len)]),
             matZn
@@ -2055,13 +2050,14 @@
           );
           sp.position.copy(pos);
           sp.scale.set(1.2, 0.6, 1);
-          scene.add(sp);
+          axesGroup.add(sp);
         }
-        label('+Z', new THREE.Vector3(len + 0.5, 0.05, 0), '#ff4444');
-        label('-Z', new THREE.Vector3(-len - 0.5, 0.05, 0), '#884444');
+        label('+X', new THREE.Vector3(len + 0.5, 0.05, 0), '#ff4444');
+        label('-X', new THREE.Vector3(-len - 0.5, 0.05, 0), '#884444');
         label('+Y', new THREE.Vector3(0, len + 0.3, 0), '#44ff44');
-        label('+X', new THREE.Vector3(0, 0.05, len + 0.5), '#4444ff');
-        label('-X', new THREE.Vector3(0, 0.05, -len - 0.5), '#444488');
+        label('+Z', new THREE.Vector3(0, 0.05, len + 0.5), '#4444ff');
+        label('-Z', new THREE.Vector3(0, 0.05, -len - 0.5), '#444488');
+        scene.add(axesGroup);
       })();
 
       // ============================================================
@@ -5166,6 +5162,14 @@
         document.getElementById('toggle-helpers').textContent = showHelpersGlobal
           ? '🔲 隐藏对齐辅助框'
           : '🔲 显示对齐辅助框';
+      });
+
+      // --- 坐标轴标识开关 ---
+      document.getElementById('toggle-axes').addEventListener('click', () => {
+        axesGroup.visible = !axesGroup.visible;
+        document.getElementById('toggle-axes').textContent = axesGroup.visible
+          ? '🧭 隐藏坐标轴'
+          : '🧭 显示坐标轴';
       });
 
       // ============================================================

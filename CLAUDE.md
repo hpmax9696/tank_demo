@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.6
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.7
 
 ## 运行
 
@@ -272,6 +272,18 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.7 本次会话变更 (2026-08-13)
+
+### 模型工厂坐标轴 X/Z 标反修复 + 方位标识开关
+
+用户报告：模型工厂场景的方位标识 x/z 似乎反了——改部件 z 数值，动的却是 x 方向位置。定位：`model_factory.html` 的 `addLabeledAxes` 曾为"适配六足战车朝向"做 X↔Z 交换（红线标 Z、蓝线标 X），与部件参数的标准 Three.js 坐标（`position[z]`→世界 Z 轴）冲突 → 标签误导。修复 + 新增开关：
+
+- **坐标轴改回标准**: 红=+X / 绿=+Y / 蓝=+Z（Three.js 右手系），标签与部件参数坐标系一致；线条与标签全部收集到 `axesGroup`（`model_factory.html` addLabeledAxes）
+- **新增开关**: 底栏 `#toggle-axes`「🧭 隐藏坐标轴」按钮，点击切换 `axesGroup.visible` + 按钮文字（仿 toggle-helpers 模式）
+- **顺带修复**: engine.js 调试信息版本号从遗留的 v0.77.0 同步为 v0.79.7（此前多轮漏同步）
+- **验证**: Playwright 加载 model_factory.html 0 控制台错误 + 开关点击文字切换正确（隐藏↔显示）+ vision.py 顶视图截图确认红 X/蓝 Z 标签位置正确
+- **改动文件**: `model_factory.html`(addLabeledAxes 标准坐标+axesGroup+按钮+事件绑定) + `js/engine.js`(调试版本号) + index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.7)
 
 ## v0.79.6 本次会话变更 (2026-08-13)
 

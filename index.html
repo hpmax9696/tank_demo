@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.6</title>
+    <title>坦克运动demo v0.79.7</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.6</div>
+      <div class="menu-version">v0.79.7</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🧭 v0.79.7 模型工厂坐标轴修复 —
+          红X/绿Y/蓝Z标准右手系(修复曾为适配六足战车做X↔Z交换
+          导致"改z却动x"的标签错位,部件参数与标签坐标系现已一致);
+          底栏新增「🧭 坐标轴」开关,可随时隐藏/显示方位标识
+        </div>
+        <div class="cl-title">
           🧍 v0.79.6 成年女胸臀曲线+儿童眼睛修复 —
           RidgeBox五边形截面(胸脊线水平棱,脊线长截面插值,默认高0.2凸0.04);
           TaperedBox加底面偏移bx/bz(臀后凸,向后兼容); v1-成年女
@@ -854,15 +860,8 @@
           展台每帧贴地+Die一次性回待机; resetState全关节复位(REST基线);
           女生裙锥形化(腰口细被上衣盖住,裙摆按Run极限覆盖)+缩短露小腿
         </div>
-        <div class="cl-title">
-          🎨 v0.79.2 校园丧尸校服精修 — Sphere thetaLength支持(两侧createGeometry,默认π向后兼容);
-          short_hair_m半球(thetaLength
-          π/2,非全球没入)+女生发型base(student_f马尾/teacher_f发髻在头发上非光头);
-          hips居中球→后侧扁椭球(scale[1,0.85,0.55]+后移,curves放大不前凸);
-          工厂Canvas贴图(polo珠地/skin暗斑/badge校徽/stripes斜条,与游戏enemies.js统一)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.6~v0.79.2) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.7~v0.79.3) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
