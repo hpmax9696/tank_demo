@@ -39,36 +39,36 @@ python -m http.server 8080 --bind 127.0.0.1
 
 ## 关键文件
 
-| 文件                                    | 行数  | 核心内容                                                                       |
-| --------------------------------------- | :---: | ------------------------------------------------------------------------------ |
-| `index.html`                            | ~1068 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                        |
-| `js/engine.js`                          | ~8133 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                        |
-| `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                              |
-| `model_factory.html`                    | ~5000 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试）                |
-| `js/humanoid_factory.js`                | ~505  | 人形工厂展台桥接（6动作关键帧+lerp+REST偏移+全关节复位）                       |
-| `models/humanoid_config.js`             | ~859  | 人形配置（BASE骨架+BODY_PARAMS+4变体+ADDON_LIBRARY+WRAP_ADDONS+buildHumanoid） |
-| `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                              |
-| `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                   |
-| `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                                |
-| `js/editor_entities.js`                 | ~653  | 实体管理（标记+CRUD+配置面板+列表+建筑朝向）                                   |
-| `js/editor_waterBridge.js`              | ~659  | 水体桥梁（水面+河床+桥梁检测）                                                 |
-| `js/editor_data.js`                     | ~504  | 数据持久化（蓝图+JSON+init）                                                   |
-| `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                                    |
-| `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）                      |
-| `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                                  |
-| `models/enemies.js`                     | ~1965 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config）               |
-| `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                                 |
-| `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                                            |
-| `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）                          |
-| `js/hexapod_factory.js`                 | ~884  | 六足工厂适配器（nodeMap→legRefs+IK测试+转弯验证）                              |
-| `js/hexapod_enemy.js`                   | ~328  | 六足游戏适配器（训练场/战斗模式CCD IK+卡住检测）                               |
-| `js/hexapod_probe.js`                   | ~208  | 六足步态探针（F7/F8采样+Stats/Compare+localStorage）                           |
-| `js/hexapod_aimLine.js`                 | ~295  | 加特林双瞄准线（双段着色+5层碰撞+颜色状态机）                                  |
-| `js/playerControllers/manager.js`       | ~122  | 玩家控制器管理器（可插拔注册+update分发+能力探测）                             |
-| `js/playerControllers/hexapodPlayer.js` | ~1408 | 六足玩家控制器（WASD+加特林+导弹+锁定+AI托管）                                 |
-| `combat/enemyAI.js`                     | ~1280 | AI 状态机（巡逻→追击→绕圈+六足ENGAGE+武器优先级）                              |
-| `combat/scoreSystem.js`                 | ~127  | 积分系统                                                                       |
-| `js/fireSmokeParticles.js`              | ~572  | 粒子系统（DamageEffects+ExplosionEffects）                                     |
+| 文件                                    | 行数  | 核心内容                                                                    |
+| --------------------------------------- | :---: | --------------------------------------------------------------------------- |
+| `index.html`                            | ~1068 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
+| `js/engine.js`                          | ~8133 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
+| `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
+| `model_factory.html`                    | ~5378 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox）  |
+| `js/humanoid_factory.js`                | ~505  | 人形工厂展台桥接（6动作关键帧+lerp+REST偏移+全关节复位）                    |
+| `models/humanoid_config.js`             | ~1408 | 人形配置（BASE骨架+SKELETON_VERSIONS+\_applyFemaleCurves+buildHumanoid）    |
+| `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
+| `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
+| `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
+| `js/editor_entities.js`                 | ~653  | 实体管理（标记+CRUD+配置面板+列表+建筑朝向）                                |
+| `js/editor_waterBridge.js`              | ~659  | 水体桥梁（水面+河床+桥梁检测）                                              |
+| `js/editor_data.js`                     | ~504  | 数据持久化（蓝图+JSON+init）                                                |
+| `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                                 |
+| `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）                   |
+| `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                               |
+| `models/enemies.js`                     | ~2038 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config + RidgeBox） |
+| `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                              |
+| `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                                         |
+| `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）                       |
+| `js/hexapod_factory.js`                 | ~884  | 六足工厂适配器（nodeMap→legRefs+IK测试+转弯验证）                           |
+| `js/hexapod_enemy.js`                   | ~328  | 六足游戏适配器（训练场/战斗模式CCD IK+卡住检测）                            |
+| `js/hexapod_probe.js`                   | ~208  | 六足步态探针（F7/F8采样+Stats/Compare+localStorage）                        |
+| `js/hexapod_aimLine.js`                 | ~295  | 加特林双瞄准线（双段着色+5层碰撞+颜色状态机）                               |
+| `js/playerControllers/manager.js`       | ~122  | 玩家控制器管理器（可插拔注册+update分发+能力探测）                          |
+| `js/playerControllers/hexapodPlayer.js` | ~1408 | 六足玩家控制器（WASD+加特林+导弹+锁定+AI托管）                              |
+| `combat/enemyAI.js`                     | ~1280 | AI 状态机（巡逻→追击→绕圈+六足ENGAGE+武器优先级）                           |
+| `combat/scoreSystem.js`                 | ~127  | 积分系统                                                                    |
+| `js/fireSmokeParticles.js`              | ~572  | 粒子系统（DamageEffects+ExplosionEffects）                                  |
 
 ### model_factory.html 关键行
 

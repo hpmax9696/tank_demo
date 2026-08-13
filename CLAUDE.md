@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.4
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.6
 
 ## 运行
 
@@ -272,6 +272,19 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.6 本次会话变更 (2026-08-13)
+
+### 成年女胸臀曲线 + 儿童骨架眼睛修复
+
+- **RidgeBox 五边形截面（胸）**: 新增几何类型 `buildRidgeBox`/`mkRidgeBox`（两处 createGeometry），胸前一条水平脊线（脊线长=截面宽度插值 `bw+(ridgeY/h)(tw-bw)`，脊线 z=前面插值+ridgeZ），侧面截面四边形→五边形。只给 v1-成年女 `torso_upper`，默认 ridgeY=0.20/ridgeZ=0.04
+- **TaperedBox 底面偏移（臀）**: TaperedBox 从 7 参数扩展 9 参数（加底面偏移 bx/bz，缺省 0 向后兼容）；`torso_lower` 底面 bz=-0.04 后凸、`pelvis` Box→TaperedBox 顶面 oz=-0.04 对齐（臀部=两者交界边后凸）
+- **v1-成年女 派生**: `_applyFemaleCurves` 只覆盖 v1-成年女 的 torso_upper/torso_lower/pelvis，不污染共享 WORKING_SKELETON 和其他骨架
+- **工厂调参面板**: TaperedBox 加「↙ 底面偏移」滑块 + RidgeBox 9 参数滑块（含「🐻 胸前脊线」脊线高度/凸出；ridgeZ≥0、ridgeY 几何钳制 [0,h] 防破面/畸形）
+- **setBone 眼睛修复**: Sphere 节点子 position 全轴等比 + size 等比缩放（原只缩 y），修儿童骨架 head 放大后眼睛没入头里
+- **执行方式**: subagent-driven-development（3 task 各派 implementer + reviewer，final review opus 通过）
+- **验证**: 数据断言 7/7 + 渲染检查 + vision.py 侧视图确认 S 曲线无破面 + CDP 全程 0 错误
+- **改动文件**: `model_factory.html`(RidgeBox几何+调参面板) + `models/enemies.js`(mkRidgeBox+bx/bz) + `models/humanoid_config.js`(\_applyFemaleCurves+setBone) + index/README/CLAUDE/CODEBUDDY/trae(版本同步)
 
 ## v0.79.5 本次会话变更 (2026-08-09)
 

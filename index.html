@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.5</title>
+    <title>坦克运动demo v0.79.6</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.5</div>
+      <div class="menu-version">v0.79.6</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,13 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🧍 v0.79.6 成年女胸臀曲线+儿童眼睛修复 —
+          RidgeBox五边形截面(胸脊线水平棱,脊线长截面插值,默认高0.2凸0.04);
+          TaperedBox加底面偏移bx/bz(臀后凸,向后兼容); v1-成年女
+          _applyFemaleCurves只覆盖torso_upper/torso_lower/pelvis(其他骨架不动);
+          工厂调参面板补脊线/底面偏移滑块; setBone Sphere子节点全轴等比缩放修儿童骨架眼睛没入
+        </div>
+        <div class="cl-title">
           🧍 v0.79.5 校园丧尸三副骨架+比例重定 — 男教师裤段ah_tc_l size匹配腿长+position修贴地;
           rebuildModel贴地排除手臂指尖(防臂长致身高虚高/脚悬浮);
           HUMANOID_BASE拆三副(STUDENT/TEACHER_M/TEACHER_F BASE)+buildHumanoid选骨架;
@@ -854,16 +861,8 @@
           hips居中球→后侧扁椭球(scale[1,0.85,0.55]+后移,curves放大不前凸);
           工厂Canvas贴图(polo珠地/skin暗斑/badge校徽/stripes斜条,与游戏enemies.js统一)
         </div>
-        <div class="cl-title">
-          📍 v0.79.1 校园敌人放置工具页 — enemy_marker.html(fork toilet_zone_marker);
-          7类型敌人圆点CRUD(4校园丧尸+assault/zombie/hexapod)+视野圈+巡逻折线; 行为面板(8字段+3模式
-          reactive/aggressive/none); 巡逻点编辑;
-          刷新配置(enabled/数量/间隔/批/上限+4比例)+门提取(extractDoors边中点)+门圆点拖动;
-          保存POST{enemies,spawnConfig}(扁平enemy+position[x,y,z]+patrolPath[[x,z]]+doors[[x,z]]);
-          游戏零改动
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.5~v0.79.1) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.6~v0.79.2) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
