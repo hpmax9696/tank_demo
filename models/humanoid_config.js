@@ -205,10 +205,20 @@
       var half = isSphere ? newH : newH / 2;
       node.pivot[1] = pivotAt === 'top' ? half : -half;
     }
-    // 直接子 position y 按比例缩（子挂此节点，size 缩则子位置同比例缩保持衔接）
+    // 直接子 position 按比例缩（子挂此节点，size 缩则子位置同比例缩保持衔接）
+    // Sphere（如头）各向同性：子（眼睛）position 全轴 + size 等比缩放，保持球面相对位置；Cylinder 仅 y 轴
     if (node.children)
       node.children.forEach(function (c) {
-        if (c.position) c.position[1] = +(c.position[1] * ratio).toFixed(4);
+        if (c.position) {
+          if (isSphere) {
+            c.position[0] = +(c.position[0] * ratio).toFixed(4);
+            c.position[2] = +(c.position[2] * ratio).toFixed(4);
+          }
+          c.position[1] = +(c.position[1] * ratio).toFixed(4);
+        }
+        if (isSphere && c.size) {
+          for (var k = 0; k < c.size.length; k++) c.size[k] = +(c.size[k] * ratio).toFixed(4);
+        }
       });
   }
   function setShoulder(root, x) {
