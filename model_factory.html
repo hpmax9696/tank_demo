@@ -4458,7 +4458,7 @@
                   rebuild();
                 });
             } else if (configNode.type === 'TaperedBox') {
-              // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移]
+              // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移, 底面X偏移, 底面Z偏移]
               const sz = configNode.size || [0.5, 0.3, 0.5, 0.35, 0.35];
               const t = {
                 bw: sz[0],
@@ -4468,6 +4468,8 @@
                 td: sz[4] || sz[2] * 0.6,
                 ox: sz[5] || 0,
                 oz: sz[6] || 0,
+                bx: sz[7] || 0,
+                bz: sz[8] || 0,
               };
               geoF
                 .add(t, 'bw', 0.01, 10.0, 0.005)
@@ -4524,6 +4526,85 @@
                 .onChange((v) => {
                   saveUndo('TBZoff');
                   configNode.size[6] = v;
+                  rebuild();
+                });
+              const offF2 = geoF.addFolder('↙ 底面偏移');
+              offF2
+                .add(t, 'bx', -5, 5, 0.005)
+                .name('X偏移')
+                .onChange((v) => {
+                  saveUndo('TBBXoff');
+                  configNode.size[7] = v;
+                  rebuild();
+                });
+              offF2
+                .add(t, 'bz', -5, 5, 0.005)
+                .name('Z偏移')
+                .onChange((v) => {
+                  saveUndo('TBBZoff');
+                  configNode.size[8] = v;
+                  rebuild();
+                });
+            } else if (configNode.type === 'RidgeBox') {
+              // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移, 脊线高度, 脊线凸出]
+              const sz = configNode.size || [0.5, 0.3, 0.5, 0.35, 0.35, 0, 0, 0.15, 0.04];
+              const r = {
+                bw: sz[0],
+                h: sz[1],
+                bd: sz[2],
+                tw: sz[3] || sz[0] * 0.6,
+                td: sz[4] || sz[2] * 0.6,
+                ox: sz[5] || 0,
+                oz: sz[6] || 0,
+                ridgeY: sz[7] != null ? sz[7] : 0.5 * (sz[1] || 1),
+                ridgeZ: sz[8] || 0,
+              };
+              const _mk = (prop, idx, name, undo) =>
+                geoF
+                  .add(r, prop, 0.01, 10.0, 0.005)
+                  .name(name)
+                  .onChange((v) => {
+                    saveUndo(undo);
+                    configNode.size[idx] = v;
+                    rebuild();
+                  });
+              _mk('bw', 0, '底宽', 'RBbw');
+              _mk('h', 1, '高度', 'RBh');
+              _mk('bd', 2, '底深', 'RBbd');
+              _mk('tw', 3, '顶宽', 'RBtw');
+              _mk('td', 4, '顶深', 'RBtd');
+              const offF = geoF.addFolder('↗ 顶面偏移');
+              offF
+                .add(r, 'ox', -5, 5, 0.005)
+                .name('X偏移')
+                .onChange((v) => {
+                  saveUndo('RBoxoff');
+                  configNode.size[5] = v;
+                  rebuild();
+                });
+              offF
+                .add(r, 'oz', -5, 5, 0.005)
+                .name('Z偏移')
+                .onChange((v) => {
+                  saveUndo('RBozoff');
+                  configNode.size[6] = v;
+                  rebuild();
+                });
+              const ridgeF = geoF.addFolder('🐻 胸前脊线');
+              ridgeF
+                .add(r, 'ridgeY', 0, 10.0, 0.005)
+                .name('脊线高度')
+                .onChange((v) => {
+                  saveUndo('RBridgeY');
+                  configNode.size[7] = v;
+                  rebuild();
+                });
+              ridgeF
+                .add(r, 'ridgeZ', -1, 1, 0.005)
+                .name('脊线凸出')
+                .onChange((v) => {
+                  saveUndo('RBridgeZ');
+                  configNode.size[8] = v;
                   rebuild();
                 });
             } else if (configNode.type === 'TaperedHex') {
