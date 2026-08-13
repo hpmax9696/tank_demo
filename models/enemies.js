@@ -1058,16 +1058,39 @@
     function buildHumanoidRig(config, parent) {
         function createGeometry(node) {
             const S3 = Math.sqrt(3) / 2;
-            function mkTaperedBox(bw, h, bd, tw, td, ox, oz) {
+            function mkTaperedBox(bw, h, bd, tw, td, ox, oz, bx, bz) {
+                bx = bx || 0; bz = bz || 0;
                 const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
                 const v = [], idx = []; let vi = 0;
                 const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                q([-hw+bx,0,-hd+bz],[hw+bx,0,-hd+bz],[hw+bx,0,hd+bz],[-hw+bx,0,hd+bz]);
+                q([-thw+ox,h,-thd+oz],[-thw+ox,h,thd+oz],[thw+ox,h,thd+oz],[thw+ox,h,-thd+oz]);
+                q([-hw+bx,0,-hd+bz],[-thw+ox,h,-thd+oz],[thw+ox,h,-thd+oz],[hw+bx,0,-hd+bz]);
+                q([hw+bx,0,hd+bz],[thw+ox,h,thd+oz],[-thw+ox,h,thd+oz],[-hw+bx,0,hd+bz]);
+                q([-hw+bx,0,hd+bz],[-thw+ox,h,thd+oz],[-thw+ox,h,-thd+oz],[-hw+bx,0,-hd+bz]);
+                q([hw+bx,0,-hd+bz],[thw+ox,h,-thd+oz],[thw+ox,h,thd+oz],[hw+bx,0,hd+bz]);
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+            }
+            function mkRidgeBox(bw, h, bd, tw, td, ox, oz, ridgeY, ridgeZ) {
+                const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
+                const wRidge = bw + (ridgeY / h) * (tw - bw);
+                const hwr = wRidge / 2;
+                const zFrontAtRidge = hd + (ridgeY / h) * (thd + oz - hd);
+                const zRidge = zFrontAtRidge + ridgeZ;
+                const v = [], idx = []; let vi = 0;
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const t = (a, b, c) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]); idx.push(vi,vi+1,vi+2); vi+=3; };
                 q([-hw,0,-hd],[hw,0,-hd],[hw,0,hd],[-hw,0,hd]);
                 q([-thw+ox,h,-thd+oz],[-thw+ox,h,thd+oz],[thw+ox,h,thd+oz],[thw+ox,h,-thd+oz]);
                 q([-hw,0,-hd],[-thw+ox,h,-thd+oz],[thw+ox,h,-thd+oz],[hw,0,-hd]);
-                q([hw,0,hd],[thw+ox,h,thd+oz],[-thw+ox,h,thd+oz],[-hw,0,hd]);
-                q([-hw,0,hd],[-thw+ox,h,thd+oz],[-thw+ox,h,-thd+oz],[-hw,0,-hd]);
-                q([hw,0,-hd],[thw+ox,h,-thd+oz],[thw+ox,h,thd+oz],[hw,0,hd]);
+                q([hw,0,hd],[hwr,ridgeY,zRidge],[-hwr,ridgeY,zRidge],[-hw,0,hd]);
+                q([hwr,ridgeY,zRidge],[thw+ox,h,thd+oz],[-thw+ox,h,thd+oz],[-hwr,ridgeY,zRidge]);
+                t([-hw,0,hd],[-hwr,ridgeY,zRidge],[-thw+ox,h,thd+oz]);
+                t([-hw,0,hd],[-thw+ox,h,thd+oz],[-thw+ox,h,-thd+oz]);
+                t([-hw,0,hd],[-thw+ox,h,-thd+oz],[-hw,0,-hd]);
+                t([hw,0,-hd],[thw+ox,h,-thd+oz],[thw+ox,h,thd+oz]);
+                t([hw,0,-hd],[thw+ox,h,thd+oz],[hwr,ridgeY,zRidge]);
+                t([hw,0,-hd],[hwr,ridgeY,zRidge],[hw,0,hd]);
                 const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
             }
             function mkTaperedHex(bw, h, bd, tw, td, ox, oz) {
@@ -1117,7 +1140,8 @@
                     const [r, tube] = node.size;
                     return new THREE.TorusGeometry(r, tube, 6, 12);
                 }
-                case 'TaperedBox': { const s = node.size; return mkTaperedBox(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0); }
+                case 'TaperedBox': { const s = node.size; return mkTaperedBox(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0, s[7]||0, s[8]||0); }
+                case 'RidgeBox': { const s = node.size; return mkRidgeBox(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0, s[7] != null ? s[7] : 0.5*(s[1]||1), s[8]||0); }
                 case 'TaperedHex': { const s = node.size; return mkTaperedHex(s[0], s[1], s[2], s[3], s[4], s[5]||0, s[6]||0); }
                 case 'Wedge': { const s = node.size; return mkWedge(s[0], s[1] != null ? s[1] : s[0], s[2] != null ? s[2] : 0.1, s[3] != null ? s[3] : 0.1); }
                 default:

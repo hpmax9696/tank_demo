@@ -772,7 +772,7 @@
       // ============================================================
       // 1.5 台型几何体（顶底矩形不同大小）
       // ============================================================
-      function buildTaperedBox(bw, h, bd, tw, td, ox = 0, oz = 0) {
+      function buildTaperedBox(bw, h, bd, tw, td, ox = 0, oz = 0, bx = 0, bz = 0) {
         const hw = bw / 2,
           hd = bd / 2,
           thw = tw / 2,
@@ -787,17 +787,106 @@
           indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
           vi += 4;
         }
-        quad([-hw, 0, -hd], [hw, 0, -hd], [hw, 0, hd], [-hw, 0, hd]);
+        quad(
+          [-hw + bx, 0, -hd + bz],
+          [hw + bx, 0, -hd + bz],
+          [hw + bx, 0, hd + bz],
+          [-hw + bx, 0, hd + bz]
+        );
         quad(
           [-thw + ox, h, -thd + oz],
           [-thw + ox, h, thd + oz],
           [thw + ox, h, thd + oz],
           [thw + ox, h, -thd + oz]
         );
+        quad(
+          [-hw + bx, 0, -hd + bz],
+          [-thw + ox, h, -thd + oz],
+          [thw + ox, h, -thd + oz],
+          [hw + bx, 0, -hd + bz]
+        );
+        quad(
+          [hw + bx, 0, hd + bz],
+          [thw + ox, h, thd + oz],
+          [-thw + ox, h, thd + oz],
+          [-hw + bx, 0, hd + bz]
+        );
+        quad(
+          [-hw + bx, 0, hd + bz],
+          [-thw + ox, h, thd + oz],
+          [-thw + ox, h, -thd + oz],
+          [-hw + bx, 0, -hd + bz]
+        );
+        quad(
+          [hw + bx, 0, -hd + bz],
+          [thw + ox, h, -thd + oz],
+          [thw + ox, h, thd + oz],
+          [hw + bx, 0, hd + bz]
+        );
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+        geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      // 脊线盒：五边形截面棱台（胸前一条水平脊线做隆起）
+      // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移, 脊线高度, 脊线凸出]
+      // 脊线长度 = 截面宽度在 ridgeY 处的线性插值；脊线 z = 前面插值 + ridgeZ
+      function buildRidgeBox(bw, h, bd, tw, td, ox = 0, oz = 0, ridgeY = 0.5 * h, ridgeZ = 0) {
+        const hw = bw / 2,
+          hd = bd / 2,
+          thw = tw / 2,
+          thd = td / 2;
+        const wRidge = bw + (ridgeY / h) * (tw - bw);
+        const hwr = wRidge / 2;
+        const zFrontAtRidge = hd + (ridgeY / h) * (thd + oz - hd);
+        const zRidge = zFrontAtRidge + ridgeZ;
+        const verts = [],
+          uvs = [],
+          indices = [];
+        let vi = 0;
+        function quad(a, b, c, d) {
+          verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+          uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+          indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+          vi += 4;
+        }
+        function tri(a, b, c) {
+          verts.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+          uvs.push(0, 0, 1, 0, 1, 1);
+          indices.push(vi, vi + 1, vi + 2);
+          vi += 3;
+        }
+        // 底面（法线 -y）
+        quad([-hw, 0, -hd], [hw, 0, -hd], [hw, 0, hd], [-hw, 0, hd]);
+        // 顶面（法线 +y）
+        quad(
+          [-thw + ox, h, -thd + oz],
+          [-thw + ox, h, thd + oz],
+          [thw + ox, h, thd + oz],
+          [thw + ox, h, -thd + oz]
+        );
+        // 背面（法线 -z）
         quad([-hw, 0, -hd], [-thw + ox, h, -thd + oz], [thw + ox, h, -thd + oz], [hw, 0, -hd]);
-        quad([hw, 0, hd], [thw + ox, h, thd + oz], [-thw + ox, h, thd + oz], [-hw, 0, hd]);
-        quad([-hw, 0, hd], [-thw + ox, h, thd + oz], [-thw + ox, h, -thd + oz], [-hw, 0, -hd]);
-        quad([hw, 0, -hd], [thw + ox, h, -thd + oz], [thw + ox, h, thd + oz], [hw, 0, hd]);
+        // 前面下段：底前 → 脊线（法线 +z）
+        quad([hw, 0, hd], [hwr, ridgeY, zRidge], [-hwr, ridgeY, zRidge], [-hw, 0, hd]);
+        // 前面上段：脊线 → 顶前（法线 +z）
+        quad(
+          [hwr, ridgeY, zRidge],
+          [thw + ox, h, thd + oz],
+          [-thw + ox, h, thd + oz],
+          [-hwr, ridgeY, zRidge]
+        );
+        // 左面（5 顶点，法线 -x）
+        tri([-hw, 0, hd], [-hwr, ridgeY, zRidge], [-thw + ox, h, thd + oz]);
+        tri([-hw, 0, hd], [-thw + ox, h, thd + oz], [-thw + ox, h, -thd + oz]);
+        tri([-hw, 0, hd], [-thw + ox, h, -thd + oz], [-hw, 0, -hd]);
+        // 右面（5 顶点，法线 +x）
+        tri([hw, 0, -hd], [thw + ox, h, -thd + oz], [thw + ox, h, thd + oz]);
+        tri([hw, 0, -hd], [thw + ox, h, thd + oz], [hwr, ridgeY, zRidge]);
+        tri([hw, 0, -hd], [hwr, ridgeY, zRidge], [hw, 0, hd]);
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
         geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
@@ -1199,7 +1288,7 @@
               seg[0] || 16
             );
           case 'TaperedBox':
-            // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移]
+            // size: [底部宽, 高, 底部深, 顶部宽, 顶部深, 顶面X偏移, 顶面Z偏移, 底面X偏移, 底面Z偏移]
             return buildTaperedBox(
               s[0],
               s[1] || 1,
@@ -1207,7 +1296,22 @@
               s[3] !== undefined ? s[3] : s[0] * 0.6,
               s[4] !== undefined ? s[4] : s[2] * 0.6,
               s[5] || 0,
-              s[6] || 0
+              s[6] || 0,
+              s[7] || 0,
+              s[8] || 0
+            );
+          case 'RidgeBox':
+            // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移, 脊线高度, 脊线凸出]
+            return buildRidgeBox(
+              s[0],
+              s[1] || 1,
+              s[2] || s[0],
+              s[3] !== undefined ? s[3] : s[0] * 0.6,
+              s[4] !== undefined ? s[4] : s[2] * 0.6,
+              s[5] || 0,
+              s[6] || 0,
+              s[7] != null ? s[7] : 0.5 * (s[1] || 1),
+              s[8] || 0
             );
           case 'TaperedHex':
             // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移]
