@@ -44,7 +44,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html`                            | ~1068 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
 | `js/engine.js`                          | ~8133 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
-| `model_factory.html`                    | ~5423 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关 + 骨架版本删除）  |
+| `model_factory.html`                    | ~5435 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关 + 骨架版本删除+保存分流）  |
 | `js/humanoid_factory.js`                | ~505  | 人形工厂展台桥接（6动作关键帧+lerp+REST偏移+全关节复位）                    |
 | `models/humanoid_config.js`             | ~1408 | 人形配置（BASE骨架+SKELETON_VERSIONS+\_applyFemaleCurves+buildHumanoid）    |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.9 — 骨架版本解耦(删除残留的WORKING_SKELETON派生赋值,修复"编辑一个版本影响所有"污染链,全部独立字面值)+工厂新增「🗑️ 删除当前版本」按钮；v0.79.8 模型工厂Three.js本地化）
+## 当前版本（v0.79.10 — 骨架命名版本保存修复(选中命名版本编辑保存此前误写回工作骨架致刷新丢失,现按版本写回+humanoid_versions固化)；v0.79.9 骨架版本解耦+删除功能）
 
 ### 关键参数
 

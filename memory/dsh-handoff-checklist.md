@@ -28,6 +28,9 @@
 ### 5. Git 提交推送
 - [ ] `git add -A` → `git commit -m "vX.Y.Z: 描述"`（**代码与文档同一次提交**）
 - [ ] `git push origin master`（Gitee 主仓库；`github` 远程已不存在，无需推送）
+- **push 约定（2026-08-14 用户确认）**：全权限模式直接推；workspace-write 模式则向用户申请一次全权限批准后执行
+  `git -c http.sslBackend=openssl -c credential.helper=manager push origin master`
+  （openssl 绕过 schannel `SEC_E_NO_CREDENTIALS`；凭据读自 Windows 凭据管理器缓存，无需交互输入）
 
 ## 二、验证闭环（改动代码后必做）
 

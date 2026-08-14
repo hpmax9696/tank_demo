@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.9
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.10
 
 ## 运行
 
@@ -272,6 +272,15 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.10 本次会话变更 (2026-08-14)
+
+### 骨架命名版本保存修复
+
+用户报告：选中 v1-成年男 编辑（骨盆 0.375→0.5、降腿）保存固化后强制刷新仍是 0.375。定位：`_doSave` 骨架模式分支**无条件写回 WORKING_SKELETON** + 固化 `humanoid_skeleton`——修改进了工作骨架，命名版本源文件不变。修复：按 `_humanoidSkelVer` 分流——**选中命名版本 → 写回 `SKELETON_VERSIONS[key].tree` + `humanoid_versions` 整体固化**；工作骨架 → 原路径。暴露 `window._doSave` 供测试。
+
+- **验证**: Playwright 全链路（切 v1-成年男 → pelvis posY 0.375→0.5 → 保存 → 内存 0.5 → 刷新后源文件仍 0.5）+ 0 控制台错误
+- **改动文件**: `model_factory.html`(_doSave 按版本分流+window 暴露) + index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.10)
 
 ## v0.79.9 本次会话变更 (2026-08-14)
 

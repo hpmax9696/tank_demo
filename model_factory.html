@@ -2191,12 +2191,23 @@
         var solidifyPayload;
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
           if (_humanoidMode === 'skeleton') {
-            // 骨架模式：写回 WORKING_SKELETON + 固化骨架构建块（用户微调后保存）
-            window.HumanoidConfig.WORKING_SKELETON = JSON.parse(JSON.stringify(cfg));
-            solidifyPayload = {
-              modelType: 'humanoid_skeleton',
-              config: JSON.parse(JSON.stringify(cfg)),
-            };
+            if (_humanoidSkelVer) {
+              // 骨架模式 + 选中命名版本：写回该版本 tree + 整体固化版本库（v0.79.10 修复：此前误写 WORKING_SKELETON 导致命名版本保存丢失）
+              window.HumanoidConfig.SKELETON_VERSIONS[_humanoidSkelVer].tree = JSON.parse(
+                JSON.stringify(cfg)
+              );
+              solidifyPayload = {
+                modelType: 'humanoid_versions',
+                config: JSON.parse(JSON.stringify(window.HumanoidConfig.SKELETON_VERSIONS)),
+              };
+            } else {
+              // 骨架模式 + 工作骨架：写回 WORKING_SKELETON + 固化骨架构建块
+              window.HumanoidConfig.WORKING_SKELETON = JSON.parse(JSON.stringify(cfg));
+              solidifyPayload = {
+                modelType: 'humanoid_skeleton',
+                config: JSON.parse(JSON.stringify(cfg)),
+              };
+            }
           } else {
             // 变体模式：HUMANOID_VARIANTS（Phase 2/3 改 MODELS[variant].tree）
             solidifyPayload = {
@@ -2229,6 +2240,7 @@
           '💾 已保存: ' + modelLabel + ' (' + new Date(saveData.timestamp).toLocaleString() + ')'
         );
       }
+      window._doSave = _doSave; // 暴露供测试/调试
 
       // ❄️ 冻结骨架版本：把当前 WORKING_SKELETON 存入 SKELETON_VERSIONS（命名）+ 固化
       function freezeSkeleton() {

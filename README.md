@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.9** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.10** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -252,6 +252,12 @@ fireSmokeParticles.js:
 - **俯视小地图**: 左下角圆形线框, 车体朝向+三角车首, 上方=摄像机指向, HP颜色红→绿
 - **动态天空 sky.js**: 倒置球体渐变着色器(天顶深蓝→地平线淡蓝白), 太阳光晕, 两层FBM噪声云层飘移
 - **性能**: 零纹理纯着色器, ~4100顶点, <0.5ms/帧; 地图尺寸自适应; 围墙移除
+
+### v0.79.10 — 骨架命名版本保存修复（2026-08-14）
+
+- **修复命名版本保存丢失**: 骨架模式下选中命名版本（如 v1-成年男）编辑后点保存，`_doSave` 此前**无条件写回 WORKING_SKELETON**（工作骨架）并固化 `humanoid_skeleton`——修改进了工作骨架，命名版本文件不变，强制刷新即"丢失"。修复：按 `_humanoidSkelVer` 分流——选中命名版本 → 写回 `SKELETON_VERSIONS[key].tree` + `humanoid_versions` 整体固化；工作骨架 → 原路径 `WORKING_SKELETON` + `humanoid_skeleton`
+- **暴露**: `window._doSave`（供测试/调试）
+- **验证**: Playwright 全链路（切 v1-成年男 → 改 pelvis posY 0.375→0.5 → 保存 → 内存 0.5 → **刷新后源文件仍 0.5**）+ 0 控制台错误
 
 ### v0.79.9 — 骨架版本解耦 + 删除功能（2026-08-14）
 
@@ -1620,7 +1626,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.9）
+### 代码规模（截至 v0.79.10）
 
 | 分类             | 文件                                                                                                                                                                                              |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
@@ -1630,7 +1636,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
 | 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
 | 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
-| 模型工厂         | `model_factory.html`                                                                                                                                                                              |      5423      |
+| 模型工厂         | `model_factory.html`                                                                                                                                                                              |      5435      |
 | 模型系统 (14个)  | enemies(1965) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6955      |
 | 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
 | 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |

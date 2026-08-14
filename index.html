@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.9</title>
+    <title>坦克运动demo v0.79.10</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.9</div>
+      <div class="menu-version">v0.79.10</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          💾 v0.79.10 骨架命名版本保存修复 —
+          骨架模式下选中命名版本(如v1-成年男)编辑保存,此前误写回
+          WORKING_SKELETON(工作骨架)导致刷新后丢失;
+          现按选中版本写回+humanoid_versions固化(工作骨架仍走原路径)
+        </div>
+        <div class="cl-title">
           🔧 v0.79.9 骨架版本解耦+删除功能 —
           删除遗留的 WORKING_SKELETON 派生赋值(修复"编辑/保存一个骨架
           版本影响所有版本"的污染链,四版本+新版本全部独立字面值);
@@ -848,16 +854,8 @@
           _applyFemaleCurves只覆盖torso_upper/torso_lower/pelvis(其他骨架不动);
           工厂调参面板补脊线/底面偏移滑块; setBone Sphere子节点全轴等比缩放修儿童骨架眼睛没入
         </div>
-        <div class="cl-title">
-          🧍 v0.79.5 校园丧尸三副骨架+比例重定 — 男教师裤段ah_tc_l size匹配腿长+position修贴地;
-          rebuildModel贴地排除手臂指尖(防臂长致身高虚高/脚悬浮);
-          HUMANOID_BASE拆三副(STUDENT/TEACHER_M/TEACHER_F BASE)+buildHumanoid选骨架;
-          setBone同步size+pivot+子pos(防空隙/手臂超肩); 学生加长臂/男教师长腿/女教师S曲线;
-          女教师沙漏躯干(TaperedBox×2)+椭圆pelvis(TaperedHex)+胸臀楔形(Wedge梯形底)+curves0.7+胳膊腿细;
-          取消上衣下摆(教师pelvis裤裙色); 游戏侧教师固定体型/学生随机
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.9~v0.79.5) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.10~v0.79.6) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->
