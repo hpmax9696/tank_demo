@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.8
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.9
 
 ## 运行
 
@@ -272,6 +272,19 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.9 本次会话变更 (2026-08-14)
+
+### 骨架版本解耦（修复污染链）+ 删除骨架版本功能
+
+用户报告：编辑一个骨架版本保存后影响其他版本；期望骨架间完全独立、自由保存，冻结仅用于备份/分支。排查定位**污染链根因**：
+
+- **根因**: humanoid_config.js 中 v1-男/女/儿童 原为 `_deriveProportion(WORKING_SKELETON, ...)` **运行时派生**——页面每次加载从工作骨架重算，编辑/保存工作骨架即传导到所有版本（2026-08-13 用户误编辑事故机制）；且 server.py 固化 humanoid_versions 在整体字面量之后**残留一组 v0.79.6 逐条赋值**（`SKELETON_VERSIONS['v1-...'] = {...}`），运行时覆盖正确字面量
+- **修复**: 删除残留的逐条赋值段（-573 行）；四个 v1 版本 + 新冻结版本全部为**独立字面值**（`var SKELETON_VERSIONS = {...}` 整体对象，互不影响）；SKELETON_VERSIONS 上方加防回归注释（禁止派生写法）
+- **新增删除功能**: 模型工厂骨架模式 `modeF` 新增「🗑️ 删除当前版本」按钮 → `deleteSkeletonVersion(key?)`（confirm → delete SKELETON_VERSIONS[key] → 若为当前选中则回退工作骨架+rebuildModel → 下拉选项刷新 `_verCtrl.options()` → `/api/solidify humanoid_versions` 固化）；暴露 `window._deleteSkeletonVersion` 供测试
+- **数据**: v1-成年中性/男/儿童 = v0.79.6 原始（pelvis posY 0.375）；v1-成年女 + v2-成年女性-2026-08-14（用户冻结）= 用户编辑数据（0.5）
+- **验证**: Node vm 数据断言全过（四版本+MODELS 烘焙 teacher_f=0.5）+ Playwright 页面运行时 0 错误 + 删除完整链路实测（临时版本 6→5、confirm 弹窗接受、源文件无 tmp-test 污染）
+- **改动文件**: `models/humanoid_config.js`(删重复赋值+注释) + `model_factory.html`(删除功能+verCtrl刷新) + index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.9)
 
 ## v0.79.8 本次会话变更 (2026-08-13)
 

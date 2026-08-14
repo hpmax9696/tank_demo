@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.8</title>
+    <title>坦克运动demo v0.79.9</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.8</div>
+      <div class="menu-version">v0.79.9</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🔧 v0.79.9 骨架版本解耦+删除功能 —
+          删除遗留的 WORKING_SKELETON 派生赋值(修复"编辑/保存一个骨架
+          版本影响所有版本"的污染链,四版本+新版本全部独立字面值);
+          骨架库新增「🗑️ 删除当前版本」按钮(删除+固化,版本下拉自动刷新)
+        </div>
+        <div class="cl-title">
           📦 v0.79.8 模型工厂 Three.js 本地化 —
           three.module.js/OrbitControls/RoundedBoxGeometry/lil-gui
           从 unpkg CDN 改为本地文件(修复 ERR_QUIC_PROTOCOL_ERROR
@@ -850,15 +856,8 @@
           女教师沙漏躯干(TaperedBox×2)+椭圆pelvis(TaperedHex)+胸臀楔形(Wedge梯形底)+curves0.7+胳膊腿细;
           取消上衣下摆(教师pelvis裤裙色); 游戏侧教师固定体型/学生随机
         </div>
-        <div class="cl-title">
-          ⚡ v0.79.4 性能修复 — 训练场手动模式fps崩根因: updateAiming的
-          aimTargets污染obstacleMeshes(每帧push敌人→数组线性暴涨→raycast目标暴涨);
-          敌方炮弹命中玩家碰撞体→player1无position抛TypeError+误扣血(改正确玩家受伤路径);
-          弹道线零分配(几何/向量复用防GC累积)+敌人圆柱检测+障碍物距离过滤;
-          瞄准丧尸射线-圆柱检测替代780子mesh递归raycast
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.8~v0.79.4) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.9~v0.79.5) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

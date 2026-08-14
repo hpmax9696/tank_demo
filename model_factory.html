@@ -3939,17 +3939,58 @@
               rebuildModel();
             });
           modeF.add({ freeze: freezeSkeleton }, 'freeze').name('❄️ 冻结版本(骨架模式)');
+          function refreshVerOptions() {
+            var opts = { '(工作骨架)': null };
+            window.HumanoidConfig.getSkeletonList().forEach(function (k) {
+              opts[k] = k;
+            });
+            if (_verCtrl) _verCtrl.options(opts).setValue(_humanoidSkelVer);
+          }
           var _verOpts = { '(工作骨架)': null };
           window.HumanoidConfig.getSkeletonList().forEach(function (k) {
             _verOpts[k] = k;
           });
-          modeF
+          var _verCtrl = modeF
             .add({ ver: _humanoidSkelVer }, 'ver', _verOpts)
             .name('骨架版本(review)')
             .onChange(function (v) {
               _humanoidSkelVer = v;
               if (_humanoidMode === 'skeleton') rebuildModel();
             });
+          function deleteSkeletonVersion(key) {
+            if (currentModelType !== 'humanoid' || _humanoidMode !== 'skeleton') return;
+            var k = key || _humanoidSkelVer;
+            if (!k) {
+              alert('当前是工作骨架（无版本），无可删除的版本');
+              return;
+            }
+            if (!confirm('确定删除骨架版本「' + k + '」？此操作不可撤销。')) return;
+            delete window.HumanoidConfig.SKELETON_VERSIONS[k];
+            if (_humanoidSkelVer === k) {
+              _humanoidSkelVer = null;
+              rebuildModel();
+            }
+            refreshVerOptions();
+            fetch('/api/solidify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                modelType: 'humanoid_versions',
+                config: JSON.parse(JSON.stringify(window.HumanoidConfig.SKELETON_VERSIONS)),
+              }),
+            })
+              .then(function (r) {
+                return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status));
+              })
+              .then(function (res) {
+                console.log('🗑️ 已删除骨架版本 ' + k + ' → ' + res.file);
+              })
+              .catch(function (err) {
+                console.log('⚠️ 删除固化失败: ' + err.message);
+              });
+          }
+          window._deleteSkeletonVersion = deleteSkeletonVersion;
+          modeF.add({ del: deleteSkeletonVersion }, 'del').name('🗑️ 删除当前版本');
           modeF.open();
         }
 
