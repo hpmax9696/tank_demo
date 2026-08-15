@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.10
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.11
 
 ## 运行
 
@@ -272,6 +272,21 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.11 本次会话变更 (2026-08-14)
+
+### 人形动画系统重构（每骨架一套动画）+ 步态/攻击/死亡重做
+
+用户确立流水线设计（见 `memory/humanoid-pipeline.md`）：**每骨架维护一套基本动画**，烘焙变体继承，新关卡人形（军/警/矿）符合三大骨架即可零适配。实施：
+
+- **架构**: `humanoid_config.js` 新增 `BASE_ANIMS`（restPoses + 6 动作关键帧模板）；每个 `SKELETON_VERSIONS[key].anims` 独立深拷贝（restPoses['pelvis:y'] = 该骨架 pelvis 高度）；`MODELS[v].anims` 烘焙继承；`enemies.js`/`humanoid_factory.js` 播放器数据驱动化——**消除双份关键帧镜像债**（顺带发现游戏侧还是 v0.79.3 前未同步的反向步态）
+- **步态人体数据化**: 走路 髋前屈 26°/后伸 14°/摆动期膝屈 63°；跑步 49°/20°/86°；对侧摆臂；膝弯符号修复（v0.79.3 只翻大腿的遗留）；手臂外张 5°
+- **攻击重做**: 慢举（腰不动）→ 0.1s 快速前挥+上躯干弯腰。新增 `torso_upper` 关节（pivot 在腰线）+ **绑骨层级迁移**（neck/双臂移挂 torso_upper）；JOINT_NAMES 补 torso_upper
+- **死亡重做**: 前倒平摊贴地 + 手臂自然散落（俯卧后 l z=-0.3/r z=+0.3）；修 pelvis 切换残留（collectRefs 复位）；贴地补偿 0.072
+- **骨架编辑工作流**: 移除"工作骨架"UI（默认=成年中性）；冻结按钮改名"冻结分支"；删除 v1-成年女（teacher_f → v2-成年女性）
+- **其他**: Shift 精细滑动重写（全滑杆通用+input 兜底）；`window._doSave`/`window._deleteSkeletonVersion` 暴露
+- **已知问题(新)**: 死亡瘫倒姿态仍有微调空间（用户最后确认"不理想"但时间晚，下轮继续）
+- **改动文件**: `models/humanoid_config.js`(BASE_ANIMS+版本anims+层级迁移+torso_upper) + `models/enemies.js`(播放器数据驱动) + `js/humanoid_factory.js`(数据驱动+rest/pelvis复位) + `model_factory.html`(骨架编辑工作流+动画注入+Shift滑动) + memory/humanoid-pipeline.md(新) + index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.11)
 
 ## v0.79.10 本次会话变更 (2026-08-14)
 

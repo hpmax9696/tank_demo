@@ -3,3 +3,4 @@
 - [dsh-handoff-checklist](dsh-handoff-checklist.md) — 其他AI(DSH等)接管开发时的强制同步清单，保证 Claude Code 可随时恢复
 - [superpowers-on-demand](superpowers-on-demand.md) — Superpowers 按需启用约定：保留但默认不用，调用前必须询问用户（2026-08-13）
 - [vision-tool](vision-tool.md) — vision.py 识图工具用法：模型无视觉能力时用它调 Qwen3.5-Omni-Flash 看图（2026-08-13 实测可用）
+- [humanoid-pipeline](humanoid-pipeline.md) — 人形敌人流水线设计：骨架级基本动画→烘焙变体继承→变体特殊设定才微调（2026-08-14 用户重申，勿再建议"先烘焙后动画"）

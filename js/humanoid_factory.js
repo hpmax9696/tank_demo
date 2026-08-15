@@ -37,354 +37,20 @@
   // ── 6 动作关键帧定义（collectRefs 绑定 target 后构建）──
   // 结构与 enemies.js 一致：{target, prop, axis, restKey, keys:[{t,v}]}
   // restKey 命中 REST_POSES 时，v 作偏移量叠加到 rest 基线（与 AnimationSystem._updateLayer 同逻辑）
-  function _buildAnimDefs(P, O) {
-    return {
-      Idle: [
-        {
-          target: P.torso,
-          prop: 'rotation',
-          axis: 'z',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: 0.03 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: O.pelvis,
-          prop: 'position',
-          axis: 'y',
-          restKey: 'pelvis:y',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: 0.02 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.head,
-          prop: 'rotation',
-          axis: 'z',
-          restKey: 'head:z',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: -0.04 },
-            { t: 1, v: 0 },
-          ],
-        },
-      ],
-      Walk: [
-        {
-          target: O.pelvis,
-          prop: 'position',
-          axis: 'y',
-          restKey: 'pelvis:y',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: 0.04 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.l_upper_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0.6 },
-            { t: 0.25, v: 0 },
-            { t: 0.5, v: -0.25 },
-            { t: 0.75, v: 0 },
-            { t: 1, v: 0.6 },
-          ],
-        },
-        {
-          target: P.r_upper_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.25 },
-            { t: 0.25, v: 0 },
-            { t: 0.5, v: 0.6 },
-            { t: 0.75, v: 0 },
-            { t: 1, v: -0.25 },
-          ],
-        },
-        {
-          target: P.l_lower_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.25, v: -0.3 },
-            { t: 0.5, v: -0.6 },
-            { t: 0.75, v: -0.3 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.r_lower_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.6 },
-            { t: 0.25, v: -0.3 },
-            { t: 0.5, v: 0 },
-            { t: 0.75, v: -0.3 },
-            { t: 1, v: -0.6 },
-          ],
-        },
-        {
-          target: P.l_upper_arm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.35 },
-            { t: 0.25, v: -0.1 },
-            { t: 0.5, v: 0.35 },
-            { t: 0.75, v: -0.1 },
-            { t: 1, v: -0.35 },
-          ],
-        },
-        {
-          target: P.r_upper_arm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0.35 },
-            { t: 0.25, v: 0.1 },
-            { t: 0.5, v: -0.35 },
-            { t: 0.75, v: 0.1 },
-            { t: 1, v: 0.35 },
-          ],
-        },
-      ],
-      Run: [
-        {
-          target: P.torso,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0.3 },
-            { t: 0.5, v: 0.15 },
-            { t: 1, v: 0.3 },
-          ],
-        },
-        {
-          target: O.pelvis,
-          prop: 'position',
-          axis: 'y',
-          restKey: 'pelvis:y',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.5, v: 0.08 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.l_upper_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0.8 },
-            { t: 0.25, v: 0 },
-            { t: 0.5, v: -0.35 },
-            { t: 0.75, v: 0 },
-            { t: 1, v: 0.8 },
-          ],
-        },
-        {
-          target: P.r_upper_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.35 },
-            { t: 0.25, v: 0 },
-            { t: 0.5, v: 0.8 },
-            { t: 0.75, v: 0 },
-            { t: 1, v: -0.35 },
-          ],
-        },
-        {
-          target: P.l_lower_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.25, v: -0.4 },
-            { t: 0.5, v: -0.7 },
-            { t: 0.75, v: -0.4 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.r_lower_leg,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.7 },
-            { t: 0.25, v: -0.4 },
-            { t: 0.5, v: 0 },
-            { t: 0.75, v: -0.4 },
-            { t: 1, v: -0.7 },
-          ],
-        },
-        {
-          target: P.l_upper_arm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.5 },
-            { t: 0.25, v: -0.15 },
-            { t: 0.5, v: 0.5 },
-            { t: 0.75, v: -0.15 },
-            { t: 1, v: -0.5 },
-          ],
-        },
-        {
-          target: P.r_upper_arm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0.5 },
-            { t: 0.25, v: 0.15 },
-            { t: 0.5, v: -0.5 },
-            { t: 0.75, v: 0.15 },
-            { t: 1, v: 0.5 },
-          ],
-        },
-      ],
-      Attack: [
-        {
-          target: P.r_upper_arm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -0.4 },
-            { t: 0.35, v: -1.8 },
-            { t: 1, v: -0.4 },
-          ],
-        },
-        {
-          target: P.r_forearm,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: -1.6 },
-            { t: 0.35, v: -0.1 },
-            { t: 1, v: -1.6 },
-          ],
-        },
-        {
-          target: P.torso,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.3, v: 0.25 },
-            { t: 1, v: 0 },
-          ],
-        },
-      ],
-      Stagger: [
-        {
-          target: P.torso,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.2, v: -0.3 },
-            { t: 1, v: 0 },
-          ],
-        },
-        {
-          target: P.head,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.15, v: -0.4 },
-            { t: 1, v: 0 },
-          ],
-        },
-      ],
-      Die: [
-        {
-          target: P.root,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.333, v: Math.PI * 0.48 },
-            { t: 1, v: Math.PI * 0.5 },
-          ],
-        },
-        {
-          target: O.root,
-          prop: 'position',
-          axis: 'y',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.333, v: -0.15 },
-            { t: 0.667, v: -0.45 },
-            { t: 1, v: -0.45 },
-          ],
-        },
-        {
-          target: P.torso,
-          prop: 'rotation',
-          axis: 'x',
-          restKey: null,
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.333, v: -0.15 },
-            { t: 1, v: -0.35 },
-          ],
-        },
-        {
-          target: P.l_upper_arm,
-          prop: 'rotation',
-          axis: 'z',
-          restKey: 'l_upper_arm:z',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.667, v: -0.6 },
-            { t: 1, v: -0.8 },
-          ],
-        },
-        {
-          target: P.r_upper_arm,
-          prop: 'rotation',
-          axis: 'z',
-          restKey: 'r_upper_arm:z',
-          keys: [
-            { t: 0, v: 0 },
-            { t: 0.667, v: 0.6 },
-            { t: 1, v: 0.8 },
-          ],
-        },
-      ],
-    };
+  function _buildAnimDefs(actions, P, O) {
+    var defs = {};
+    Object.keys(actions || {}).forEach(function (name) {
+      defs[name] = (actions[name] || []).map(function (t) {
+        return {
+          target: t.kind === 'P' ? P[t.joint] : O[t.joint],
+          prop: t.prop,
+          axis: t.axis,
+          restKey: t.restKey || null,
+          keys: t.keys,
+        };
+      });
+    });
+    return defs;
   }
 
   // ── keyframe lerp + rest 偏移（镜像 AnimationSystem._updateLayer）──
@@ -423,7 +89,9 @@
       console.warn('HumanoidAnims: modelRoot/root 未找到');
       return;
     }
-    _rest = cfg.REST_POSES || {};
+    // 动画配置：优先 model_factory 注入的当前骨架/变体 anims；兜底 BASE_ANIMS
+    var animsCfg = M._currentHumanoidAnims || cfg.BASE_ANIMS;
+    _rest = (animsCfg && animsCfg.restPoses) || cfg.REST_POSES || {};
     _P = {};
     _O = {};
     cfg.JOINT_NAMES.forEach(function (n) {
@@ -432,7 +100,37 @@
     });
     _O.root = _root.getObjectByName('root') || _root;
     _P.root = _O.root;
-    _animDefs = _buildAnimDefs(_P, _O);
+    _animDefs = _buildAnimDefs(animsCfg && animsCfg.actions, _P, _O);
+    // 动画开始前把全关节复位到 rest 基线（手臂 z 外张等），保证动画姿势与固定状态一致（修"胳膊内夹"）
+    // 同时复位 pelvis 的 position.y 到该骨架基线（修"切换动画残留偏移导致身体歪斜"）
+    if (_O.pelvis && _rest['pelvis:y'] !== undefined) {
+      _O.pelvis.position.y = _rest['pelvis:y'];
+    }
+    Object.keys(_P).forEach(function (n) {
+      var pv = _P[n];
+      if (pv && pv !== _root) {
+        pv.rotation.set(0, 0, 0);
+        var rx = _rest[n + ':x'],
+          ry = _rest[n + ':y'],
+          rz = _rest[n + ':z'];
+        if (rx !== undefined) pv.rotation.x = rx;
+        if (ry !== undefined) pv.rotation.y = ry;
+        if (rz !== undefined) pv.rotation.z = rz;
+      }
+    });
+    // 无 pivot 的关节（torso 等，动画直接转原对象）：同样应用 rest rotation 基线
+    Object.keys(_O).forEach(function (n) {
+      var ov = _O[n];
+      if (ov && !_P[n] && ov !== _root) {
+        ov.rotation.set(0, 0, 0);
+        var rx = _rest[n + ':x'],
+          ry = _rest[n + ':y'],
+          rz = _rest[n + ':z'];
+        if (rx !== undefined) ov.rotation.x = rx;
+        if (ry !== undefined) ov.rotation.y = ry;
+        if (rz !== undefined) ov.rotation.z = rz;
+      }
+    });
     if (!_P.torso)
       console.warn('HumanoidAnims: torso_pivot 未找到（buildFromConfig 未生成 pivot?）');
     _curKey = 'Idle';

@@ -25,9 +25,12 @@
 ### 4. 设计文档（沿袭 CC 的 superpowers 工作流）
 - [ ] 复杂任务在 `docs/superpowers/plans/` 与 `docs/superpowers/specs/` 各写一份（命名：`日期-主题.md`）
 
-### 5. Git 提交推送
-- [ ] `git add -A` → `git commit -m "vX.Y.Z: 描述"`（**代码与文档同一次提交**）
-- [ ] `git push origin master`（Gitee 主仓库；`github` 远程已不存在，无需推送）
+### 5. Git 提交推送（按需发版，禁止每改动一次就发版）
+- **用户约定（2026-08-14 明确要求）**：不要每进行一次改动就发版提交。仅当用户明确要求发版时
+  （改动足够多/足够大，或本次开发告一段落）才执行以下发版流程。
+- **发版流程**：8 处版本号同步 + 4 份 AI 文档同步 + changelog 5 条裁剪 →
+  `git add -A` → `git commit -m "vX.Y.Z: 描述"`（代码与文档同一次提交）→ `git push origin master`（Gitee；`github` 远程已不存在）
+- **日常改动**：只改代码 + 验证，不动版本号、不提交、不 push。
 - **push 约定（2026-08-14 用户确认）**：全权限模式直接推；workspace-write 模式则向用户申请一次全权限批准后执行
   `git -c http.sslBackend=openssl -c credential.helper=manager push origin master`
   （openssl 绕过 schannel `SEC_E_NO_CREDENTIALS`；凭据读自 Windows 凭据管理器缓存，无需交互输入）

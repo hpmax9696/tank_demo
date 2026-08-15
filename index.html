@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.10</title>
+    <title>坦克运动demo v0.79.11</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.10</div>
+      <div class="menu-version">v0.79.11</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,14 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🎬 v0.79.11 人形动画系统重构 —
+          每骨架独立动画(BASE_ANIMS+版本anims+数据驱动播放器,消除双份镜像);
+          步态按人体数据重设计(前迈>后蹬/对侧摆臂/膝弯修复/手臂外张5°);
+          攻击重做(慢举→快速前挥+上躯干弯腰,新增torso_upper关节+绑骨层级迁移);
+          死亡重做(平摊贴地+手臂自然散落); 骨架编辑默认成年中性/无工作骨架/命名版本保存;
+          pelvis切换复位; Shift精细滑动重写
+        </div>
+        <div class="cl-title">
           💾 v0.79.10 骨架命名版本保存修复 —
           骨架模式下选中命名版本(如v1-成年男)编辑保存,此前误写回
           WORKING_SKELETON(工作骨架)导致刷新后丢失;
@@ -847,15 +855,8 @@
           导致"改z却动x"的标签错位,部件参数与标签坐标系现已一致);
           底栏新增「🧭 坐标轴」开关,可随时隐藏/显示方位标识
         </div>
-        <div class="cl-title">
-          🧍 v0.79.6 成年女胸臀曲线+儿童眼睛修复 —
-          RidgeBox五边形截面(胸脊线水平棱,脊线长截面插值,默认高0.2凸0.04);
-          TaperedBox加底面偏移bx/bz(臀后凸,向后兼容); v1-成年女
-          _applyFemaleCurves只覆盖torso_upper/torso_lower/pelvis(其他骨架不动);
-          工厂调参面板补脊线/底面偏移滑块; setBone Sphere子节点全轴等比缩放修儿童骨架眼睛没入
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.10~v0.79.6) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.11~v0.79.7) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

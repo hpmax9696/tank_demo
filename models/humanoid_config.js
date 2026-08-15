@@ -784,6 +784,7 @@
   // ⑤ 关节名 + rest pose（rest pose 用绝对角度基线，动画关键帧作偏移叠加）
   const JOINT_NAMES = [
     'torso',
+    'torso_upper',
     'head',
     'neck',
     'l_upper_arm',
@@ -800,8 +801,8 @@
     'torso:x': 0.2,
     'neck:x': 0.22,
     'head:z': 0.08,
-    'l_upper_arm:z': -0.1,
-    'r_upper_arm:z': 0.1,
+    'l_upper_arm:z': 0.09,
+    'r_upper_arm:z': -0.09,
     'pelvis:y': 0.375, // HUMANOID_BASE pelvis.position[1]；动画 keyframe v 为距此基线的偏移
   };
 
@@ -1003,556 +1004,7 @@
   // ═══ 新数据层（Phase 1）：版本化骨架 + 字面值变体 + 烘焙工具 ═══
   // WORKING_SKELETON：工厂骨架模式的编辑对象 —— 写实 7.5 头身通用拓扑白模
   // setBone 同步 size+pivot+子position（衔接保证）；手是新增关节（通用拓扑含手）
-  var WORKING_SKELETON = {
-  "name": "root",
-  "type": "Group",
-  "position": [
-    0.08,
-    0.1859,
-    0
-  ],
-  "rotation": [
-    0,
-    0,
-    0
-  ],
-  "children": [
-    {
-      "name": "pelvis",
-      "type": "TaperedBox",
-      "size": [
-        0.3,
-        0.135,
-        0.1468801484276677,
-        0.3,
-        0.22,
-        0,
-        -0.001745367603108186,
-        0,
-        0
-      ],
-      "position": [
-        0,
-        0.5,
-        0
-      ],
-      "materialId": "__cloth__",
-      "children": [
-        {
-          "name": "torso",
-          "type": "Group",
-          "position": [
-            0,
-            0.0675,
-            0.04
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "materialId": "__cloth__",
-          "children": [
-            {
-              "name": "torso_upper",
-              "type": "RidgeBox",
-              "size": [
-                0.18,
-                0.29,
-                0.16,
-                0.3,
-                0.12,
-                0,
-                -0.05888512803143086,
-                0.2,
-                0.07869616132342962
-              ],
-              "position": [
-                0,
-                0.299,
-                -0.0079
-              ],
-              "materialId": "__skin__",
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            },
-            {
-              "name": "torso_lower",
-              "type": "TaperedBox",
-              "size": [
-                0.3,
-                0.154,
-                0.22,
-                0.18,
-                0.16,
-                0,
-                0,
-                0,
-                -0.04
-              ],
-              "position": [
-                0,
-                0.077,
-                -0.04
-              ],
-              "materialId": "__skin__",
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            },
-            {
-              "name": "neck",
-              "type": "Cylinder",
-              "size": [
-                0.04,
-                0.061,
-                0.04
-              ],
-              "position": [
-                0,
-                0.4745,
-                -0.05
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                -0.0305,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "head",
-                  "type": "Sphere",
-                  "size": [
-                    0.08929999999999999
-                  ],
-                  "position": [
-                    0,
-                    0.0874,
-                    0.0032
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.08929999999999999,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "segments": [
-                    6,
-                    5
-                  ],
-                  "children": [
-                    {
-                      "name": "l_eye_glow",
-                      "type": "Sphere",
-                      "size": [
-                        0.019
-                      ],
-                      "position": [
-                        0.0285,
-                        0.019,
-                        0.0665
-                      ],
-                      "materialId": "eye_glow",
-                      "segments": [
-                        5,
-                        4
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    },
-                    {
-                      "name": "r_eye_glow",
-                      "type": "Sphere",
-                      "size": [
-                        0.019
-                      ],
-                      "position": [
-                        -0.0285,
-                        0.019,
-                        0.0665
-                      ],
-                      "materialId": "eye_glow",
-                      "segments": [
-                        5,
-                        4
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            },
-            {
-              "name": "l_upper_arm",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.275,
-                0.03
-              ],
-              "position": [
-                0.1966,
-                0.3065,
-                -0.04
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                0.1375,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "l_forearm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.03,
-                    0.255,
-                    0.035
-                  ],
-                  "position": [
-                    0,
-                    -0.2567,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1275,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_hand",
-                      "type": "Box",
-                      "size": [
-                        0.052,
-                        0.104,
-                        0.045
-                      ],
-                      "position": [
-                        0,
-                        -0.18,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.052,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            },
-            {
-              "name": "r_upper_arm",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.275,
-                0.03
-              ],
-              "position": [
-                -0.1966,
-                0.3065,
-                -0.04
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "pivot": [
-                0,
-                0.1375,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "r_forearm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.03,
-                    0.255,
-                    0.035
-                  ],
-                  "position": [
-                    0,
-                    -0.2567,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1275,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_hand",
-                      "type": "Box",
-                      "size": [
-                        0.052,
-                        0.104,
-                        0.045
-                      ],
-                      "position": [
-                        0,
-                        -0.18,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.052,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            }
-          ],
-          "visible": true
-        },
-        {
-          "name": "l_upper_leg",
-          "type": "Cylinder",
-          "size": [
-            0.061,
-            0.34650000000000003,
-            0.061
-          ],
-          "position": [
-            0.075,
-            -0.175,
-            0
-          ],
-          "pivot": [
-            0,
-            0.17325000000000002,
-            0
-          ],
-          "materialId": "__skin__",
-          "children": [
-            {
-              "name": "l_lower_leg",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.34650000000000003,
-                0.052
-              ],
-              "position": [
-                0,
-                -0.3234,
-                0
-              ],
-              "pivot": [
-                0,
-                0.17325000000000002,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "l_foot",
-                  "type": "Box",
-                  "size": [
-                    0.112,
-                    0.045,
-                    0.225
-                  ],
-                  "position": [
-                    0,
-                    -0.165,
-                    0.06
-                  ],
-                  "pivot": [
-                    0,
-                    0.05,
-                    -0.1
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        },
-        {
-          "name": "r_upper_leg",
-          "type": "Cylinder",
-          "size": [
-            0.061,
-            0.34650000000000003,
-            0.061
-          ],
-          "position": [
-            -0.075,
-            -0.175,
-            0
-          ],
-          "pivot": [
-            0,
-            0.17325000000000002,
-            0
-          ],
-          "materialId": "__skin__",
-          "children": [
-            {
-              "name": "r_lower_leg",
-              "type": "Cylinder",
-              "size": [
-                0.052,
-                0.34650000000000003,
-                0.052
-              ],
-              "position": [
-                0,
-                -0.3234,
-                0
-              ],
-              "pivot": [
-                0,
-                0.17325000000000002,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "r_foot",
-                  "type": "Box",
-                  "size": [
-                    0.112,
-                    0.045,
-                    0.225
-                  ],
-                  "position": [
-                    0,
-                    -0.165,
-                    0.06
-                  ],
-                  "pivot": [
-                    0,
-                    0.05,
-                    -0.1
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        }
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "visible": true
-    }
-  ],
-  "visible": true
-};
+  var WORKING_SKELETON = {"name":"root","type":"Group","position":[0.08,0.1859,0],"rotation":[0,0,0],"children":[{"name":"pelvis","type":"TaperedBox","size":[0.3,0.135,0.1468801484276677,0.3,0.22,0,-0.001745367603108186,0,0],"position":[0,0.5,0],"materialId":"__cloth__","children":[{"name":"torso","type":"Group","position":[0,0.0675,0.04],"rotation":[0,0,0],"materialId":"__cloth__","children":[{"name":"torso_upper","type":"RidgeBox","size":[0.18,0.29,0.16,0.3,0.12,0,-0.05888512803143086,0.2,0.07869616132342962],"position":[0,0.299,-0.0079],"materialId":"__skin__","rotation":[0,0,0],"visible":true,"pivot":[0,-0.145,0],"children":[{"name":"neck","type":"Cylinder","size":[0.04,0.061,0.04],"position":[0,0.1755,-0.0421],"rotation":[0,0,0],"pivot":[0,-0.0305,0],"materialId":"__skin__","children":[{"name":"head","type":"Sphere","size":[0.08929999999999999],"position":[0,0.0874,0.0032],"rotation":[0,0,0],"pivot":[0,-0.08929999999999999,0],"materialId":"__skin__","segments":[6,5],"children":[{"name":"l_eye_glow","type":"Sphere","size":[0.019],"position":[0.0285,0.019,0.0665],"materialId":"eye_glow","segments":[5,4],"rotation":[0,0,0],"visible":true},{"name":"r_eye_glow","type":"Sphere","size":[0.019],"position":[-0.0285,0.019,0.0665],"materialId":"eye_glow","segments":[5,4],"rotation":[0,0,0],"visible":true}],"visible":true}],"visible":true},{"name":"l_upper_arm","type":"Cylinder","size":[0.052,0.275,0.03],"position":[0.1966,0.0075,-0.0321],"rotation":[0,0,0],"pivot":[0,0.1375,0],"materialId":"__skin__","children":[{"name":"l_forearm","type":"Cylinder","size":[0.03,0.255,0.035],"position":[0,-0.2567,0],"pivot":[0,0.1275,0],"materialId":"__skin__","children":[{"name":"l_hand","type":"Box","size":[0.052,0.104,0.045],"position":[0,-0.18,0],"pivot":[0,0.052,0],"materialId":"__skin__","rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"visible":true},{"name":"r_upper_arm","type":"Cylinder","size":[0.052,0.275,0.03],"position":[-0.1966,0.0075,-0.0321],"rotation":[0,0,0],"pivot":[0,0.1375,0],"materialId":"__skin__","children":[{"name":"r_forearm","type":"Cylinder","size":[0.03,0.255,0.035],"position":[0,-0.2567,0],"pivot":[0,0.1275,0],"materialId":"__skin__","children":[{"name":"r_hand","type":"Box","size":[0.052,0.104,0.045],"position":[0,-0.18,0],"pivot":[0,0.052,0],"materialId":"__skin__","rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"visible":true}]},{"name":"torso_lower","type":"TaperedBox","size":[0.3,0.154,0.22,0.18,0.16,0,0,0,-0.04],"position":[0,0.077,-0.04],"materialId":"__skin__","rotation":[0,0,0],"visible":true}],"visible":true},{"name":"l_upper_leg","type":"Cylinder","size":[0.061,0.34650000000000003,0.061],"position":[0.075,-0.175,0],"pivot":[0,0.17325000000000002,0],"materialId":"__skin__","children":[{"name":"l_lower_leg","type":"Cylinder","size":[0.052,0.34650000000000003,0.052],"position":[0,-0.3234,0],"pivot":[0,0.17325000000000002,0],"materialId":"__skin__","children":[{"name":"l_foot","type":"Box","size":[0.112,0.045,0.225],"position":[0,-0.165,0.06],"pivot":[0,0.05,-0.1],"materialId":"__skin__","rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true},{"name":"r_upper_leg","type":"Cylinder","size":[0.061,0.34650000000000003,0.061],"position":[-0.075,-0.175,0],"pivot":[0,0.17325000000000002,0],"materialId":"__skin__","children":[{"name":"r_lower_leg","type":"Cylinder","size":[0.052,0.34650000000000003,0.052],"position":[0,-0.3234,0],"pivot":[0,0.17325000000000002,0],"materialId":"__skin__","children":[{"name":"r_foot","type":"Box","size":[0.112,0.045,0.225],"position":[0,-0.165,0.06],"pivot":[0,0.05,-0.1],"materialId":"__skin__","rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"rotation":[0,0,0],"visible":true}],"visible":true};
 
   
 
@@ -1560,7 +1012,14 @@
 
   
 
-  var SKELETON_VERSIONS = {
+    // ── BASE_ANIMS：基本动画模板（每骨架版本复制出自己的 anims，互不共享；新骨架从此派生）──
+  // target 用 {kind, joint} 表示：kind=P → 关节 pivot；kind=O → 关节原对象（position 轨道）
+  const BASE_ANIMS = {
+    restPoses: REST_POSES,
+    actions: {"Idle":[{"kind":"O","joint":"torso","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.5,"v":0.03},{"t":1,"v":0}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.02},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"z","restKey":"head:z","keys":[{"t":0,"v":0},{"t":0.5,"v":-0.04},{"t":1,"v":0}]}],"Walk":[{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.04},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.45},{"t":0.25,"v":-0.08},{"t":0.5,"v":0.12},{"t":0.75,"v":0.25},{"t":1,"v":-0.45}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.25},{"t":0.25,"v":-0.45},{"t":0.5,"v":-0.08},{"t":0.75,"v":0.12},{"t":1,"v":0.25}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.12},{"t":0.5,"v":0.37},{"t":0.75,"v":1.35},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.37},{"t":0.25,"v":1.35},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.12},{"t":1,"v":0.37}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.35},{"t":0.25,"v":0.1},{"t":0.5,"v":-0.35},{"t":0.75,"v":0.1},{"t":1,"v":0.35}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.35},{"t":0.25,"v":-0.1},{"t":0.5,"v":0.35},{"t":0.75,"v":-0.1},{"t":1,"v":-0.35}]}],"Run":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.3},{"t":0.5,"v":0.15},{"t":1,"v":0.3}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.08},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.85},{"t":0.25,"v":-0.2},{"t":0.5,"v":0.15},{"t":0.75,"v":0.35},{"t":1,"v":-0.85}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.15},{"t":0.25,"v":0.35},{"t":0.5,"v":-0.85},{"t":0.75,"v":-0.2},{"t":1,"v":0.15}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.05},{"t":0.5,"v":0.75},{"t":0.75,"v":1.85},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.75},{"t":0.25,"v":1.85},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.05},{"t":1,"v":0.75}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.5},{"t":0.25,"v":0.15},{"t":0.5,"v":-0.5},{"t":0.75,"v":0.15},{"t":1,"v":0.5}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.5},{"t":0.25,"v":-0.15},{"t":0.5,"v":0.5},{"t":0.75,"v":-0.15},{"t":1,"v":-0.5}]}],"Attack":[{"kind":"P","joint":"torso_upper","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.45,"v":0},{"t":0.55,"v":0.5},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"l_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]},{"kind":"P","joint":"r_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]}],"Stagger":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.2,"v":-0.3},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.15,"v":-0.4},{"t":1,"v":0}]}],"Die":[{"kind":"P","joint":"root","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.333,"v":1.5079644737231006},{"t":1,"v":1.5707963267948966}]},{"kind":"O","joint":"root","prop":"position","axis":"y","restKey":null,"keys":[{"t":0,"v":0},{"t":0.333,"v":0.03},{"t":0.667,"v":0.072},{"t":1,"v":0.072}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.667,"v":-0.3},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.667,"v":0.3},{"t":1,"v":0.3}]}]},
+  };
+
+var SKELETON_VERSIONS = {
   "v1-成年中性-20260810": {
     "date": "2026-08-10",
     "note": "微调定稿中性基底",
@@ -1594,7 +1053,7 @@
           ],
           "position": [
             0,
-            0.375,
+            0.5,
             0
           ],
           "materialId": "__cloth__",
@@ -1639,7 +1098,282 @@
                     0,
                     0
                   ],
-                  "visible": true
+                  "visible": true,
+                  "pivot": [
+                    0,
+                    -0.145,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "name": "neck",
+                      "type": "Cylinder",
+                      "size": [
+                        0.04,
+                        0.061,
+                        0.04
+                      ],
+                      "position": [
+                        0,
+                        0.1755,
+                        -0.0421
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        -0.0305,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "head",
+                          "type": "Sphere",
+                          "size": [
+                            0.08929999999999999
+                          ],
+                          "position": [
+                            0,
+                            0.0874,
+                            0.0032
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            -0.08929999999999999,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "segments": [
+                            6,
+                            5
+                          ],
+                          "children": [
+                            {
+                              "name": "l_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            },
+                            {
+                              "name": "r_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                -0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "l_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.052,
+                        0.275,
+                        0.03
+                      ],
+                      "position": [
+                        0.171,
+                        0.0075,
+                        -0.0321
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "l_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.255,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "l_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "r_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.052,
+                        0.275,
+                        0.03
+                      ],
+                      "position": [
+                        -0.171,
+                        0.0075,
+                        -0.0321
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "r_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.255,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "r_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    }
+                  ]
                 },
                 {
                   "name": "torso_lower",
@@ -1667,274 +1401,6 @@
                     0
                   ],
                   "visible": true
-                },
-                {
-                  "name": "neck",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.061,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    0.4745,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.0305,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "head",
-                      "type": "Sphere",
-                      "size": [
-                        0.08929999999999999
-                      ],
-                      "position": [
-                        0,
-                        0.0874,
-                        0.0032
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        -0.08929999999999999,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "segments": [
-                        6,
-                        5
-                      ],
-                      "children": [
-                        {
-                          "name": "l_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        },
-                        {
-                          "name": "r_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            -0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "l_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    0.171,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "l_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "r_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    -0.171,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "r_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
                 }
               ],
               "visible": true
@@ -1949,7 +1415,7 @@
               ],
               "position": [
                 0.075,
-                -0.05,
+                -0.175,
                 0
               ],
               "pivot": [
@@ -2031,7 +1497,7 @@
               ],
               "position": [
                 -0.075,
-                -0.05,
+                -0.175,
                 0
               ],
               "pivot": [
@@ -2113,6 +1579,759 @@
         }
       ],
       "visible": true
+    },
+    "anims": {
+      "restPoses": {
+        "torso:x": 0.2,
+        "neck:x": 0.22,
+        "head:z": 0.08,
+        "l_upper_arm:z": 0.09,
+        "r_upper_arm:z": -0.09,
+        "pelvis:y": 0.5
+      },
+      "actions": {
+        "Idle": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.03
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.02
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": "head:z",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Walk": [
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.45
+              },
+              {
+                "t": 0.25,
+                "v": -0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.12
+              },
+              {
+                "t": 0.75,
+                "v": 0.25
+              },
+              {
+                "t": 1,
+                "v": -0.45
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.25
+              },
+              {
+                "t": 0.25,
+                "v": -0.45
+              },
+              {
+                "t": 0.5,
+                "v": -0.08
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.25
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.12
+              },
+              {
+                "t": 0.5,
+                "v": 0.37
+              },
+              {
+                "t": 0.75,
+                "v": 1.35
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.37
+              },
+              {
+                "t": 0.25,
+                "v": 1.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.37
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.35
+              },
+              {
+                "t": 0.25,
+                "v": 0.1
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 0.75,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.35
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.35
+              },
+              {
+                "t": 0.25,
+                "v": -0.1
+              },
+              {
+                "t": 0.5,
+                "v": 0.35
+              },
+              {
+                "t": 0.75,
+                "v": -0.1
+              },
+              {
+                "t": 1,
+                "v": -0.35
+              }
+            ]
+          }
+        ],
+        "Run": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.3
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.85
+              },
+              {
+                "t": 0.25,
+                "v": -0.2
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": -0.85
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.15
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.85
+              },
+              {
+                "t": 0.75,
+                "v": -0.2
+              },
+              {
+                "t": 1,
+                "v": 0.15
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.05
+              },
+              {
+                "t": 0.5,
+                "v": 0.75
+              },
+              {
+                "t": 0.75,
+                "v": 1.85
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.75
+              },
+              {
+                "t": 0.25,
+                "v": 1.85
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.75
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.5
+              },
+              {
+                "t": 0.25,
+                "v": 0.15
+              },
+              {
+                "t": 0.5,
+                "v": -0.5
+              },
+              {
+                "t": 0.75,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.5
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.5
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.5,
+                "v": 0.5
+              },
+              {
+                "t": 0.75,
+                "v": -0.15
+              },
+              {
+                "t": 1,
+                "v": -0.5
+              }
+            ]
+          }
+        ],
+        "Attack": [
+          {
+            "kind": "P",
+            "joint": "torso_upper",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.45,
+                "v": 0
+              },
+              {
+                "t": 0.55,
+                "v": 0.5
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          }
+        ],
+        "Stagger": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.2,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.15,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Die": [
+          {
+            "kind": "P",
+            "joint": "root",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 1.5079644737231006
+              },
+              {
+                "t": 1,
+                "v": 1.5707963267948966
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "root",
+            "prop": "position",
+            "axis": "y",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 0.03
+              },
+              {
+                "t": 0.667,
+                "v": 0.072
+              },
+              {
+                "t": 1,
+                "v": 0.072
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": 0.3
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          }
+        ]
+      }
     }
   },
   "v1-成年男-20260810": {
@@ -2172,20 +2391,20 @@
                   "name": "torso_upper",
                   "type": "RidgeBox",
                   "size": [
-                    0.18,
+                    0.22,
                     0.29,
-                    0.16,
-                    0.3,
-                    0.12,
-                    0,
-                    -0.05888512803143086,
                     0.2,
-                    0.07869616132342962
+                    0.3,
+                    0.16,
+                    0,
+                    -0.026756043567614046,
+                    0.2,
+                    0.031587802178380704
                   ],
                   "position": [
                     0,
                     0.299,
-                    -0.0079
+                    -0.035
                   ],
                   "materialId": "__skin__",
                   "rotation": [
@@ -2193,7 +2412,282 @@
                     0,
                     0
                   ],
-                  "visible": true
+                  "visible": true,
+                  "pivot": [
+                    0,
+                    -0.145,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "name": "neck",
+                      "type": "Cylinder",
+                      "size": [
+                        0.05,
+                        0.061,
+                        0.05
+                      ],
+                      "position": [
+                        0,
+                        0.1755,
+                        -0.015
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        -0.0305,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "head",
+                          "type": "Sphere",
+                          "size": [
+                            0.08929999999999999
+                          ],
+                          "position": [
+                            0,
+                            0.0874,
+                            0.0032
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            -0.08929999999999999,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "segments": [
+                            6,
+                            5
+                          ],
+                          "children": [
+                            {
+                              "name": "l_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            },
+                            {
+                              "name": "r_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                -0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "l_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.052,
+                        0.275,
+                        0.045
+                      ],
+                      "position": [
+                        0.1966,
+                        0.0075,
+                        -0.005
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "l_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.045,
+                            0.255,
+                            0.04
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "l_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "r_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.052,
+                        0.275,
+                        0.045
+                      ],
+                      "position": [
+                        -0.1966,
+                        0.0075,
+                        -0.005
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "r_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.045,
+                            0.255,
+                            0.04
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "r_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    }
+                  ]
                 },
                 {
                   "name": "torso_lower",
@@ -2202,10 +2696,10 @@
                     0.3,
                     0.154,
                     0.22,
-                    0.18,
-                    0.16,
+                    0.22,
+                    0.2,
                     0,
-                    0,
+                    -0.033649561446189864,
                     0,
                     -0.04
                   ],
@@ -2219,274 +2713,6 @@
                     0,
                     0,
                     0
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "neck",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.061,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    0.4745,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.0305,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "head",
-                      "type": "Sphere",
-                      "size": [
-                        0.08929999999999999
-                      ],
-                      "position": [
-                        0,
-                        0.0874,
-                        0.0032
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        -0.08929999999999999,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "segments": [
-                        6,
-                        5
-                      ],
-                      "children": [
-                        {
-                          "name": "l_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        },
-                        {
-                          "name": "r_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            -0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "l_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    0.1966,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "l_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "r_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    -0.1966,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "r_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
                   ],
                   "visible": true
                 }
@@ -2503,7 +2729,7 @@
               ],
               "position": [
                 0.075,
-                -0.05,
+                -0.175,
                 0
               ],
               "pivot": [
@@ -2585,7 +2811,7 @@
               ],
               "position": [
                 -0.075,
-                -0.05,
+                -0.175,
                 0
               ],
               "pivot": [
@@ -2667,560 +2893,759 @@
         }
       ],
       "visible": true
-    }
-  },
-  "v1-成年女-20260810": {
-    "date": "2026-08-10",
-    "note": "用户编辑数据覆盖(2026-08-13, 原v0.79.6中性误编辑)",
-    "tree": {
-      "name": "root",
-      "type": "Group",
-      "position": [
-        0.08,
-        0.1833,
-        0
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "children": [
-        {
-          "name": "pelvis",
-          "type": "TaperedBox",
-          "size": [
-            0.3,
-            0.135,
-            0.12,
-            0.3,
-            0.22,
-            0,
-            -0.001745367603108186,
-            0,
-            0
-          ],
-          "position": [
-            0,
-            0.5,
-            0
-          ],
-          "materialId": "__cloth__",
-          "children": [
-            {
-              "name": "torso",
-              "type": "Group",
-              "position": [
-                0,
-                0.0675,
-                0.04
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "materialId": "__cloth__",
-              "children": [
-                {
-                  "name": "torso_upper",
-                  "type": "RidgeBox",
-                  "size": [
-                    0.18,
-                    0.29,
-                    0.12,
-                    0.3,
-                    0.12,
-                    0,
-                    -0.05888512803143086,
-                    0.2,
-                    0.07869616132342962
-                  ],
-                  "position": [
-                    0,
-                    0.299,
-                    -0.0079
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "torso_lower",
-                  "type": "TaperedBox",
-                  "size": [
-                    0.3,
-                    0.154,
-                    0.22,
-                    0.18,
-                    0.12,
-                    0,
-                    0,
-                    0,
-                    -0.04
-                  ],
-                  "position": [
-                    0,
-                    0.077,
-                    -0.04
-                  ],
-                  "materialId": "__skin__",
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "neck",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.061,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    0.4745,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.0305,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "head",
-                      "type": "Sphere",
-                      "size": [
-                        0.08929999999999999
-                      ],
-                      "position": [
-                        0,
-                        0.0874,
-                        0.0032
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        -0.08929999999999999,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "segments": [
-                        6,
-                        5
-                      ],
-                      "children": [
-                        {
-                          "name": "l_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        },
-                        {
-                          "name": "r_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            -0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "l_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.05,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    0.171,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "l_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "r_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.05,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    -0.171,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "r_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                }
-              ],
-              "visible": true
-            },
-            {
-              "name": "l_upper_leg",
-              "type": "Cylinder",
-              "size": [
-                0.061,
-                0.34650000000000003,
-                0.04
-              ],
-              "position": [
-                0.075,
-                -0.1724,
-                0
-              ],
-              "pivot": [
-                0,
-                0.17325000000000002,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "l_lower_leg",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.34650000000000003,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    -0.3234,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.17325000000000002,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_foot",
-                      "type": "Box",
-                      "size": [
-                        0.112,
-                        0.045,
-                        0.225
-                      ],
-                      "position": [
-                        0,
-                        -0.165,
-                        0.06
-                      ],
-                      "pivot": [
-                        0,
-                        0.05,
-                        -0.1
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            },
-            {
-              "name": "r_upper_leg",
-              "type": "Cylinder",
-              "size": [
-                0.061,
-                0.34650000000000003,
-                0.04
-              ],
-              "position": [
-                -0.075,
-                -0.17,
-                0
-              ],
-              "pivot": [
-                0,
-                0.17325000000000002,
-                0
-              ],
-              "materialId": "__skin__",
-              "children": [
-                {
-                  "name": "r_lower_leg",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.34650000000000003,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    -0.3234,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.17325000000000002,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_foot",
-                      "type": "Box",
-                      "size": [
-                        0.112,
-                        0.045,
-                        0.225
-                      ],
-                      "position": [
-                        0,
-                        -0.165,
-                        0.06
-                      ],
-                      "pivot": [
-                        0,
-                        0.05,
-                        -0.1
-                      ],
-                      "materialId": "__skin__",
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "visible": true
-                }
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "visible": true
-            }
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "visible": true
-        }
-      ],
-      "visible": true
+    },
+    "anims": {
+      "restPoses": {
+        "torso:x": 0.2,
+        "neck:x": 0.22,
+        "head:z": 0.08,
+        "l_upper_arm:z": 0.09,
+        "r_upper_arm:z": -0.09,
+        "pelvis:y": 0.5
+      },
+      "actions": {
+        "Idle": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.03
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.02
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": "head:z",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Walk": [
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.45
+              },
+              {
+                "t": 0.25,
+                "v": -0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.12
+              },
+              {
+                "t": 0.75,
+                "v": 0.25
+              },
+              {
+                "t": 1,
+                "v": -0.45
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.25
+              },
+              {
+                "t": 0.25,
+                "v": -0.45
+              },
+              {
+                "t": 0.5,
+                "v": -0.08
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.25
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.12
+              },
+              {
+                "t": 0.5,
+                "v": 0.37
+              },
+              {
+                "t": 0.75,
+                "v": 1.35
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.37
+              },
+              {
+                "t": 0.25,
+                "v": 1.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.37
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.35
+              },
+              {
+                "t": 0.25,
+                "v": 0.1
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 0.75,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.35
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.35
+              },
+              {
+                "t": 0.25,
+                "v": -0.1
+              },
+              {
+                "t": 0.5,
+                "v": 0.35
+              },
+              {
+                "t": 0.75,
+                "v": -0.1
+              },
+              {
+                "t": 1,
+                "v": -0.35
+              }
+            ]
+          }
+        ],
+        "Run": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.3
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.85
+              },
+              {
+                "t": 0.25,
+                "v": -0.2
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": -0.85
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.15
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.85
+              },
+              {
+                "t": 0.75,
+                "v": -0.2
+              },
+              {
+                "t": 1,
+                "v": 0.15
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.05
+              },
+              {
+                "t": 0.5,
+                "v": 0.75
+              },
+              {
+                "t": 0.75,
+                "v": 1.85
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.75
+              },
+              {
+                "t": 0.25,
+                "v": 1.85
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.75
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.5
+              },
+              {
+                "t": 0.25,
+                "v": 0.15
+              },
+              {
+                "t": 0.5,
+                "v": -0.5
+              },
+              {
+                "t": 0.75,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.5
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.5
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.5,
+                "v": 0.5
+              },
+              {
+                "t": 0.75,
+                "v": -0.15
+              },
+              {
+                "t": 1,
+                "v": -0.5
+              }
+            ]
+          }
+        ],
+        "Attack": [
+          {
+            "kind": "P",
+            "joint": "torso_upper",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.45,
+                "v": 0
+              },
+              {
+                "t": 0.55,
+                "v": 0.5
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          }
+        ],
+        "Stagger": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.2,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.15,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Die": [
+          {
+            "kind": "P",
+            "joint": "root",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 1.5079644737231006
+              },
+              {
+                "t": 1,
+                "v": 1.5707963267948966
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "root",
+            "prop": "position",
+            "axis": "y",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 0.03
+              },
+              {
+                "t": 0.667,
+                "v": 0.072
+              },
+              {
+                "t": 1,
+                "v": 0.072
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": 0.3
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          }
+        ]
+      }
     }
   },
   "v1-儿童-20260810": {
@@ -3231,7 +3656,7 @@
       "type": "Group",
       "position": [
         0.08,
-        0.1859,
+        0.1127,
         0
       ],
       "rotation": [
@@ -3248,15 +3673,15 @@
             0.135,
             0.1468801484276677,
             0.3,
-            0.22,
+            0.2,
             0,
-            -0.001745367603108186,
+            0.005906025851763303,
             0,
             0
           ],
           "position": [
             0,
-            0.375,
+            0.4,
             0
           ],
           "materialId": "__cloth__",
@@ -3280,20 +3705,20 @@
                   "name": "torso_upper",
                   "type": "RidgeBox",
                   "size": [
-                    0.18,
+                    0.2,
                     0.29,
                     0.16,
                     0.3,
                     0.12,
                     0,
-                    -0.05888512803143086,
+                    -0.03922263768951445,
                     0.2,
-                    0.07869616132342962
+                    0.04
                   ],
                   "position": [
                     0,
                     0.299,
-                    -0.0079
+                    -0.02
                   ],
                   "materialId": "__skin__",
                   "rotation": [
@@ -3301,7 +3726,282 @@
                     0,
                     0
                   ],
-                  "visible": true
+                  "visible": true,
+                  "pivot": [
+                    0,
+                    -0.145,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "name": "neck",
+                      "type": "Cylinder",
+                      "size": [
+                        0.04,
+                        0.061,
+                        0.04
+                      ],
+                      "position": [
+                        0,
+                        0.1755,
+                        -0.03
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        -0.0305,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "head",
+                          "type": "Sphere",
+                          "size": [
+                            0.11162499999999999
+                          ],
+                          "position": [
+                            0,
+                            0.0874,
+                            0.0032
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            -0.11162499999999999,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "segments": [
+                            6,
+                            5
+                          ],
+                          "children": [
+                            {
+                              "name": "l_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.0238
+                              ],
+                              "position": [
+                                0.0356,
+                                0.0238,
+                                0.0831
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            },
+                            {
+                              "name": "r_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.0238
+                              ],
+                              "position": [
+                                -0.0356,
+                                0.0238,
+                                0.0831
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "l_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.05,
+                        0.24750000000000003,
+                        0.03
+                      ],
+                      "position": [
+                        0.17,
+                        0.0075,
+                        -0.02
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0.0524
+                      ],
+                      "pivot": [
+                        0,
+                        0.12375000000000001,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "l_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.2295,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.231,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.11475,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "l_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.162,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "r_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.05,
+                        0.24750000000000003,
+                        0.03
+                      ],
+                      "position": [
+                        -0.165,
+                        0.0075,
+                        -0.02
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        -0.0524
+                      ],
+                      "pivot": [
+                        0,
+                        0.12375000000000001,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "r_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.2295,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.231,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.11475,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "r_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.162,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    }
+                  ]
                 },
                 {
                   "name": "torso_lower",
@@ -3309,292 +4009,24 @@
                   "size": [
                     0.3,
                     0.154,
-                    0.22,
-                    0.18,
+                    0.2,
+                    0.2,
                     0.16,
                     0,
-                    0,
+                    -0.008412711261427747,
                     0,
                     -0.04
                   ],
                   "position": [
                     0,
                     0.077,
-                    -0.04
+                    -0.035
                   ],
                   "materialId": "__skin__",
                   "rotation": [
                     0,
                     0,
                     0
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "neck",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.061,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    0.4745,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.0305,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "head",
-                      "type": "Sphere",
-                      "size": [
-                        0.11162499999999999
-                      ],
-                      "position": [
-                        0,
-                        0.0874,
-                        0.0032
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        -0.11162499999999999,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "segments": [
-                        6,
-                        5
-                      ],
-                      "children": [
-                        {
-                          "name": "l_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.0238
-                          ],
-                          "position": [
-                            0.0356,
-                            0.0238,
-                            0.0831
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        },
-                        {
-                          "name": "r_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.0238
-                          ],
-                          "position": [
-                            -0.0356,
-                            0.0238,
-                            0.0831
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "l_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.24750000000000003,
-                    0.03
-                  ],
-                  "position": [
-                    0.1539,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.12375000000000001,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.2295,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.231,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.11475,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "l_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.162,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "r_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.052,
-                    0.24750000000000003,
-                    0.03
-                  ],
-                  "position": [
-                    -0.1539,
-                    0.3065,
-                    -0.04
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    0.12375000000000001,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.2295,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.231,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.11475,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "r_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.162,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
                   ],
                   "visible": true
                 }
@@ -3607,11 +4039,11 @@
               "size": [
                 0.061,
                 0.29452500000000004,
-                0.061
+                0.05
               ],
               "position": [
                 0.075,
-                -0.05,
+                -0.075,
                 0
               ],
               "pivot": [
@@ -3689,11 +4121,11 @@
               "size": [
                 0.061,
                 0.29452500000000004,
-                0.061
+                0.05
               ],
               "position": [
                 -0.075,
-                -0.05,
+                -0.075,
                 0
               ],
               "pivot": [
@@ -3775,6 +4207,759 @@
         }
       ],
       "visible": true
+    },
+    "anims": {
+      "restPoses": {
+        "torso:x": 0.2,
+        "neck:x": 0.22,
+        "head:z": 0.08,
+        "l_upper_arm:z": 0.09,
+        "r_upper_arm:z": -0.09,
+        "pelvis:y": 0.4
+      },
+      "actions": {
+        "Idle": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.03
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.02
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": "head:z",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Walk": [
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.45
+              },
+              {
+                "t": 0.25,
+                "v": -0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.12
+              },
+              {
+                "t": 0.75,
+                "v": 0.25
+              },
+              {
+                "t": 1,
+                "v": -0.45
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.25
+              },
+              {
+                "t": 0.25,
+                "v": -0.45
+              },
+              {
+                "t": 0.5,
+                "v": -0.08
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.25
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.12
+              },
+              {
+                "t": 0.5,
+                "v": 0.37
+              },
+              {
+                "t": 0.75,
+                "v": 1.35
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.37
+              },
+              {
+                "t": 0.25,
+                "v": 1.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.37
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.35
+              },
+              {
+                "t": 0.25,
+                "v": 0.1
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 0.75,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.35
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.35
+              },
+              {
+                "t": 0.25,
+                "v": -0.1
+              },
+              {
+                "t": 0.5,
+                "v": 0.35
+              },
+              {
+                "t": 0.75,
+                "v": -0.1
+              },
+              {
+                "t": 1,
+                "v": -0.35
+              }
+            ]
+          }
+        ],
+        "Run": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.3
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.85
+              },
+              {
+                "t": 0.25,
+                "v": -0.2
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": -0.85
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.15
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.85
+              },
+              {
+                "t": 0.75,
+                "v": -0.2
+              },
+              {
+                "t": 1,
+                "v": 0.15
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.05
+              },
+              {
+                "t": 0.5,
+                "v": 0.75
+              },
+              {
+                "t": 0.75,
+                "v": 1.85
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.75
+              },
+              {
+                "t": 0.25,
+                "v": 1.85
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.75
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.5
+              },
+              {
+                "t": 0.25,
+                "v": 0.15
+              },
+              {
+                "t": 0.5,
+                "v": -0.5
+              },
+              {
+                "t": 0.75,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.5
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.5
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.5,
+                "v": 0.5
+              },
+              {
+                "t": 0.75,
+                "v": -0.15
+              },
+              {
+                "t": 1,
+                "v": -0.5
+              }
+            ]
+          }
+        ],
+        "Attack": [
+          {
+            "kind": "P",
+            "joint": "torso_upper",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.45,
+                "v": 0
+              },
+              {
+                "t": 0.55,
+                "v": 0.5
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          }
+        ],
+        "Stagger": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.2,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.15,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Die": [
+          {
+            "kind": "P",
+            "joint": "root",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 1.5079644737231006
+              },
+              {
+                "t": 1,
+                "v": 1.5707963267948966
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "root",
+            "prop": "position",
+            "axis": "y",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 0.03
+              },
+              {
+                "t": 0.667,
+                "v": 0.072
+              },
+              {
+                "t": 1,
+                "v": 0.072
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": 0.3
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          }
+        ]
+      }
     }
   },
   "v2-成年女性-2026-08-14": {
@@ -3855,7 +5040,282 @@
                     0,
                     0
                   ],
-                  "visible": true
+                  "visible": true,
+                  "pivot": [
+                    0,
+                    -0.145,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "name": "neck",
+                      "type": "Cylinder",
+                      "size": [
+                        0.04,
+                        0.061,
+                        0.04
+                      ],
+                      "position": [
+                        0,
+                        0.1755,
+                        -0.0421
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0
+                      ],
+                      "pivot": [
+                        0,
+                        -0.0305,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "head",
+                          "type": "Sphere",
+                          "size": [
+                            0.08929999999999999
+                          ],
+                          "position": [
+                            0,
+                            0.0874,
+                            0.0032
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            -0.08929999999999999,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "segments": [
+                            6,
+                            5
+                          ],
+                          "children": [
+                            {
+                              "name": "l_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            },
+                            {
+                              "name": "r_eye_glow",
+                              "type": "Sphere",
+                              "size": [
+                                0.019
+                              ],
+                              "position": [
+                                -0.0285,
+                                0.019,
+                                0.0665
+                              ],
+                              "materialId": "eye_glow",
+                              "segments": [
+                                5,
+                                4
+                              ],
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "l_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.045,
+                        0.275,
+                        0.03
+                      ],
+                      "position": [
+                        0.171,
+                        0.0075,
+                        -0.0421
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        0.0349
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "l_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.255,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "l_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    },
+                    {
+                      "name": "r_upper_arm",
+                      "type": "Cylinder",
+                      "size": [
+                        0.045,
+                        0.275,
+                        0.03
+                      ],
+                      "position": [
+                        -0.171,
+                        0.0075,
+                        -0.0421
+                      ],
+                      "rotation": [
+                        0,
+                        0,
+                        -0.0349
+                      ],
+                      "pivot": [
+                        0,
+                        0.1375,
+                        0
+                      ],
+                      "materialId": "__skin__",
+                      "children": [
+                        {
+                          "name": "r_forearm",
+                          "type": "Cylinder",
+                          "size": [
+                            0.03,
+                            0.255,
+                            0.035
+                          ],
+                          "position": [
+                            0,
+                            -0.2567,
+                            0
+                          ],
+                          "pivot": [
+                            0,
+                            0.1275,
+                            0
+                          ],
+                          "materialId": "__skin__",
+                          "children": [
+                            {
+                              "name": "r_hand",
+                              "type": "Box",
+                              "size": [
+                                0.052,
+                                0.104,
+                                0.045
+                              ],
+                              "position": [
+                                0,
+                                -0.18,
+                                0
+                              ],
+                              "pivot": [
+                                0,
+                                0.052,
+                                0
+                              ],
+                              "materialId": "__skin__",
+                              "rotation": [
+                                0,
+                                0,
+                                0
+                              ],
+                              "visible": true
+                            }
+                          ],
+                          "rotation": [
+                            0,
+                            0,
+                            0
+                          ],
+                          "visible": true
+                        }
+                      ],
+                      "visible": true
+                    }
+                  ]
                 },
                 {
                   "name": "torso_lower",
@@ -3881,274 +5341,6 @@
                     0,
                     0,
                     0
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "neck",
-                  "type": "Cylinder",
-                  "size": [
-                    0.04,
-                    0.061,
-                    0.04
-                  ],
-                  "position": [
-                    0,
-                    0.4745,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0
-                  ],
-                  "pivot": [
-                    0,
-                    -0.0305,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "head",
-                      "type": "Sphere",
-                      "size": [
-                        0.08929999999999999
-                      ],
-                      "position": [
-                        0,
-                        0.0874,
-                        0.0032
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        -0.08929999999999999,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "segments": [
-                        6,
-                        5
-                      ],
-                      "children": [
-                        {
-                          "name": "l_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        },
-                        {
-                          "name": "r_eye_glow",
-                          "type": "Sphere",
-                          "size": [
-                            0.019
-                          ],
-                          "position": [
-                            -0.0285,
-                            0.019,
-                            0.0665
-                          ],
-                          "materialId": "eye_glow",
-                          "segments": [
-                            5,
-                            4
-                          ],
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "l_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.045,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    0.171,
-                    0.3065,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    0.0349
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "l_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "l_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
-                  ],
-                  "visible": true
-                },
-                {
-                  "name": "r_upper_arm",
-                  "type": "Cylinder",
-                  "size": [
-                    0.045,
-                    0.275,
-                    0.03
-                  ],
-                  "position": [
-                    -0.171,
-                    0.3065,
-                    -0.05
-                  ],
-                  "rotation": [
-                    0,
-                    0,
-                    -0.0349
-                  ],
-                  "pivot": [
-                    0,
-                    0.1375,
-                    0
-                  ],
-                  "materialId": "__skin__",
-                  "children": [
-                    {
-                      "name": "r_forearm",
-                      "type": "Cylinder",
-                      "size": [
-                        0.03,
-                        0.255,
-                        0.035
-                      ],
-                      "position": [
-                        0,
-                        -0.2567,
-                        0
-                      ],
-                      "pivot": [
-                        0,
-                        0.1275,
-                        0
-                      ],
-                      "materialId": "__skin__",
-                      "children": [
-                        {
-                          "name": "r_hand",
-                          "type": "Box",
-                          "size": [
-                            0.052,
-                            0.104,
-                            0.045
-                          ],
-                          "position": [
-                            0,
-                            -0.18,
-                            0
-                          ],
-                          "pivot": [
-                            0,
-                            0.052,
-                            0
-                          ],
-                          "materialId": "__skin__",
-                          "rotation": [
-                            0,
-                            0,
-                            0
-                          ],
-                          "visible": true
-                        }
-                      ],
-                      "rotation": [
-                        0,
-                        0,
-                        0
-                      ],
-                      "visible": true
-                    }
                   ],
                   "visible": true
                 }
@@ -4329,65 +5521,763 @@
         }
       ],
       "visible": true
+    },
+    "anims": {
+      "restPoses": {
+        "torso:x": 0.2,
+        "neck:x": 0.22,
+        "head:z": 0.08,
+        "l_upper_arm:z": 0.09,
+        "r_upper_arm:z": -0.09,
+        "pelvis:y": 0.5
+      },
+      "actions": {
+        "Idle": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.03
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.02
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": "head:z",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Walk": [
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.04
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.45
+              },
+              {
+                "t": 0.25,
+                "v": -0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.12
+              },
+              {
+                "t": 0.75,
+                "v": 0.25
+              },
+              {
+                "t": 1,
+                "v": -0.45
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.25
+              },
+              {
+                "t": 0.25,
+                "v": -0.45
+              },
+              {
+                "t": 0.5,
+                "v": -0.08
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.25
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.12
+              },
+              {
+                "t": 0.5,
+                "v": 0.37
+              },
+              {
+                "t": 0.75,
+                "v": 1.35
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.37
+              },
+              {
+                "t": 0.25,
+                "v": 1.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.12
+              },
+              {
+                "t": 1,
+                "v": 0.37
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.35
+              },
+              {
+                "t": 0.25,
+                "v": 0.1
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 0.75,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.35
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.35
+              },
+              {
+                "t": 0.25,
+                "v": -0.1
+              },
+              {
+                "t": 0.5,
+                "v": 0.35
+              },
+              {
+                "t": 0.75,
+                "v": -0.1
+              },
+              {
+                "t": 1,
+                "v": -0.35
+              }
+            ]
+          }
+        ],
+        "Run": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.3
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "pelvis",
+            "prop": "position",
+            "axis": "y",
+            "restKey": "pelvis:y",
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.85
+              },
+              {
+                "t": 0.25,
+                "v": -0.2
+              },
+              {
+                "t": 0.5,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": -0.85
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.15
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.5,
+                "v": -0.85
+              },
+              {
+                "t": 0.75,
+                "v": -0.2
+              },
+              {
+                "t": 1,
+                "v": 0.15
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.3
+              },
+              {
+                "t": 0.25,
+                "v": 0.05
+              },
+              {
+                "t": 0.5,
+                "v": 0.75
+              },
+              {
+                "t": 0.75,
+                "v": 1.85
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.75
+              },
+              {
+                "t": 0.25,
+                "v": 1.85
+              },
+              {
+                "t": 0.5,
+                "v": -0.3
+              },
+              {
+                "t": 0.75,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.75
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.5
+              },
+              {
+                "t": 0.25,
+                "v": 0.15
+              },
+              {
+                "t": 0.5,
+                "v": -0.5
+              },
+              {
+                "t": 0.75,
+                "v": 0.15
+              },
+              {
+                "t": 1,
+                "v": 0.5
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.5
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.5,
+                "v": 0.5
+              },
+              {
+                "t": 0.75,
+                "v": -0.15
+              },
+              {
+                "t": 1,
+                "v": -0.5
+              }
+            ]
+          }
+        ],
+        "Attack": [
+          {
+            "kind": "P",
+            "joint": "torso_upper",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.45,
+                "v": 0
+              },
+              {
+                "t": 0.55,
+                "v": 0.5
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -0.1
+              },
+              {
+                "t": 0.45,
+                "v": -1.8
+              },
+              {
+                "t": 0.55,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": -1.6
+              },
+              {
+                "t": 0.45,
+                "v": -0.2
+              },
+              {
+                "t": 0.55,
+                "v": -0.5
+              },
+              {
+                "t": 1,
+                "v": -1.6
+              }
+            ]
+          }
+        ],
+        "Stagger": [
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.2,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.15,
+                "v": -0.4
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          }
+        ],
+        "Die": [
+          {
+            "kind": "P",
+            "joint": "root",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 1.5079644737231006
+              },
+              {
+                "t": 1,
+                "v": 1.5707963267948966
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "root",
+            "prop": "position",
+            "axis": "y",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.333,
+                "v": 0.03
+              },
+              {
+                "t": 0.667,
+                "v": 0.072
+              },
+              {
+                "t": 1,
+                "v": 0.072
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": -0.3
+              },
+              {
+                "t": 1,
+                "v": -0.3
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_arm",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.667,
+                "v": 0.3
+              },
+              {
+                "t": 1,
+                "v": 0.3
+              }
+            ]
+          }
+        ]
+      }
     }
   }
 };
 
-  // 从基底派生比例版本（相对 factor，兼容 swapX 后人物视角；setBean 同步 size+pivot+子pos）
-  function _deriveProportion(base, cfg) {
-    var tree = JSON.parse(JSON.stringify(base));
-    function deriveBone(name, factor, pivotAt) {
-      var bn = findNode(base, name);
-      if (!bn || !bn.size) return;
-      var idx = bn.type === 'Sphere' ? 0 : 1;
-      setBone(tree, name, bn.size[idx] * factor, pivotAt);
-    }
-    if (cfg.head) deriveBone('head', cfg.head, 'bottom');
-    if (cfg.leg)
-      ['l_upper_leg', 'r_upper_leg', 'l_lower_leg', 'r_lower_leg'].forEach(function (n) {
-        deriveBone(n, cfg.leg, 'top');
-      });
-    if (cfg.arm)
-      ['l_upper_arm', 'r_upper_arm', 'l_forearm', 'r_forearm'].forEach(function (n) {
-        deriveBone(n, cfg.arm, 'top');
-      });
-    if (cfg.shoulder) {
-      var bs = findNode(base, 'l_upper_arm');
-      if (bs && bs.position) {
-        var tl = findNode(tree, 'l_upper_arm'),
-          tr = findNode(tree, 'r_upper_arm');
-        if (tl) tl.position[0] = bs.position[0] * cfg.shoulder;
-        if (tr) tr.position[0] = -bs.position[0] * cfg.shoulder;
-      }
-    }
-    return tree;
-  }
-  // 只给 v1-成年女：胸 RidgeBox 五边形脊线 + 臀 TaperedBox 底面偏移（不污染共享 WORKING_SKELETON）
-  function _applyFemaleCurves(tree) {
-    var find = function (n, nm) {
-      if (n.name === nm) return n;
-      if (n.children)
-        for (var i = 0; i < n.children.length; i++) {
-          var r = find(n.children[i], nm);
-          if (r) return r;
-        }
-      return null;
-    };
-    var tu = find(tree, 'torso_upper');
-    if (tu) {
-      tu.type = 'RidgeBox';
-      tu.size = [0.22, 0.29, 0.16, 0.31, 0.2, 0, 0, 0.2, 0.04];
-    }
-    var tl = find(tree, 'torso_lower');
-    if (tl) {
-      tl.size = [0.3, 0.154, 0.22, 0.22, 0.16, 0, 0, 0, -0.04];
-    }
-    var pv = find(tree, 'pelvis');
-    if (pv) {
-      pv.type = 'TaperedBox';
-      pv.size = [0.3, 0.135, 0.22, 0.3, 0.22, 0, -0.04, 0, 0];
-    }
-  }
   // MODELS：四变体裸体（从骨架版本烘焙，Phase 1 裸体无 addon；学生男女同参数分开存）
   var MODELS = {};
   MODELS.student_m = {
@@ -4406,10 +6296,18 @@
     anims: null,
   };
   MODELS.teacher_f = {
-    _skeletonVer: 'v1-成年女-20260810',
-    tree: bakeModel('v1-成年女-20260810', { addons: [] }),
+    _skeletonVer: 'v2-成年女性-2026-08-14',
+    tree: bakeModel('v2-成年女性-2026-08-14', { addons: [] }),
     anims: null,
   };
+
+  // 变体动画继承：MODELS[v].anims = 所属骨架版本的 anims（每骨架一套基本动画，变体自动继承）
+  Object.keys(MODELS).forEach(function (mk) {
+    var msv = MODELS[mk]._skeletonVer;
+    if (msv && SKELETON_VERSIONS[msv] && SKELETON_VERSIONS[msv].anims) {
+      MODELS[mk].anims = JSON.parse(JSON.stringify(SKELETON_VERSIONS[msv].anims));
+    }
+  });
 
   // bakeModel：从骨架版本烘焙字面值 tree（复用 deriveNode + addon 注入逻辑）
   //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons }
@@ -4466,6 +6364,7 @@
     buildHumanoid, // 旧接口（Phase 1 游戏侧仍用）
     SKELETON_VERSIONS,
     WORKING_SKELETON,
+    BASE_ANIMS, // 基本动画模板（每骨架版本 anims 从此派生）
     MODELS, // 新数据层
     bakeModel,
     getSkeletonList,

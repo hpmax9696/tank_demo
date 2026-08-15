@@ -2242,11 +2242,10 @@
       }
       window._doSave = _doSave; // 暴露供测试/调试
 
-      // ❄️ 冻结骨架版本：把当前 WORKING_SKELETON 存入 SKELETON_VERSIONS（命名）+ 固化
+      // ❄️ 冻结骨架版本：把当前编辑的骨架（= 当前选中版本）另存为新版本 + 固化
       function freezeSkeleton() {
         if (currentModelType !== 'humanoid' || _humanoidMode !== 'skeleton') return;
         syncConfigFromScene(MODEL_CONFIGS.humanoid);
-        window.HumanoidConfig.WORKING_SKELETON = JSON.parse(JSON.stringify(MODEL_CONFIGS.humanoid));
         var vers = window.HumanoidConfig.getSkeletonList();
         var maxN = 0;
         vers.forEach(function (k) {
@@ -2266,7 +2265,7 @@
         window.HumanoidConfig.SKELETON_VERSIONS[key] = {
           date: dateStr,
           note: note,
-          tree: JSON.parse(JSON.stringify(window.HumanoidConfig.WORKING_SKELETON)),
+          tree: JSON.parse(JSON.stringify(MODEL_CONFIGS.humanoid)),
         };
         fetch('/api/solidify', {
           method: 'POST',
@@ -2317,6 +2316,7 @@
       });
 
       // Shift+拖拽滑块 = 精细微调（速度 1/10）。capture 阶段拦截，阻止 lil-gui 绝对映射改用相对增量
+      // 健壮版：controller 反查失败时用 input 兜底，范围缺失时按可视宽度归一，保证所有 number 滑杆通用
       document.addEventListener(
         'pointerdown',
         (e) => {
@@ -2328,12 +2328,25 @@
           if (!ctrl && gui) {
             ctrl = gui
               .controllersRecursive()
-              .find((c) => c.domElement.closest('.hasSlider') === widget);
+              .find((c) => c.domElement === widget || c.domElement.contains(widget));
             if (ctrl) widget.__peCtrl = ctrl;
           }
-          if (!ctrl) return;
           const slider = widget.querySelector('.slider');
           if (!slider) return;
+          const input = widget.querySelector('input');
+          // 范围：controller 的 _min/_max 优先；其次 input 的 min/max；都没有则按宽度归一
+          let min = null,
+            max = null;
+          if (ctrl) {
+            min = ctrl._min;
+            max = ctrl._max;
+          }
+          if ((min == null || max == null || !isFinite(min) || !isFinite(max)) && input) {
+            if (input.min !== '' && input.max !== '') {
+              min = parseFloat(input.min);
+              max = parseFloat(input.max);
+            }
+          }
           // 操作开始前拍照（capture 阶段 stopImmediatePropagation 会屏蔽下方 bubble 阶段的快照监听，此处补偿）
           if (modelRoot && autoSnapshot) {
             syncConfigFromScene(MODEL_CONFIGS[currentModelType]);
@@ -2345,14 +2358,22 @@
           e.stopImmediatePropagation(); // 阻止 lil-gui 的 slider 绝对映射 mouseDown
           e.preventDefault();
           const startX = e.clientX;
-          const startVal = ctrl.getValue();
+          const startVal = ctrl ? ctrl.getValue() : input ? parseFloat(input.value) || 0 : 0;
           const rect = slider.getBoundingClientRect();
-          const range = ctrl._max - ctrl._min;
-          const perPx = (range / rect.width) * 0.1; // 比原生拖动慢 10x
+          const range =
+            min != null && max != null && isFinite(min) && isFinite(max) ? max - min : 1;
+          const perPx = rect.width > 0 ? (range / rect.width) * 0.1 : range * 0.001; // 比原生拖动慢 10x
           const move = (ev) => {
             let nv = startVal + (ev.clientX - startX) * perPx;
-            nv = Math.max(ctrl._min, Math.min(ctrl._max, nv)); // 手动 clamp
-            ctrl.setValue(nv);
+            if (min != null && max != null && isFinite(min) && isFinite(max)) {
+              nv = Math.max(min, Math.min(max, nv)); // 手动 clamp
+            }
+            if (ctrl) {
+              ctrl.setValue(nv);
+            } else if (input) {
+              input.value = String(nv);
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
           };
           const up = () => {
             document.removeEventListener('pointermove', move);
@@ -3027,7 +3048,14 @@
         params: { height: 1.3, build: 0.5, hunch: 0.2, curves: 0 },
       };
       var _humanoidMode = 'variant'; // 'skeleton' | 'variant'（Task 3 工厂骨架/变体模式切换）
-      var _humanoidSkelVer = null; // 骨架模式选的版本：null=WORKING_SKELETON，或 SKELETON_VERSIONS key
+      var _humanoidSkelVer = (function () {
+        // 骨架模式默认版本 = 基础骨架（版本库第一个 = v1-成年中性）；不再使用工作骨架概念
+        if (window.HumanoidConfig) {
+          var ks = window.HumanoidConfig.getSkeletonList();
+          if (ks.length) return ks[0];
+        }
+        return null;
+      })();
       function _applyHumanoidEdit() {
         if (currentModelType !== 'humanoid' || !window.HumanoidConfig) return;
         var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
@@ -3070,13 +3098,17 @@
           JSON.stringify(MODEL_CONFIGS[currentModelType])
         );
         // 校园丧尸：按编辑模式加载配置树
-        //   skeleton → 深拷贝 WORKING_SKELETON（骨架白模，无 _params，跳过 height 归一仅贴地）
+        //   skeleton → 深拷贝 SKELETON_VERSIONS[_humanoidSkelVer].tree（骨架白模，无 _params，跳过 height 归一仅贴地）
         //   variant  → 深拷贝 MODELS[当前变体].tree（Phase 2 烘焙；不存在时兜底 buildHumanoid）
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
           if (_humanoidMode === 'skeleton') {
+            if (!_humanoidSkelVer || !window.HumanoidConfig.SKELETON_VERSIONS[_humanoidSkelVer]) {
+              var _ks = window.HumanoidConfig.getSkeletonList();
+              _humanoidSkelVer = _ks.length ? _ks[0] : null; // 版本被删或为空时回退到基础骨架
+            }
             var _skelSrc = _humanoidSkelVer
               ? window.HumanoidConfig.SKELETON_VERSIONS[_humanoidSkelVer].tree
-              : window.HumanoidConfig.WORKING_SKELETON;
+              : window.HumanoidConfig.WORKING_SKELETON; // 版本库为空时的最后兜底
             MODEL_CONFIGS.humanoid = JSON.parse(JSON.stringify(_skelSrc));
           } else {
             var _hm = window.HumanoidConfig.MODELS[_humanoidEdit.variant];
@@ -3092,6 +3124,17 @@
 
         scene.add(modelRoot);
         modelRoot.updateMatrixWorld(true);
+
+        // 注入当前人形的动画配置（humanoid_factory 展台读取）：每骨架一套基本动画
+        if (currentModelType === 'humanoid' && window.HumanoidConfig) {
+          if (_humanoidMode === 'skeleton') {
+            var _av = _humanoidSkelVer && window.HumanoidConfig.SKELETON_VERSIONS[_humanoidSkelVer];
+            window._currentHumanoidAnims = (_av && _av.anims) || window.HumanoidConfig.BASE_ANIMS;
+          } else {
+            var _mv = window.HumanoidConfig.MODELS[_humanoidEdit.variant];
+            window._currentHumanoidAnims = (_mv && _mv.anims) || window.HumanoidConfig.BASE_ANIMS;
+          }
+        }
 
         // 六足战车：贴地
         if (currentModelType === 'hexapod') {
@@ -3937,7 +3980,7 @@
 
         _buildCamoCtrl(modelFolder);
 
-        // 人形编辑模式切换（仅 humanoid 显示；骨架模式加载 WORKING_SKELETON，变体模式加载 MODELS[variant].tree）
+        // 人形编辑模式切换（仅 humanoid 显示；骨架模式加载 SKELETON_VERSIONS[默认基础骨架]，变体模式加载 MODELS[variant].tree）
         if (currentModelType === 'humanoid' && window.HumanoidConfig) {
           var modeF = gui.addFolder('🔀 编辑模式');
           modeF
@@ -3950,15 +3993,15 @@
               _humanoidMode = v;
               rebuildModel();
             });
-          modeF.add({ freeze: freezeSkeleton }, 'freeze').name('❄️ 冻结版本(骨架模式)');
+          modeF.add({ freeze: freezeSkeleton }, 'freeze').name('❄️ 冻结分支(基于当前骨架)');
           function refreshVerOptions() {
-            var opts = { '(工作骨架)': null };
+            var opts = {};
             window.HumanoidConfig.getSkeletonList().forEach(function (k) {
               opts[k] = k;
             });
             if (_verCtrl) _verCtrl.options(opts).setValue(_humanoidSkelVer);
           }
-          var _verOpts = { '(工作骨架)': null };
+          var _verOpts = {};
           window.HumanoidConfig.getSkeletonList().forEach(function (k) {
             _verOpts[k] = k;
           });
@@ -3973,7 +4016,7 @@
             if (currentModelType !== 'humanoid' || _humanoidMode !== 'skeleton') return;
             var k = key || _humanoidSkelVer;
             if (!k) {
-              alert('当前是工作骨架（无版本），无可删除的版本');
+              alert('没有可删除的版本');
               return;
             }
             if (!confirm('确定删除骨架版本「' + k + '」？此操作不可撤销。')) return;
