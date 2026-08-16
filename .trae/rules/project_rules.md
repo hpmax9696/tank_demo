@@ -46,7 +46,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
 | `model_factory.html`                    | ~5435 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关 + 骨架版本删除+保存分流）  |
 | `js/humanoid_factory.js`                | ~209  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
-| `models/humanoid_config.js`             | ~7595 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid）   |
+| `models/humanoid_config.js`             | ~7603 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入）   |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.13 — 攻击动画双关节弯腰(髋torso+腰torso_upper链式前弯表现下挥力量感,髋后仰预拉伸0.12→爆发前弯0.30/腰0.42,峰值合计0.78rad)；v0.79.12 死亡动画瘫平重做(骨盆扭转修复+双臂外张屈肘)）
+## 当前版本（v0.79.23 — 奔跑前迈膝弯明显化:前迈极限膝-0.3过伸→+0.5弯折L形,着地缓冲0.25,折叠期1.85保留；v0.79.22 跑步前臂上弯拳指下巴）
 
 ### 关键参数
 

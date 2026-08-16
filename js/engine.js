@@ -4060,7 +4060,7 @@ function gameLoop() {
               idle: 'Idle',
               walk: 'Walk',
               run: 'Run',
-              attack: 'Attack',
+              attack: 'Swing',
               hit: 'Hit',
               death: 'Die',
             };
@@ -4068,7 +4068,7 @@ function gameLoop() {
             const needLoop = ai.state === 'stagger' ? false : !['Hit', 'Die'].includes(mapped);
             if (asys.current !== mapped || !asys.playing) {
               asys.play(mapped, needLoop);
-              if (mapped === 'Attack') {
+              if (mapped === 'Swing') {
                 ai.animHitApplied = false;
               }
             }
@@ -7407,7 +7407,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.13  ' +
+    'v0.79.23  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -8076,7 +8076,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.13 | 攻击动画双关节弯腰: 髋+腰链式前弯表现下挥力量感');
+console.log('🎮 坦克运动demo v0.79.23 | 奔跑前迈膝弯明显化:前迈极限膝-0.3过伸→+0.5弯折,着地缓冲0.25');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

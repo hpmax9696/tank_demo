@@ -1211,6 +1211,30 @@
         return parent;
     }
 
+    // legacy 树（HUMANOID_BASE 系）l_/r_ 命名与新数据层镜像（l 在 -X vs +X，均面朝 +Z），
+    // rotation y/z 在两树语义相反；动画按新树（解剖学）编写，游戏侧消费时取负保持动作协调
+    // （左右手互换但出拳/扭腰/护手/外张方向正确；x 轴与位置轨道不受影响）
+    function mirrorAnimsForLegacyTree(animsCfg) {
+        if (!animsCfg || !animsCfg.actions) return animsCfg;
+        const out = JSON.parse(JSON.stringify(animsCfg));
+        Object.keys(out.actions).forEach((name) => {
+            out.actions[name] = out.actions[name].map((t) => {
+                if (t.prop === 'rotation' && (t.axis === 'y' || t.axis === 'z')) {
+                    return Object.assign({}, t, { keys: t.keys.map((k) => ({ t: k.t, v: -k.v })) });
+                }
+                return t;
+            });
+        });
+        if (out.restPoses) {
+            Object.keys(out.restPoses).forEach((k) => {
+                if (/:[yz]$/.test(k) && !k.startsWith('pelvis') && !k.startsWith('root')) {
+                    out.restPoses[k] = -out.restPoses[k];
+                }
+            });
+        }
+        return out;
+    }
+
     // 4.4 createHumanoidAnimationSystem(root) — rest-pose 偏移动画（复用 AnimationSystem 类）
         // 4.4 createHumanoidAnimationSystem(root, animsCfg) — rest-pose 偏移动画（数据驱动：每骨架一套 anims，v0.79.x 重构）
     function createHumanoidAnimationSystem(root, animsCfg) {
@@ -1227,7 +1251,7 @@
         const asys = new AnimationSystem(root); // 复用现有类
         const cfg = animsCfg || HC.BASE_ANIMS;
         asys._restPoses = (cfg && cfg.restPoses) || HC.REST_POSES; // rest 基线：每骨架独立
-        const DUR = { Idle: 2.0, Walk: 1.4, Run: 0.8, Attack: 1.0, Stagger: 0.5, Die: 1.5 };
+        const DUR = { Idle: 2.0, Walk: 1.4, Run: 0.8, Swing: 1.0, Punch: 1.0, Stagger: 0.5, Die: 1.5 };
         Object.keys(cfg.actions || {}).forEach((name) => {
             const tracks = (cfg.actions[name] || []).map((t) => ({
                 target: t.kind === 'P' ? P[t.joint] : O[t.joint],
@@ -1238,6 +1262,31 @@
             }));
             asys.define(name, DUR[name] || 1.0, tracks);
         });
+        // 切动画时复位"非新动画轨道"的关节到创建时树静态姿态
+        // （_updateLayer 只写当前动画轨道：Run→Walk 前臂残留弯肘 / Die 后 head z 残留歪头的根因）
+        const _initPose = {};
+        HC.JOINT_NAMES.forEach((n) => {
+            const pv = P[n] || O[n];
+            if (pv) _initPose[n] = { x: pv.rotation.x, y: pv.rotation.y, z: pv.rotation.z };
+        });
+        const _origPlay = asys.play.bind(asys);
+        asys.play = function (name, loop) {
+            const r = _origPlay(name, loop);
+            const anim = asys.anims[name];
+            if (anim) {
+                const touched = {};
+                (anim.trackDefs || []).forEach((td) => {
+                    if (td.target) touched[td.target.uuid] = true;
+                });
+                HC.JOINT_NAMES.forEach((n) => {
+                    const pv = P[n] || O[n];
+                    if (pv && !touched[pv.uuid] && _initPose[n]) {
+                        pv.rotation.set(_initPose[n].x, _initPose[n].y, _initPose[n].z);
+                    }
+                });
+            }
+            return r;
+        };
         return asys;
     }
 
@@ -1298,8 +1347,9 @@
         root.add(cylMesh);
         root.userData._skeletonGroup = skeletonGroup;
         root.userData._lodCylinder = cylMesh;
-        // 动画系统
-        const variantAnims = (HC.MODELS[variant] && HC.MODELS[variant].anims) || HC.BASE_ANIMS;
+        // 动画系统（legacy 树 l/r 镜像 → rotation y/z 取负适配）
+        const rawAnims = (HC.MODELS[variant] && HC.MODELS[variant].anims) || HC.BASE_ANIMS;
+        const variantAnims = mirrorAnimsForLegacyTree(rawAnims);
         const asys = createHumanoidAnimationSystem(root, variantAnims);
         root.userData._animSystem = asys;
         root.userData.enemyType = 'zombie'; // 关键：让 enemyAI isZombie 判定为真，走丧尸状态机

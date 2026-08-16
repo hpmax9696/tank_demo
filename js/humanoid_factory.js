@@ -1,27 +1,28 @@
 // js/humanoid_factory.js
 // 工厂展台人形动画桥接 —— 自包含（工厂页不加载 enemies.js，故自带关键帧 + lerp + rest 偏移）
-// 关键帧镜像 models/enemies.js:createHumanoidAnimationSystem（Idle/Walk/Run/Attack/Stagger/Die）
+// 动画配置自 humanoid_config BASE_ANIMS/版本 anims（v0.79.11+ 数据驱动；v0.79.17 Swing/Punch 拆分）
 // 暴露 window.HumanoidAnims，接口与 window.HexapodAnims 同构（外加 categories）
 (function () {
   var M = window;
 
-  // ── 动画名表（与 enemies.js createHumanoidAnimationSystem 的 define 顺序一致）──
+  // ── 动画名表（与 anims 配置 actions 键一致：Idle/Walk/Run/Swing/Punch/Stagger/Die）──
   var _names = [
-    '1/6 待机 (Idle)',
-    '2/6 步行 (Walk)',
-    '3/6 奔跑 (Run)',
-    '4/6 攻击 (Attack)',
-    '5/6 受击 (Stagger)',
-    '6/6 死亡 (Die)',
+    '1/7 待机 (Idle)',
+    '2/7 步行 (Walk)',
+    '3/7 奔跑 (Run)',
+    '4/7 挥击 (Swing)',
+    '5/7 拳击 (Punch)',
+    '6/7 受击 (Stagger)',
+    '7/7 死亡 (Die)',
   ];
-  var _durations = [2000, 1400, 800, 1000, 500, 1500]; // ms
-  var _keys = ['Idle', 'Walk', 'Run', 'Attack', 'Stagger', 'Die'];
+  var _durations = [2000, 1400, 800, 1000, 1000, 500, 1500]; // ms
+  var _keys = ['Idle', 'Walk', 'Run', 'Swing', 'Punch', 'Stagger', 'Die'];
   var _categories = [
     { label: '── 待机 ──', at: 0 },
     { label: '── 移动 ──', at: 1 },
     { label: '── 攻击 ──', at: 3 },
-    { label: '── 受击 ──', at: 4 },
-    { label: '── 死亡 ──', at: 5 },
+    { label: '── 受击 ──', at: 5 },
+    { label: '── 死亡 ──', at: 6 },
   ];
 
   // ── 运行时状态 ──

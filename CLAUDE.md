@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.13
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.23
 
 ## 运行
 
@@ -272,6 +272,102 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.23 本次会话变更 (2026-08-16)
+
+### 奔跑前迈膝弯明显化
+
+- **根因**: 旧值前迈极限膝 **-0.3（过伸反张）**——直膝棍腿，膝负值本身违反生理（膝不过伸）
+- **新值**: l/r_lower_leg 前迈 -0.3→+0.5（L 形弯折）/着地 0.05→0.25 缓冲/折叠期 1.85 保留；r 半周期平移
+- **验证**: `artifacts/verify_run_knee.js`（前迈膝 0.46、膝高于踝 Δ0.128=小腿倾斜、折叠 1.80 保留）
+- **改动文件**: humanoid_config（Run lower_leg ×10）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.23)
+
+## v0.79.22 本次会话变更 (2026-08-16)
+
+### 跑步前臂上弯（拳指下巴前方，最低点不低于水平）
+
+- **几何公式**: 前臂净前弯 = |upper.x + forearm.x| 需全程 ≥ 1.57（90°）——上臂后摆 +0.5 会抵消前臂屈肘，只看 forearm 值会误判
+- **新值**: forearm x 后摆 -2.10（净 1.60）/过渡 -1.75（净 1.60）/前摆 -1.55（净 2.05=上仰 27° 拳指下巴）；实测前臂 yDir 最低 +0.025、拳 y0.88 距下巴 0.1
+- **验证**: `artifacts/verify_forearm_up.js`（前臂方向向量断言——elbow→hand 的归一化 y 分量 ≥ -0.05 即不低于水平，比旋转值断言更直接）
+- **改动文件**: humanoid_config（Run forearm ×10）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.22)
+
+## v0.79.21 本次会话变更 (2026-08-16)
+
+### 步行左右步距不均修复（r_upper_leg 相位错 0.25）
+
+- **根因**: Walk `r_upper_leg` 与 l 错相 **0.25**（应 **0.5** 半周期）——左右脚迈步节拍 0.25/0.75 交替不等距 → 一步大一步小。v0.79.11 引入；**数值对称性检查发现不了相位错误**（需验证 r(t)≡l(t±0.5) 恒等或实测极值帧等距）。r_lower_leg/Run 均正确，仅此一处
+- **修复**: r_upper_leg = l 半周期平移（0:0.12, 0.25:0.25, 0.5:-0.45, 0.75:-0.08, 1:0.12）×5；pelvis 单峰→双峰（两步两颠）
+- **验证**: 极值帧 R@42→L@86→R@130 间隔恒 44 帧（半周期 43.75）+ r(t)≡l(t±0.5) maxErr=0；`artifacts/verify_walk_phase.js`
+- **⚠️ 步态左右对称验证方法**: 采样全周期找左右踝/膝 z 局部极大值帧号，断言交错且间隔=半周期；只比 min/max 范围测不出相位 bug
+
+## v0.79.20 本次会话变更 (2026-08-16)
+
+### 奔跑前臂向前中线内收
+
+- **Run 前臂 z 轨道**: l/r_forearm rotation.z 前摆收向中线 -0.20（l 侧）/后摆微收 -0.06，r 侧反相；与屈肘 x 摆臂同相位。游戏镜像 z 取负后方向仍向中线（+0.07/+0.19 实测）
+- **符号约定**: 工厂树 l 侧 z 负=内收 / r 侧 z 正=内收；上臂自然外张 rest z ±0.09 不变
+- **验证**: Playwright 13（z 内收 4 项+屈肘 5+游戏镜像+回归）+ verify_punch2 8/8；verify_punch.js（v0.79.17 首版）值断言过时弃用
+- **改动文件**: humanoid_config（Run z×5）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.20)
+
+## v0.79.19 本次会话变更 (2026-08-16)
+
+### 跑步摆臂屈肘 90° + 切动画关节残留修复
+
+- **Run 前臂轨道**: l/r_forearm x 屈肘 90° 基线 -1.52，前摆甩开 -1.35（77°）/后摆收紧 -1.70（97°）左右反相（跑步技术：肘弯~90°，前摆肘角略开后摆收紧）；Walk 保持直臂
+- **⚠️ 切动画残留修复**: 游戏 `_updateLayer` 只写当前动画轨道——新轨道（Run 前臂）写入后切无该轨道动画（Walk）即**永久残留**（Die 后 head 歪同类）。修复：`createHumanoidAnimationSystem` 包装 play，切动画时非新动画轨道关节复位到**创建时树静态**（uuid 对比；树静态含 hunch 驼背保持）。**新增轨道务必考虑其在其他动画的复位**（工厂侧 resetState 已覆盖）
+- **codemod 教训**: 数组插入要在 `]` **之前**不是之后（首版插到数组外成对象非法元素）；compact 拼接 join(',') 别漏逗号；改完立即 eval 自检
+- **验证**: Node 30 + Playwright 8 + 全量回归 37（verify_punch2/punch/upright_game；rest head:z 断言改镜像 -0.08）；`artifacts/verify_run_forearm.js`
+- **改动文件**: humanoid_config（Run 前臂×5）+ enemies（play 包装）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.19)
+
+## v0.79.18 本次会话变更 (2026-08-16)
+
+### 拳击力度感增强（蓄力极限：肘拉到躯干后方）
+
+- **蓄力极限(t=0.45)**: r_upper_arm x +0.85（上臂后摆 49°，**肘部拉到躯干后方 0.21**/肩后 0.15）+ r_forearm x -2.05（极限屈肘，拳收肩侧，较护卫位收回 0.19）+ 扭腰反向 -0.32 + 躯干后仰 -0.06 + 后膝深弯 0.65 重心后坐
+- **爆发(t=0.55)**: 摆幅 2.25 rad（+0.85→-1.4），拳行程 0.57m/0.1s；扭腰 -0.32→+0.52（0.84 rad）；后腿蹬直 0.65→0.08；重心下沉 -0.06
+- **验证**: Node 35 + Playwright 8（肘位/摆幅/收回/游戏镜像 0.63）+ 0 错误；`artifacts/verify_punch2.js`。**坑**: 展台采样必须每次 collectRefs 重置——连续 sample 会累计 _t 跨过峰值
+- **改动文件**: humanoid_config（Punch ×5）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.18)
+
+## v0.79.17 本次会话变更 (2026-08-16)
+
+### 攻击拆分"挥击"+ 新增"拳击"动画 + legacy 树镜像修复
+
+- **改名**: 基础动画 Attack→Swing（挥击），humanoid_config 5 处 actions 键 + humanoid_factory 7 动画列表 + enemies.js DUR + engine.js 丧尸 nameMap `attack:'Swing'`
+- **新增 Punch（拳击，右直拳 orthodox，13 轨道 1.0s ×5 副本）**: 前后站架（左腿前 -0.3/右腿后 +0.25，膝微弯）+ 双拳护脸（upper -0.45/forearm -1.75 弯肘）+ 右拳后拉蓄力→爆发直出（-1.35/-0.25 伸直）+ 左拳护卫全程收紧 + 扭腰（torso y：-0.18 蓄力→+0.42 右肩前送）+ head y 反向看目标 + torso x 前倾（restKey 偏移制）+ 后膝蹬直 + pelvis 微沉
+- **⚠️ legacy 树左右镜像（重要架构事实）**: HUMANOID_BASE 系（游戏消费）l_/r_ 与新数据层（工厂消费）**镜像**——legacy l_upper_arm x=-0.3、新树 +0.171，均面朝 +Z；rotation **y/z 轴语义相反**（x 轴/位置不受影响）。此前动画全用 x 轴从未暴露；Punch 扭腰首次触发
+- **镜像修复**: enemies.js `mirrorAnimsForLegacyTree()` 游戏消费时对 rotation y/z 轨道值取负 + rest y/z 键取负（pelvis:y 位置排除）——两侧动作协调（游戏左右手互换但方向正确）；**顺带修复游戏 Die 双臂 z 自 v0.79.11 起向内插身体的隐性 bug**
+- **验证**: Node 155 + Playwright 工厂 6（右拳 Δz0.23/扭腰 Δ0.14/护卫）+ 游戏 6（镜像协调 Δ0.11/Die 外张 0.10）+ 0 错误；脚本 `artifacts/verify_punch.js`
+- **改动文件**: humanoid_config（Swing×5+Punch×5）+ humanoid_factory（7 动画表）+ enemies（DUR+mirror+接入）+ engine（nameMap）+ index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.17)
+
+## v0.79.16 本次会话变更 (2026-08-16)
+
+### 变体名加"校园丧尸"后缀
+
+- **改动**: `humanoid_config.js` `HUMANOID_VARIANTS` 四个 name 加后缀——`学生(男/女)·校园丧尸`、`教师(男/女)·校园丧尸`。与"人形敌人"总类名区分（非丧尸人形后续可并列加变体）
+- **零影响保证**: name 仅工厂变体下拉消费；游戏侧全用内部键（student_m/userData.variant/solidify `humanoid:variant` 按键定位）
+- **改动文件**: `models/humanoid_config.js`(4 name) + index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.16)
+
+## v0.79.15 本次会话变更 (2026-08-16)
+
+### 模型菜单更名"人形敌人"
+
+- **改动**: `model_factory.html` modelOptions 下拉 `'🧟 校园丧尸'` → `'🧍 人形敌人'`（人形敌人不一定都是丧尸；内部键 `humanoid` 不变，管线零改动）
+- **验证**: Playwright 断言下拉文字 + 切换加载 + 0 错误
+- **改动文件**: `model_factory.html` + index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.15)
+
+## v0.79.14 本次会话变更 (2026-08-16)
+
+### 基础骨架动画直立化（驼背移至丧尸烘焙层）
+
+用户需求：工厂骨架(共通)的 Idle/Walk/Run 默认驼背，但人类敌人不一定都是丧尸——基础骨架动画直立，烘焙出丧尸模型再加驼背。
+
+- **直立化（5 处 rest 三键归零）**: `REST_POSES` + 4 个 `SKELETON_VERSIONS[key].anims.restPoses` 的 `torso:x(0.2)/neck:x(0.22)/head:z(0.08)` → 0（手臂外张 z±0.09 与 pelvis:y 保留）。Attack 轨道 restKey 偏移制自动适配（直立峰值 0.3 / 丧尸 0.5）；Run torso 绝对前倾 0.3 两态共用
+- **丧尸烘焙注入**: MODELS anims 运行时从版本深拷贝（文件尾），新增 `ZOMBIE_HUNCH={torso:x:0.2,neck:x:0.22,head:z:0.08}` 继承后注入 restPoses——游戏丧尸/工厂变体视觉与旧版一致；深拷贝隔离不污染版本
+- **legacy 树静态驼背归零**: HUMANOID_BASE 字面量 torso/neck/head rotation（0.2/0.22/0.02+0.08）→ 0（SKELETON_BY_VARIANT 三树运行时深拷贝自动跟随），消除与新 hunch 公式双重驼背
+- **deriveNode hunch 语义**: `+(hunch-0.2)` → `+hunch`（0=直立，正值=驼背；旧公式 hunch<0.2 后仰不合理）。游戏 Idle/Walk/Run 无 torso 轨道→保持树静态驼背=hunch（student 0.1~0.25 / teacher 0~0.05，旧行为一致）
+- **关键机制注意**: 游戏侧 AnimationSystem **无** collectRefs 式 rest 复位——驼背=树静态（torso_pivot），rest 基线只对带 restKey 轨道生效；工厂侧 humanoid_factory collectRefs 有 rest 复位。teacher_f torso 是 Group（沙漏躯干）无 pivot
+- **验证**: Node 断言 27/27 + Playwright 工厂 7/7（骨架 Idle/Walk torso=0 / 变体驼背 0.2+0.22）+ 游戏 17/17（4 变体）+ 0 错误
+- **改动文件**: `models/humanoid_config.js`（REST_POSES+4版本+ZOMBIE_HUNCH+deriveNode+HUMANOID_BASE）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.14)
 
 ## v0.79.13 本次会话变更 (2026-08-14)
 

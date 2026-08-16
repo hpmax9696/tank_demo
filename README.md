@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.13** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.23** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -244,6 +244,87 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.79.23 — 奔跑前迈膝弯明显化（2026-08-16）
+
+- **需求**: 奔跑动画腿部前迈时，膝盖弯得更明显一点
+- **根因**: 旧值前迈极限（大腿前摆 -0.85）时膝 **-0.3**（负值=过伸反张，直膝棍腿）——既不符合跑步技术（前摆膝保持 30°+ 弯曲）也不符合生理（膝不过伸）
+- **修复（×5 副本）**: `l/r_lower_leg` 前迈极限 -0.3→**+0.5**（弯折 29°，前迈腿呈 L 形）；着地过渡 0.05→**0.25**（缓冲微弯）；摆动折叠期 1.85 保留（脚跟收臀）；r 侧半周期平移
+- **验证**: Playwright 7（左右前迈膝弯 0.46/0.46 ≥0.4、膝高于踝 Δ0.128 小腿倾斜=弯折可见、髋高于膝 Δ0.138、折叠期 1.80/1.80 保留、0 错误）+ 回归（run_forearm 13/walk_phase 3）；`artifacts/verify_run_knee.js`
+- **改动文件**: `models/humanoid_config.js`（Run lower_leg keys ×10）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.23)
+
+### v0.79.22 — 跑步前臂上弯（拳指下巴前方，最低点不低于水平）（2026-08-16）
+
+- **需求**: 跑步时前臂向上弯，拳头指向下巴前方；前臂摆动最低点至少和地面水平，不指向地面
+- **根因（几何）**: 前臂净前弯 = |upper.x + forearm.x| 需全程 ≥ 1.57（90°）。旧值后摆 -1.70（净 1.20 ✗ 指向地面）/过渡 -1.52（净 1.37 ✗）；上臂后摆 +0.5 会抵消前臂屈肘
+- **修复（×5 副本）**: forearm x 后摆 -1.70→**-2.10**（净 1.60° 略高于水平）/过渡 -1.52→**-1.75**/前摆 -1.35→**-1.55**（净 2.05=上仰 27°，拳指下巴前方）；r 侧反相同步
+- **验证**: 数学自检 5/5（净前弯全程 ≥90° 步长 0.02 采样）+ Playwright 4（实测前臂方向 yDir 最低 +0.025 高于水平/前摆拳高于肘 Δ0.154/拳 y0.88 距下巴 ~0.1/0 错误）+ 回归（run_forearm 13 更新断言/punch2 8/walk_phase 3）；`artifacts/verify_forearm_up.js`
+- **改动文件**: `models/humanoid_config.js`（Run forearm keys ×10）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.22)
+
+### v0.79.21 — 步行左右步距不均修复（r_upper_leg 相位错 0.25）（2026-08-16）
+
+- **需求**: 用户观察 Walk 左腿和右腿迈的幅度不一样
+- **根因**: 数值本身左右对称（r 是 l 的平移），但**相位错 0.25 而非 0.5**——`r_upper_leg` 前摆极值在 t=0.25（应在 t=0.5），左右脚迈步节拍 0.25/0.75 交替不等距，右腿迈步时左腿尚未蹬到位 → 一步大一步小。v0.79.11 步态数据化引入，数值对称性检查发现不了相位错误（r_lower_leg 错相 0.5 正确、Run 正确，仅 Walk 的 upper_leg 有此 bug）
+- **修复（×5 副本）**: `r_upper_leg` 改为 l 的精确半周期平移 `0:0.12, 0.25:0.25, 0.5:-0.45, 0.75:-0.08, 1:0.12`（数学等价 r(t)≡l(t±0.5)）；顺带 `pelvis.y` 单峰（每周期只颠一次）改双峰 0/0.03 两步两颠
+- **验证**: Node 15（5 副本 r(t)≡l(t±0.5) 数值恒等 maxErr=0 + pelvis 5 键）+ Playwright 3（工厂实测左右踝前摆极值严格交替 R@42→L@86→R@130，间隔恒 44 帧≈半周期 43.75，修复前为 22/66 不等距）+ 回归（verify_run_forearm 13 + verify_punch2 8）；`artifacts/verify_walk_phase.js`
+- **改动文件**: `models/humanoid_config.js`（Walk r_upper_leg+pelvis ×5）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.21)
+
+### v0.79.20 — 奔跑前臂向前中线内收（2026-08-16）
+
+- **需求**: 奔跑时前臂向身体前方中线收一点（跑步摆臂标准姿态：手朝前中线方向摆动，不过中线）
+- **Run 前臂 z 轴内收轨道（×5 副本）**: 新增 l/r_forearm rotation.z 轨道，与屈肘摆臂同相位——前摆时手向前中线收拢 -0.20 rad（l 侧）、后摆微收 -0.06；r 侧反相（前摆 0.06/后摆 0.20）。工厂树 l 侧 z 负=内收；游戏侧 mirrorAnimsForLegacyTree z 取负后方向仍向中线（镜像对称自动适配，实测 +0.07/+0.19）
+- **验证**: Playwright 13（工厂屈肘 5 项+z 内收 4 项、游戏 Run 屈肘+z 镜像内收、Walk 前臂归零回归、0 错误）+ verify_punch2 回归 8/8（verify_punch.js 为 v0.79.17 首版脚本，其值断言 0.42/-1.35 在 v0.79.18 已改 0.52/-1.4，被 verify_punch2 取代）；`artifacts/verify_run_forearm.js` 扩展 z 断言
+- **改动文件**: `models/humanoid_config.js`（Run z 轨道×5）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.20)
+
+### v0.79.19 — 跑步摆臂屈肘 90° + 切动画关节残留修复（2026-08-16）
+
+- **需求**: 步行两臂伸直没问题，但跑步胳膊还是直的就违和——查跑步摆臂技术（肘关节弯曲约 90°，前摆手至下颌/肘角略开，后摆肘向后上方拉/肘角收紧）
+- **Run 前臂屈肘轨道（×5 副本）**: 新增 l/r_forearm rotation.x 轨道——屈肘 90° 基线（-1.52）+ 摆臂动力学：前摆时肘角甩开 -1.35（77°）、后摆时收紧 -1.70（97°），左右反相与上臂摆动同步；上臂 ±0.5 摆幅不变；Walk 保持直臂（用户确认无问题）
+- **切动画关节残留修复（重要）**: 游戏 `_updateLayer` 只写当前动画的轨道——Run（新写前臂）切 Walk（无前臂轨道）后**前臂永远弯着**；Die 后 head z 0.7 残留同类。修复：`createHumanoidAnimationSystem` 包装 play——切动画时把**非新动画轨道的关节**复位到创建时树静态姿态（uuid 对比轨道 target；hunch 驼背等树静态保持）。工厂侧本就有 resetState 不受影响
+- **codemod 事故与修复**: 首版 Run 插入 codemod 把轨道插到数组 `]` 之后（对象里出现非法元素）+ compact 缺逗号——写括号匹配修复脚本移正位置（`artifacts/fix_run_insert.js`），eval 自检 5/5 恢复；顺手重排 4 个 Punch 块缩进对齐
+- **验证**: Node 30（5 副本轨道/反相/Walk 无前臂/Punch 未损）+ Playwright 8（工厂屈肘 97°/77°/平均 87°、游戏 Run 屈肘、Walk 前臂 0 复位、0 错误）+ 全量回归（verify_punch2 8/verify_punch 12/verify_upright_game 17——其中 rest head:z 断言更新为镜像语义 -0.08）；脚本 `artifacts/verify_run_forearm.js`
+- **改动文件**: `models/humanoid_config.js`（Run 前臂轨道×5+Punch 缩进）+ `models/enemies.js`（play 包装复位）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.19)
+
+### v0.79.18 — 拳击力度感增强（蓄力极限：肘拉到躯干后方）（2026-08-16）
+
+- **需求**: 拳击力度感不够，拳头收回蓄力的距离不够——收回到极限，让右胳膊肘位于躯干后方
+- **蓄力极限（t=0.45）**: r_upper_arm x -0.3→**+0.85**（上臂后摆 49°，肘部拉到躯干后方 0.21 单位/肩后 0.15）+ r_forearm x **-2.05**（极限屈肘 117°，拳收到肩侧 z≈-0.01，较护卫位收回 0.19）+ 扭腰反向拧至 **-0.32** + 躯干微后仰 -0.06（拉弓式预拉伸）+ 左护拳收紧 -0.35/-1.95 + 后膝深弯 0.65 重心后坐
+- **爆发增强（t=0.55）**: 蓄力→出拳上臂摆幅 **2.25 rad**（0.85→-1.4，此前仅 1.05），拳行程 0.57m 于 0.1s 内完成（工厂实测 Δz 0.44/游戏 0.63）+ 扭腰 -0.32→**+0.52**（总幅度 0.84 rad，较旧 0.6 增 40%）+ 躯干前倾 0.2 + 后腿蹬直 0.65→0.08 + 前腿踩实 -0.38 + 重心下沉 -0.06
+- **验证**: Node 35（5 副本蓄力/爆发值+摆幅>2.2+旧值清除）+ Playwright 工厂 5（肘在躯干后 d=-0.21/肘在肩后 -0.15/拳收回 -0.19/摆幅 0.44/拳在身前 0.51）+ 游戏 2（镜像摆幅 0.63/Die 外张回归）+ 0 错误；脚本 `artifacts/verify_punch2.js`（独立采样重置，修上一版累计采样 bug）
+- **改动文件**: `models/humanoid_config.js`（Punch 关键帧重写 ×5 处）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.18)
+
+### v0.79.17 — 攻击拆分"挥击"+ 新增"拳击"动画 + legacy 树镜像修复（2026-08-16）
+
+- **需求**: 骨架基础动画"攻击"改名"挥击"（Swing），另加"拳击"（Punch）动画——右手举起握拳、右胳膊向后拉蓄力、然后向前直拳，同时左胳膊护卫、腰在过程中扭转、腿部前后分立（右直拳 orthodox 站架，参考拳击直拳技术：左脚前/右脚后/转髋带动右肩/护手）
+- **Punch 13 轨道**（1.0s，BASE_ANIMS+4 版本副本同步）: torso y（扭腰 -0.18 蓄力→+0.42 爆发右肩前送→回收）+ torso x（前倾偏移制 restKey）+ torso_upper y（腰上部跟随，工厂有/游戏 legacy 无）+ head y（-0.18 反向保持看目标）+ r_upper_arm/r_forearm x（护卫 -0.45/-1.75→后拉 -0.3/-1.85→爆发 -1.35/-0.25 伸直→收回）+ l_upper_arm/l_forearm x（护卫全程，出拳瞬间收紧 -0.62/-1.98）+ l/r_upper_leg x（站架左前 -0.3/右后 +0.25，冲击时前踩后蹬）+ l/r_lower_leg x（前膝微弯/后膝蓄力 0.55→蹬直 0.15）+ pelvis y（重心微沉 -0.04）
+- **Attack→Swing 改名**: humanoid_config 5 处 actions 键（codemod 括号匹配，compact 1 + pretty 4）+ humanoid_factory 列表（7 动画 1/7~7/7，攻击分类含挥击+拳击）+ enemies.js DUR + engine.js 丧尸攻击 nameMap `attack:'Swing'`
+- **legacy 树左右镜像修复（重要发现）**: HUMANOID_BASE 系（游戏用）l_/r_ 命名与新数据层（工厂用）镜像——legacy l_upper_arm x=-0.3、新树 x=+0.171，均面朝 +Z；rotation **y/z 轴在两树语义相反**（x 轴与位置不受影响）。此前所有动画只用 x 轴+位置轨道所以从未暴露；Punch 首次用 y 轴扭腰即触发。修复：enemies.js `mirrorAnimsForLegacyTree()`——游戏消费时对 rotation y/z 轨道值取负 + rest y/z 键取负（pelvis:y 位置键排除），两侧动作协调（游戏侧左右手互换但出拳/扭腰/护手方向正确）；顺带修复游戏 Die 双臂 z 外张自 v0.79.11 起实际向内插身体的隐性 bug
+- **验证**: Node 155 断言（5 处 Swing 6 轨道/Punch 13 轨道/t 单调/扭腰峰值/站架）+ Playwright 工厂 6（列表 7 项/右拳前伸 Δz0.23/护卫拳高位/扭腰右肩前送 Δ0.14/左拳护卫 Δ0.10/Swing 回归）+ 游戏 6（镜像后扭腰出拳侧肩前送 Δ0.11/前臂前伸 Δ0.30/Die 外张修复 d0.10/rest=-0.09/Walk 回归）+ 0 错误
+- **改动文件**: `models/humanoid_config.js`（Attack→Swing×5+Punch×5）+ `js/humanoid_factory.js`（7 动画表）+ `models/enemies.js`（DUR+mirrorAnimsForLegacyTree+接入）+ `js/engine.js`（nameMap Swing）+ index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.17)
+
+### v0.79.16 — 变体名加"校园丧尸"后缀（2026-08-16）
+
+- **需求**: 工厂体型参数面板变体下拉的名称后加"校园丧尸"后缀，与"人形敌人"总类名区分（当前四变体都是校园丧尸系，未来非丧尸人形可加直立变体并列）
+- **改动**: `models/humanoid_config.js` `HUMANOID_VARIANTS` 四个 name：`学生(男/女)`→`学生(男/女)·校园丧尸`、`教师(男/女)`→`教师(男/女)·校园丧尸`。name 仅工厂变体下拉消费（`model_factory.html` variantOptions）；游戏侧全部用内部键（student_m 等，userData.variant/solidify 定位），零影响
+- **验证**: Playwright 工厂切人形敌人 → 体型参数变体下拉断言四项带后缀 + 切换变体加载 + 0 控制台错误
+- **改动文件**: `models/humanoid_config.js`(4 name) + index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.16)
+
+### v0.79.15 — 模型菜单更名"人形敌人"（2026-08-16）
+
+- **需求**: 考虑到人形敌人不一定都是丧尸，模型工厂选择模型菜单中的"校园丧尸"更名"人形敌人"
+- **改动**: `model_factory.html` modelOptions 下拉 `'🧟 校园丧尸'` → `'🧍 人形敌人'`（图标 🧟 丧尸→🧍 人形与语义一致）。内部键 `humanoid` 不变，骨架/烘焙/动画管线零改动；代码注释中的"校园丧尸"字样保留（描述的是校园丧尸系变体数据）
+- **验证**: Playwright 加载 model_factory.html 断言下拉选项文字"🧍 人形敌人" + 切换加载正常 + 0 控制台错误
+- **改动文件**: `model_factory.html`(modelOptions) + index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.15)
+
+### v0.79.14 — 基础骨架动画直立化（驼背移至丧尸烘焙层）（2026-08-16）
+
+- **需求**: 模型工厂骨架(共通)模式的待机/走路/跑步默认驼背（髋部前弯），但人类敌人不一定都是丧尸——基础骨架动画应直立，丧尸模型烘焙时再加驼背
+- **直立化**（5 处 rest 基线三键归零 torso:x/neck:x/head:z）: `REST_POSES` + 4 个 `SKELETON_VERSIONS[key].anims.restPoses`（手臂外张 z ±0.09 与各自 pelvis:y 保留）。Attack 轨道 restKey 偏移制自动适配（直立人前弯峰值 0.3 / 丧尸 0.5）；Run torso 绝对前倾轨道两态共用不变
+- **丧尸驼背烘焙注入**: MODELS 的 anims 运行时从版本深拷贝继承（`humanoid_config.js` 文件尾），新增 `ZOMBIE_HUNCH = {torso:x 0.2, neck:x 0.22, head:z 0.08}` 在继承后 `Object.assign` 注入 restPoses——游戏丧尸与工厂变体(丧尸)动画视觉与旧版完全一致；深拷贝隔离不污染版本直立基线
+- **legacy 树静态驼背归零**: `HUMANOID_BASE` 字面量 torso/neck/head 固化 rotation（0.2/0.22/0.02+0.08）归零（三副 SKELETON_BY_VARIANT 树运行时深拷贝自动跟随）——消除与新 hunch 公式的双重驼背
+- **hunch 参数语义**: `deriveNode` 从 `rotation[0]+(hunch-0.2)` 改为 `rotation[0]+hunch`（0=直立，正值=驼背量；旧公式 hunch<0.2 会产生后仰）。游戏 Idle/Walk/Run 无 torso 轨道→保持树静态驼背= hunch（student 0.1~0.25 随机 / teacher 0~0.05 近直立，与旧版行为一致）
+- **验证**: Node 数据断言 27/27（REST/版本直立 + MODELS 注入 + 隔离 + hunch 派生）+ Playwright 工厂 7/7（骨架共通 Idle/Walk torso=0 直立 / Run 前倾 0.234 / 变体丧尸驼背 0.2+0.22）+ 游戏侧 17/17（4 变体静态驼背 + asys rest 基线 + 0 错误）
+- **改动文件**: `models/humanoid_config.js`（REST_POSES + 4 版本 + ZOMBIE_HUNCH 注入 + deriveNode + HUMANOID_BASE 三节点）+ index/engine(版本同步 v0.79.14)
 
 ### v0.79.13 — 攻击动画双关节弯腰（2026-08-14）
 
@@ -1651,21 +1732,21 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.13）
+### 代码规模（截至 v0.79.23）
 
 | 分类             | 文件                                                                                                                                                                                              |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
-| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1066 + 8046   |
+| 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1062 + 8131   |
 | 游戏模块 (13个)  | waters(326) bridges(165) debugcolliders(122) obstacles(3188) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) sportsFields(400) + humanoid_factory(505) |      6712      |
-| 人形系统 (2个)   | humanoid_config(7595) humanoid_factory(209)                                                                                                                                                       |      7804      |
+| 人形系统 (2个)   | humanoid_config(9119) humanoid_factory(210)                                                                                                                                                      |      9329      |
 | 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
 | 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
 | 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
 | 模型工厂         | `model_factory.html`                                                                                                                                                                              |      5435      |
-| 模型系统 (14个)  | enemies(1965) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6955      |
+| 模型系统 (14个)  | enemies(1742) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6732      |
 | 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
 | 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |
-| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~42,043 行** |
+| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~43,420 行** |
 
 ---
 
