@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.11</title>
+    <title>坦克运动demo v0.79.12</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.11</div>
+      <div class="menu-version">v0.79.12</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          💀 v0.79.12 死亡动画瘫平重做 —
+          修复展台骨盆扭转(rest位置键pelvis:y误当旋转y应用,致侧倾单肩单脚着地);
+          死亡关键帧重做:拉直驼背脊椎平摊/双臂外张屈肘(左右角度各异)/头侧转贴地/
+          髋微屈压脚/双腿微外分; root高度轨道改游戏树坐标(消死亡瞬间瞬移下沉)
+        </div>
+        <div class="cl-title">
           🎬 v0.79.11 人形动画系统重构 —
           每骨架独立动画(BASE_ANIMS+版本anims+数据驱动播放器,消除双份镜像);
           步态按人体数据重设计(前迈>后蹬/对侧摆臂/膝弯修复/手臂外张5°);
@@ -849,14 +855,8 @@
           从 unpkg CDN 改为本地文件(修复 ERR_QUIC_PROTOCOL_ERROR
           导致的模块加载失败), 离线可用
         </div>
-        <div class="cl-title">
-          🧭 v0.79.7 模型工厂坐标轴修复 —
-          红X/绿Y/蓝Z标准右手系(修复曾为适配六足战车做X↔Z交换
-          导致"改z却动x"的标签错位,部件参数与标签坐标系现已一致);
-          底栏新增「🧭 坐标轴」开关,可随时隐藏/显示方位标识
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.11~v0.79.7) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.12~v0.79.8) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

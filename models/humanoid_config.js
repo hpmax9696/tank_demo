@@ -1016,7 +1016,7 @@
   // target 用 {kind, joint} 表示：kind=P → 关节 pivot；kind=O → 关节原对象（position 轨道）
   const BASE_ANIMS = {
     restPoses: REST_POSES,
-    actions: {"Idle":[{"kind":"O","joint":"torso","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.5,"v":0.03},{"t":1,"v":0}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.02},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"z","restKey":"head:z","keys":[{"t":0,"v":0},{"t":0.5,"v":-0.04},{"t":1,"v":0}]}],"Walk":[{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.04},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.45},{"t":0.25,"v":-0.08},{"t":0.5,"v":0.12},{"t":0.75,"v":0.25},{"t":1,"v":-0.45}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.25},{"t":0.25,"v":-0.45},{"t":0.5,"v":-0.08},{"t":0.75,"v":0.12},{"t":1,"v":0.25}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.12},{"t":0.5,"v":0.37},{"t":0.75,"v":1.35},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.37},{"t":0.25,"v":1.35},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.12},{"t":1,"v":0.37}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.35},{"t":0.25,"v":0.1},{"t":0.5,"v":-0.35},{"t":0.75,"v":0.1},{"t":1,"v":0.35}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.35},{"t":0.25,"v":-0.1},{"t":0.5,"v":0.35},{"t":0.75,"v":-0.1},{"t":1,"v":-0.35}]}],"Run":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.3},{"t":0.5,"v":0.15},{"t":1,"v":0.3}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.08},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.85},{"t":0.25,"v":-0.2},{"t":0.5,"v":0.15},{"t":0.75,"v":0.35},{"t":1,"v":-0.85}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.15},{"t":0.25,"v":0.35},{"t":0.5,"v":-0.85},{"t":0.75,"v":-0.2},{"t":1,"v":0.15}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.05},{"t":0.5,"v":0.75},{"t":0.75,"v":1.85},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.75},{"t":0.25,"v":1.85},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.05},{"t":1,"v":0.75}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.5},{"t":0.25,"v":0.15},{"t":0.5,"v":-0.5},{"t":0.75,"v":0.15},{"t":1,"v":0.5}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.5},{"t":0.25,"v":-0.15},{"t":0.5,"v":0.5},{"t":0.75,"v":-0.15},{"t":1,"v":-0.5}]}],"Attack":[{"kind":"P","joint":"torso_upper","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.45,"v":0},{"t":0.55,"v":0.5},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"l_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]},{"kind":"P","joint":"r_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]}],"Stagger":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.2,"v":-0.3},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.15,"v":-0.4},{"t":1,"v":0}]}],"Die":[{"kind":"P","joint":"root","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.333,"v":1.5079644737231006},{"t":1,"v":1.5707963267948966}]},{"kind":"O","joint":"root","prop":"position","axis":"y","restKey":null,"keys":[{"t":0,"v":0},{"t":0.333,"v":0.03},{"t":0.667,"v":0.072},{"t":1,"v":0.072}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.667,"v":-0.3},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.667,"v":0.3},{"t":1,"v":0.3}]}]},
+    actions: {"Idle":[{"kind":"O","joint":"torso","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.5,"v":0.03},{"t":1,"v":0}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.02},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"z","restKey":"head:z","keys":[{"t":0,"v":0},{"t":0.5,"v":-0.04},{"t":1,"v":0}]}],"Walk":[{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.04},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.45},{"t":0.25,"v":-0.08},{"t":0.5,"v":0.12},{"t":0.75,"v":0.25},{"t":1,"v":-0.45}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.25},{"t":0.25,"v":-0.45},{"t":0.5,"v":-0.08},{"t":0.75,"v":0.12},{"t":1,"v":0.25}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.12},{"t":0.5,"v":0.37},{"t":0.75,"v":1.35},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.37},{"t":0.25,"v":1.35},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.12},{"t":1,"v":0.37}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.35},{"t":0.25,"v":0.1},{"t":0.5,"v":-0.35},{"t":0.75,"v":0.1},{"t":1,"v":0.35}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.35},{"t":0.25,"v":-0.1},{"t":0.5,"v":0.35},{"t":0.75,"v":-0.1},{"t":1,"v":-0.35}]}],"Run":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.3},{"t":0.5,"v":0.15},{"t":1,"v":0.3}]},{"kind":"O","joint":"pelvis","prop":"position","axis":"y","restKey":"pelvis:y","keys":[{"t":0,"v":0},{"t":0.5,"v":0.08},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.85},{"t":0.25,"v":-0.2},{"t":0.5,"v":0.15},{"t":0.75,"v":0.35},{"t":1,"v":-0.85}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.15},{"t":0.25,"v":0.35},{"t":0.5,"v":-0.85},{"t":0.75,"v":-0.2},{"t":1,"v":0.15}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.3},{"t":0.25,"v":0.05},{"t":0.5,"v":0.75},{"t":0.75,"v":1.85},{"t":1,"v":-0.3}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.75},{"t":0.25,"v":1.85},{"t":0.5,"v":-0.3},{"t":0.75,"v":0.05},{"t":1,"v":0.75}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.5},{"t":0.25,"v":0.15},{"t":0.5,"v":-0.5},{"t":0.75,"v":0.15},{"t":1,"v":0.5}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.5},{"t":0.25,"v":-0.15},{"t":0.5,"v":0.5},{"t":0.75,"v":-0.15},{"t":1,"v":-0.5}]}],"Attack":[{"kind":"P","joint":"torso_upper","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.45,"v":0},{"t":0.55,"v":0.5},{"t":1,"v":0}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-0.1},{"t":0.45,"v":-1.8},{"t":0.55,"v":-0.4},{"t":1,"v":-0.1}]},{"kind":"P","joint":"l_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]},{"kind":"P","joint":"r_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":-1.6},{"t":0.45,"v":-0.2},{"t":0.55,"v":-0.5},{"t":1,"v":-1.6}]}],"Stagger":[{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.2,"v":-0.3},{"t":1,"v":0}]},{"kind":"P","joint":"head","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.15,"v":-0.4},{"t":1,"v":0}]}],"Die":[{"kind":"P","joint":"root","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.3,"v":0.3},{"t":0.55,"v":1.15},{"t":0.78,"v":1.6},{"t":0.9,"v":1.55},{"t":1,"v":1.5707963267948966}]},{"kind":"O","joint":"root","prop":"position","axis":"y","restKey":null,"keys":[{"t":0,"v":0.75},{"t":0.55,"v":0.7},{"t":0.78,"v":0.55},{"t":1,"v":0.475}]},{"kind":"O","joint":"torso","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.2},{"t":0.35,"v":0.4},{"t":0.7,"v":0.05},{"t":1,"v":0}]},{"kind":"P","joint":"neck","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0.22},{"t":0.4,"v":0.35},{"t":1,"v":0.05}]},{"kind":"P","joint":"head","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0.08},{"t":0.5,"v":0.1},{"t":1,"v":0.7}]},{"kind":"P","joint":"l_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0.09},{"t":0.4,"v":0.15},{"t":0.75,"v":1.1},{"t":1,"v":0.95}]},{"kind":"P","joint":"r_upper_arm","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":-0.09},{"t":0.4,"v":-0.15},{"t":0.75,"v":-0.75},{"t":1,"v":-0.6}]},{"kind":"P","joint":"l_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.5,"v":-0.25},{"t":1,"v":-0.4}]},{"kind":"P","joint":"r_forearm","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.5,"v":-0.35},{"t":1,"v":-0.55}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.25,"v":-0.15},{"t":0.7,"v":0.05},{"t":1,"v":-0.06}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.25,"v":-0.15},{"t":0.7,"v":0.08},{"t":1,"v":-0.1}]},{"kind":"P","joint":"l_upper_leg","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.6,"v":0.05},{"t":1,"v":0.1}]},{"kind":"P","joint":"r_upper_leg","prop":"rotation","axis":"z","restKey":null,"keys":[{"t":0,"v":0},{"t":0.6,"v":-0.08},{"t":1,"v":-0.16}]},{"kind":"P","joint":"l_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.25,"v":0.35},{"t":0.8,"v":0.06},{"t":1,"v":0.04}]},{"kind":"P","joint":"r_lower_leg","prop":"rotation","axis":"x","restKey":null,"keys":[{"t":0,"v":0},{"t":0.25,"v":0.35},{"t":0.8,"v":0.22},{"t":1,"v":0.15}]}]},
   };
 
 var SKELETON_VERSIONS = {
@@ -2254,8 +2254,20 @@ var SKELETON_VERSIONS = {
                 "v": 0
               },
               {
-                "t": 0.333,
-                "v": 1.5079644737231006
+                "t": 0.3,
+                "v": 0.3
+              },
+              {
+                "t": 0.55,
+                "v": 1.15
+              },
+              {
+                "t": 0.78,
+                "v": 1.6
+              },
+              {
+                "t": 0.9,
+                "v": 1.55
               },
               {
                 "t": 1,
@@ -2272,19 +2284,86 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.75
               },
               {
-                "t": 0.333,
-                "v": 0.03
+                "t": 0.55,
+                "v": 0.7
               },
               {
-                "t": 0.667,
-                "v": 0.072
+                "t": 0.78,
+                "v": 0.55
               },
               {
                 "t": 1,
-                "v": 0.072
+                "v": 0.475
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.2
+              },
+              {
+                "t": 0.35,
+                "v": 0.4
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "neck",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.22
+              },
+              {
+                "t": 0.4,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": 0.05
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.7
               }
             ]
           },
@@ -2297,15 +2376,19 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.09
               },
               {
-                "t": 0.667,
-                "v": -0.3
+                "t": 0.4,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 1.1
               },
               {
                 "t": 1,
-                "v": -0.3
+                "v": 0.95
               }
             ]
           },
@@ -2318,15 +2401,203 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": -0.09
               },
               {
-                "t": 0.667,
-                "v": 0.3
+                "t": 0.4,
+                "v": -0.15
+              },
+              {
+                "t": 0.75,
+                "v": -0.75
               },
               {
                 "t": 1,
-                "v": 0.3
+                "v": -0.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.25
+              },
+              {
+                "t": 1,
+                "v": -0.4
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 1,
+                "v": -0.55
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": -0.06
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": -0.08
+              },
+              {
+                "t": 1,
+                "v": -0.16
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.06
+              },
+              {
+                "t": 1,
+                "v": 0.04
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.22
+              },
+              {
+                "t": 1,
+                "v": 0.15
               }
             ]
           }
@@ -3568,8 +3839,20 @@ var SKELETON_VERSIONS = {
                 "v": 0
               },
               {
-                "t": 0.333,
-                "v": 1.5079644737231006
+                "t": 0.3,
+                "v": 0.3
+              },
+              {
+                "t": 0.55,
+                "v": 1.15
+              },
+              {
+                "t": 0.78,
+                "v": 1.6
+              },
+              {
+                "t": 0.9,
+                "v": 1.55
               },
               {
                 "t": 1,
@@ -3586,19 +3869,86 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.75
               },
               {
-                "t": 0.333,
-                "v": 0.03
+                "t": 0.55,
+                "v": 0.7
               },
               {
-                "t": 0.667,
-                "v": 0.072
+                "t": 0.78,
+                "v": 0.55
               },
               {
                 "t": 1,
-                "v": 0.072
+                "v": 0.475
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.2
+              },
+              {
+                "t": 0.35,
+                "v": 0.4
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "neck",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.22
+              },
+              {
+                "t": 0.4,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": 0.05
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.7
               }
             ]
           },
@@ -3611,15 +3961,19 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.09
               },
               {
-                "t": 0.667,
-                "v": -0.3
+                "t": 0.4,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 1.1
               },
               {
                 "t": 1,
-                "v": -0.3
+                "v": 0.95
               }
             ]
           },
@@ -3632,15 +3986,203 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": -0.09
               },
               {
-                "t": 0.667,
-                "v": 0.3
+                "t": 0.4,
+                "v": -0.15
+              },
+              {
+                "t": 0.75,
+                "v": -0.75
               },
               {
                 "t": 1,
-                "v": 0.3
+                "v": -0.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.25
+              },
+              {
+                "t": 1,
+                "v": -0.4
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 1,
+                "v": -0.55
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": -0.06
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": -0.08
+              },
+              {
+                "t": 1,
+                "v": -0.16
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.06
+              },
+              {
+                "t": 1,
+                "v": 0.04
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.22
+              },
+              {
+                "t": 1,
+                "v": 0.15
               }
             ]
           }
@@ -4882,8 +5424,20 @@ var SKELETON_VERSIONS = {
                 "v": 0
               },
               {
-                "t": 0.333,
-                "v": 1.5079644737231006
+                "t": 0.3,
+                "v": 0.3
+              },
+              {
+                "t": 0.55,
+                "v": 1.15
+              },
+              {
+                "t": 0.78,
+                "v": 1.6
+              },
+              {
+                "t": 0.9,
+                "v": 1.55
               },
               {
                 "t": 1,
@@ -4900,19 +5454,86 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.75
               },
               {
-                "t": 0.333,
-                "v": 0.03
+                "t": 0.55,
+                "v": 0.7
               },
               {
-                "t": 0.667,
-                "v": 0.072
+                "t": 0.78,
+                "v": 0.55
               },
               {
                 "t": 1,
-                "v": 0.072
+                "v": 0.475
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.2
+              },
+              {
+                "t": 0.35,
+                "v": 0.4
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "neck",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.22
+              },
+              {
+                "t": 0.4,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": 0.05
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.7
               }
             ]
           },
@@ -4925,15 +5546,19 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.09
               },
               {
-                "t": 0.667,
-                "v": -0.3
+                "t": 0.4,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 1.1
               },
               {
                 "t": 1,
-                "v": -0.3
+                "v": 0.95
               }
             ]
           },
@@ -4946,15 +5571,203 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": -0.09
               },
               {
-                "t": 0.667,
-                "v": 0.3
+                "t": 0.4,
+                "v": -0.15
+              },
+              {
+                "t": 0.75,
+                "v": -0.75
               },
               {
                 "t": 1,
-                "v": 0.3
+                "v": -0.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.25
+              },
+              {
+                "t": 1,
+                "v": -0.4
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 1,
+                "v": -0.55
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": -0.06
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": -0.08
+              },
+              {
+                "t": 1,
+                "v": -0.16
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.06
+              },
+              {
+                "t": 1,
+                "v": 0.04
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.22
+              },
+              {
+                "t": 1,
+                "v": 0.15
               }
             ]
           }
@@ -6196,8 +7009,20 @@ var SKELETON_VERSIONS = {
                 "v": 0
               },
               {
-                "t": 0.333,
-                "v": 1.5079644737231006
+                "t": 0.3,
+                "v": 0.3
+              },
+              {
+                "t": 0.55,
+                "v": 1.15
+              },
+              {
+                "t": 0.78,
+                "v": 1.6
+              },
+              {
+                "t": 0.9,
+                "v": 1.55
               },
               {
                 "t": 1,
@@ -6214,19 +7039,86 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.75
               },
               {
-                "t": 0.333,
-                "v": 0.03
+                "t": 0.55,
+                "v": 0.7
               },
               {
-                "t": 0.667,
-                "v": 0.072
+                "t": 0.78,
+                "v": 0.55
               },
               {
                 "t": 1,
-                "v": 0.072
+                "v": 0.475
+              }
+            ]
+          },
+          {
+            "kind": "O",
+            "joint": "torso",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.2
+              },
+              {
+                "t": 0.35,
+                "v": 0.4
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "neck",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.22
+              },
+              {
+                "t": 0.4,
+                "v": 0.35
+              },
+              {
+                "t": 1,
+                "v": 0.05
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "head",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0.08
+              },
+              {
+                "t": 0.5,
+                "v": 0.1
+              },
+              {
+                "t": 1,
+                "v": 0.7
               }
             ]
           },
@@ -6239,15 +7131,19 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": 0.09
               },
               {
-                "t": 0.667,
-                "v": -0.3
+                "t": 0.4,
+                "v": 0.15
+              },
+              {
+                "t": 0.75,
+                "v": 1.1
               },
               {
                 "t": 1,
-                "v": -0.3
+                "v": 0.95
               }
             ]
           },
@@ -6260,15 +7156,203 @@ var SKELETON_VERSIONS = {
             "keys": [
               {
                 "t": 0,
-                "v": 0
+                "v": -0.09
               },
               {
-                "t": 0.667,
-                "v": 0.3
+                "t": 0.4,
+                "v": -0.15
+              },
+              {
+                "t": 0.75,
+                "v": -0.75
               },
               {
                 "t": 1,
-                "v": 0.3
+                "v": -0.6
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.25
+              },
+              {
+                "t": 1,
+                "v": -0.4
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_forearm",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.5,
+                "v": -0.35
+              },
+              {
+                "t": 1,
+                "v": -0.55
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": -0.06
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": -0.15
+              },
+              {
+                "t": 0.7,
+                "v": 0.08
+              },
+              {
+                "t": 1,
+                "v": -0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": 0.05
+              },
+              {
+                "t": 1,
+                "v": 0.1
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_upper_leg",
+            "prop": "rotation",
+            "axis": "z",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.6,
+                "v": -0.08
+              },
+              {
+                "t": 1,
+                "v": -0.16
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "l_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.06
+              },
+              {
+                "t": 1,
+                "v": 0.04
+              }
+            ]
+          },
+          {
+            "kind": "P",
+            "joint": "r_lower_leg",
+            "prop": "rotation",
+            "axis": "x",
+            "restKey": null,
+            "keys": [
+              {
+                "t": 0,
+                "v": 0
+              },
+              {
+                "t": 0.25,
+                "v": 0.35
+              },
+              {
+                "t": 0.8,
+                "v": 0.22
+              },
+              {
+                "t": 1,
+                "v": 0.15
               }
             ]
           }

@@ -77,6 +77,12 @@
     }
   }
 
+  // 旋转类 rest 的 y 轴读取：'pelvis:y' 是 position rest 键（骨盆高度），不能当 rotation.y 应用
+  // （否则骨盆被扭转 → 死亡躺姿侧倾、只有单肩单脚着地的根源）
+  function _rotRestY(n) {
+    return n === 'pelvis' ? undefined : _rest[n + ':y'];
+  }
+
   // ── HexapodAnims 同构接口 ──
   function collectRefs() {
     var cfg = M.HumanoidConfig;
@@ -111,7 +117,7 @@
       if (pv && pv !== _root) {
         pv.rotation.set(0, 0, 0);
         var rx = _rest[n + ':x'],
-          ry = _rest[n + ':y'],
+          ry = _rotRestY(n),
           rz = _rest[n + ':z'];
         if (rx !== undefined) pv.rotation.x = rx;
         if (ry !== undefined) pv.rotation.y = ry;
@@ -124,7 +130,7 @@
       if (ov && !_P[n] && ov !== _root) {
         ov.rotation.set(0, 0, 0);
         var rx = _rest[n + ':x'],
-          ry = _rest[n + ':y'],
+          ry = _rotRestY(n),
           rz = _rest[n + ':z'];
         if (rx !== undefined) ov.rotation.x = rx;
         if (ry !== undefined) ov.rotation.y = ry;
@@ -168,7 +174,7 @@
       if (pv && pv !== _root) {
         pv.rotation.set(0, 0, 0);
         var rx = _rest[n + ':x'],
-          ry = _rest[n + ':y'],
+          ry = _rotRestY(n),
           rz = _rest[n + ':z'];
         if (rx !== undefined) pv.rotation.x = rx;
         if (ry !== undefined) pv.rotation.y = ry;
