@@ -46,7 +46,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
 | `model_factory.html`                    | ~5435 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关 + 骨架版本删除+保存分流）  |
 | `js/humanoid_factory.js`                | ~209  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
-| `models/humanoid_config.js`             | ~7463 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid）   |
+| `models/humanoid_config.js`             | ~7595 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid）   |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.12 — 死亡动画瘫平重做(展台骨盆扭转根因修复pelvis:y误当旋转y/死亡关键帧重做:拉直驼背+双臂外张屈肘不等角+头侧转贴地+髋微屈压脚/root高度轨道改游戏树坐标消瞬移)；v0.79.11 人形动画系统重构）
+## 当前版本（v0.79.13 — 攻击动画双关节弯腰(髋torso+腰torso_upper链式前弯表现下挥力量感,髋后仰预拉伸0.12→爆发前弯0.30/腰0.42,峰值合计0.78rad)；v0.79.12 死亡动画瘫平重做(骨盆扭转修复+双臂外张屈肘)）
 
 ### 关键参数
 

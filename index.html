@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.12</title>
+    <title>坦克运动demo v0.79.13</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.12</div>
+      <div class="menu-version">v0.79.13</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,12 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          ⚔️ v0.79.13 攻击动画双关节弯腰 —
+          下挥时髋(下躯干-骨盆交界)与腰(上下躯干交界)两关节链式前弯
+          表现力量感(髋先后仰预拉伸再爆发前弯0.3rad,腰0.42rad,
+          合计0.78rad链式下砸); 游戏侧legacy树无torso_upper已记录
+        </div>
+        <div class="cl-title">
           💀 v0.79.12 死亡动画瘫平重做 —
           修复展台骨盆扭转(rest位置键pelvis:y误当旋转y应用,致侧倾单肩单脚着地);
           死亡关键帧重做:拉直驼背脊椎平摊/双臂外张屈肘(左右角度各异)/头侧转贴地/
@@ -849,14 +855,8 @@
           版本影响所有版本"的污染链,四版本+新版本全部独立字面值);
           骨架库新增「🗑️ 删除当前版本」按钮(删除+固化,版本下拉自动刷新)
         </div>
-        <div class="cl-title">
-          📦 v0.79.8 模型工厂 Three.js 本地化 —
-          three.module.js/OrbitControls/RoundedBoxGeometry/lil-gui
-          从 unpkg CDN 改为本地文件(修复 ERR_QUIC_PROTOCOL_ERROR
-          导致的模块加载失败), 离线可用
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.12~v0.79.8) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.13~v0.79.9) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

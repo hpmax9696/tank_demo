@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.12** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.13** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -244,6 +244,13 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.79.13 — 攻击动画双关节弯腰（2026-08-14）
+
+- **髋+腰链式前弯**: 用户指出攻击下挥时只有腰（上下躯干交界）在弯、髋（下躯干-骨盆交界）无动作显僵硬。Attack 新增 `torso`（髋）rotation.x 轨道（restKey `torso:x` 偏移制，0=驼背基线）：举臂蓄力时髋**后仰 0.12 预拉伸** → 下挥瞬间**爆发前弯 +0.30** → 回收；腰部（torso_upper）0.5→0.42 微调。下挥峰值双弯合计 ~0.78 rad（45°），力量从髋→腰→臂链式传导
+- **游戏侧顺带改善**: 实测发现游戏 legacy 树（SKELETON_BY_VARIANT）**无 torso_upper 节点**——旧 Attack 的腰部轨道在游戏里一直是 no-op（躯干完全不动）；本次新增的髋轨道（torso，legacy 树存在）让游戏丧尸攻击首次有躯干动作。legacy 树补 torso_upper 迁移记为已知问题
+- **验证**: Playwright 工厂骨架模式 Attack 时序采样（髋 0.20→0.44 峰值→0.19 回落 / 腰 0→0.35 峰值→0 回落 / 手最低 0.583 无插地 / rootY 恒定无上浮）+ 时间膨胀定格峰值帧 Qwen 视觉评估（链式双弯✓ 下挥力量感✓ 无插地✓）+ 游戏侧 student_m/teacher_f 双变体髋轨道生效 + 6 动画全回归 0 错误
+- **改动文件**: `models/humanoid_config.js`（Attack 6 轨道 ×5 处）+ index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.13)
 
 ### v0.79.12 — 死亡动画瘫平重做（2026-08-14）
 
@@ -1644,13 +1651,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.12）
+### 代码规模（截至 v0.79.13）
 
 | 分类             | 文件                                                                                                                                                                                              |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
 | 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1066 + 8046   |
 | 游戏模块 (13个)  | waters(326) bridges(165) debugcolliders(122) obstacles(3188) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) sportsFields(400) + humanoid_factory(505) |      6712      |
-| 人形系统 (2个)   | humanoid_config(7463) humanoid_factory(209)                                                                                                                                                       |      7672      |
+| 人形系统 (2个)   | humanoid_config(7595) humanoid_factory(209)                                                                                                                                                       |      7804      |
 | 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
 | 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
 | 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
@@ -1658,7 +1665,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 模型系统 (14个)  | enemies(1965) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6955      |
 | 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
 | 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |
-| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~41,911 行** |
+| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~42,043 行** |
 
 ---
 

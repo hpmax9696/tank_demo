@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.12
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.13
 
 ## 运行
 
@@ -272,6 +272,18 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.13 本次会话变更 (2026-08-14)
+
+### 攻击动画双关节弯腰（髋+腰链式前弯表现下挥力量感）
+
+用户指出：攻击双手下挥时只有腰（上躯干-下躯干交界）前弯，髋（下躯干-骨盆交界）无动作显僵硬，要求两关节都前弯。
+
+- **新增髋轨道**: Attack 增加 `torso`(kind O) rotation.x 轨道，restKey `torso:x` 偏移制（0=驼背基线，工厂/游戏共用 rest 表无缝）。时序：举臂蓄力髋**后仰 -0.12 预拉伸** → t0.55 **爆发前弯 +0.30** → t0.78 回收 +0.08 → 归零
+- **腰部微调**: torso_upper 0.5→0.42（峰值），加 0.02 蓄力前微伸。峰值双弯合计 ~0.78 rad，力量从髋→腰→臂链式传导
+- **游戏侧发现**: legacy 树（SKELETON_BY_VARIANT，游戏 buildHumanoid 实际用）**无 torso_upper 节点**——旧腰部轨道在游戏一直是 no-op（丧尸攻击躯干全不动）；新髋轨道（torso 存在）让游戏首次有攻击躯干动作。legacy 树迁移 torso_upper 记为已知问题（涉及三棵 legacy 树层级手术，下轮处理）
+- **验证**: Playwright 时序采样（髋 0.20→0.44→0.19 / 腰 0→0.35→0 / 手最低 0.583 / rootY 恒定）+ 时间膨胀定格峰值视觉评估（链式双弯/力量感/无插地）+ 游戏 student_m/teacher_f 髋轨道生效 + 6 动画回归 0 错误
+- **改动文件**: `models/humanoid_config.js`（Attack 6 轨道×5 处：BASE_ANIMS+4 版本副本）+ index/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.13)
 
 ## v0.79.12 本次会话变更 (2026-08-14)
 

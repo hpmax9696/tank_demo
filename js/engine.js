@@ -7407,7 +7407,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.12  ' +
+    'v0.79.13  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -8076,7 +8076,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.12 | 死亡动画瘫平重做: 骨盆扭转修复 + 双臂外张屈肘 + 脊椎平摊贴地');
+console.log('🎮 坦克运动demo v0.79.13 | 攻击动画双关节弯腰: 髋+腰链式前弯表现下挥力量感');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;
