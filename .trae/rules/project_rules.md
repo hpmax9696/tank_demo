@@ -41,12 +41,12 @@ python -m http.server 8080 --bind 127.0.0.1
 
 | 文件                                    | 行数  | 核心内容                                                                    |
 | --------------------------------------- | :---: | --------------------------------------------------------------------------- |
-| `index.html`                            | ~1068 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
-| `js/engine.js`                          | ~8133 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
+| `index.html`                            | ~1082 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
+| `js/engine.js`                          | ~8131 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
-| `model_factory.html`                    | ~5435 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + 坐标轴开关 + 骨架版本删除+保存分流）  |
-| `js/humanoid_factory.js`                | ~209  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
-| `models/humanoid_config.js`             | ~7603 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入）   |
+| `model_factory.html`                    | ~5570 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + EllipFrustum + 坐标轴开关 + 骨架版本删除+保存分流）  |
+| `js/humanoid_factory.js`                | ~246  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
+| `models/humanoid_config.js`             | ~9913 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入+EllipFrustum裙）   |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
@@ -56,7 +56,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                                 |
 | `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）                   |
 | `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                               |
-| `models/enemies.js`                     | ~2038 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config + RidgeBox） |
+| `models/enemies.js`                     | ~1854 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config + RidgeBox + EllipFrustum） |
 | `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                              |
 | `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                                         |
 | `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）                       |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.33 — 红领巾贴颈(Group z 0.1旧树遗留值→0.008,结心0.043与颈相交0.027)/袖子gap 0.004稍粗/红袖口改挂上臂末端(旧l_forearm-0.18落手腕)；v0.79.32 袖子盖肩+血迹贴图化）
+## 当前版本（v0.79.34 — 女裙收窄(裙摆轨道0.35×大腿跟腿耦合+锥心z+0.02+gapBottom 0.13→rBottom 0.187全宽减1/3)/圆锥→圆台rTop 0.157包裹骨盆(修腿刺穿-0.048)/顶面椭圆rx0.157×rz0.105(新EllipFrustum几何,腰部圆弧凸出-62%)/学生裙膝上5cm；v0.79.33 红领巾贴颈/袖子稍粗/红袖口归位）
 
 ### 关键参数
 

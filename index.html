@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.33</title>
+    <title>坦克运动demo v0.79.34</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.33</div>
+      <div class="menu-version">v0.79.34</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,18 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          👗 v0.79.34 女裙收窄+圆台化+椭圆顶+膝上5cm —
+          裙摆轨道改跟腿耦合0.35×大腿角(旧反相后仰
+          帮倒忙)+锥心前移z+0.02+gapBottom 0.19/0.22
+          →0.13:rBottom 0.247/0.277→0.187全宽减1/3;
+          圆锥→圆台rTop 0.077→0.157(包裹骨盆,修腿刺
+          穿锥面-0.048); 顶面改椭圆rx0.157×rz0.105贴合
+          躯干厚度(新EllipFrustum几何,正/背面腰部圆弧
+          凸出-62%),底面保持圆; 学生裙缩短0.32→0.295
+          (膝上5cm); 裙不参与wrapMax+骨盆顶深/衬衫底面
+          钳制防角刺出(裙变体骨盆恢复原深0.147)
+        </div>
+        <div class="cl-title">
           🔴 v0.79.33 红领巾贴颈+袖子稍粗+红袖口归位 —
           红领巾整体Group z=0.1是旧树遗留值(旧颈r0.12)
           新颈仅r0.04→悬空0.1:改z0.008贴颈(结心0.043
@@ -863,19 +875,8 @@
           消除骨盆间隙); 教师女发髻0.055→0.075半径+
           后移至z-0.1(直径0.147,后凸0.069不再扁平)
         </div>
-        <div class="cl-title">
-          👖 v0.79.29 教师裤缩短/女裙缩短+切动画上移修复/领巾结缩小/刘海加宽 —
-          教师长裤大腿段0.68→0.46(中心下移髋下0.115)+小腿段
-          0.6→0.35,裤底到膝/踝不再比脚低; 两条裙子缩短
-          (学生0.425→0.32/教师0.525→0.38提升裙摆露小腿);
-          修复工厂collectRefs把裙position.y清零致切动画界面
-          裙上移一截(Die裙轨道已删该复位不再需要);
-          红领巾结0.07→0.03+飘带缩小(不再像红花);
-          学生女刘海加宽0.045+外移±0.115+上移y0.055
-          (缺口覆盖双眼,与头顶头发衔接无缝隙)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.33~v0.79.29) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.34~v0.79.30) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

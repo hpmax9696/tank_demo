@@ -1329,6 +1329,33 @@
         return geo;
       }
 
+      // v0.79.34c 椭圆顶圆台（裙）：底面圆 + 顶面椭圆，顶面贴合躯干厚度防正面/背面裙腰凸出圆弧
+      function buildEllipFrustum(rxT, h, rB, rzT, seg = 16) {
+        const N = Math.max(8, seg);
+        const verts = [], uvs = [], idxArr = []; let vi = 0;
+        const U = (p) => { uvs.push(p[0] / (2 * Math.max(rxT, rB)) + 0.5, p[1] / h + 0.5); };
+        const bot = [], top = [];
+        for (let i = 0; i < N; i++) {
+          const a = (i / N) * Math.PI * 2;
+          bot.push([rB * Math.cos(a), -h / 2, rB * Math.sin(a)]);
+          top.push([rxT * Math.cos(a), h / 2, rzT * Math.sin(a)]);
+        }
+        const q = (a, b, c, d) => { verts.push(...a,...b,...c,...d); U(a);U(b);U(c);U(d); idxArr.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+        const t = (a, b, c) => { verts.push(...a,...b,...c); U(a);U(b);U(c); idxArr.push(vi,vi+1,vi+2); vi+=3; };
+        for (let i = 0; i < N; i++) {
+          const j = (i + 1) % N;
+          q(bot[i], top[i], top[j], bot[j]);
+          t([0, h / 2, 0], top[j], top[i]);
+          t([0, -h / 2, 0], bot[i], bot[j]);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+        geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+        geo.setIndex(idxArr);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
       function createGeometry(node) {
         const s = node.size || [1, 1, 1];
         const seg = node.segments || [8, 1];
@@ -1355,6 +1382,15 @@
               s[6] || 0,
               s[7] || 0,
               s[8] || 0
+            );
+          case 'EllipFrustum':
+            // v0.79.34c 裙：size [顶面X半轴, 高, 底面圆半径, 顶面Z半轴]
+            return buildEllipFrustum(
+              s[0],
+              s[1] || 1,
+              s[2] || s[0],
+              s[3] !== undefined ? s[3] : s[0] * 0.67,
+              (Array.isArray(node.segments) ? node.segments[0] : node.segments) || 16
             );
           case 'RidgeBox':
             // size: [底宽, 高, 底深, 顶宽, 顶深, 顶面X偏移, 顶面Z偏移, 脊线高度, 脊线凸出]

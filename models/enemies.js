@@ -1181,6 +1181,28 @@
                 q(A,B,C,D); q(A,B,F,E); q(D,E,F,C); t(A,E,D); t(B,C,F);
                 const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals(); return g;
             }
+            // v0.79.34c 椭圆顶圆台（裙）：底面圆 rB + 顶面椭圆 (rxT, rzT)——顶面贴合躯干厚度，
+            // 正/背面裙腰不再凸出圆弧；UV 平面映射（v0.79.32 口径）
+            function mkEllipFrustum(rxT, h, rB, rzT, seg) {
+                const N = Math.max(8, seg || 16);
+                const v = [], uv = [], idx = []; let vi = 0;
+                const U = (p) => { uv.push(p[0] / (2 * Math.max(rxT, rB)) + 0.5, p[1] / h + 0.5); };
+                const bot = [], top = [];
+                for (let i = 0; i < N; i++) {
+                    const a = (i / N) * Math.PI * 2;
+                    bot.push([rB * Math.cos(a), -h / 2, rB * Math.sin(a)]);
+                    top.push([rxT * Math.cos(a), h / 2, rzT * Math.sin(a)]);
+                }
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); U(a);U(b);U(c);U(d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const t = (a, b, c) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]); U(a);U(b);U(c); idx.push(vi,vi+1,vi+2); vi+=3; };
+                for (let i = 0; i < N; i++) {
+                    const j = (i + 1) % N;
+                    q(bot[i], top[i], top[j], bot[j]); // 侧面（外法线）
+                    t([0, h / 2, 0], top[j], top[i]);  // 顶盖 +Y
+                    t([0, -h / 2, 0], bot[i], bot[j]); // 底盖 -Y
+                }
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+            }
             switch (node.type) {
                 case 'Box': {
                     const [w, h, d] = node.size;
@@ -1190,6 +1212,12 @@
                     const [rT, h, rB] = node.size;
                     const seg = Array.isArray(node.segments) ? node.segments[0] : node.segments;
                     return new THREE.CylinderGeometry(rT, rB, h, seg || 8);
+                }
+                case 'EllipFrustum': {
+                    // v0.79.34c 裙：size [顶面X半轴, 高, 底面圆半径, 顶面Z半轴]
+                    const s = node.size;
+                    const seg = Array.isArray(node.segments) ? node.segments[0] : node.segments;
+                    return mkEllipFrustum(s[0], s[1], s[2], s[3] != null ? s[3] : s[0] * 0.67, seg || 16);
                 }
                 case 'Sphere': {
                     const [r] = node.size;

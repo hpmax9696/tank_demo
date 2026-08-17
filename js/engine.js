@@ -7407,7 +7407,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.33  ' +
+    'v0.79.34  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -8076,7 +8076,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.33 | 红领巾贴颈(Group z 0.1旧树值遗留)/袖子gap 0.004稍粗/红袖口改挂上臂末端');
+console.log('🎮 坦克运动demo v0.79.34 | 女裙收窄(跟腿耦合+锥心前移)+圆台化包裹骨盆+椭圆顶贴合躯干+学生裙膝上5cm');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

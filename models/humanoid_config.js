@@ -661,13 +661,13 @@
       parent: 'pelvis',
       node: {
         name: 'ah_skirt',
-        type: 'Cylinder',
-        size: [0.14, 0.32, 0.46],
-        position: [0, -0.0375, 0],
+        type: 'EllipFrustum',
+        size: [0.157, 0.295, 0.187, 0.105], // [顶X半轴, 高, 底圆半径, 顶Z半轴]；实际由 WRAP 派生
+        position: [0, -0.025, 0.02], // v0.79.34c 顶保持 0.1225，裙底 -0.1725 = 膝(-0.223)+0.05（膝上5cm）
         materialId: 'shorts_red',
         segments: [16, 1],
       },
-    }, // 学生短裙：v0.79.29 缩短（0.425→0.32 提升裙摆露更多小腿）
+    }, // 学生短裙：椭圆顶圆台（v0.79.34c）；v0.79.34 锥心 z+0.02 前移；本版缩短 0.32→0.295（膝上5cm）
     trousers_grey: {
       // 长裤大腿段：挂腿关节（随髋转）；v0.79.29 缩短——旧 0.68≈整条腿长致裤比脚低
       // 大腿长 0.3465：裤 0.46 中心髋下 0.115 → 裤底到膝（0.345），膝以下由 calf 段覆盖
@@ -695,13 +695,13 @@
       parent: 'pelvis',
       node: {
         name: 'ah_gskirt',
-        type: 'Cylinder',
-        size: [0.14, 0.38, 0.53],
-        position: [0, -0.0875, 0],
+        type: 'EllipFrustum',
+        size: [0.157, 0.38, 0.187, 0.105], // [顶X半轴, 高, 底圆半径, 顶Z半轴]；实际由 WRAP 派生
+        position: [0, -0.0875, 0.02], // v0.79.34 z+0.02 锥心前移（同学生裙）
         materialId: 'trousers_grey',
         segments: [16, 1],
       },
-    }, // 教师中长裙：v0.79.29 缩短（0.525→0.38 提升裙摆露小腿）
+    }, // 教师中长裙：椭圆顶圆台（v0.79.34c）；v0.79.29 缩短（0.525→0.38 提升裙摆露小腿）
     shoes_blue: {
       parent: 'l_foot',
       node: {
@@ -938,17 +938,27 @@
 
   // ── 包裹肢体的衣物 addon（袖口/短裤/长裤/裙）：尺寸随 build 派生保持包裹间隙，防肢体变粗穿模
   // limb: 被包裹的肢体节点（deriveNode 已按 build 派生其 size）；gap: 每侧间隙（单位）
+  // 裙变体骨盆顶深上限（v0.79.34c）：骨盆顶面 0.3×0.2 的角部(距轴0.18)会刺出椭圆顶裙壁，
+  // 收到 0.14 后角部 ~0.16 与壁齐平——骨盆是被裙+下躯干完全遮盖的隐形内部件，收浅零视觉代价
+  var SKIRT_PELVIS_TD = 0.14;
+  // 裙变体下躯干（衬衫盒）底面钳制（v0.79.34c）：底深 0.2+底偏 -0.04 的后角(距轴0.215)刺出裙壁
+  // ~0.08；钳到底深 0.14/底偏 -0.01 后角刺出 ~0.03（与圆台版持平）。衬衫底面只在背后侧收 5cm，
+  // 正面不变（底前缘 0.065 保持）；教师 torso_lower 与裙同色且语义"扎进裙"，钳制只会更正确
+  var SKIRT_TLOWER_BD = 0.14;
+  var SKIRT_TLOWER_BZ = -0.01;
   const WRAP_ADDONS = {
     polo_cuff_l: { limb: 'l_upper_arm', gap: 0.004 }, // v0.79.33: 改挂上臂
     polo_cuff_r: { limb: 'r_upper_arm', gap: 0.004 },
     shorts_m: { limb: 'l_upper_leg', gap: 0.016 },
     trousers_grey: { limb: 'l_upper_leg', gap: 0.016 },
     trousers_grey_calf: { limb: 'l_lower_leg', gap: 0.016 },
-    // 裙 = 锥形 Cylinder：腰口(rTop) = 腿半径+0.02（细，被上衣下摆盖住，pelvis 无需加大）
-    // 裙摆(rBottom) 按 Run 极限(0.8rad)大腿表面位移 = sqrt(髋X偏移0.13² + (摆长×sin0.8)²) + 腿半径
-    // v0.79.26 收紧：学生裙摆 0.28 / 教师 0.30（摆长同前，位移 0.15 + 腿 0.06 + 余量）——旧 0.46/0.53 圆桌裙过大
-    pleated_skirt_f: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.19 },
-    skirt_grey: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.22 },
+    // 裙 = 椭圆顶圆台（v0.79.34c，用户方案）：底面圆 + 顶面椭圆
+    //   顶面 rx = 腿r+0.10≈0.157（X 向盖住骨盆半宽 0.15）；rz = rx×0.67≈0.105（贴合躯干深度）
+    //   ——旧圆台顶面正/背面各凸出躯干 ~0.084/0.044（圆弧鼓包），椭圆顶正面降到 0.032、背面藏进衬衫下摆内
+    //   骨盆顶深同步收到 0.14（隐形内部件，防角部刺出椭圆壁，见装配段 SKIRT_PELVIS_TD）
+    //   底面圆 rBottom = 腿r+0.13（v0.79.34 跟腿耦合+锥心前移口径，逐帧仿真需求 0.173/0.174+余量）
+    pleated_skirt_f: { limb: 'l_upper_leg', gap: 0.1, gapBottom: 0.13, zRatio: 0.67 },
+    skirt_grey: { limb: 'l_upper_leg', gap: 0.1, gapBottom: 0.13, zRatio: 0.67 },
     // v0.79.31 袖子（半径联动；短袖盖肩头 / 长袖盖整臂）v0.79.33: gap 0.008→0.004 稍粗一点即可
     short_sleeve_white: { limb: 'l_upper_arm', gap: 0.004 },
     short_sleeve_pink: { limb: 'l_upper_arm', gap: 0.004 },
@@ -968,16 +978,20 @@
     long_sleeve_upper_blue: ['l_upper_arm', 'r_upper_arm'],
     long_sleeve_fore_blue: ['l_forearm', 'r_forearm'],
   };
-  // addon 子树递归重算包裹尺寸：Cylinder 半径 / Box 全宽深 = 肢体半径 + gap（gapBottom 用于锥形裙摆）
-  function applyWrapScale(node, rLimb, gap, gapBottom) {
+  // addon 子树递归重算包裹尺寸：Cylinder 半径 / EllipFrustum 顶椭圆+底圆 / Box 全宽深 = 肢体半径 + gap
+  // gapBottom 用于锥形裙摆；zRatio 用于 EllipFrustum 顶面 Z 半轴 = (腿r+gap)×zRatio
+  function applyWrapScale(node, rLimb, gap, gapBottom, zRatio) {
     if (node.size) {
       if (node.type === 'Cylinder') {
         node.size = [rLimb + gap, node.size[1], rLimb + (gapBottom != null ? gapBottom : gap)];
+      } else if (node.type === 'EllipFrustum') {
+        var rz = +((rLimb + gap) * (zRatio || 0.67)).toFixed(4);
+        node.size = [rLimb + gap, node.size[1], rLimb + (gapBottom != null ? gapBottom : gap), rz];
       } else if (node.type === 'Box') {
         node.size = [(rLimb + gap) * 2, node.size[1], (rLimb + gap) * 2];
       }
     }
-    if (node.children) node.children.forEach((c) => applyWrapScale(c, rLimb, gap, gapBottom));
+    if (node.children) node.children.forEach((c) => applyWrapScale(c, rLimb, gap, gapBottom, zRatio));
   }
 
   // ── 主装配：buildHumanoid(variantKey, params) → config 树
@@ -1039,11 +1053,23 @@
         if (wrap) {
           const limbNode = findNode(tree, wrap.limb);
           if (limbNode && limbNode.size) {
-            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom);
-            // 收集包裹宽度（下摆包裹保证用）：Box 半宽 / Cylinder 半径
+            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom, wrap.zRatio);
+            // 裙变体：骨盆顶深 + 下躯干底面钳制（防方盒角部刺出椭圆裙壁，语义见 WRAP_ADDONS 段常量）
+            if (clone.type === 'EllipFrustum') {
+              const pn = findNode(tree, 'pelvis');
+              if (pn && pn.size && pn.size[4] > SKIRT_PELVIS_TD) pn.size[4] = SKIRT_PELVIS_TD;
+              const tl = findNode(tree, 'torso_lower');
+              if (tl && tl.size) {
+                if (tl.size[2] > SKIRT_TLOWER_BD) tl.size[2] = SKIRT_TLOWER_BD;
+                if (tl.size[8] < SKIRT_TLOWER_BZ) tl.size[8] = SKIRT_TLOWER_BZ;
+              }
+            }
+            // 收集包裹宽度（下摆包裹保证用）：Box 半宽
+            // v0.79.34b 裙(Cylinder/EllipFrustum)不参与——wrapMax 是"骨盆须容纳的方盒内衣半宽"，
+            // 裙是圆形外层（自身包裹骨盆），混入会把骨盆撑成 needFull×needFull 方板反而捅穿裙壁
             const wrapFirst = clone.children ? clone.children[0] : clone;
-            if (wrapFirst && wrapFirst.size) {
-              const w = wrapFirst.type === 'Box' ? wrapFirst.size[0] / 2 : wrapFirst.size[0];
+            if (wrapFirst && wrapFirst.size && wrapFirst.type === 'Box') {
+              const w = wrapFirst.size[0] / 2;
               if (w > wrapMax) wrapMax = w;
             }
           }
@@ -9666,10 +9692,21 @@ var SKELETON_VERSIONS = {
         if (wrap) {
           var limbNode = findNode(tree, wrap.limb);
           if (limbNode && limbNode.size) {
-            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom);
+            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom, wrap.zRatio);
+            // v0.79.34c 裙变体：骨盆顶深 + 下躯干底面钳制（防角刺出椭圆壁，语义见 WRAP_ADDONS 段常量）
+            if (clone.type === 'EllipFrustum') {
+              var pn = findNode(tree, 'pelvis');
+              if (pn && pn.size && pn.size[4] > SKIRT_PELVIS_TD) pn.size[4] = SKIRT_PELVIS_TD;
+              var tl = findNode(tree, 'torso_lower');
+              if (tl && tl.size) {
+                if (tl.size[2] > SKIRT_TLOWER_BD) tl.size[2] = SKIRT_TLOWER_BD;
+                if (tl.size[8] < SKIRT_TLOWER_BZ) tl.size[8] = SKIRT_TLOWER_BZ;
+              }
+            }
+            // v0.79.34b 裙(Cylinder/EllipFrustum)不参与 wrapMax（圆形外层自包裹骨盆；方盒语义见 buildHumanoid 同段注释）
             var wrapFirst = clone.children ? clone.children[0] : clone;
-            if (wrapFirst && wrapFirst.size) {
-              var w = wrapFirst.type === 'Box' ? wrapFirst.size[0] / 2 : wrapFirst.size[0];
+            if (wrapFirst && wrapFirst.size && wrapFirst.type === 'Box') {
+              var w = wrapFirst.size[0] / 2;
               if (w > wrapMax) wrapMax = w;
             }
           }
@@ -9744,12 +9781,16 @@ var SKELETON_VERSIONS = {
 
   // ── 丧尸动画集派生：驼背 + 无拳击 + Walk/Run 拖行 + Run 双臂前伸抓猎物 + 裙摆动 ──
   var ZOMBIE_HUNCH = { 'torso:x': 0.2, 'neck:x': 0.22, 'head:z': 0.08 };
-  // 裙摆动轨道（kind O 挂 pelvis 的裙节点：学生 ah_skirt / 教师 ah_gskirt；随步伐前后摆+重心左右晃）
-  function skirtTracks(skirtName) {
-    if (!skirtName) return [];
+  // 裙摆动轨道（kind O 挂 pelvis 的裙节点：学生 ah_skirt / 教师 ah_gskirt）
+  // v0.79.34 跟腿耦合：x = K×左大腿角——腿前踢裙前倾"腿把裙撑开"（旧版反相"布料滞后"恰好在前踢帧
+  // 把裙底后仰 0.031，前向包络需求被自己撑大）。K=0.35 逐帧仿真最优（0.30~0.40 需求面平坦）
+  var SKIRT_COUPLE_K = 0.35;
+  function skirtTracks(skirtName, legXKeys, zAmp) {
+    if (!skirtName || !legXKeys) return [];
     return [
-      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.14 }, { t: 0.25, v: -0.1 }, { t: 0.5, v: 0.14 }, { t: 0.75, v: -0.1 }, { t: 1, v: 0.14 } ] },
-      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -0.07 }, { t: 0.5, v: 0.07 }, { t: 1, v: -0.07 } ] },
+      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'x', restKey: null,
+        keys: legXKeys.map(function (k) { return { t: k.t, v: +(k.v * SKIRT_COUPLE_K).toFixed(4) }; }) },
+      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -zAmp }, { t: 0.5, v: zAmp }, { t: 1, v: -zAmp } ] },
     ];
   }
   function deriveZombieAnims(verAnims, skirtName, dieRootY) {
@@ -9797,18 +9838,18 @@ var SKELETON_VERSIONS = {
     (a.actions.Stagger || []).forEach(function (t) {
       if (t.joint === 'torso' && t.axis === 'x') t.restKey = 'torso:x';
     });
-    // 裙摆动（随步态前后摆+左右晃；Die 前摆+下沉穿地，身体贴地）
+    // 裙摆动（v0.79.34 跟腿耦合：x 随左大腿同相摆 + 重心左右晃；Die 前摆+下沉穿地，身体贴地）
     if (skirtName) {
       var sk = a.actions;
       sk.Idle = (sk.Idle || []).concat([
         { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.05 }, { t: 0.5, v: 0.02 }, { t: 1, v: 0.05 } ] },
       ]);
-      sk.Walk = (sk.Walk || []).concat(skirtTracks(skirtName));
-      sk.Run = (sk.Run || []).concat(
-        skirtTracks(skirtName).map(function (t) {
-          return { kind: t.kind, joint: t.joint, prop: t.prop, axis: t.axis, restKey: null, keys: t.keys.map(function (k) { return { t: k.t, v: k.v * 1.4 }; }) };
-        })
-      );
+      var skirtLegX = function (tracks) {
+        var t = tracks.filter(function (x) { return x.joint === 'l_upper_leg' && x.axis === 'x' && x.prop === 'rotation'; })[0];
+        return t ? t.keys : null;
+      };
+      sk.Walk = (sk.Walk || []).concat(skirtTracks(skirtName, skirtLegX(sk.Walk), 0.07));
+      sk.Run = (sk.Run || []).concat(skirtTracks(skirtName, skirtLegX(sk.Run), 0.098));
       // Die 不加裙轨道：裙自然挂骨盆随前倒，整体下沉由 Die root 高度轨道负责（v0.79.27 用户方案）
     }
     a.durations = { Idle: 2.2, Walk: 2.2, Run: 1.0, Swing: 1.0, Stagger: 0.5, Die: 1.5 };
