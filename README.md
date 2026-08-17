@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.34** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.35** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -244,6 +244,15 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.79.35 — 丧尸步态交叉循环 + 教师裤管修正 + 男学生短裤白缝线（2026-08-16）
+
+- **步态（用户报告"双脚同时屈膝向后蹬地"）**: 量化定位——旧 Walk 双腿后摆窗重叠 ~1/4 周期（l 正窗 0.17~0.65 ∩ r 正窗 0.11~0.40/0.67~0.80）且双膝全程屈着（≥0.15/0.42）→ 双蹬相。重设计**一迈一撑交叉循环**：后蹬窗严格错开（左 0.20~0.56 / 右 0.77~0.24，一腿 >+0.15 后蹬时另一腿必 <−0.05 前迈，违例帧 0/400）；支撑腿膝伸直蹬地（触地 0.08→蹬地 0.18）、摆动腿屈膝抬脚（Walk 峰 0.62 / Run 峰 0.85）；瘸拖特征保留（右幅值减半前 −0.18/蹬 +0.15 + 膝恒僵 0.40~0.58 不伸直）；左右前迈峰交错 0.45/0.50 半周期
+- **裙约束保障**: 新步态幅值落在 v0.79.34 验证包络内（前踢 ≤0.45/0.28、左后蹬 0.30、右后蹬 0.15）——裙底逐帧仿真余量 0.020/0.011 反而更宽松
+- **教师裤管（用户报告"上半截戳出来一截"）**: 根因 = v0.79.29 调参漏算渲染层 pivot 补偿（childComp=−pivot，addon 实际位置 = position − 父pivot）——大腿段注释算"裤底到膝 0.345"，实际髋系 0.518 = **膝下 0.172 超长**，屈膝时大腿段底角穿透小腿段 0.12。修正：高 0.46→**0.32** + position −0.115→−0.042 → 底沿真实膝下 0.052（真实膝 = ll.pos−ulPivot+llPivot ≠ 髋−大腿长，浏览器实测校准）；Run 穿透 0.12→0.025（粗盖细落差），后侧 0 开缝
+- **男学生短裤白色侧缝线**: 短裤 Box 新增 `ah_sm_seam` 装饰子节点（0.006×0.18×0.028，button_white 纯白，贴双腿外侧面）；`applyWrapScale` 支持 `_deco`（尺寸不改写 + x 吸附 wrap 后半宽贴面）；顺带修 `wrapMax` 收集（新增 `firstWrapNode`，短裤带 children 后旧 `children[0]` 会错拿缝线 0.003 漏掉本体 0.075）
+- **验证**: 步态数据层 14（verify_zombie_gait：无双蹬/交叉/伸直蹬地/抬脚/瘸腿/相位）+ 渲染层 11 + 裙 26+14 + 裤管 8 + 缝线 12+9 + 回归 53（烘焙变体 23/Die 15/裤裙 9/贴颈 6）；0 控制台错误
+- **改动文件**: `models/humanoid_config.js`（deriveZombieAnims Walk/Run 腿×4、trousers_grey、shorts_m+applyWrapScale+firstWrapNode）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.35)
 
 ### v0.79.34 — 女裙收窄 + 圆台化 + 椭圆顶 + 学生裙膝上5cm（2026-08-16）
 
@@ -1839,13 +1848,13 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.34）
+### 代码规模（截至 v0.79.35）
 
 | 分类             | 文件                                                                                                                                                                                              |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
 | 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1082 + 8131   |
 | 游戏模块 (13个)  | waters(326) bridges(165) debugcolliders(122) obstacles(3188) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) sportsFields(400) + humanoid_factory(505) |      6712      |
-| 人形系统 (2个)   | humanoid_config(9913) humanoid_factory(246)                                                                                                                                                       |     10159      |
+| 人形系统 (2个)   | humanoid_config(9953) humanoid_factory(246)                                                                                                                                                       |     10199      |
 | 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
 | 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
 | 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
@@ -1853,7 +1862,7 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 | 模型系统 (14个)  | enemies(1854) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6844      |
 | 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
 | 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |
-| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~44,511 行** |
+| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~44,551 行** |
 
 ---
 

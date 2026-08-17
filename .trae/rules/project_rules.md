@@ -46,7 +46,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
 | `model_factory.html`                    | ~5570 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + EllipFrustum + 坐标轴开关 + 骨架版本删除+保存分流）  |
 | `js/humanoid_factory.js`                | ~246  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
-| `models/humanoid_config.js`             | ~9913 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入+EllipFrustum裙）   |
+| `models/humanoid_config.js`             | ~9953 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入+EllipFrustum裙+_deco缝线）   |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.34 — 女裙收窄(裙摆轨道0.35×大腿跟腿耦合+锥心z+0.02+gapBottom 0.13→rBottom 0.187全宽减1/3)/圆锥→圆台rTop 0.157包裹骨盆(修腿刺穿-0.048)/顶面椭圆rx0.157×rz0.105(新EllipFrustum几何,腰部圆弧凸出-62%)/学生裙膝上5cm；v0.79.33 红领巾贴颈/袖子稍粗/红袖口归位）
+## 当前版本（v0.79.35 — 丧尸步态一迈一撑交叉循环(旧双蹬相:双腿后摆窗重叠~1/4周期+双膝恒屈→重设计后蹬窗错开/支撑膝伸直蹬地/摆动膝抬脚,瘸拖特征保留)/教师裤管修正(大腿段0.32,pivot补偿漏算致膝下0.172超长→0.052)/男学生短裤白缝线(_deco装饰子节点+firstWrapNode)；v0.79.34 女裙收窄+圆台化+椭圆顶）
 
 ### 关键参数
 

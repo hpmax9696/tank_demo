@@ -655,6 +655,18 @@
         size: [0.18, 0.2, 0.22],
         position: [0, -0.06, 0], // 上移 0.04（渲染 y=position+0.2 补偿）：裤顶盖入骨盆下沿（v0.79.30 消除骨盆间隙）
         materialId: 'shorts_red',
+        children: [
+          // 白色侧缝线（运动短裤外侧白条）：贴父 Box 外侧面，x 位置由 applyWrapScale 按 wrap 半宽吸附
+          // （mirrorX 递归取反 → r 侧白条贴 r 腿外侧面）；_deco 跳过 wrap 尺寸改写
+          {
+            name: 'ah_sm_seam',
+            type: 'Box',
+            size: [0.006, 0.18, 0.028],
+            position: [0.09, 0, 0],
+            materialId: 'button_white',
+            _deco: 1,
+          },
+        ],
       },
     },
     pleated_skirt_f: {
@@ -669,14 +681,19 @@
       },
     }, // 学生短裙：椭圆顶圆台（v0.79.34c）；v0.79.34 锥心 z+0.02 前移；本版缩短 0.32→0.295（膝上5cm）
     trousers_grey: {
-      // 长裤大腿段：挂腿关节（随髋转）；v0.79.29 缩短——旧 0.68≈整条腿长致裤比脚低
-      // 大腿长 0.3465：裤 0.46 中心髋下 0.115 → 裤底到膝（0.345），膝以下由 calf 段覆盖
+      // 长裤大腿段：挂腿关节（随髋转）
+      // ⚠️ 渲染层位置 = position[1] − 父pivot[1]（childComp=-pivot，enemies.js buildNode）——
+      // v0.79.29 调参漏算此补偿（注释算 0.115+0.23=0.345 到膝，实际髋系底沿 0.518=膝下 0.172 超长），
+      // 屈膝时大腿段底角戳出小腿段侧面 Run 0.120（用户报告"上半截戳出来一截"）
+      // v0.79.29 漏算补偿的修正（2026-08-16）：高 0.46→0.32 + position -0.115→-0.042
+      // → 底沿真实膝(髋系-0.323=ll.pos-ulPivot+llPivot，非大腿长)下 0.052，顶沿 -0.055 不变，
+      // 与小腿段(顶过膝+0.002)静态重叠 ~0.054；Run 折角底角在小腿盒外悬垂 ≤0.025（粗盖细落差）
       parent: 'l_upper_leg',
       node: {
         name: 'ah_tr_l',
         type: 'Box',
-        size: [0.18, 0.46, 0.22],
-        position: [0, -0.115, 0],
+        size: [0.18, 0.32, 0.22],
+        position: [0, -0.042, 0],
         materialId: 'trousers_grey',
       },
     },
@@ -980,7 +997,12 @@
   };
   // addon 子树递归重算包裹尺寸：Cylinder 半径 / EllipFrustum 顶椭圆+底圆 / Box 全宽深 = 肢体半径 + gap
   // gapBottom 用于锥形裙摆；zRatio 用于 EllipFrustum 顶面 Z 半轴 = (腿r+gap)×zRatio
+  // _deco 子节点（缝线等装饰）：尺寸不改写，position.x 吸附到父 Box wrap 后外侧面（符号保留，mirror 已定侧）
   function applyWrapScale(node, rLimb, gap, gapBottom, zRatio) {
+    if (node._deco) {
+      if (node.position) node.position[0] = Math.sign(node.position[0] || 1) * (rLimb + gap - 0.001);
+      return;
+    }
     if (node.size) {
       if (node.type === 'Cylinder') {
         node.size = [rLimb + gap, node.size[1], rLimb + (gapBottom != null ? gapBottom : gap)];
@@ -992,6 +1014,13 @@
       }
     }
     if (node.children) node.children.forEach((c) => applyWrapScale(c, rLimb, gap, gapBottom, zRatio));
+  }
+
+  // wrapMax 收集用：子树里第一个非 _deco 的带 size 节点（WRAP addon 可能是 Group 包 Box / 直接 Box / Box 带 deco 缝线子件）
+  function firstWrapNode(n) {
+    if (n.size && !n._deco) return n;
+    if (n.children) for (var i = 0; i < n.children.length; i++) { var r = firstWrapNode(n.children[i]); if (r) return r; }
+    return null;
   }
 
   // ── 主装配：buildHumanoid(variantKey, params) → config 树
@@ -1067,7 +1096,7 @@
             // 收集包裹宽度（下摆包裹保证用）：Box 半宽
             // v0.79.34b 裙(Cylinder/EllipFrustum)不参与——wrapMax 是"骨盆须容纳的方盒内衣半宽"，
             // 裙是圆形外层（自身包裹骨盆），混入会把骨盆撑成 needFull×needFull 方板反而捅穿裙壁
-            const wrapFirst = clone.children ? clone.children[0] : clone;
+            const wrapFirst = firstWrapNode(clone);
             if (wrapFirst && wrapFirst.size && wrapFirst.type === 'Box') {
               const w = wrapFirst.size[0] / 2;
               if (w > wrapMax) wrapMax = w;
@@ -9704,7 +9733,7 @@ var SKELETON_VERSIONS = {
               }
             }
             // v0.79.34b 裙(Cylinder/EllipFrustum)不参与 wrapMax（圆形外层自包裹骨盆；方盒语义见 buildHumanoid 同段注释）
-            var wrapFirst = clone.children ? clone.children[0] : clone;
+            var wrapFirst = firstWrapNode(clone);
             if (wrapFirst && wrapFirst.size && wrapFirst.type === 'Box') {
               var w = wrapFirst.size[0] / 2;
               if (w > wrapMax) wrapMax = w;
@@ -9807,13 +9836,21 @@ var SKELETON_VERSIONS = {
       });
     }
     // Walk：拖行一瘸一拐（左腿好/右腿瘸拖，躯干摇摆，2.2s）
+    // 步态修正（2026-08-16 用户报告"双脚同时屈膝后蹬"）：旧关键帧双腿后摆窗重叠 ~1/4 周期
+    // （l 正窗 0.17~0.65 ∩ r 正窗 0.11~0.40/0.67~0.80）且双膝全程屈着(≥0.15/0.42)——双蹬相。
+    // 重设计为一迈一撑交叉循环：后蹬窗错开（l 0.20~0.56 / r 0.77~0.24），一腿后蹬时另一腿必在前迈；
+    // 支撑腿膝伸直蹬地(0.08→0.18)、摆动腿屈膝抬脚(峰 0.62)；瘸拖特征=右幅值减半+膝恒僵 0.42~0.55
     a.actions.Walk = [
       { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: 0.05 }, { t: 0.25, v: -0.07 }, { t: 0.5, v: 0.05 }, { t: 0.75, v: -0.07 }, { t: 1, v: 0.05 } ] },
       { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [ { t: 0, v: -0.015 }, { t: 0.25, v: 0.015 }, { t: 0.5, v: -0.02 }, { t: 0.75, v: 0.01 }, { t: 1, v: -0.015 } ] },
-      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.3 }, { t: 0.25, v: 0.05 }, { t: 0.5, v: 0.15 }, { t: 0.75, v: -0.1 }, { t: 1, v: -0.3 } ] },
-      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.1 }, { t: 0.25, v: -0.12 }, { t: 0.5, v: 0.08 }, { t: 0.75, v: -0.04 }, { t: 1, v: 0.1 } ] },
-      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.35 }, { t: 0.25, v: 0.15 }, { t: 0.5, v: 0.45 }, { t: 0.75, v: 0.75 }, { t: 1, v: 0.35 } ] },
-      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.5 }, { t: 0.25, v: 0.42 }, { t: 0.5, v: 0.5 }, { t: 0.75, v: 0.58 }, { t: 1, v: 0.5 } ] },
+      // 左腿(好腿)：t0 触地(前伸-0.28)→t0.45 后蹬(+0.30)→t0.6~0.9 摆动前迈
+      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.28 }, { t: 0.15, v: -0.05 }, { t: 0.3, v: 0.12 }, { t: 0.45, v: 0.3 }, { t: 0.6, v: 0.05 }, { t: 0.75, v: -0.22 }, { t: 0.9, v: -0.3 }, { t: 1, v: -0.28 } ] },
+      // 右腿(瘸腿,相位+0.5幅值减半)：t0.45 前伸触地(-0.18)→t0.9 轻蹬(+0.15)→拖行前移
+      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.15 }, { t: 0.15, v: 0.05 }, { t: 0.3, v: -0.08 }, { t: 0.45, v: -0.18 }, { t: 0.6, v: -0.1 }, { t: 0.75, v: 0.04 }, { t: 0.9, v: 0.15 }, { t: 1, v: 0.15 } ] },
+      // 左膝：触地 0.08 伸直承重→蹬地 0.18→摆动峰 0.62 抬脚清障→前伸落地下探 0.15
+      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.08 }, { t: 0.15, v: 0.2 }, { t: 0.3, v: 0.12 }, { t: 0.45, v: 0.18 }, { t: 0.6, v: 0.62 }, { t: 0.75, v: 0.45 }, { t: 0.9, v: 0.15 }, { t: 1, v: 0.08 } ] },
+      // 右膝(僵直拖行)：全程 0.42~0.55 恒屈不伸直——拖脚特征
+      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.45 }, { t: 0.15, v: 0.42 }, { t: 0.3, v: 0.52 }, { t: 0.45, v: 0.55 }, { t: 0.6, v: 0.5 }, { t: 0.75, v: 0.44 }, { t: 0.9, v: 0.42 }, { t: 1, v: 0.45 } ] },
       { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.25 }, { t: 0.25, v: 0.1 }, { t: 0.5, v: -0.25 }, { t: 0.75, v: 0.1 }, { t: 1, v: -0.25 } ] },
       { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.1 }, { t: 0.25, v: -0.25 }, { t: 0.5, v: 0.1 }, { t: 0.75, v: -0.25 }, { t: 1, v: 0.1 } ] },
     ];
@@ -9829,10 +9866,13 @@ var SKELETON_VERSIONS = {
       { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -0.12 }, { t: 1, v: -0.12 } ] },
       { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: 0.12 }, { t: 1, v: 0.12 } ] },
       { kind: 'P', joint: 'head', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.18 }, { t: 0.5, v: -0.14 }, { t: 1, v: -0.18 } ] },
-      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.5 }, { t: 0.25, v: 0.1 }, { t: 0.5, v: 0.3 }, { t: 0.75, v: -0.25 }, { t: 1, v: -0.5 } ] },
-      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.15 }, { t: 0.25, v: -0.2 }, { t: 0.5, v: 0.12 }, { t: 0.75, v: -0.08 }, { t: 1, v: 0.15 } ] },
-      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.5 }, { t: 0.25, v: 0.2 }, { t: 0.5, v: 0.6 }, { t: 0.75, v: 1.1 }, { t: 1, v: 0.5 } ] },
-      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.55 }, { t: 0.25, v: 0.45 }, { t: 0.5, v: 0.55 }, { t: 0.75, v: 0.65 }, { t: 1, v: 0.55 } ] },
+      // 步态修正（同 Walk）：旧 Run 双腿后摆窗重叠 (0.41, 0.64)+双膝恒屈 0.5~1.1——双蹬相。
+      // 交叉循环：左 t0 触地(-0.45)→t0.45 蹬地(+0.30)→t0.6~0.9 摆动(膝峰 0.85 抬脚)；
+      // 右腿相位+0.5 幅值减半(触地-0.28/轻蹬+0.15/膝恒 0.40~0.58 僵拖)。后蹬窗无重叠
+      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.45 }, { t: 0.15, v: -0.08 }, { t: 0.3, v: 0.18 }, { t: 0.45, v: 0.3 }, { t: 0.6, v: 0 }, { t: 0.75, v: -0.32 }, { t: 0.9, v: -0.42 }, { t: 1, v: -0.45 } ] },
+      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.15 }, { t: 0.15, v: 0.02 }, { t: 0.3, v: -0.22 }, { t: 0.5, v: -0.28 }, { t: 0.65, v: -0.14 }, { t: 0.8, v: 0.04 }, { t: 0.9, v: 0.14 }, { t: 1, v: 0.15 } ] },
+      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.15 }, { t: 0.15, v: 0.3 }, { t: 0.3, v: 0.22 }, { t: 0.45, v: 0.28 }, { t: 0.6, v: 0.85 }, { t: 0.75, v: 0.55 }, { t: 0.9, v: 0.22 }, { t: 1, v: 0.15 } ] },
+      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.42 }, { t: 0.15, v: 0.4 }, { t: 0.3, v: 0.52 }, { t: 0.5, v: 0.58 }, { t: 0.65, v: 0.5 }, { t: 0.8, v: 0.42 }, { t: 0.9, v: 0.4 }, { t: 1, v: 0.42 } ] },
     ];
     // Stagger 受击后仰改偏移制（驼背基线上后仰）
     (a.actions.Stagger || []).forEach(function (t) {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.34</title>
+    <title>坦克运动demo v0.79.35</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -744,7 +744,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.34</div>
+      <div class="menu-version">v0.79.35</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -824,6 +824,17 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🧟 v0.79.35 丧尸步态交叉循环+教师裤管修正+学生短裤白缝线 —
+          步态:旧Walk/Run双腿后摆窗重叠~1/4周期且双膝
+          恒屈(双脚同时屈膝后蹬)→重设计一迈一撑交叉
+          (后蹬窗严格错开,支撑腿膝伸直蹬地0.08→0.18,
+          摆动腿屈膝抬脚0.62/0.85,瘸拖特征保留右幅值
+          减半+膝恒僵0.40~0.58); 教师裤:大腿段
+          0.46→0.32/pivot补偿漏算致膝下0.172超长屈膝
+          戳出0.12→0.025; 男学生短裤加白色侧缝线
+          (ah_sm_seam装饰子节点+_deco机制+firstWrapNode)
+        </div>
+        <div class="cl-title">
           👗 v0.79.34 女裙收窄+圆台化+椭圆顶+膝上5cm —
           裙摆轨道改跟腿耦合0.35×大腿角(旧反相后仰
           帮倒忙)+锥心前移z+0.02+gapBottom 0.19/0.22
@@ -868,15 +879,8 @@
           头心0.092不再悬浮); 教师男Die root高度0.04→0.09
           (长袖袖端下探致四肢更低)
         </div>
-        <div class="cl-title">
-          🩳 v0.79.30 学生短裤上移盖骨盆+教师女发髻加大 —
-          学生短裤上移0.04(渲染y含+0.2补偿,position
-          -0.1→-0.06),裤顶盖入骨盆下沿(重叠+0.033,
-          消除骨盆间隙); 教师女发髻0.055→0.075半径+
-          后移至z-0.1(直径0.147,后凸0.069不再扁平)
-        </div>
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.34~v0.79.30) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.35~v0.79.31) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

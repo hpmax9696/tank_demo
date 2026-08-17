@@ -98,8 +98,8 @@ const { chromium } = require('playwright');
     return out;
   });
   ok(r2.hasMesh && r2.vcount >= 100, '工厂变体模式裙几何正常（' + r2.vcount + ' 顶点，factory createGeometry 消费 EllipFrustum）');
-  ok(Math.abs(r2.skirtX_t0 - (-0.175)) < 0.02, 'Run t=0 前踢帧裙摆前倾 rotation.x=' + r2.skirtX_t0.toFixed(3) + '（跟腿耦合保持）');
-  ok(Math.abs(r2.skirtX_t05 - 0.105) < 0.02, 'Run t=0.5 后摆帧裙摆后仰 rotation.x=' + r2.skirtX_t05.toFixed(3));
+  ok(Math.abs(r2.skirtX_t0 - (-0.157)) < 0.02, 'Run t=0 前踢帧裙摆前倾 rotation.x=' + r2.skirtX_t0.toFixed(3) + '（=0.35×(-0.45)，跟腿耦合保持）');
+  ok(Math.abs(r2.skirtX_t05 - 0.07) < 0.02, 'Run t=0.5 后摆帧裙摆后仰 rotation.x=' + r2.skirtX_t05.toFixed(3) + '（=0.35×(+0.20)，键 t0.45~0.6 插值）');
   await p2.evaluate(() => {
     const HA = window.HumanoidAnims;
     HA.collectRefs();

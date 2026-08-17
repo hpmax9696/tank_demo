@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.79.34
+# CODEBUDDY.md — v0.79.35
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -1066,6 +1066,20 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 | ⚠️ 自定义几何 UV   | RidgeBox/TaperedBox/TaperedHex/Wedge 无 UV→贴图不显示——enemies 4 个 mk 函数补平面映射 UV（x/bw+0.5, y/h）；工厂 4 个 build 已有固定 0-1 UV |
 | 血迹几何删除      | blood_splatter addon 从变体移除+袖子内血块删除（全部立体血迹清除）                                      |
 | 验证脚本          | `artifacts/verify_v7931.js`（15：盖肩×3/血衣 map/血迹几何删/长袖三项/刘海）+ 回归 38                     |
+
+### 丧尸步态交叉循环+教师裤管修正+短裤白缝线 (v0.79.35)
+
+| 项                    | 值/说明                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 步态问题（用户报告）  | 旧 Walk/Run 双腿后摆窗重叠 ~1/4 周期（l 正窗 0.17~0.65 ∩ r 正窗 0.11~0.40/0.67~0.80）且双膝全程屈（≥0.15/0.42）→ "双脚同时屈膝后蹬"     |
+| 步态重设计            | `deriveZombieAnims` Walk/Run 腿×4 轨道改 8 关键帧**一迈一撑交叉**：后蹬窗严格错开（左 0.20~0.56/右 0.77~0.24）；支撑膝伸直蹬地 0.08→0.18、摆动膝抬脚峰 0.62/0.85；左右前迈峰交错 0.45/0.50 |
+| 瘸拖特征保留          | 右幅值减半（前−0.18/蹬+0.15）+ 右膝恒僵 0.40~0.58 不伸直（拖行）                                                                           |
+| 裙约束保障            | 新步态幅值在 v0.79.34 包络内（前踢≤0.45/0.28、左后蹬0.30、右后蹬0.15）→ 裙底逐帧余量 0.020/0.011 反更宽松                                   |
+| 教师裤管根因          | v0.79.29 漏算渲染层 pivot 补偿（childComp=−pivot，addon 位置 = position−父pivot）——大腿段注释算"到膝0.345"实际髋系0.518=膝下 0.172 超长     |
+| 教师裤管修正          | trousers_grey 高 0.46→**0.32** + position −0.115→−0.042 → 真实膝（ll.pos−ulPivot+llPivot）下 0.052；屈膝穿透 0.12→0.025、后侧 0 开缝        |
+| 短裤白缝线            | shorts_m 加 `ah_sm_seam` 装饰子节点（0.006×0.18×0.028，button_white 双腿外侧）；`applyWrapScale` 支持 `_deco`（尺寸不改写+x吸附wrap半宽）      |
+| wrapMax 修复          | 新增 `firstWrapNode`（首个非 deco 尺寸节点）——短裤带 children 后旧 `children[0]` 会错拿缝线 0.003 漏掉本体 0.075                              |
+| 验证脚本              | verify_zombie_gait(14)+verify_gait_runtime(11)+verify_trouser_overlap(8)+verify_shorts_seam(12+9)+裙 26+14+回归 53；0 错误                  |
 
 ### 女裙收窄+圆台化+椭圆顶+膝上5cm (v0.79.34)
 
