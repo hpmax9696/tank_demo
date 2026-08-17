@@ -61,13 +61,10 @@ const { chromium } = require('playwright');
   r.zombies.forEach((z) => {
     const isStudent = z.variant.startsWith('student');
     ok(z.animTorsoPivotX != null, z.variant + ' torso_pivot 存在');
-    if (isStudent) {
-      ok(z.animTorsoPivotX >= 0.09 && z.animTorsoPivotX <= 0.26, z.variant + ' 游戏动画 Idle 驼背(树静态 hunch) pivotX=' + z.animTorsoPivotX + ' (0.1~0.25)');
-    } else {
-      ok(Math.abs(z.animTorsoPivotX) <= 0.06, z.variant + ' 教师静态近直立 pivotX=' + z.animTorsoPivotX + ' (hunch 0~0.05, 与旧版一致)');
-    }
+    // v0.79.24: 丧尸全系统一驼背（烘焙 hunch 0.2 静态 + 动画 rest）
+    ok(Math.abs(z.animTorsoPivotX - 0.2) < 0.02, z.variant + ' 丧尸统一驼背 pivotX=' + z.animTorsoPivotX + '（≈0.2, v0.79.24 烘焙静态）');
     ok(Math.abs(z.staticTorsoPivotX - z.animTorsoPivotX) < 1e-6, z.variant + ' Idle 不触碰 torso（静态=动画后）');
-    ok(z.restTorso === 0.2 && z.restNeck === 0.22 && z.restHead === -0.08, z.variant + ' asys rest 丧尸基线 0.2/0.22/-0.08（head z 镜像取负，v0.79.17+）');
+    ok(z.restTorso === 0.2 && z.restNeck === 0.22 && z.restHead === 0.08, z.variant + ' asys rest 丧尸基线 0.2/0.22/+0.08（v0.79.24 新树不镜像）');
   });
   ok(errors.filter((e) => !e.includes('favicon')).length === 0, '0 控制台错误');
   process.exit(fail ? 1 : 0);

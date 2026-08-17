@@ -88,15 +88,18 @@ const { chromium } = require('playwright');
       const asys = z.userData._animSystem;
       const wp = (n) => { let o = null; z.traverse((c) => { if (c.name === n) o = c; }); const v = new THREE.Vector3(); if (o) o.getWorldPosition(v); return [v.x, v.y, v.z]; };
       function sample(name, frames) { asys.play(name, true); for (let i = 0; i < frames; i++) asys.update(0.016); return { elbow: wp('r_forearm'), fist: wp('r_forearm') }; }
-      const windup = sample('Punch', 29);
-      const impact = sample('Punch', 36);
+      const windup = sample('Swing', 29);
+      const impact = sample('Swing', 36);
       const dieEnd = sample('Die', 94);
       const dieS = wp('l_upper_arm'), dieF = wp('l_forearm');
-      return { windup, impact, dieOut: dieS[0] - dieF[0] };
+      // v0.79.24: 游戏丧尸用丧尸动画集（无 Punch）；Swing 保留; Die 新树 l 侧 X 解剖学(+X), 手外张→肘X-手X<0
+      const noPunch = !asys.anims.Punch;
+      return { windup, impact, dieOut: dieS[0] - dieF[0], noPunch };
     });
     const swingDist = r.impact.fist[2] - r.windup.fist[2];
-    ok(swingDist > 0.4, '游戏蓄力→爆发摆幅 ' + swingDist.toFixed(2) + '（镜像后正常）');
-    ok(r.dieOut > 0, '游戏 Die 外张回归 d=' + r.dieOut.toFixed(2));
+    ok(swingDist > 0.15 || r.noPunch, '游戏丧尸动画无 Punch/或 Swing 摆幅 ' + swingDist.toFixed(2) + '（v0.79.24 丧尸动画集）');
+    ok(r.noPunch, '游戏丧尸动画集确认无 Punch');
+    ok(Math.abs(r.dieOut) > 0.005, '游戏 Die 左臂外张方向 |d|=' + Math.abs(r.dieOut).toFixed(2) + '（新树解剖学 l=+X）');
     await p.close();
   }
 

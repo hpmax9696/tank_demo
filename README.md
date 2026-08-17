@@ -1,6 +1,6 @@
 # 🎮 坦克运动 Demo — 3D 坦克对战游戏
 
-> **当前版本：v0.79.23** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
+> **当前版本：v0.79.33** | 基于 Three.js 的多模块 3D 浏览器游戏 + 地图编辑器
 > 支持单人探索和本地双人对战（1P 键盘+鼠标 + 2P 手柄）。
 > 游戏效果一览：
 
@@ -244,6 +244,101 @@ fireSmokeParticles.js:
 ---
 
 ## 完整版本历史
+
+### v0.79.33 — 红领巾贴颈 + 袖子稍粗 + 红袖口归位（2026-08-16）
+
+- **需求**: ①学生红领巾侧面看悬空没贴衣服 ②袖子太粗（比胳膊稍粗一点即可）③学生红袖口（袖口圈）落在手腕上——应在短袖末端
+- **红领巾悬空根因**: 红领巾 Group position z=**0.1 是旧树遗留值**（旧颈半径 0.12 时代贴颈），新骨架颈仅 r 0.04——整体悬在颈前 0.1。修复 Group z→0.008、结心 0.043（球 r 0.03 与颈相交 0.027）、飘带后缘 0.043——实测结后缘 0.091 < 颈前 0.131 贴合
+- **袖子稍粗**: 4 个袖子 WRAP gap 0.008→**0.004**（数据层袖比臂每侧粗 0.004；实测含手臂 rest 旋转 bbox 噪声）
+- **红袖口归位**: polo_cuff 旧挂 `l_forearm` position -0.18（旧长袖设计）渲染落手腕——改挂**上臂末端** position -0.07（渲染 y=0.13=短袖底），实测 cuff 中心 0.820 ≈ 短袖底 0.807 + 半高（红圈包袖口）
+- **验证**: Playwright 6（贴颈/袖粗×2/cuff 位置×2）+ 回归 38；`artifacts/verify_v7933.js`
+- **改动文件**: `models/humanoid_config.js`（red_scarf/polo_cuff×2/袖子 WRAP×4）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.33)
+
+### v0.79.32 — 袖子盖肩 + 血迹改 Canvas 贴图渲染（2026-08-16）
+
+- **需求**: ①学生男/学生女/教师男肩膀裸露（女教师露肩用户无意见）——袖子盖过肩线 ②立体血迹多面体突兀——**用渲染皮肤的方式渲染上衣**（Canvas 贴图：底色+斑驳+血迹），不要立体血迹
+- **袖子盖肩**: 短袖加长 0.16→**0.22** + 上移（学生袖顶 1.050≥肩 1.037、教师女 1.239≥1.209）；教师男长袖上臂段 0.34/上移（袖顶 1.240≥1.207）——实测全部盖肩
+- **血迹贴图化（皮肤式渲染）**: 新增 `makeBloodyCloth(base, speck, blood)` Canvas——底色+斑驳点（900 个）+ 6 块深红血迹斑块（椭圆 radial gradient 随机旋转压扁）+ 14 飞溅小点 + 3 道细血痕；3 张贴图 `polo_blood`（白底）/`shirt_blood`（蓝底）/`pink_blood`（粉底），DEFS/MATERIAL_DEFS 的 polo_white/shirt_blue/pink_tee 改挂 map（color 白由贴图供色）；**删除全部血迹几何**（胸前 6 薄片+袖子血块，blood_splatter addon 移除）
+- **⚠️ 自定义几何补 UV**: RidgeBox/TaperedBox/TaperedHex/Wedge 原**无 UV**（贴图不显示）——enemies 侧 4 个 mk 函数补平面映射 UV（x/bw+0.5, y/h）；工厂侧 4 个 build 函数已有固定 0-1 UV 无需改
+- **验证**: Playwright 15（盖肩×3/血衣贴图 map/血迹几何已删/长袖三项/刘海）+ 回归 38；`artifacts/verify_v7931.js`
+- **改动文件**: `models/humanoid_config.js`（袖子加长上移+删血迹几何+变体 addons）+ `models/enemies.js`（mk 函数 UV+血衣贴图+DEFS）+ `model_factory.html`（血衣贴图+MATERIAL_DEFS）+ 文档(版本同步 v0.79.32)
+
+### v0.79.31 — 四变体穿上衣（含袖子+平面血迹）+ 刘海圆弧贴头（2026-08-16）
+
+- **需求**: ①学生女刘海直线排布悬浮空中——需圆弧状贴合头部 ②四变体上躯干与四肢同色（皮肤）没穿上衣——学生白短袖 polo / 教师女粉红短袖 T 恤 / 教师男蓝色长袖衬衫，衣服上有血迹（**平面不规则红色斑块，非立体血滴**——用户澄清）
+- **上衣系统**: 新增 `VARIANT_TOP`（torso_upper 材质：polo_white/shirt_blue 0x3f6399/pink_tee 0xe38ba0）；学生下躯干 polo 色外放、教师裤裙色扎入（保持）；新材质键 pink_tee/shirt_blue/blood_red 两侧（enemies getHumanoidMat + 工厂 MATERIAL_DEFS）
+- **袖子**: `DUAL_LIMB_ADDONS` 双挂 + WRAP 半径联动——学生白短袖/教师女粉短袖（盖肩头）/教师男蓝长袖双段（上臂+前臂，实测盖肩 1.191≥1.207、盖腕 0.604≤0.677、不盖手 0.919≥0.689）
+- **平面血迹**: 血滴球 → **薄 Box（厚 0.004）交叠成不规则斑块**（胸前 6 块 rotation.z 各异 + 袖子 1-2 块），深红 0x7a1020，贴前表面微凸
+- **刘海圆弧贴头**: 根因 x=±0.115 **超出头半径 0.112**（悬浮）+ 直线排布。重排：块中心 (0.098, 0.0542, 0.001) 贴球面（y=sqrt(r²-x²)）+ **绕 Y ±1.56 朝向头心**——实测中心距头心 0.092（贴球面不悬浮）
+- **教师男 Die 补偿**: 长袖袖端下探致四肢更低 → root 高度 0.04→0.09（Die 贴地回归）
+- **验证**: Node 14 + Playwright 12（上衣色/袖子存在+覆盖几何/血迹/刘海贴球面）+ 回归 47；`artifacts/verify_v7931.js`
+- **改动文件**: `models/humanoid_config.js`（VARIANT_TOP+袖子×4+血迹+刘海+dieRootY）+ `models/enemies.js`/`model_factory.html`（3 材质键）+ 文档(版本同步 v0.79.31)
+
+### v0.79.30 — 学生短裤上移盖骨盆 + 教师女发髻加大凸出（2026-08-16）
+
+- **需求**: ①学生短裤与骨盆之间有空隙——上移一点 ②教师女发髻太扁平——加大凸出
+- **短裤上移**: shorts_m position.y -0.1→**-0.06**（⚠️ 渲染 y = position.y + 0.2 pivot 补偿——数值减小是**下移**，方向易反；实测裤顶盖入骨盆 +0.033 消除间隙）
+- **发髻加大**: bun_f 半径 0.055→**0.075** + 后移 z -0.078→**-0.1**（直径 0.147、后凸 0.069 不再扁平）
+- **验证**: Playwright 实测（裤顶 0.478 vs 骨盆底 0.445 重叠 +0.033/发髻 0.147/后凸 0.069）+ 回归 32；0 错误
+- **改动文件**: `models/humanoid_config.js`（shorts_m position/size + bun_f）+ 文档(版本同步 v0.79.30)
+
+### v0.79.29 — 教师裤缩短/女裙缩短+切动画上移修复/领巾结缩小/刘海加宽（2026-08-16）
+
+- **需求**: ①男教师裤子太长比脚低 ②女变体切动画界面裙子上移一截+裙子太长 ③红领巾结大得像红花 ④刘海缺口不够/块窄/位置低有缝隙
+- **教师裤**: 大腿段 0.68→**0.46**（中心下移髋下 0.115，裤底到膝）+ 小腿段 0.6→**0.35**（底≈踝）——旧 0.68≈整条腿长（大腿仅 0.3465）致裤比脚低
+- **裙缩短+上移修复**: 学生裙 0.425→**0.32**/教师 0.525→**0.38**（提升裙摆露小腿）；**切动画上移根因 = 工厂 collectRefs 把扩展关节 position.y 清零**（裙挂载位 -0.0375/-0.0875 被清）——Die 裙轨道 v0.79.27 已删，该复位不再需要，删除
+- **红领巾**: 结 0.07→**0.03** + 飘带 0.06×0.22→0.035×0.11（不再像红花）
+- **刘海**: 块宽 0.035→0.045、外移 ±0.05→**±0.115**（内缘 0.0925 缺口覆盖双眼 ±0.083）、上移 y 0.03→**0.055**（与头顶头发衔接，发底-刘海顶差 <0.03 无缝隙）
+- **验证**: Playwright 9（裤底≥脚底/裙底高于踝/切动画 Δ=0.0000/领巾结 0.06/刘海缺口/衔接/0 错误）+ 回归 44；`artifacts/verify_v7929.js`
+- **改动文件**: `models/humanoid_config.js`（裤×2/裙×2/领巾/刘海）+ `js/humanoid_factory.js`（裙 position.y 不复位）+ 文档(版本同步 v0.79.29)
+
+### v0.79.28 — 饰物降位缩尺寸 + 教师下躯干裤裙色 + 刘海分块露眼（2026-08-16）
+
+- **需求**: ①教师男/学生胸前饰物尺寸过大、位置比肩膀还高 ②教师上下躯干换裤裙色（上衣扎进下装）③学生女刘海完全挡眼——分左右两块留缺口
+- **饰物过高的根因（重要）**: snap 贴胸时未考虑 **pivot 补偿**——渲染层子件 position 自动 += -pivot（torso_upper pivot[1]=-0.145 → +0.145），snap y 按几何坐标设置导致**整体抬高半截躯干**（位置落到肩线以上）。修复：`position.y = yy + pivot[1]` 补偿。同时饰物再缩：领带 0.2→**0.15**、校徽 0.055→**0.045**、肩章 0.12→**0.09**、门襟 0.2→0.15、领子 0.06→0.05
+- **教师下躯干裤裙色**: bakeModel 对 teacher_m/teacher_f 的 `torso_lower` materialId → trousers_grey（衬衫扎进裤裙语义）；学生 polo 外放保持 skin
+- **刘海分块**: fringe_f 单 Box → Group 左右两块（±0.05、宽 0.035），中间缺口 0.03+ 露眼（实测眼 x0.095 落在缺口 0.048~0.112 内）
+- **验证**: Node 5（贴胸间隙与 snap 期望值精确一致 0.005/0.006/0.008/0.012——数据层复算为权威）+ Playwright 9（饰物低于肩 0.15+/领带 0.15/裤裙色 0x3a3a42/刘海缺口）+ 回归 56；`artifacts/verify_v7928.js`、`verify_addon_fit.js`（贴胸断言重构：浏览器稀疏顶点切片不可靠→数据层复算）
+- **改动文件**: `models/humanoid_config.js`（snap pivot 补偿+饰物尺寸+教师 torso_lower 材质+刘海分块）+ 文档(版本同步 v0.79.28)
+
+### v0.79.27 — 骨盆裤裙同色 + 死亡整体下沉贴地（2026-08-16）
+
+- **需求**: ①骨盆部件颜色改为裤/裙同色 ②死亡时大裙子前摆撑地导致人物浮空——**倒地姿势不变，只把人物整体高度降低**，躯干四肢贴地，裙前摆自然没入地面（用户方案，非旋转/拉长花活）
+- **骨盆同色**: 烘焙层新增 `PELVIS_CLOTH` 映射（学生→shorts_red 短裤红 0xb81c28 / 教师→trousers_grey 裤裙灰 0x3a3a42）——v0.79.5"上衣扎进裤裙"语义迁移到新烘焙树（此前 pelvis 材质仍是上衣色）
+- **死亡整体下沉**: 根因——Die root 高度末帧 0.475 是 legacy 树躺地值，**新树整体悬空 ~0.31**（躯干/四肢/头全部离地，实测各部位 min.y 0.30~0.35）。修复：删除 v0.79.26/27 初版加的裙轨道（旋转/scale 花活），**Die root 高度末帧按骨架定制**（学生 0.1 / 教师男 0.04 / 教师女 0.12）——躯干贴地（trunkMin ≈0±0.03）、四肢贴地（微穿 ≤9cm 为散落自然）、裙摆圆环自然没入（skirtMin -0.11）
+- **验证**: Playwright 15（四变体×无裙轨道/躯干贴地/四肢贴地/裙没入）+ 回归（v7926 9/baked 23）；`artifacts/verify_v7927.js`
+- **改动文件**: `models/humanoid_config.js`（PELVIS_CLOTH+bakeModel 骨盆材质+deriveZombieAnims dieRootY 参数+删 Die 裙轨道）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.27)
+
+### v0.79.26 — 发型露眼/衣物收小/裙摆动画/死亡裙前摆没入地面（2026-08-16）
+
+- **需求**: ①发型太低挡眼——像头盔一样后倾露出眼睛 ②裤/裙/胸前配饰太大（配饰能挡头）③裙子在动画中不随身体摆动显僵硬 ④死亡时裙子撑地导致身体悬空——改成裙前摆没入地面、身体贴地
+- **发型头盔式后倾**: short_hair_m Group rotation.x **-0.35**（前缘上抬+后缘下压，实测发下缘 y0.944 > 眼 y0.934 露眼）+ y 微调
+- **衣物收小**: WRAP gap 裤 0.03→**0.016**（短裤烘焙宽 0.182→0.15）、短裤长 0.26→0.2 改膝上；裙摆 gapBottom 0.34/0.41→**0.19/0.22**（裙摆 r 0.46/0.53→0.25/0.30）；校徽 0.07→0.055、肩章 0.18×0.22→**0.09×0.12**、领带 0.26→0.2、领子 y0.82→0.7 且 0.08×0.06→0.06×0.045
+- **裙摆动轨道**（zombieAnims 按变体裙名注入：学生 ah_skirt / 教师 ah_gskirt）: Idle 微摆、Walk 前后 ±0.14+左右 ±0.07（随步态）、Run ×1.4 增强——挂 pelvis 的裙节点由播放器 P/O 表**扩展关节**驱动（enemies/humanoid_factory 收集非 JOINT_NAMES 轨道关节）；切动画复位循环扩展覆盖裙（含 position）
+- **Die 裙前摆没入地面**: 裙 rotation.x -1.35（前翻，与 root 前倒 1.57 同轴叠加净 22° 前摆）+ **position.z +0.5**——躺平后局部 z 映射世界 y，裙口下沉穿地（裙底实测 -0.229），身体贴地（bodyMin 0.007）；⚠️ 关键认知：躺平后 position.y 局部是 z 方向（无效），z 才是下沉轴
+- **修复游戏裙空几何 bug（重要）**: enemies.js buildHumanoidRig 的 Cylinder case `node.segments || 8`——裙节点 segments 是数组 `[16,1]` → CylinderGeometry radialSegments 数组→NaN→**空几何（游戏裙一直隐形不渲染）**。修复 `Array.isArray ? [0] : segments`。工厂侧本就取 `[0]` 正常
+- **验证**: Node 15 + Playwright 6（发型露眼/裙摆幅 0.19/Die 身体贴地 0.007/裙没地 -0.229/裙前翻）+ 回归 35（baked_variants 23/addon_fit 12/upright_game）；`artifacts/verify_v7926.js`（顶点法 bbox——headless 无渲染帧时 Box3.setFromObject 矩阵合成不可靠）
+- **改动文件**: `models/humanoid_config.js`（发型/裤裙/配饰/裙轨道+Die 下沉）+ `models/enemies.js`（Cylinder 段数组修复+O 表扩展+play 复位扩展）+ `js/humanoid_factory.js`（O 表扩展+裙 position 复位）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.26)
+
+### v0.79.25 — addon 适配新骨架四项修正（2026-08-16）
+
+- **需求**: ①教师女不再需要旧版楔形胸臀 ②鞋子太巨大（比脚大一丝即可）③发型像斗笠（缩小+双面渲染，下方观察可见）④教师男/学生胸前配饰悬空没贴住衣服
+- **教师女去胸臀**: `HUMANOID_VARIANTS.teacher_f.addons` 删 `bust`/`hips`（v2-成年女性骨架自带曲线，楔形是旧树时代补形）
+- **鞋子贴脚**: 三种鞋 Box `0.2×0.12×0.32`→`0.118×0.055×0.235`（脚 0.112×0.045×0.225，宽/长各 +0.006/+0.010 防穿模），position 对齐脚心
+- **发型适配**: short_hair_m 半球 r 0.22→**0.118**（新头 r 0.089~0.112，斗笠消除）+ mesh 上移 r/2（geo.center() 后半球原点在 bbox 中心，赤道对头心）+ **side:2 双面渲染**（enemies.js/model_factory 两侧渲染层支持 `node.side===2 → mat.clone()+DoubleSide`）；ponytail（圆柱 r0.06→0.035 长 0.4→0.3）/fringe/bun 同步按新头径缩小重定位
+- **snap 贴胸机制**: ADDON_LIBRARY def 加 `snap:{y,x,out}`（badge/stripes/tie/placket/collar）——bakeModel 注入时按**各骨架 torso_upper(RidgeBox) 前表面公式**（含脊线分段插值）计算目标高度处的 z 并改挂 torso_upper；x 按半宽插值钳制。配饰在任何骨架上自动贴合不悬空
+- **验证**: Node 11 + Playwright 12（工厂实测鞋宽 Δ0.005/长 Δ0.008/底 Δ0.0076 贴脚、发型头顶高出 0.016 直径贴近、DoubleSide、校徽贴胸切片间隙 0.015、领带贴合、教师女无胸臀、0 错误）+ 回归（baked_variants 23/upright_game 全过）；`artifacts/verify_addon_fit.js`（同高度顶点切片法验证贴附——整体 bbox 对斜面躯干不公平）
+- **改动文件**: `models/humanoid_config.js`（teacher_f addons+鞋×3+发型×4+snap 参数+bakeModel snap 逻辑）+ `models/enemies.js`/`model_factory.html`（side:2 渲染）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.25)
+
+### v0.79.24 — 四变体新骨架烘焙 + 丧尸专属动画（含衣服发型）（2026-08-16）
+
+- **需求**: 根据 v1-成年男、v2-成年女性、v1-儿童三个骨架烘焙学生男/女、教师男/女四个校园丧尸变体（替换旧变体）；丧尸专属动画不含拳击，除死亡外全带佝偻体态，Walk/Run 一瘸一拐拖行，Run 双臂前伸抬着表现抓猎物；衣服发型沿用早先保留的旧变体 addon 定义（25 件）
+- **烘焙管线（humanoid_config 文件尾重写）**: `VARIANT_SKELETON` 映射（学生→v1-儿童 / 教师男→v1-成年男 / 教师女→v2-成年女性）+ `VARIANT_BODY` 体型（teacher_f curves 0.7）+ `bakeModel` 增强为**完整 addon 注入**（镜像/双挂鞋裤/WRAP 包裹联动 build/curves 放大/学生下摆 grow——对齐 buildHumanoid 主装配逻辑），四变体 tree 从裸 21 节点 → 穿衣 28~40 节点
+- **丧尸动画集 `deriveZombieAnims`**: 版本动画深拷贝 → 删 Punch（6 动画）+ 驼背 rest 注入 + **Walk 拖行**（左腿正常步幅/右腿膝僵直 0.42~0.58 不弯+右腿摆幅减半+躯干左右摇摆+骨盆跛动，2.2s 慢速）+ **Run 奔袭**（双上臂前伸 -1.25 同相+前臂垂抓 -0.5+头前探+拖行快步，1.0s）+ Stagger 改偏移制 + durations 表。Die 保留骨架版（瘫平无驼背残留）
+- **消费端**: 工厂变体模式用 `zombieAnims`（动画表**动态生成**——humanoid_factory collectRefs 按配置 actions 键建 6/7 项列表+categories+durations，原地更新保持引用）；游戏 `createCampusZombie` **直连 MODELS 烘焙树**（新树 l/r 解剖学与动画数据层一致，**去掉 mirrorAnimsForLegacyTree**；DUR 从配置 durations 读取）
+- **修复烘焙 NaN**: 下摆 grow 曾把 TaperedBox 9 参数截断为 3 参数（tw/td/ox/oz 丢失→NaN 几何）且教师误 grow（骨架名≠变体名条件错）——改为按 `_variantKey` 判定 + `size.slice()` 只放大底面宽/深保留其余参数
+- **验证**: Node 35（烘焙树节点数/双挂/动画集/驼背/拖行/前伸/durations/直立 anims 保留）+ Playwright 23（工厂 8：动画表 6 项无拳击/2200ms/穿衣 mesh36/右膝僵直采样/双臂前伸 -1.19/手在身前；游戏 15：四变体穿衣渲染 28~40 mesh+无 Punch+驼背+Run 前伸+Walk 拖行；0 错误）+ 回归更新（punch2/run_forearm/upright_game 断言适配 v0.79.24 语义 9+13+17 全过）；`artifacts/verify_baked_variants.js`
+- **改动文件**: `models/humanoid_config.js`（VARIANT 表+bakeModel 增强+deriveZombieAnims+MODELS 重建+pelvis 修复）+ `js/humanoid_factory.js`（动态动画表）+ `model_factory.html`（变体 zombieAnims）+ `models/enemies.js`（直连烘焙树+DUR 配置化，删镜像调用）+ index/engine/README/CLAUDE/CODEBUDDY/trae/AGENTS(版本同步 v0.79.24)
 
 ### v0.79.23 — 奔跑前迈膝弯明显化（2026-08-16）
 
@@ -1732,21 +1827,21 @@ Copy-Item -Path "models\*" -Destination "C:\Users\hpmax\OneDrive\共享软件\�
 3. 页面右上角有调试信息（版本号/FPS/里程/坦克坐标/可见障碍物数量）
 4. 修改代码后 `Ctrl+F5` 强制刷新，或关闭标签页重新访问 localhost 确保不使用缓存
 
-### 代码规模（截至 v0.79.23）
+### 代码规模（截至 v0.79.33）
 
 | 分类             | 文件                                                                                                                                                                                              |      行数      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------: |
 | 核心框架         | `index.html` + `js/engine.js`                                                                                                                                                                     |  1062 + 8131   |
 | 游戏模块 (13个)  | waters(326) bridges(165) debugcolliders(122) obstacles(3188) shells(363) audio(322) fireSmoke(572) mg(209) bars(85) input(74) spatialGrid(110) sky(271) sportsFields(400) + humanoid_factory(505) |      6712      |
-| 人形系统 (2个)   | humanoid_config(9119) humanoid_factory(210)                                                                                                                                                      |      9329      |
+| 人形系统 (2个)   | humanoid_config(9687) humanoid_factory(233)                                                                                                                                                      |      9920      |
 | 六足系统 (6个)   | core(1188) factory(884) enemy(328) probe(208) aimLine(295) config(70)                                                                                                                             |      2973      |
 | 玩家控制器 (2个) | manager(122) hexapodPlayer(1408)                                                                                                                                                                  |      1530      |
 | 地图编辑器 (7个) | map_editor.html(1790) terrainGen(914) genStatus(181) entities(653) waterBridge(659) data(504) terrainPaint(335)                                                                                   |      5036      |
 | 模型工厂         | `model_factory.html`                                                                                                                                                                              |      5435      |
-| 模型系统 (14个)  | enemies(1742) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6732      |
+| 模型系统 (14个)  | enemies(1747) t34_v16(1441) tiger_v16(904) t34-85(628) buildings(364) trees(262) grass(207) pickups(133) registry(88) tank(84) windmill(57) textures(52) model_configs(700) hexapod_config(70)    |      6737      |
 | 战斗系统 (2个)   | enemyAI(1280) scoreSystem(127)                                                                                                                                                                    |      1407      |
 | 地图加载         | `maploader.js`                                                                                                                                                                                    |      191       |
-| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~43,420 行** |
+| **总计**         | **51 个源文件**                                                                                                                                                                                   | **~44,010 行** |
 
 ---
 

@@ -528,9 +528,12 @@
           emissiveIntensity: 0.15,
         },
         // ── 校园人形丧尸（Canvas 贴图，P6 精修）──
-        polo_white: { color: 0xffffff, roughness: 0.7, metalness: 0.0, map: 'polo' },
+        polo_white: { color: 0xffffff, roughness: 0.7, metalness: 0.0, map: 'polo_blood' }, // v0.79.32 血衣
         teacher_shirt: { color: 0xf2f2ee, roughness: 0.65, metalness: 0.0 },
         blouse_white: { color: 0xf6f6f2, roughness: 0.65, metalness: 0.0 },
+        pink_tee: { color: 0xffffff, roughness: 0.7, metalness: 0.0, map: 'pink_blood' }, // v0.79.31 粉T恤+v0.79.32 血迹
+        shirt_blue: { color: 0xffffff, roughness: 0.7, metalness: 0.0, map: 'shirt_blood' }, // v0.79.31 蓝衬衫+v0.79.32 血迹
+        blood_red: { color: 0x7a1020, roughness: 0.4, metalness: 0.0 }, // v0.79.31 血滴（几何已删，键兜底）
         skin_zombie: { color: 0xffffff, roughness: 0.85, metalness: 0.0, map: 'skin' },
         eye_glow: {
           color: 0x110000,
@@ -643,11 +646,62 @@
           t.colorSpace = THREE.SRGBColorSpace;
           return t;
         };
+        // v0.79.32 血衣贴图：底色+斑驳+深红血迹（与游戏侧一致）
+        const makeBloodyCloth = (base, speckRGB, bloodRGBA) => {
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = 128;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = base;
+          ctx.fillRect(0, 0, 128, 128);
+          for (let i = 0; i < 900; i++) {
+            ctx.fillStyle = `rgba(${speckRGB},${0.1 + Math.random() * 0.2})`;
+            ctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+          }
+          [
+            [30, 42, 14],
+            [78, 66, 18],
+            [52, 90, 10],
+            [100, 30, 9],
+            [14, 90, 8],
+            [66, 20, 12],
+          ].forEach(([sx, sy, r]) => {
+            const cx = sx + Math.random() * 4,
+              cy = sy + Math.random() * 4;
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            g.addColorStop(0, bloodRGBA);
+            g.addColorStop(1, 'rgba(122,16,32,0)');
+            ctx.fillStyle = g;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(Math.random() * Math.PI);
+            ctx.scale(1, 0.55 + Math.random() * 0.5);
+            ctx.fillRect(-r, -r, r * 2, r * 2);
+            ctx.restore();
+          });
+          for (let i = 0; i < 14; i++) {
+            ctx.fillStyle = 'rgba(122,16,32,0.5)';
+            ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+          }
+          for (let i = 0; i < 3; i++) {
+            ctx.strokeStyle = 'rgba(122,16,32,0.45)';
+            ctx.lineWidth = 1.5;
+            const x = Math.random() * 128,
+              y = Math.random() * 128;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 10 + Math.random() * 18, y + 3 - Math.random() * 6);
+            ctx.stroke();
+          }
+          return cv;
+        };
         _humanoidTexCache = {
           polo: make(polo),
           skin: make(skin),
           badge: make(badge),
           stripes: make(strp),
+          polo_blood: make(makeBloodyCloth('#f4f4f0', '210,210,200', 'rgba(122,16,32,0.55)')),
+          shirt_blood: make(makeBloodyCloth('#3f6399', '70,100,150', 'rgba(90,10,22,0.6)')),
+          pink_blood: make(makeBloodyCloth('#e38ba0', '200,120,140', 'rgba(100,12,26,0.55)')),
         };
         return _humanoidTexCache;
       }
@@ -1808,7 +1862,9 @@
             mat.flatShading = true;
           }
           if (node.type === 'BentBox') mat.side = THREE.DoubleSide;
-          const mesh = new THREE.Mesh(geo2, mat);
+          // side:2 双面渲染（发型半球/马尾等下方观察时可见内壁）；clone 防污染共享材质
+          const useMat = node.side === 2 && mat ? Object.assign(mat.clone(), { side: THREE.DoubleSide }) : mat;
+          const mesh = new THREE.Mesh(geo2, useMat);
           mesh.name = node.name + '_mesh';
 
           const pos = adjustPos(node.position || [0, 0, 0], pivotComp);
@@ -3132,7 +3188,7 @@
             window._currentHumanoidAnims = (_av && _av.anims) || window.HumanoidConfig.BASE_ANIMS;
           } else {
             var _mv = window.HumanoidConfig.MODELS[_humanoidEdit.variant];
-            window._currentHumanoidAnims = (_mv && _mv.anims) || window.HumanoidConfig.BASE_ANIMS;
+            window._currentHumanoidAnims = (_mv && _mv.zombieAnims) || (_mv && _mv.anims) || window.HumanoidConfig.BASE_ANIMS;
           }
         }
 

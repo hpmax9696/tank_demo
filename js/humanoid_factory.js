@@ -1,29 +1,21 @@
 // js/humanoid_factory.js
 // 工厂展台人形动画桥接 —— 自包含（工厂页不加载 enemies.js，故自带关键帧 + lerp + rest 偏移）
-// 动画配置自 humanoid_config BASE_ANIMS/版本 anims（v0.79.11+ 数据驱动；v0.79.17 Swing/Punch 拆分）
+// 动画配置自 humanoid_config BASE_ANIMS/版本 anims/变体 zombieAnims（v0.79.11+ 数据驱动）
+// 动画表动态适配配置 actions 键（v0.79.24：丧尸变体 6 动画无 Punch，骨架 7 动画全量）
 // 暴露 window.HumanoidAnims，接口与 window.HexapodAnims 同构（外加 categories）
 (function () {
   var M = window;
 
-  // ── 动画名表（与 anims 配置 actions 键一致：Idle/Walk/Run/Swing/Punch/Stagger/Die）──
-  var _names = [
-    '1/7 待机 (Idle)',
-    '2/7 步行 (Walk)',
-    '3/7 奔跑 (Run)',
-    '4/7 挥击 (Swing)',
-    '5/7 拳击 (Punch)',
-    '6/7 受击 (Stagger)',
-    '7/7 死亡 (Die)',
-  ];
-  var _durations = [2000, 1400, 800, 1000, 1000, 500, 1500]; // ms
-  var _keys = ['Idle', 'Walk', 'Run', 'Swing', 'Punch', 'Stagger', 'Die'];
-  var _categories = [
-    { label: '── 待机 ──', at: 0 },
-    { label: '── 移动 ──', at: 1 },
-    { label: '── 攻击 ──', at: 3 },
-    { label: '── 受击 ──', at: 5 },
-    { label: '── 死亡 ──', at: 6 },
-  ];
+  // ── 动画键序/名称/默认时长（按配置实际存在的键生成列表）──
+  var ANIM_ORDER = ['Idle', 'Walk', 'Run', 'Swing', 'Punch', 'Stagger', 'Die'];
+  var NAME_MAP = { Idle: '待机', Walk: '步行', Run: '奔跑', Swing: '挥击', Punch: '拳击', Stagger: '受击', Die: '死亡' };
+  var DUR_DEFAULT_S = { Idle: 2.0, Walk: 1.4, Run: 0.8, Swing: 1.0, Punch: 1.0, Stagger: 0.5, Die: 1.5 };
+  var CAT_OF = { Idle: '待机', Walk: '移动', Run: '移动', Swing: '攻击', Punch: '攻击', Stagger: '受击', Die: '死亡' };
+
+  var _names = [];
+  var _durations = [];
+  var _keys = [];
+  var _categories = [];
 
   // ── 运行时状态 ──
   var _root = null,
@@ -107,7 +99,49 @@
     });
     _O.root = _root.getObjectByName('root') || _root;
     _P.root = _O.root;
+    // 扩展：收集动画轨道涉及的非 JOINT_NAMES 关节（裙摆等 addon 节点）
+    var _cfgActs = animsCfg && animsCfg.actions;
+    var _extJoints = {};
+    Object.keys(_cfgActs || {}).forEach(function (an) {
+      (_cfgActs[an] || []).forEach(function (t) {
+        if (!_P[t.joint] && !_O[t.joint]) {
+          var o = _root.getObjectByName(t.joint);
+          if (o) { _O[t.joint] = o; _extJoints[t.joint] = true; }
+        }
+      });
+    });
     _animDefs = _buildAnimDefs(animsCfg && animsCfg.actions, _P, _O);
+    // 动态动画表：按配置 actions 实际存在的键生成（丧尸 6 项 / 骨架 7 项）——原地更新保持引用
+    var cfgDur = (animsCfg && animsCfg.durations) || {};
+    var newNames = [];
+    var newKeys = [];
+    var newDurs = [];
+    var newCats = [];
+    var lastCat = null;
+    ANIM_ORDER.forEach(function (k) {
+      if (!(animsCfg && animsCfg.actions && animsCfg.actions[k])) return;
+      var idx = newKeys.length;
+      var durS = cfgDur[k] || DUR_DEFAULT_S[k] || 1.0;
+      newKeys.push(k);
+      newNames.push(NAME_MAP[k] + ' (' + k + ')');
+      newDurs.push(Math.round(durS * 1000));
+      var cat = CAT_OF[k];
+      if (cat !== lastCat) {
+        newCats.push({ label: '── ' + cat + ' ──', at: idx });
+        lastCat = cat;
+      }
+    });
+    var total = newKeys.length;
+    _names.length = 0;
+    _keys.length = 0;
+    _durations.length = 0;
+    _categories.length = 0;
+    newNames.forEach(function (n, i) {
+      _names.push(i + 1 + '/' + total + ' ' + n);
+      _keys.push(newKeys[i]);
+      _durations.push(newDurs[i]);
+    });
+    newCats.forEach(function (c) { _categories.push(c); });
     // 动画开始前把全关节复位到 rest 基线（手臂 z 外张等），保证动画姿势与固定状态一致（修"胳膊内夹"）
     // 同时复位 pelvis 的 position.y 到该骨架基线（修"切换动画残留偏移导致身体歪斜"）
     if (_O.pelvis && _rest['pelvis:y'] !== undefined) {
@@ -136,6 +170,8 @@
         if (rx !== undefined) ov.rotation.x = rx;
         if (ry !== undefined) ov.rotation.y = ry;
         if (rz !== undefined) ov.rotation.z = rz;
+        // 扩展关节（裙等 addon）复位 scale.y（无 Die scale 轨道后保持 1；position.y 不清零——裙挂载位被清会"上移一截"，v0.79.29）
+        if (_extJoints[n] && ov.scale) ov.scale.y = 1;
       }
     });
     if (!_P.torso)

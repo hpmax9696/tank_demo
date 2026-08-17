@@ -1007,10 +1007,65 @@
             t.colorSpace = THREE.SRGBColorSpace;
             return t;
         };
+        // v0.79.32 血衣贴图：像皮肤一样用 Canvas 渲染——底色 + 斑驳点 + 深红血迹斑块（无立体几何）
+        function makeBloodyCloth(base, speckRGB, bloodRGBA) {
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = 128;
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = base;
+            ctx.fillRect(0, 0, 128, 128);
+            for (let i = 0; i < 900; i++) {
+                ctx.fillStyle = `rgba(${speckRGB},${0.1 + Math.random() * 0.2})`;
+                ctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+            }
+            // 血迹斑块（大椭圆 + 飞溅小点 + 细血痕）
+            [
+                [30, 42, 14],
+                [78, 66, 18],
+                [52, 90, 10],
+                [100, 30, 9],
+                [14, 90, 8],
+                [66, 20, 12],
+            ].forEach(([sx, sy, r]) => {
+                const cx = sx + Math.random() * 4,
+                    cy = sy + Math.random() * 4;
+                const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                g.addColorStop(0, bloodRGBA);
+                g.addColorStop(1, 'rgba(122,16,32,0)');
+                ctx.fillStyle = g;
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(Math.random() * Math.PI);
+                ctx.scale(1, 0.55 + Math.random() * 0.5);
+                ctx.fillRect(-r, -r, r * 2, r * 2);
+                ctx.restore();
+            });
+            for (let i = 0; i < 14; i++) {
+                ctx.fillStyle = 'rgba(122,16,32,0.5)';
+                ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+            }
+            for (let i = 0; i < 3; i++) {
+                ctx.strokeStyle = 'rgba(122,16,32,0.45)';
+                ctx.lineWidth = 1.5;
+                const x = Math.random() * 128,
+                    y = Math.random() * 128;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 10 + Math.random() * 18, y + 3 - Math.random() * 6);
+                ctx.stroke();
+            }
+            return cv;
+        }
+        const poloBlood = makeBloodyCloth('#f4f4f0', '210,210,200', 'rgba(122,16,32,0.55)');
+        const shirtBlood = makeBloodyCloth('#3f6399', '70,100,150', 'rgba(90,10,22,0.6)');
+        const pinkBlood = makeBloodyCloth('#e38ba0', '200,120,140', 'rgba(100,12,26,0.55)');
         _humanoidTexCache = {
             polo: make(polo),
             skin: make(skin),
             badge: make(badge),
+            polo_blood: make(poloBlood),
+            shirt_blood: make(shirtBlood),
+            pink_blood: make(pinkBlood),
             stripes: make(strp),
         };
         return _humanoidTexCache;
@@ -1021,9 +1076,12 @@
         if (_humanoidMatCache[id]) return _humanoidMatCache[id];
         const tex = _humanoidTexCache || createHumanoidMaterials();
         const DEFS = {
-            polo_white: { map: 'polo', color: 0xffffff, roughness: 0.7 },
+            polo_white: { map: 'polo_blood', color: 0xffffff, roughness: 0.7 }, // v0.79.32 血衣贴图（白底+血迹）
             teacher_shirt: { color: 0xf2f2ee, roughness: 0.65 },
             blouse_white: { color: 0xf6f6f2, roughness: 0.65 },
+            pink_tee: { map: 'pink_blood', color: 0xffffff, roughness: 0.7 }, // v0.79.31 教师女粉T恤 + v0.79.32 血迹
+            shirt_blue: { map: 'shirt_blood', color: 0xffffff, roughness: 0.7 }, // v0.79.31 教师男蓝衬衫 + v0.79.32 血迹
+            blood_red: { color: 0x7a1020, roughness: 0.4 }, // v0.79.31 血滴（v0.79.32 几何已删，保留键兜底）
             skin_zombie: { map: 'skin', color: 0xffffff, roughness: 0.85 },
             eye_glow: { color: 0x000000, emissive: 0xff3300, emissiveIntensity: 3 },
             hair_black: { color: 0x1a1a1a, roughness: 0.8 },
@@ -1061,15 +1119,17 @@
             function mkTaperedBox(bw, h, bd, tw, td, ox, oz, bx, bz) {
                 bx = bx || 0; bz = bz || 0;
                 const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
-                const v = [], idx = []; let vi = 0;
-                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const v = [], uv = [], idx = []; let vi = 0;
+                // v0.79.32: 加 UV（平面映射 x/bw+0.5, y/h）供 Canvas 贴图（皮肤式渲染）
+                const U = (p) => { uv.push(p[0] / bw + 0.5, p[1] / h); };
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); U(a);U(b);U(c);U(d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
                 q([-hw+bx,0,-hd+bz],[hw+bx,0,-hd+bz],[hw+bx,0,hd+bz],[-hw+bx,0,hd+bz]);
                 q([-thw+ox,h,-thd+oz],[-thw+ox,h,thd+oz],[thw+ox,h,thd+oz],[thw+ox,h,-thd+oz]);
                 q([-hw+bx,0,-hd+bz],[-thw+ox,h,-thd+oz],[thw+ox,h,-thd+oz],[hw+bx,0,-hd+bz]);
                 q([hw+bx,0,hd+bz],[thw+ox,h,thd+oz],[-thw+ox,h,thd+oz],[-hw+bx,0,hd+bz]);
                 q([-hw+bx,0,hd+bz],[-thw+ox,h,thd+oz],[-thw+ox,h,-thd+oz],[-hw+bx,0,-hd+bz]);
                 q([hw+bx,0,-hd+bz],[thw+ox,h,-thd+oz],[thw+ox,h,thd+oz],[hw+bx,0,hd+bz]);
-                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals(); return g;
             }
             function mkRidgeBox(bw, h, bd, tw, td, ox, oz, ridgeY, ridgeZ) {
                 const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
@@ -1078,9 +1138,10 @@
                 const hwr = wRidge / 2;
                 const zFrontAtRidge = hd + (ridgeY / h) * (thd + oz - hd);
                 const zRidge = zFrontAtRidge + ridgeZ;
-                const v = [], idx = []; let vi = 0;
-                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
-                const t = (a, b, c) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]); idx.push(vi,vi+1,vi+2); vi+=3; };
+                const v = [], uv = [], idx = []; let vi = 0;
+                const U = (p) => { uv.push(p[0] / bw + 0.5, p[1] / h); };
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); U(a);U(b);U(c);U(d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const t = (a, b, c) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2]); U(a);U(b);U(c); idx.push(vi,vi+1,vi+2); vi+=3; };
                 q([-hw,0,-hd],[hw,0,-hd],[hw,0,hd],[-hw,0,hd]);
                 q([-thw+ox,h,-thd+oz],[-thw+ox,h,thd+oz],[thw+ox,h,thd+oz],[thw+ox,h,-thd+oz]);
                 q([-hw,0,-hd],[-thw+ox,h,-thd+oz],[thw+ox,h,-thd+oz],[hw,0,-hd]);
@@ -1096,9 +1157,10 @@
             }
             function mkTaperedHex(bw, h, bd, tw, td, ox, oz) {
                 const hw = bw / 2, hd = bd / 2, thw = tw / 2, thd = td / 2;
-                const v = [], idx = []; let vi = 0;
-                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
-                const fan = (p) => { v.push(...p.reduce((a,x)=>a.concat(x),[])); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3,vi,vi+3,vi+4,vi,vi+4,vi+5); vi+=6; };
+                const v = [], uv = [], idx = []; let vi = 0;
+                const U = (p) => { uv.push(p[0] / bw + 0.5, p[1] / h); };
+                const q = (a, b, c, d) => { v.push(a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2]); U(a);U(b);U(c);U(d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const fan = (p) => { p.forEach(U); v.push(...p.reduce((a,x)=>a.concat(x),[])); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3,vi,vi+3,vi+4,vi,vi+4,vi+5); vi+=6; };
                 fan([[hw,0,0],[hw/2,0,hd*S3],[-hw/2,0,hd*S3],[-hw,0,0],[-hw/2,0,-hd*S3],[hw/2,0,-hd*S3]]);
                 fan([[thw+ox,h,oz],[thw/2+ox,h,-thd*S3+oz],[-thw/2+ox,h,-thd*S3+oz],[-thw+ox,h,oz],[-thw/2+ox,h,thd*S3+oz],[thw/2+ox,h,thd*S3+oz]]);
                 q([hw,0,0],[thw+ox,h,oz],[thw/2+ox,h,thd*S3+oz],[hw/2,0,hd*S3]);
@@ -1107,16 +1169,17 @@
                 q([-hw,0,0],[-thw+ox,h,oz],[-thw/2+ox,h,-thd*S3+oz],[-hw/2,0,-hd*S3]);
                 q([-hw/2,0,-hd*S3],[-thw/2+ox,h,-thd*S3+oz],[thw/2+ox,h,-thd*S3+oz],[hw/2,0,-hd*S3]);
                 q([hw/2,0,-hd*S3],[thw/2+ox,h,-thd*S3+oz],[thw+ox,h,oz],[hw,0,0]);
-                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals(); return g;
             }
             function mkWedge(bwB, bwT, bh, depth) {
                 const hb = bwB / 2, ht = bwT / 2, hm = (hb + ht) / 2, hh = bh / 2;
                 const A=[-hb,-hh,0],B=[hb,-hh,0],C=[ht,hh,0],D=[-ht,hh,0],E=[-hm,0,depth],F=[hm,0,depth];
-                const v = [], idx = []; let vi = 0;
-                const q = (a, b, c, d) => { v.push(...a,...b,...c,...d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
-                const t = (a, b, c) => { v.push(...a,...b,...c); idx.push(vi,vi+1,vi+2); vi+=3; };
+                const v = [], uv = [], idx = []; let vi = 0;
+                const U = (p) => { uv.push(p[0] / bwB + 0.5, (p[1] + hh) / bh); };
+                const q = (a, b, c, d) => { v.push(...a,...b,...c,...d); U(a);U(b);U(c);U(d); idx.push(vi,vi+1,vi+2,vi,vi+2,vi+3); vi+=4; };
+                const t = (a, b, c) => { v.push(...a,...b,...c); U(a);U(b);U(c); idx.push(vi,vi+1,vi+2); vi+=3; };
                 q(A,B,C,D); q(A,B,F,E); q(D,E,F,C); t(A,E,D); t(B,C,F);
-                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+                const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals(); return g;
             }
             switch (node.type) {
                 case 'Box': {
@@ -1125,7 +1188,8 @@
                 }
                 case 'Cylinder': {
                     const [rT, h, rB] = node.size;
-                    return new THREE.CylinderGeometry(rT, rB, h, node.segments || 8);
+                    const seg = Array.isArray(node.segments) ? node.segments[0] : node.segments;
+                    return new THREE.CylinderGeometry(rT, rB, h, seg || 8);
                 }
                 case 'Sphere': {
                     const [r] = node.size;
@@ -1170,7 +1234,8 @@
             const mat = node.materialId
                 ? getHumanoidMat(node.materialId)
                 : new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.75 });
-            const mesh = new THREE.Mesh(geo, mat);
+            // side:2 双面渲染（发型半球/马尾等下方观察时可见内壁）
+            const mesh = new THREE.Mesh(geo, node.side === 2 && mat ? Object.assign(mat.clone(), { side: THREE.DoubleSide }) : mat);
             mesh.name = node.name + '_mesh';
             const pos = node.position
                 ? [
@@ -1247,11 +1312,21 @@
         });
         O.root = root.getObjectByName('root');
         P.root = O.root;
+        // 扩展：收集动画轨道涉及的非 JOINT_NAMES 关节（裙摆等 addon 节点，kind O 直挂原对象）
+        const cfg0 = animsCfg || HC.BASE_ANIMS;
+        Object.keys(cfg0.actions || {}).forEach((name) => {
+            (cfg0.actions[name] || []).forEach((t) => {
+                if (!P[t.joint] && !O[t.joint]) {
+                    const o = root.getObjectByName(t.joint);
+                    if (o) O[t.joint] = o;
+                }
+            });
+        });
         if (!P.torso) console.warn('HumanoidAnim: pivots not found');
         const asys = new AnimationSystem(root); // 复用现有类
         const cfg = animsCfg || HC.BASE_ANIMS;
         asys._restPoses = (cfg && cfg.restPoses) || HC.REST_POSES; // rest 基线：每骨架独立
-        const DUR = { Idle: 2.0, Walk: 1.4, Run: 0.8, Swing: 1.0, Punch: 1.0, Stagger: 0.5, Die: 1.5 };
+        const DUR = (cfg && cfg.durations) || { Idle: 2.0, Walk: 1.4, Run: 0.8, Swing: 1.0, Punch: 1.0, Stagger: 0.5, Die: 1.5 };
         Object.keys(cfg.actions || {}).forEach((name) => {
             const tracks = (cfg.actions[name] || []).map((t) => ({
                 target: t.kind === 'P' ? P[t.joint] : O[t.joint],
@@ -1265,9 +1340,11 @@
         // 切动画时复位"非新动画轨道"的关节到创建时树静态姿态
         // （_updateLayer 只写当前动画轨道：Run→Walk 前臂残留弯肘 / Die 后 head z 残留歪头的根因）
         const _initPose = {};
-        HC.JOINT_NAMES.forEach((n) => {
+        const _allJoints = HC.JOINT_NAMES.slice();
+        Object.keys(O).forEach((j) => { if (_allJoints.indexOf(j) < 0) _allJoints.push(j); }); // 含裙等扩展关节
+        _allJoints.forEach((n) => {
             const pv = P[n] || O[n];
-            if (pv) _initPose[n] = { x: pv.rotation.x, y: pv.rotation.y, z: pv.rotation.z };
+            if (pv) _initPose[n] = { x: pv.rotation.x, y: pv.rotation.y, z: pv.rotation.z, py: pv.position.y, sy: pv.scale ? pv.scale.y : 1 };
         });
         const _origPlay = asys.play.bind(asys);
         asys.play = function (name, loop) {
@@ -1278,10 +1355,12 @@
                 (anim.trackDefs || []).forEach((td) => {
                     if (td.target) touched[td.target.uuid] = true;
                 });
-                HC.JOINT_NAMES.forEach((n) => {
+                _allJoints.forEach((n) => {
                     const pv = P[n] || O[n];
                     if (pv && !touched[pv.uuid] && _initPose[n]) {
                         pv.rotation.set(_initPose[n].x, _initPose[n].y, _initPose[n].z);
+                        if (pv.position) pv.position.y = _initPose[n].py;
+                        if (pv.scale && pv.scale.y !== _initPose[n].sy) pv.scale.y = _initPose[n].sy;
                     }
                 });
             }
@@ -1291,36 +1370,18 @@
     }
 
     // 4.5 createCampusZombie({variant, heightM, seed}) — 游戏实例工厂
+    // v0.79.24: 直接消费 MODELS 烘焙树（新骨架+衣服 addon）+ 丧尸专属动画集（无 Punch/驼背/拖行/奔袭前伸臂），
+    // 不再走 legacy buildHumanoid 树——新树 l/r 解剖学与动画数据层一致，无需 mirrorAnimsForLegacyTree
     function createCampusZombie(opts) {
         opts = opts || {};
         const HC = window.HumanoidConfig;
         const variant = opts.variant || 'student_m';
         const heightM = opts.heightM != null ? opts.heightM : 1.4;
-        // seed → 随机体貌（简单 Mulberry32）
         let s = (opts.seed != null ? opts.seed : Math.floor(Math.random() * 1e9)) >>> 0;
-        const rng = () => {
-            s = (s + 0x6d2b79f5) | 0;
-            let t = Math.imul(s ^ (s >>> 15), 1 | s);
-            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-        const vr = HC.HUMANOID_VARIANTS[variant].bodyRange;
-        const rand = (a, b) => a + rng() * (b - a);
-        // 教师(成人)固定一套体型（不再随机），学生(儿童)保留随机高矮胖瘦
-        const params = (variant === 'teacher_m' || variant === 'teacher_f')
-            ? {
-                  height: heightM,
-                  build: vr.build ? vr.build[0] : HC.BODY_PARAMS.build.default,
-                  hunch: vr.hunch ? vr.hunch[0] : HC.BODY_PARAMS.hunch.default,
-                  curves: variant === 'teacher_f' ? 0.7 : 0,
-              }
-            : {
-                  height: heightM,
-                  build: vr.build ? rand(vr.build[0], vr.build[1]) : HC.BODY_PARAMS.build.default,
-                  hunch: vr.hunch ? rand(vr.hunch[0], vr.hunch[1]) : HC.BODY_PARAMS.hunch.default,
-                  curves: vr.curves ? rand(vr.curves[0], vr.curves[1]) : 0,
-              };
-        const config = HC.buildHumanoid(variant, params);
+        const model = HC.MODELS[variant];
+        const config = model
+            ? JSON.parse(JSON.stringify(model.tree))
+            : HC.buildHumanoid(variant, { height: heightM }); // 兜底旧路径
         const root = new THREE.Group();
         root.name = 'campusZombie_root';
         buildHumanoidRig(config, root);
@@ -1331,7 +1392,6 @@
         const scale = curH > 0 ? targetUnits / curH : 1;
         root.scale.setScalar(scale);
         root.position.y = -bbox.min.y * scale;
-        // 头身比：矮→头大（额外头部放大，已含在 BASE；此处不再调）
         // LOD 远距圆柱
         const skeletonGroup = new THREE.Group();
         skeletonGroup.name = '_skeleton';
@@ -1347,9 +1407,8 @@
         root.add(cylMesh);
         root.userData._skeletonGroup = skeletonGroup;
         root.userData._lodCylinder = cylMesh;
-        // 动画系统（legacy 树 l/r 镜像 → rotation y/z 取负适配）
-        const rawAnims = (HC.MODELS[variant] && HC.MODELS[variant].anims) || HC.BASE_ANIMS;
-        const variantAnims = mirrorAnimsForLegacyTree(rawAnims);
+        // 动画系统：烘焙树的丧尸动画集（驼背/拖行/奔袭前伸臂，无 Punch）
+        const variantAnims = (model && model.zombieAnims) || HC.BASE_ANIMS;
         const asys = createHumanoidAnimationSystem(root, variantAnims);
         root.userData._animSystem = asys;
         root.userData.enemyType = 'zombie'; // 关键：让 enemyAI isZombie 判定为真，走丧尸状态机

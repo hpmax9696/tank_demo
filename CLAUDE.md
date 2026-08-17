@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.23
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.33
 
 ## 运行
 
@@ -162,6 +162,7 @@ FBM高程 → 自动平整（保峰压谷） → 生态区分区 → 池塘
 8. **文档同步**：更新 CLAUDE.md 时同步更新 CODEBUDDY.md（参数/架构/已知问题）和 `.trae/rules/project_rules.md`（规则/文件行数），三份文档保持一致
 9. **标记工具→Demo 坐标对齐**：新建工具页(drag画矩形→保存到campus.map.json)时，必须使用与工具页逐字相同的 zoneCorners 旋转公式生成 footprint，球门位置用 `_localToWorld(b, lEnd, S/2)`（短边中点），**绝不**用 `_localToWorld(b, L/2, sEnd)`（长边中点=90°错位）。详见 [[tool-demo-coordinate-mapping]]
 10. **修改 server.py 后必须重启服务器**：任何对 `server.py` 的修改（新增 solidify 类型/端点/逻辑等），提交后必须 `taskkill //F //IM python.exe && python server.py` 重启，否则用户保存工具页数据时会报 400 错误。这是第三次犯同样的错误（toiletZones/soccerFields/calibration），不可再犯。
+11. **不逐轮发版（重要，用户 2026-08-16 规定）**：每完成一轮修改**不要**自动增加版本号、不要同步 8 处版本号、不要更新 changelog/版本历史/4 份 AI 文档的版本段——这些操作很费 token 和版本号资源。**只有用户明确说出"发版、移交、推送"等命令时才做**完整版本流程（版本号 8 处同步 + changelog 裁剪 + README 版本历史 + 4 文档版本段）。日常修改只需实现 + 验证（Playwright/CDP 0 错误），改动文件说明放在最终汇报里。
 
 ## 六足战车 IK 系统
 
@@ -272,6 +273,107 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.33 本次会话变更 (2026-08-16)
+
+### 红领巾贴颈 + 袖子稍粗 + 红袖口归位
+
+- **红领巾悬空根因**: Group z=**0.1 旧树遗留值**（旧颈 r0.12），新颈 r0.04 → 整体悬空 0.1。改 z0.008/结心 0.043（与颈相交 0.027）
+- **袖子**: WRAP gap 0.008→0.004（稍粗一点）；**红袖口**: 旧挂 l_forearm -0.18 落手腕 → 挂上臂末端 -0.07（渲染 0.13=短袖底）
+- **验证**: `artifacts/verify_v7933.js`（贴颈/袖粗/cuff 位置）
+- **改动**: humanoid_config（red_scarf/polo_cuff/WRAP×4）+ 文档(版本同步 v0.79.33)
+
+## v0.79.32 本次会话变更 (2026-08-16)
+
+### 袖子盖肩 + 血迹改 Canvas 贴图渲染（皮肤式）
+
+- **袖子盖肩**: 短袖 0.16→0.22+上移（学生 1.050≥1.037/教师女 1.239≥1.209/教师男长袖 1.240≥1.207）——实测全盖肩
+- **血迹贴图化**: `makeBloodyCloth` Canvas（底色+900 斑驳点+6 血斑椭圆+14 溅点+3 血痕）——polo_blood/shirt_blood/pink_blood 三张贴图，DEFS 改挂 map（color 白由贴图供色）；**删除全部血迹几何**（blood_splatter addon+袖子血块）
+- **⚠️ 自定义几何 UV**: RidgeBox/TaperedBox/TaperedHex/Wedge 无 UV→贴图不显示——enemies 4 个 mk 函数补平面映射 UV（x/bw+0.5, y/h）；工厂 build 函数已有固定 0-1 UV
+- **验证**: `artifacts/verify_v7931.js`（盖肩×3/血衣 map/血迹几何删/长袖/刘海）
+- **改动**: humanoid_config（袖子+删血迹）+ enemies（UV+血衣贴图+DEFS）+ model_factory（血衣贴图+MATERIAL_DEFS）+ 文档(版本同步 v0.79.32)
+
+## v0.79.31 本次会话变更 (2026-08-16)
+
+### 四变体穿上衣（袖子+平面血迹）+ 刘海圆弧贴头
+
+- **上衣系统**: `VARIANT_TOP`（torso_upper：学生 polo_white/教师男 shirt_blue/教师女 pink_tee）+ 学生下躯干 polo 色；新材质键 pink_tee/shirt_blue/blood_red 两侧同步
+- **袖子**: `DUAL_LIMB_ADDONS`（bakeModel parents 链加）+ WRAP 半径联动；短袖盖肩头/长袖双段盖全臂（实测盖肩/盖腕/不盖手）
+- **平面血迹**: **薄 Box（厚 0.004）交叠成不规则斑块**（用户澄清非立体血滴球）——胸前 6 块 + 袖子 1-2 块，rotation.z 各异，贴前表面
+- **刘海悬浮根因**: 块 x=±0.115 **超出头半径 0.112** + 直线排布。重排：块贴球面点 (0.098, 0.0542) + **绕 Y 朝向头心**（rotation.y ±1.56）——实测中心距头心 0.092
+- **教师男 Die**: 长袖袖端下探 → root 0.04→0.09
+- **验证**: `artifacts/verify_v7931.js`（Node 14 + Playwright 12）
+- **改动**: humanoid_config（VARIANT_TOP/袖子/血迹/刘海/dieRootY）+ enemies/model_factory（材质键）+ 文档(版本同步 v0.79.31)
+
+## v0.79.30 本次会话变更 (2026-08-16)
+
+### 学生短裤上移盖骨盆 + 教师女发髻加大凸出
+
+- **短裤**: shorts_m position.y -0.1→-0.06（⚠️ **渲染 y = position.y + pivot 补偿，数值减小=下移**——首改 -0.14 方向反了实测间隙变大）；裤顶盖入骨盆 +0.033
+- **发髻**: bun_f 0.055→0.075 + 后移 z -0.1（直径 0.147/后凸 0.069）
+- **改动**: humanoid_config（shorts_m/bun_f）+ 文档(版本同步 v0.79.30)
+
+## v0.79.29 本次会话变更 (2026-08-16)
+
+### 教师裤缩短/女裙缩短+切动画上移修复/领巾结缩小/刘海加宽
+
+- **教师裤**: 大腿段 0.68→0.46（中心髋下 0.115 裤底到膝）+小腿段 0.6→0.35（底≈踝）——旧 0.68≈整条腿长（大腿 0.3465）致裤比脚低
+- **裙上移根因（重要）**: 工厂 collectRefs 把扩展关节 position.y 清零（裙挂载位 -0.0375/-0.0875 被清）→ 切动画界面裙上移一截。Die 裙轨道 v0.79.27 已删，复位不再需要 → 删除。**扩展关节复位只应复位动画轨道改过的量**
+- **裙缩短**: 学生 0.425→0.32/教师 0.525→0.38（提升裙摆露小腿）
+- **领巾**: 结 0.07→0.03+飘带缩（不再像红花）；**刘海**: 宽 0.045+外移 ±0.115（缺口覆盖双眼）+上移 y0.055（与头顶衔接）
+- **验证**: `artifacts/verify_v7929.js`（裤底≥脚底/裙底高于踝/切动画 Δ=0/领巾/刘海）
+- **改动**: humanoid_config（裤/裙/领巾/刘海）+ humanoid_factory（position.y 不复位）+ 文档(版本同步 v0.79.29)
+
+## v0.79.28 本次会话变更 (2026-08-16)
+
+### 饰物降位缩尺寸 + 教师下躯干裤裙色 + 刘海分块露眼
+
+- **饰物过高根因**: snap 贴胸**缺 pivot 补偿**——渲染层子件 position += -pivot（torso_upper pivot -0.145 → +0.145），snap y 几何坐标直接设置导致整体抬高半截躯干（饰物到肩线上）。修复 `position.y = yy + pivot[1]`；饰物再缩（领带 0.15/校徽 0.045/肩章 0.09）
+- **教师下躯干裤裙色**: bakeModel 对 teacher_* 的 torso_lower → trousers_grey（衬衫扎裤裙）；学生 polo 外放保持 skin
+- **刘海分块**: fringe_f 单 Box → Group 左右两块 ±0.05/宽 0.035，中间缺口露眼（眼 x0.095 ∈ [0.048,0.112]）
+- **验证教训**: 浏览器 RidgeBox 顶点稀疏（底/脊/顶 3 行）+ headless 矩阵错值 → 切片断言不可靠；**贴胸权威验证 = 数据层 snap 公式复算**（间隙与期望值精确一致）；`artifacts/verify_v7928.js`、`verify_addon_fit.js`（断言重构）
+- **改动**: humanoid_config（snap 补偿+尺寸+torso_lower+刘海）+ 文档(版本同步 v0.79.28)
+
+## v0.79.27 本次会话变更 (2026-08-16)
+
+### 骨盆裤裙同色 + 死亡整体下沉贴地（用户方案：姿势不变只降高度）
+
+- **骨盆同色**: `PELVIS_CLOTH`（学生 shorts_red/教师 trousers_grey）bakeModel 后处理改 pelvis materialId
+- **死亡浮空根因**: Die root 高度末帧 0.475 是 legacy 躺地值，**新树整体悬空 0.31**（实测各部位 min.y 0.30~0.35）。**修复 = 整体下沉**：删掉 v0.79.26 的裙 position.z 下沉和初版 scale 花活（用户明确不要），Die root 高度末帧按骨架定制（学生 0.1/教师男 0.04/教师女 0.12）——躯干贴地 trunkMin≈0、裙摆圆环自然没入 skirtMin -0.11、四肢微穿 ≤9cm 为散落自然
+- **验证**: `artifacts/verify_v7927.js` 15 项（四变体：无裙轨道/躯干贴地/四肢贴地/裙没入）+ 回归 32
+- **改动**: humanoid_config（PELVIS_CLOTH+dieRootY 参数+删 Die 裙轨道）+ 文档(版本同步 v0.79.27)
+
+## v0.79.26 本次会话变更 (2026-08-16)
+
+### 发型露眼/衣物收小/裙摆动画/死亡裙前摆没入地面
+
+- **发型**: short_hair_m Group rotation.x -0.35 头盔式后倾（前缘上抬露眼）
+- **衣物收小**: 裤 WRAP gap 0.016/短裤膝上/裙摆 r 0.25~0.30/校徽 0.055/肩章 0.09×0.12/领带 0.2/领子 y0.7
+- **裙摆动轨道**: zombieAnims 按变体裙名（ah_skirt/ah_gskirt）注入 Idle/Walk/Run 摆动——**播放器 P/O 表扩展收集非 JOINT_NAMES 轨道关节**（enemies+humanoid_factory 两处）；切动画复位扩展覆盖裙（rotation+position）
+- **Die 裙没地**: 裙 rotation -1.35 + **position.z +0.5**——⚠️ **躺平后局部 y 是 z 方向（无效），z 才是世界下沉轴**（前倒 90° 后局部 +Z→世界 -Y）；实测裙底 -0.229 没入地面、身体贴地 0.007
+- **修游戏裙空几何**: enemies buildHumanoidRig Cylinder `segments||8` 吃数组 [16,1] → NaN 段数 → 空几何（游戏裙一直隐形）。`Array.isArray?[0]:seg`
+- **验证**: `artifacts/verify_v7926.js`（顶点法 bbox——headless 无渲染帧 Box3.setFromObject 矩阵合成不可靠，须用 matrixWorld+顶点）
+- **改动**: humanoid_config + enemies（Cylinder/O 表/play 复位）+ humanoid_factory（O 表/裙复位）+ 文档(版本同步 v0.79.26)
+
+## v0.79.25 本次会话变更 (2026-08-16)
+
+### addon 适配新骨架四项修正
+
+- **教师女去胸臀**: addons 删 bust/hips（v2 骨架自带曲线）；**鞋子**: 0.2×0.12×0.32→0.118×0.055×0.235（脚大一丝防穿模）；**发型**: 半球 r0.22 斗笠→0.118 贴头 + mesh y=r/2（geo.center 补偿）+ `side:2` 双面渲染（两侧渲染层 mat.clone()+DoubleSide）
+- **snap 贴胸机制**: def 加 `snap:{y,x,out}`，bakeModel 按 torso_upper(RidgeBox) 前表面公式（脊线分段插值）计算 z 改挂——badge/stripes/tie/placket/collar 任意骨架自动贴合。**改 addon 挂点注意**: 静态 position 无法适配多骨架几何差异，用 snap 计算
+- **验证方法**: 同高度顶点切片验证贴附（整体 bbox 对斜面/锥度躯干不公平）；`artifacts/verify_addon_fit.js`
+- **改动**: humanoid_config + enemies/model_factory(side) + 文档(版本同步 v0.79.25)
+
+## v0.79.24 本次会话变更 (2026-08-16)
+
+### 四变体新骨架烘焙 + 丧尸专属动画（含衣服发型）
+
+- **烘焙管线**: `VARIANT_SKELETON`（学生→v1-儿童/教师男→v1-成年男/教师女→v2-成年女性）+ `bakeModel` 完整 addon 注入（镜像/双挂/WRAP/curves 放大/学生下摆 grow），tree 裸 21 → 穿衣 28~40 节点；衣服发型用旧 `HUMANOID_VARIANTS.addons`（25 件 addon 库保留未删）
+- **丧尸动画集 `deriveZombieAnims`**: 删 Punch + 驼背 rest + Walk 拖行（左腿好右腿瘸膝僵直 0.42~0.58+躯干摇摆+跛动骨盆，2.2s）+ Run 奔袭（双上臂前伸 -1.25 同相+前臂垂抓 -0.5+头前探，1.0s）+ durations 表；Die 保留骨架版。`MODELS[v]` 双动画：`anims`（骨架直立 7 动画）+ `zombieAnims`（丧尸 6 动画）
+- **消费端**: 工厂变体模式→zombieAnims；`humanoid_factory` 动画表**动态生成**（按配置 actions 键 6/7 项+categories+durations，原地更新保持引用）；游戏 `createCampusZombie` 直连 MODELS 烘焙树——**新树 l/r 与动画数据层一致，mirrorAnimsForLegacyTree 不再使用**（函数保留给 legacy 兜底）
+- **⚠️ 烘焙 NaN 教训**: 下摆 grow 曾把 TaperedBox 9 参数截断为 3 → NaN 几何；且教师误 grow（骨架名≠变体名条件错）。修复：`_variantKey` 判定 + `size.slice()` 只放大底面宽/深。**改 size 数组必须保留全部参数位**
+- **验证**: Node 35 + Playwright 23 + 回归 39（旧脚本断言适配丧尸动画语义）；`artifacts/verify_baked_variants.js`
+- **改动文件**: humanoid_config（VARIANT 表+bakeModel+deriveZombieAnims+MODELS+pelvis 修复）+ humanoid_factory（动态表）+ model_factory（zombieAnims）+ enemies（直连烘焙树+DUR 配置化）+ 文档(版本同步 v0.79.24)
 
 ## v0.79.23 本次会话变更 (2026-08-16)
 

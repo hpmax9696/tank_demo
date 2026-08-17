@@ -7407,7 +7407,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.23  ' +
+    'v0.79.33  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -8076,7 +8076,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.23 | 奔跑前迈膝弯明显化:前迈极限膝-0.3过伸→+0.5弯折,着地缓冲0.25');
+console.log('🎮 坦克运动demo v0.79.33 | 红领巾贴颈(Group z 0.1旧树值遗留)/袖子gap 0.004稍粗/红袖口改挂上臂末端');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

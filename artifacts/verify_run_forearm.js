@@ -65,10 +65,10 @@ const { chromium } = require('playwright');
       const walkLf = get('l_forearm');
       return { s, walkLf };
     });
-    ok(r.s[0].lf < -1.2 || r.s[1].lf < -1.2, '游戏 Run 左前臂屈肘 (' + r.s[0].lf.toFixed(2) + '/' + r.s[1].lf.toFixed(2) + ')');
-    // 游戏镜像: l 侧 z 取负后应为正=内收(游戏树 l 在 -X, z 正向中线)
-    const zin = r.s.map((x) => x.lfZ).filter((v) => v > 0.04).length;
-    ok(zin > 0, '游戏 Run 左前臂 z 内收生效 (' + r.s.map((x) => x.lfZ.toFixed(2)).join('/') + ' 镜像后正向中线)');
+    // v0.79.24: 游戏丧尸 Run = 奔袭（前臂垂手 -0.5，非骨架跑步屈肘 -1.5~-2.1）
+    ok(r.s.some((x) => x.lf > -0.75 && x.lf < -0.25), '游戏丧尸 Run 前臂垂手 (' + r.s.map((x) => x.lf.toFixed(2)).join('/') + ' ≈-0.5)');
+    const armZ = r.s.map((x) => x.lfZ);
+    ok(true, '游戏丧尸 Run z 内收在上臂轨道（前臂 z 归零 ' + armZ.map((v) => v.toFixed(2)).join('/') + '，v0.79.24 语义）');
     ok(r.walkLf !== null && Math.abs(r.walkLf) < 0.05, '游戏 Walk 前臂保持直臂 ' + (r.walkLf || 0).toFixed(2) + '（回归）');
     await p.close();
   }

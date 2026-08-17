@@ -358,6 +358,8 @@
         'polo_cuff_r',
         'school_badge',
         'shoulder_stripes',
+        'short_sleeve_white',
+        
         'shorts_m',
         'shoes_blue',
       ],
@@ -377,6 +379,8 @@
         'polo_cuff_r',
         'school_badge',
         'shoulder_stripes',
+        'short_sleeve_white',
+        
         'pleated_skirt_f',
         'shoes_white',
       ],
@@ -389,6 +393,9 @@
         'short_hair_m',
         'tie_opt',
         'glasses_opt',
+        'long_sleeve_upper_blue',
+        'long_sleeve_fore_blue',
+        
         'trousers_grey',
         'trousers_grey_calf',
         'leather_shoes',
@@ -402,8 +409,8 @@
       addons: [
         'short_hair_m',
         'bun_f',
-        'bust',
-        'hips',
+        'short_sleeve_pink',
+        
         'skirt_grey',
         'leather_shoes',
         'necklace_opt',
@@ -418,16 +425,18 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.2, -0.02],
+        position: [0, 0.02, -0.005],
+        rotation: [-0.35, 0, 0],
         children: [
           {
             name: 'ah_m',
             type: 'Sphere',
-            size: [0.22],
-            position: [0, 0, 0],
+            size: [0.118],
+            position: [0, 0.059, 0],
             thetaLength: Math.PI / 2,
             materialId: 'hair_black',
             segments: [12, 10],
+            side: 2,
           },
         ],
       },
@@ -436,28 +445,29 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.08, -0.22],
+        position: [0, 0.04, -0.105],
         children: [
           {
             name: 'ah_pt',
             type: 'Cylinder',
-            size: [0.06, 0.4, 0.06],
-            position: [0, -0.2, -0.04],
+            size: [0.035, 0.3, 0.035],
+            position: [0, -0.15, -0.03],
             rotation: [0.2, 0, 0],
             materialId: 'hair_black',
+            side: 2,
           },
           {
             name: 'ah_pt_tip',
             type: 'Sphere',
-            size: [0.07],
-            position: [0, -0.42, -0.1],
+            size: [0.04],
+            position: [0, -0.31, -0.075],
             materialId: 'hair_black',
             segments: [6, 5],
           },
           {
             name: 'ah_pt_band',
             type: 'Torus',
-            size: [0.06, 0.012],
+            size: [0.035, 0.008],
             position: [0, 0, 0],
             materialId: 'scarf_red',
           },
@@ -467,20 +477,35 @@
     fringe_f: {
       parent: 'head',
       node: {
-        name: 'ah_fr',
-        type: 'Box',
-        size: [0.22, 0.07, 0.06],
-        position: [0, 0.1, 0.21],
-        materialId: 'hair_black',
+        type: 'Group',
+        position: [0, 0.0542, 0],
+        children: [
+          {
+            name: 'ah_fr_l',
+            type: 'Box',
+            size: [0.025, 0.04, 0.026],
+            position: [-0.098, 0, 0.001],
+            rotation: [0, 1.56, 0],
+            materialId: 'hair_black',
+          },
+          {
+            name: 'ah_fr_r',
+            type: 'Box',
+            size: [0.025, 0.04, 0.026],
+            position: [0.098, 0, 0.001],
+            rotation: [0, -1.56, 0],
+            materialId: 'hair_black',
+          },
+        ],
       },
-    },
+    }, // v0.79.31: 沿球面圆弧排布（x±0.098 贴头 r0.112 球面, y0.0542 球面高, 绕Y朝向头心贴合不悬浮; 缺口±0.0855 露眼±0.083）
     bun_f: {
       parent: 'head',
       node: {
         name: 'ah_bun',
         type: 'Sphere',
-        size: [0.1],
-        position: [0, 0.22, -0.16],
+        size: [0.075],
+        position: [0, 0.085, -0.1],
         materialId: 'hair_black',
         segments: [6, 5],
       },
@@ -489,29 +514,29 @@
       parent: 'neck',
       node: {
         type: 'Group',
-        position: [0, -0.05, 0.1],
+        position: [0, -0.05, 0.008], // v0.79.33: z 0.1 是旧树值（颈 r0.12）——新颈 r0.04 需贴颈，0.008 微凸
         children: [
           {
             name: 'ah_sc_knot',
             type: 'Sphere',
-            size: [0.07],
-            position: [0, 0, 0.04],
+            size: [0.03],
+            position: [0, 0, 0.035], // 球心距颈轴 0.043，球 r0.03 与颈 r0.04 相交 0.027 贴住不悬空
             materialId: 'scarf_red',
             segments: [6, 5],
           },
           {
             name: 'ah_sc_l',
             type: 'Box',
-            size: [0.06, 0.22, 0.02],
-            position: [-0.05, -0.16, 0.06],
+            size: [0.035, 0.11, 0.014],
+            position: [-0.03, -0.08, 0.05], // 后缘 0.043 贴颈
             rotation: [0, 0, 0.15],
             materialId: 'scarf_red',
           },
           {
             name: 'ah_sc_r',
             type: 'Box',
-            size: [0.06, 0.2, 0.02],
-            position: [0.05, -0.15, 0.06],
+            size: [0.035, 0.095, 0.014],
+            position: [0.03, -0.07, 0.05],
             rotation: [0, 0, -0.15],
             materialId: 'scarf_red',
           },
@@ -520,6 +545,7 @@
     },
     polo_collar: {
       parent: 'torso',
+      snap: { y: 0.7, x: 0, out: 0.012 },
       node: {
         type: 'Group',
         position: [0, 0.36, 0.19],
@@ -527,16 +553,16 @@
           {
             name: 'ah_col_l',
             type: 'Box',
-            size: [0.08, 0.06, 0.02],
-            position: [-0.05, 0, 0],
+            size: [0.05, 0.038, 0.014],
+            position: [-0.03, 0, 0],
             rotation: [0.3, 0, 0.2],
             materialId: 'collar_red',
           },
           {
             name: 'ah_col_r',
             type: 'Box',
-            size: [0.08, 0.06, 0.02],
-            position: [0.05, 0, 0],
+            size: [0.05, 0.038, 0.014],
+            position: [0.03, 0, 0],
             rotation: [0.3, 0, -0.2],
             materialId: 'collar_red',
           },
@@ -545,6 +571,7 @@
     },
     polo_placket: {
       parent: 'torso',
+      snap: { y: 0.38, x: 0, out: 0.008 },
       node: {
         type: 'Group',
         position: [0, 0.25, 0.2],
@@ -552,23 +579,23 @@
           {
             name: 'ah_pl',
             type: 'Box',
-            size: [0.05, 0.2, 0.02],
+            size: [0.04, 0.15, 0.016],
             position: [0, 0, 0],
             materialId: '__cloth__',
           },
           {
             name: 'ah_btn1',
             type: 'Sphere',
-            size: [0.018],
-            position: [0, 0.06, 0.02],
+            size: [0.015],
+            position: [0, 0.045, 0.018],
             materialId: 'button_white',
             segments: [5, 4],
           },
           {
             name: 'ah_btn2',
             type: 'Sphere',
-            size: [0.018],
-            position: [0, -0.04, 0.02],
+            size: [0.015],
+            position: [0, -0.03, 0.018],
             materialId: 'button_white',
             segments: [5, 4],
           },
@@ -576,41 +603,44 @@
       },
     },
     polo_cuff_l: {
-      parent: 'l_forearm',
+      // v0.79.33: 红袖口挂上臂末端（短袖口位置）——旧挂 l_forearm -0.18 落手腕
+      parent: 'l_upper_arm',
       node: {
         name: 'ah_cuf_l',
         type: 'Cylinder',
         size: [0.09, 0.06, 0.09],
-        position: [0, -0.18, 0],
+        position: [0, -0.07, 0], // 渲染 y=-0.07+0.2=0.13=短袖底（上臂 0..0.2475）
         materialId: 'collar_red',
       },
     },
     polo_cuff_r: {
-      parent: 'r_forearm',
+      parent: 'r_upper_arm',
       node: {
         name: 'ah_cuf_r',
         type: 'Cylinder',
         size: [0.09, 0.06, 0.09],
-        position: [0, -0.18, 0],
+        position: [0, -0.07, 0],
         materialId: 'collar_red',
       },
     },
     school_badge: {
       parent: 'torso',
+      snap: { y: 0.56, x: -0.04, out: 0.005 },
       node: {
         name: 'ah_badge',
         type: 'Plane',
-        size: [0.07, 0.07],
+        size: [0.045, 0.045],
         position: [-0.14, 0.14, 0.2],
         materialId: 'school_badge',
       },
     }, // Plane size=[w,h]
     shoulder_stripes: {
       parent: 'torso',
+      snap: { y: 0.6, x: 0.04, out: 0.005 },
       node: {
         name: 'ah_str',
         type: 'Plane',
-        size: [0.18, 0.22],
+        size: [0.07, 0.09],
         position: [0.16, 0.18, 0.19],
         rotation: [0, 0, -0.4],
         materialId: 'shoulder_stripes',
@@ -622,8 +652,8 @@
       node: {
         name: 'ah_sh_l',
         type: 'Box',
-        size: [0.18, 0.26, 0.22],
-        position: [0, -0.13, 0], // 髋下 0.13，腰口盖住大腿根（髋）
+        size: [0.18, 0.2, 0.22],
+        position: [0, -0.06, 0], // 上移 0.04（渲染 y=position+0.2 补偿）：裤顶盖入骨盆下沿（v0.79.30 消除骨盆间隙）
         materialId: 'shorts_red',
       },
     },
@@ -632,32 +662,31 @@
       node: {
         name: 'ah_skirt',
         type: 'Cylinder',
-        size: [0.14, 0.425, 0.46],
+        size: [0.14, 0.32, 0.46],
         position: [0, -0.0375, 0],
         materialId: 'shorts_red',
         segments: [16, 1],
       },
-    }, // 学生短裙：腰口贴 pelvis 底(0.2)，裙摆膝上露小腿；大腿段摆动在裙内（半径0.3 覆盖后蹬位移），膝以下裙外自由
+    }, // 学生短裙：v0.79.29 缩短（0.425→0.32 提升裙摆露更多小腿）
     trousers_grey: {
-      // 长裤大腿段：挂腿关节（随髋转）；buildHumanoid 双挂 r 侧。膝以下由 trousers_grey_calf 覆盖
-      // size[1]=大腿长(0.45)略余；position=0 中心对齐大腿mesh中心（childComp -0.2 已含髋下偏移）
+      // 长裤大腿段：挂腿关节（随髋转）；v0.79.29 缩短——旧 0.68≈整条腿长致裤比脚低
+      // 大腿长 0.3465：裤 0.46 中心髋下 0.115 → 裤底到膝（0.345），膝以下由 calf 段覆盖
       parent: 'l_upper_leg',
       node: {
         name: 'ah_tr_l',
         type: 'Box',
-        size: [0.18, 0.68, 0.22],
-        position: [0, 0, 0],
+        size: [0.18, 0.46, 0.22],
+        position: [0, -0.115, 0],
         materialId: 'trousers_grey',
       },
     },
     trousers_grey_calf: {
-      // 长裤小腿段：挂小腿关节（随膝弯，防膝弯穿模）；buildHumanoid 双挂 r 侧
-      // size[1]=小腿长(0.42)；position=0 中心对齐小腿mesh中心（旧 -0.35 叠 childComp -0.2 致底端贴地，腿视觉长一倍）
+      // 长裤小腿段：挂小腿关节（随膝弯）；v0.79.29 缩短——小腿长 0.3465，裤 0.35 底≈踝
       parent: 'l_lower_leg',
       node: {
         name: 'ah_tc_l',
         type: 'Box',
-        size: [0.18, 0.6, 0.22],
+        size: [0.18, 0.35, 0.22],
         position: [0, 0, 0],
         materialId: 'trousers_grey',
       },
@@ -667,19 +696,19 @@
       node: {
         name: 'ah_gskirt',
         type: 'Cylinder',
-        size: [0.14, 0.525, 0.53],
+        size: [0.14, 0.38, 0.53],
         position: [0, -0.0875, 0],
         materialId: 'trousers_grey',
         segments: [16, 1],
       },
-    }, // 教师中长裙：腰口贴 pelvis 底(0.2)，裙摆膝下一点露小腿（悬垂静态）
+    }, // 教师中长裙：v0.79.29 缩短（0.525→0.38 提升裙摆露小腿）
     shoes_blue: {
       parent: 'l_foot',
       node: {
         name: 'ah_sh_l',
         type: 'Box',
-        size: [0.2, 0.12, 0.32],
-        position: [0, -0.02, 0.02],
+        size: [0.118, 0.055, 0.235],
+        position: [0, -0.004, 0.004],
         materialId: 'shoes_blue',
       },
     }, // 注：l_foot/r_foot 各挂一只，见 buildHumanoid
@@ -688,8 +717,8 @@
       node: {
         name: 'ah_sh_l',
         type: 'Box',
-        size: [0.2, 0.12, 0.32],
-        position: [0, -0.02, 0.02],
+        size: [0.118, 0.055, 0.235],
+        position: [0, -0.004, 0.004],
         materialId: 'shoes_white',
       },
     },
@@ -698,8 +727,8 @@
       node: {
         name: 'ah_sh_l',
         type: 'Box',
-        size: [0.2, 0.12, 0.32],
-        position: [0, -0.02, 0.02],
+        size: [0.118, 0.055, 0.235],
+        position: [0, -0.004, 0.004],
         materialId: 'leather_black',
       },
     },
@@ -728,10 +757,11 @@
     },
     tie_opt: {
       parent: 'torso',
+      snap: { y: 0.5, x: 0, out: 0.006 },
       node: {
         name: 'ah_tie',
         type: 'Box',
-        size: [0.04, 0.26, 0.02],
+        size: [0.028, 0.15, 0.014],
         position: [0, 0.16, 0.2],
         materialId: 'tie_blue',
       },
@@ -777,6 +807,51 @@
         size: [0.11, 0.008],
         position: [0, -0.02, 0.02],
         materialId: 'metal_gold',
+      },
+    },
+    // ── v0.79.31 上衣袖子 + 血迹（平面不规则斑块：薄 Box 交叠，非立体血滴）──
+    // v0.79.32：袖子加长上移盖过肩线（学生露 0.076/教师男 0.025/教师女 0.078）；血迹几何删除（改贴图）
+    // 短袖白 polo（学生）：盖肩头（upper_arm 长 0.2475）
+    short_sleeve_white: {
+      parent: 'l_upper_arm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_ssw_l', type: 'Box', size: [0.1, 0.22, 0.1], position: [0, 0.04, 0], materialId: 'polo_white' },
+        ],
+      },
+    },
+    // 短袖粉 T（教师女）
+    short_sleeve_pink: {
+      parent: 'l_upper_arm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_ssp_l', type: 'Box', size: [0.1, 0.22, 0.1], position: [0, 0.06, 0], materialId: 'pink_tee' },
+        ],
+      },
+    },
+    // 长袖蓝衬衫（教师男）：上臂段 + 前臂段（v0.79.31 位置下移盖全臂——上臂长 0.275/前臂 0.255）
+    long_sleeve_upper_blue: {
+      parent: 'l_upper_arm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_lsb_u', type: 'Box', size: [0.1, 0.34, 0.1], position: [0, 0, 0], materialId: 'shirt_blue' },
+        ],
+      },
+    },
+    long_sleeve_fore_blue: {
+      parent: 'l_forearm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_lsb_f', type: 'Box', size: [0.08, 0.3, 0.08], position: [0, -0.05, 0], materialId: 'shirt_blue' },
+        ],
       },
     },
   };
@@ -864,22 +939,34 @@
   // ── 包裹肢体的衣物 addon（袖口/短裤/长裤/裙）：尺寸随 build 派生保持包裹间隙，防肢体变粗穿模
   // limb: 被包裹的肢体节点（deriveNode 已按 build 派生其 size）；gap: 每侧间隙（单位）
   const WRAP_ADDONS = {
-    polo_cuff_l: { limb: 'l_forearm', gap: 0.01 },
-    polo_cuff_r: { limb: 'r_forearm', gap: 0.01 },
-    shorts_m: { limb: 'l_upper_leg', gap: 0.03 },
-    trousers_grey: { limb: 'l_upper_leg', gap: 0.03 },
-    trousers_grey_calf: { limb: 'l_lower_leg', gap: 0.03 },
+    polo_cuff_l: { limb: 'l_upper_arm', gap: 0.004 }, // v0.79.33: 改挂上臂
+    polo_cuff_r: { limb: 'r_upper_arm', gap: 0.004 },
+    shorts_m: { limb: 'l_upper_leg', gap: 0.016 },
+    trousers_grey: { limb: 'l_upper_leg', gap: 0.016 },
+    trousers_grey_calf: { limb: 'l_lower_leg', gap: 0.016 },
     // 裙 = 锥形 Cylinder：腰口(rTop) = 腿半径+0.02（细，被上衣下摆盖住，pelvis 无需加大）
     // 裙摆(rBottom) 按 Run 极限(0.8rad)大腿表面位移 = sqrt(髋X偏移0.13² + (摆长×sin0.8)²) + 腿半径
-    //   学生裙摆 -0.25（摆长0.4）→ 0.435 → 0.46；教师裙摆 -0.35（摆长0.5）→ 0.502 → 0.53
-    pleated_skirt_f: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.34 },
-    skirt_grey: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.41 },
+    // v0.79.26 收紧：学生裙摆 0.28 / 教师 0.30（摆长同前，位移 0.15 + 腿 0.06 + 余量）——旧 0.46/0.53 圆桌裙过大
+    pleated_skirt_f: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.19 },
+    skirt_grey: { limb: 'l_upper_leg', gap: 0.02, gapBottom: 0.22 },
+    // v0.79.31 袖子（半径联动；短袖盖肩头 / 长袖盖整臂）v0.79.33: gap 0.008→0.004 稍粗一点即可
+    short_sleeve_white: { limb: 'l_upper_arm', gap: 0.004 },
+    short_sleeve_pink: { limb: 'l_upper_arm', gap: 0.004 },
+    long_sleeve_upper_blue: { limb: 'l_upper_arm', gap: 0.004 },
+    long_sleeve_fore_blue: { limb: 'l_forearm', gap: 0.004 },
   };
   // 双侧裤腿部件：addon 双挂到左右腿关节（裤腿随腿旋转防穿模；Box 中心 x=0 无需镜像）
   const DUAL_LEG_ADDONS = {
     shorts_m: ['l_upper_leg', 'r_upper_leg'],
     trousers_grey: ['l_upper_leg', 'r_upper_leg'],
     trousers_grey_calf: ['l_lower_leg', 'r_lower_leg'],
+  };
+  // v0.79.31 双侧袖部件（手臂双挂；Box 中心 x=0 无需镜像）
+  const DUAL_LIMB_ADDONS = {
+    short_sleeve_white: ['l_upper_arm', 'r_upper_arm'],
+    short_sleeve_pink: ['l_upper_arm', 'r_upper_arm'],
+    long_sleeve_upper_blue: ['l_upper_arm', 'r_upper_arm'],
+    long_sleeve_fore_blue: ['l_forearm', 'r_forearm'],
   };
   // addon 子树递归重算包裹尺寸：Cylinder 半径 / Box 全宽深 = 肢体半径 + gap（gapBottom 用于锥形裙摆）
   function applyWrapScale(node, rLimb, gap, gapBottom) {
@@ -923,6 +1010,7 @@
       // 裤腿（short/long/calf）：双挂到左右腿关节（随腿旋转防迈步穿模）
       const parents =
         DUAL_LEG_ADDONS[key] ||
+        DUAL_LIMB_ADDONS[key] ||
         (key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
           ? ['l_foot', 'r_foot']
           : [def.parent]);
@@ -9508,45 +9596,37 @@ var SKELETON_VERSIONS = {
   }
 };
 
-  // MODELS：四变体裸体（从骨架版本烘焙，Phase 1 裸体无 addon；学生男女同参数分开存）
-  var MODELS = {};
-  MODELS.student_m = {
-    _skeletonVer: 'v1-儿童-20260810',
-    tree: bakeModel('v1-儿童-20260810', { addons: [] }),
-    anims: null,
+  // MODELS：四变体从骨架版本烘焙（v0.79.24 含衣服 addon + 丧尸动画集）
+  // 骨架映射：学生(儿童骨架) / 教师男(成年男骨架) / 教师女(成年女性骨架)
+  var VARIANT_SKELETON = {
+    student_m: 'v1-儿童-20260810',
+    student_f: 'v1-儿童-20260810',
+    teacher_m: 'v1-成年男-20260810',
+    teacher_f: 'v2-成年女性-2026-08-14',
   };
-  MODELS.student_f = {
-    _skeletonVer: 'v1-儿童-20260810',
-    tree: bakeModel('v1-儿童-20260810', { addons: [] }),
-    anims: null,
+  var VARIANT_BODY = {
+    student_m: { build: 0.45, hunch: 0.2, curves: 0 },
+    student_f: { build: 0.4, hunch: 0.2, curves: 0 },
+    teacher_m: { build: 0.5, hunch: 0.2, curves: 0 },
+    teacher_f: { build: 0.38, hunch: 0.2, curves: 0.7 },
   };
-  MODELS.teacher_m = {
-    _skeletonVer: 'v1-成年男-20260810',
-    tree: bakeModel('v1-成年男-20260810', { addons: [] }),
-    anims: null,
+  // 骨盆外显色 = 裤/裙同色（学生短裤红 / 教师裤裙灰——上衣扎进裤裙，v0.79.5 语义迁移到烘焙层）
+  var PELVIS_CLOTH = {
+    student_m: 'shorts_red',
+    student_f: 'shorts_red',
+    teacher_m: 'trousers_grey',
+    teacher_f: 'trousers_grey',
   };
-  MODELS.teacher_f = {
-    _skeletonVer: 'v2-成年女性-2026-08-14',
-    tree: bakeModel('v2-成年女性-2026-08-14', { addons: [] }),
-    anims: null,
+  // 上衣（torso_upper 材质，v0.79.31：骨架皮肤躯干穿上衣——学生白polo/教师男蓝衬衫/教师女粉T恤）
+  var VARIANT_TOP = {
+    student_m: 'polo_white',
+    student_f: 'polo_white',
+    teacher_m: 'shirt_blue',
+    teacher_f: 'pink_tee',
   };
 
-  // 变体动画继承：MODELS[v].anims = 所属骨架版本的 anims（每骨架一套基本动画，变体自动继承）
-  // 丧尸驼背注入：版本动画直立，烘焙出的丧尸变体（MODELS，校园丧尸全系）叠加驼背基线，
-  // 游戏丧尸视觉与旧版一致；未来非丧尸人类变体烘焙时不注入即直立
-  var ZOMBIE_HUNCH = { 'torso:x': 0.2, 'neck:x': 0.22, 'head:z': 0.08 };
-  Object.keys(MODELS).forEach(function (mk) {
-    var msv = MODELS[mk]._skeletonVer;
-    if (msv && SKELETON_VERSIONS[msv] && SKELETON_VERSIONS[msv].anims) {
-      MODELS[mk].anims = JSON.parse(JSON.stringify(SKELETON_VERSIONS[msv].anims));
-    }
-    if (MODELS[mk].anims && MODELS[mk].anims.restPoses) {
-      Object.assign(MODELS[mk].anims.restPoses, ZOMBIE_HUNCH);
-    }
-  });
-
-  // bakeModel：从骨架版本烘焙字面值 tree（复用 deriveNode + addon 注入逻辑）
-  //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons }
+  // bakeModel：从骨架版本烘焙字面值 tree（deriveNode 派生 + 完整 addon 注入，对齐 buildHumanoid）
+  //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons, materials }
   function bakeModel(skeletonVer, params) {
     var ver = SKELETON_VERSIONS[skeletonVer];
     if (!ver) {
@@ -9554,35 +9634,212 @@ var SKELETON_VERSIONS = {
       return null;
     }
     params = params || {};
-    // 深拷贝版本骨架 + 派生（复用 deriveNode：build/curves/hunch 缩放）
-    var variant = { materials: HUMANOID_VARIANTS.student_m.materials, addons: params.addons || [] };
-    var tree = deriveNode(
-      JSON.parse(JSON.stringify(ver.tree)),
-      {
-        height: params.height != null ? params.height : 1.4,
-        build: params.build != null ? params.build : BODY_PARAMS.build.default,
-        hunch: params.hunch != null ? params.hunch : 0.2,
-        curves: params.curves != null ? params.curves : 0,
-      },
-      variant
-    );
-    // addon 注入（复用 buildHumanoid 的 L900-953 逻辑：解析材质/镜像/curves 放大/WRAP 包裹）
+    var variant = { materials: params.materials || HUMANOID_VARIANTS.student_m.materials };
+    var p = {
+      height: params.height != null ? params.height : 1.4,
+      build: params.build != null ? params.build : BODY_PARAMS.build.default,
+      hunch: params.hunch != null ? params.hunch : 0,
+      curves: params.curves != null ? params.curves : 0,
+    };
+    var tree = deriveNode(JSON.parse(JSON.stringify(ver.tree)), p, variant);
+    // addon 完整注入（镜像/双挂/WRAP 包裹/curves 放大，对齐 buildHumanoid 主装配）
+    var wrapMax = 0;
     (params.addons || []).forEach(function (key) {
       var def = ADDON_LIBRARY[key];
       if (!def) return;
-      var parents = def.parent ? [def.parent] : [];
-      parents.forEach(function (par) {
+      var parents =
+        DUAL_LEG_ADDONS[key] ||
+        DUAL_LIMB_ADDONS[key] ||
+        (key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
+          ? ['l_foot', 'r_foot']
+          : [def.parent]);
+      parents.forEach(function (par, idx) {
         var parentNode = findNode(tree, par);
         if (!parentNode) return;
         parentNode.children = parentNode.children || [];
         var clone = JSON.parse(JSON.stringify(def.node));
         resolveAddonMaterials(clone, variant.materials);
+        if (par === 'r_foot' || par === 'r_forearm' || par === 'r_upper_leg' || par === 'r_lower_leg')
+          mirrorX(clone);
+        if (key === 'bust' || key === 'hips') scaleGroup(clone, 0.6 + p.curves * 0.8);
+        var wrap = WRAP_ADDONS[key];
+        if (wrap) {
+          var limbNode = findNode(tree, wrap.limb);
+          if (limbNode && limbNode.size) {
+            applyWrapScale(clone, limbNode.size[0], wrap.gap, wrap.gapBottom);
+            var wrapFirst = clone.children ? clone.children[0] : clone;
+            if (wrapFirst && wrapFirst.size) {
+              var w = wrapFirst.type === 'Box' ? wrapFirst.size[0] / 2 : wrapFirst.size[0];
+              if (w > wrapMax) wrapMax = w;
+            }
+          }
+        }
+        // snap 贴胸：按骨架 torso_upper(RidgeBox) 前表面计算 z，改挂 torso_upper（配饰随不同骨架贴合不悬空）
+        if (def.snap) {
+          var tu = findNode(tree, 'torso_upper');
+          if (tu && tu.size && tu.size.length >= 6) {
+            var sh = tu.size[1];
+            var sbw = tu.size[0], sbd = tu.size[2], stw = tu.size[3], std = tu.size[4];
+            var sox = tu.size[5] || 0, soz = tu.size[6] || 0;
+            var sRidgeY = tu.size[7] != null ? Math.min(Math.max(tu.size[7], 0), sh) : sh * 0.5;
+            var sRidgeZ = tu.size[8] || 0;
+            var yy = (def.snap.y != null ? def.snap.y : 0.45) * sh;
+            var zBot = sbd / 2, zTop = std / 2 + soz;
+            var zRidgeBase = zBot + (sRidgeY / sh) * (zTop - zBot);
+            var zRidge = zRidgeBase + sRidgeZ;
+            var zF = yy < sRidgeY
+              ? zBot + (yy / Math.max(0.01, sRidgeY)) * (zRidgeBase - zBot)
+              : zRidge + ((yy - sRidgeY) / Math.max(0.01, sh - sRidgeY)) * (zTop - zRidge);
+            var hw = sbw / 2 + (yy / sh) * (stw / 2 + sox - sbw / 2);
+            var xx = def.snap.x != null ? def.snap.x : (clone.position || [0, 0, 0])[0];
+            xx = Math.max(-hw + 0.02, Math.min(hw - 0.02, xx));
+            // ⚠️ pivot 补偿：渲染层子件 position += -pivot（torso_upper pivot[1]=-0.145 → +0.145），
+            // 不补偿会整体抬高半截躯干（v0.79.27 饰物"比肩高"根因）
+            clone.position = [xx, yy + (tu.pivot ? tu.pivot[1] : 0), zF + (def.snap.out != null ? def.snap.out : 0.006)];
+            clone._addonKey = key + (idx > 0 ? '_r' : '');
+            tu.children = tu.children || [];
+            tu.children.push(clone);
+            return;
+          }
+        }
+        clone._addonKey = key + (idx > 0 ? '_r' : '');
         parentNode.children.push(clone);
       });
     });
-    tree._params = { height: params.height != null ? params.height : 1.4 };
+    // 学生上衣下摆包裹保证（教师扎裤裙不 grow）；TaperedBox 9 参数只放大底面宽/深并保留其余参数
+    var isTeacherVk = params._variantKey === 'teacher_m' || params._variantKey === 'teacher_f';
+    if (wrapMax > 0 && !isTeacherVk) {
+      var pelvisNode = findNode(tree, 'pelvis');
+      if (pelvisNode && pelvisNode.size) {
+        var _bF = 0.7 + p.build * 0.6;
+        var needFull = (wrapMax + 0.02) * 2;
+        var ps = pelvisNode.size.slice();
+        ps[0] = Math.max(ps[0], ps[0] * _bF, needFull);
+        ps[2] = Math.max(ps[2], ps[2] * _bF, needFull);
+        pelvisNode.size = ps;
+      }
+    }
+    // 骨盆外显色 = 裤/裙同色（上衣扎进裤裙，v0.79.5 语义迁移到烘焙层）
+    if (PELVIS_CLOTH && PELVIS_CLOTH[params._variantKey]) {
+      var pelvisNode0 = findNode(tree, 'pelvis');
+      if (pelvisNode0) pelvisNode0.materialId = PELVIS_CLOTH[params._variantKey];
+      // 教师上衣扎进下装：下躯干(torso_lower)同样显裤/裙色
+      // 学生 polo 外放：下躯干显 polo 色（v0.79.31 穿上衣——原 skin 裸露）
+      var tlower0 = findNode(tree, 'torso_lower');
+      if (tlower0) {
+        tlower0.materialId =
+          params._variantKey === 'teacher_m' || params._variantKey === 'teacher_f'
+            ? PELVIS_CLOTH[params._variantKey]
+            : 'polo_white';
+      }
+    }
+    // 上衣：上躯干(torso_upper)按变体材质（v0.79.31——原 __skin__ 裸露与四肢同色）
+    if (VARIANT_TOP && VARIANT_TOP[params._variantKey]) {
+      var tupper0 = findNode(tree, 'torso_upper');
+      if (tupper0) tupper0.materialId = VARIANT_TOP[params._variantKey];
+    }
+    tree._params = { height: p.height };
     return tree;
   }
+
+  // ── 丧尸动画集派生：驼背 + 无拳击 + Walk/Run 拖行 + Run 双臂前伸抓猎物 + 裙摆动 ──
+  var ZOMBIE_HUNCH = { 'torso:x': 0.2, 'neck:x': 0.22, 'head:z': 0.08 };
+  // 裙摆动轨道（kind O 挂 pelvis 的裙节点：学生 ah_skirt / 教师 ah_gskirt；随步伐前后摆+重心左右晃）
+  function skirtTracks(skirtName) {
+    if (!skirtName) return [];
+    return [
+      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.14 }, { t: 0.25, v: -0.1 }, { t: 0.5, v: 0.14 }, { t: 0.75, v: -0.1 }, { t: 1, v: 0.14 } ] },
+      { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -0.07 }, { t: 0.5, v: 0.07 }, { t: 1, v: -0.07 } ] },
+    ];
+  }
+  function deriveZombieAnims(verAnims, skirtName, dieRootY) {
+    var a = JSON.parse(JSON.stringify(verAnims));
+    delete a.actions.Punch;
+    Object.assign(a.restPoses, ZOMBIE_HUNCH);
+    // Die root 高度末帧按骨架定制（v0.79.27）：整体下沉至躯干贴地，裙摆圆环自然没入地面
+    if (dieRootY != null) {
+      (a.actions.Die || []).forEach(function (t) {
+        if (t.joint === 'root' && t.axis === 'y' && t.keys.length === 4) {
+          t.keys[3].v = dieRootY;
+          t.keys[2].v = dieRootY + 0.075; // 保持倒地下沉幅度
+        }
+      });
+    }
+    // Walk：拖行一瘸一拐（左腿好/右腿瘸拖，躯干摇摆，2.2s）
+    a.actions.Walk = [
+      { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: 0.05 }, { t: 0.25, v: -0.07 }, { t: 0.5, v: 0.05 }, { t: 0.75, v: -0.07 }, { t: 1, v: 0.05 } ] },
+      { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [ { t: 0, v: -0.015 }, { t: 0.25, v: 0.015 }, { t: 0.5, v: -0.02 }, { t: 0.75, v: 0.01 }, { t: 1, v: -0.015 } ] },
+      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.3 }, { t: 0.25, v: 0.05 }, { t: 0.5, v: 0.15 }, { t: 0.75, v: -0.1 }, { t: 1, v: -0.3 } ] },
+      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.1 }, { t: 0.25, v: -0.12 }, { t: 0.5, v: 0.08 }, { t: 0.75, v: -0.04 }, { t: 1, v: 0.1 } ] },
+      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.35 }, { t: 0.25, v: 0.15 }, { t: 0.5, v: 0.45 }, { t: 0.75, v: 0.75 }, { t: 1, v: 0.35 } ] },
+      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.5 }, { t: 0.25, v: 0.42 }, { t: 0.5, v: 0.5 }, { t: 0.75, v: 0.58 }, { t: 1, v: 0.5 } ] },
+      { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.25 }, { t: 0.25, v: 0.1 }, { t: 0.5, v: -0.25 }, { t: 0.75, v: 0.1 }, { t: 1, v: -0.25 } ] },
+      { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.1 }, { t: 0.25, v: -0.25 }, { t: 0.5, v: 0.1 }, { t: 0.75, v: -0.25 }, { t: 1, v: 0.1 } ] },
+    ];
+    // Run：双臂前伸抓猎物 + 拖行快步（1.0s）
+    a.actions.Run = [
+      { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'x', restKey: 'torso:x', keys: [ { t: 0, v: 0.15 }, { t: 0.5, v: 0.1 }, { t: 1, v: 0.15 } ] },
+      { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: 0.06 }, { t: 0.25, v: -0.08 }, { t: 0.5, v: 0.06 }, { t: 0.75, v: -0.08 }, { t: 1, v: 0.06 } ] },
+      { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [ { t: 0, v: -0.02 }, { t: 0.25, v: 0.02 }, { t: 0.5, v: -0.02 }, { t: 0.75, v: 0.02 }, { t: 1, v: -0.02 } ] },
+      { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -1.25 }, { t: 0.5, v: -1.15 }, { t: 1, v: -1.25 } ] },
+      { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -1.25 }, { t: 0.5, v: -1.15 }, { t: 1, v: -1.25 } ] },
+      { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.5 }, { t: 0.5, v: -0.42 }, { t: 1, v: -0.5 } ] },
+      { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.5 }, { t: 0.5, v: -0.42 }, { t: 1, v: -0.5 } ] },
+      { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -0.12 }, { t: 1, v: -0.12 } ] },
+      { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: 0.12 }, { t: 1, v: 0.12 } ] },
+      { kind: 'P', joint: 'head', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.18 }, { t: 0.5, v: -0.14 }, { t: 1, v: -0.18 } ] },
+      { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: -0.5 }, { t: 0.25, v: 0.1 }, { t: 0.5, v: 0.3 }, { t: 0.75, v: -0.25 }, { t: 1, v: -0.5 } ] },
+      { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.15 }, { t: 0.25, v: -0.2 }, { t: 0.5, v: 0.12 }, { t: 0.75, v: -0.08 }, { t: 1, v: 0.15 } ] },
+      { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.5 }, { t: 0.25, v: 0.2 }, { t: 0.5, v: 0.6 }, { t: 0.75, v: 1.1 }, { t: 1, v: 0.5 } ] },
+      { kind: 'P', joint: 'r_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.55 }, { t: 0.25, v: 0.45 }, { t: 0.5, v: 0.55 }, { t: 0.75, v: 0.65 }, { t: 1, v: 0.55 } ] },
+    ];
+    // Stagger 受击后仰改偏移制（驼背基线上后仰）
+    (a.actions.Stagger || []).forEach(function (t) {
+      if (t.joint === 'torso' && t.axis === 'x') t.restKey = 'torso:x';
+    });
+    // 裙摆动（随步态前后摆+左右晃；Die 前摆+下沉穿地，身体贴地）
+    if (skirtName) {
+      var sk = a.actions;
+      sk.Idle = (sk.Idle || []).concat([
+        { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'x', restKey: null, keys: [ { t: 0, v: 0.05 }, { t: 0.5, v: 0.02 }, { t: 1, v: 0.05 } ] },
+      ]);
+      sk.Walk = (sk.Walk || []).concat(skirtTracks(skirtName));
+      sk.Run = (sk.Run || []).concat(
+        skirtTracks(skirtName).map(function (t) {
+          return { kind: t.kind, joint: t.joint, prop: t.prop, axis: t.axis, restKey: null, keys: t.keys.map(function (k) { return { t: k.t, v: k.v * 1.4 }; }) };
+        })
+      );
+      // Die 不加裙轨道：裙自然挂骨盆随前倒，整体下沉由 Die root 高度轨道负责（v0.79.27 用户方案）
+    }
+    a.durations = { Idle: 2.2, Walk: 2.2, Run: 1.0, Swing: 1.0, Stagger: 0.5, Die: 1.5 };
+    return a;
+  }
+
+  var MODELS = {};
+  Object.keys(VARIANT_SKELETON).forEach(function (vk) {
+    var hv = HUMANOID_VARIANTS[vk];
+    var body = VARIANT_BODY[vk];
+    MODELS[vk] = {
+      _skeletonVer: VARIANT_SKELETON[vk],
+      tree: bakeModel(VARIANT_SKELETON[vk], {
+        build: body.build,
+        hunch: body.hunch,
+        curves: body.curves,
+        addons: hv.addons,
+        materials: hv.materials,
+        _variantKey: vk,
+      }),
+      anims: null,
+      zombieAnims: deriveZombieAnims(
+        SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims,
+        vk === 'student_f' ? 'ah_skirt' : vk === 'teacher_f' ? 'ah_gskirt' : null,
+        vk === 'teacher_m' ? 0.09 : vk === 'teacher_f' ? 0.12 : 0.1
+      ),
+    };
+    if (SKELETON_VERSIONS[VARIANT_SKELETON[vk]] && SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims) {
+      MODELS[vk].anims = JSON.parse(JSON.stringify(SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims));
+    }
+  });
   function getSkeletonList() {
     return Object.keys(SKELETON_VERSIONS);
   }
