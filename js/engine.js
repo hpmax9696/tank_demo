@@ -4,6 +4,7 @@ const gameContainer = document.getElementById('game-container');
 const btnEnter = document.getElementById('btn-enter');
 const btnVersus = document.getElementById('btn-versus');
 const btnTraining = document.getElementById('btn-training');
+const btnSettings = document.getElementById('btn-settings');
 const btnBack = document.getElementById('btn-back');
 const hintBar = document.getElementById('controls-hint');
 const splitLine = document.getElementById('split-line');
@@ -24,8 +25,15 @@ const mapSelector = document.getElementById('map-selector');
 const mapList = document.getElementById('map-list');
 const btnStartGame = document.getElementById('btn-start-game');
 const btnCancelMap = document.getElementById('btn-cancel-map');
+const settingsPanel = document.getElementById('settings-panel');
+const btnSettingsBack = document.getElementById('btn-settings-back');
 
 // ==================== 状态机 ====================
+var aimControlMode = 'world';
+try {
+  const _savedAim = localStorage.getItem('tank_aim_control_mode');
+  if (_savedAim === 'world' || _savedAim === 'hull') aimControlMode = _savedAim;
+} catch (e) {}
 let gameMode = 'menu'; // 'menu' | 'single' | 'versus' | 'training'
 let isTrainingMode = false;
 let trainingPlayerSpawn = { x: -20, z: 0 };
@@ -73,11 +81,10 @@ window.addEventListener('keydown', (e) => {
     renderer.shadowMap.enabled = shadowEnabled;
     console.log('🔦 阴影已' + (shadowEnabled ? '开启' : '关闭') + '（H键切换）| 对比渲染耗时变化');
   }
-  if (e.code === 'KeyQ' && gameMode !== 'menu') {
+  if (e.code === 'KeyQ' && !e.repeat && gameMode !== 'menu') {
     currentShellType = currentShellType === 'ap' ? 'he' : 'ap';
     playSwitchSound();
-    if (player1 && !player1.dead)
-      player1.reloadTimer = player1.spec ? player1.spec.reloadTime : RELOAD_TIME;
+    beginShellSwitchReload();
     console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
   }
   if (e.code === 'Escape') {
@@ -557,7 +564,13 @@ function initScene() {
 }
 
 // ==================== 地图重建（切换单人/双人场景） ====================
+function clearCampusCollisionRefs() {
+  window._campusBuildings = [];
+  window._campusBuildingGroups = [];
+}
+
 function rebuildMap() {
+  clearCampusCollisionRefs();
   // 移除地面
   if (groundPlane) {
     scene.remove(groundPlane);
@@ -1209,6 +1222,60 @@ function angleMoveToward(current, target, maxDelta) {
   return current + Math.sign(diff) * maxDelta;
 }
 
+function tryCrushZombie(enemy, tankX, tankZ, tankYaw, maxDist) {
+  if (!enemy || enemy.ai.state === 'dead') return false;
+  const dx = enemy.position.x - tankX;
+  const dz = enemy.position.z - tankZ;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+  const crushRange = maxDist || 1.3;
+  if (dist <= 0.01 || dist >= crushRange) return false;
+  const nx = dx / dist,
+    nz = dz / dist;
+  const frontAlignment = Math.cos(tankYaw) * nx + Math.sin(tankYaw) * nz;
+  if (frontAlignment <= 0.87) return false;
+  const tankSpeed = Math.abs(currentLeftSpeed) + Math.abs(currentRightSpeed);
+  if (tankSpeed <= 3.0) return false;
+  let zombieApproach = 0;
+  const zState = enemy.ai.state;
+  if (zState === 'pursuit') {
+    zombieApproach = (enemy.cfg.speed || 1.5) * 2.5;
+  } else if (zState === 'attack') {
+    zombieApproach = enemy.cfg.speed || 1.5;
+  }
+  const zForwardX = Math.sin(enemy.rotation.y);
+  const zForwardZ = Math.cos(enemy.rotation.y);
+  const zToTankX = tankX - enemy.position.x;
+  const zToTankZ = tankZ - enemy.position.z;
+  if (zForwardX * zToTankX + zForwardZ * zToTankZ < 0) zombieApproach = 0;
+  return tankSpeed + zombieApproach > 4.5;
+}
+
+function crushZombie(enemy) {
+  if (!enemy) return;
+  enemy.hp = 0;
+  enemy.ai.state = 'dead';
+  enemy.ai.animRequest = 'death';
+  enemy.ai.prevState = enemy.ai.prevState || 'idle';
+  enemy.ai.deathAnimStarted = false;
+  if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
+    enemy.userData.hpBarFill.scale.x = 0;
+    enemy.userData.hpBarFill.position.x = -0.75;
+    enemy.userData.hpBarFill.material.color.setRGB(1, 0, 0);
+  }
+}
+
+function beginShellSwitchReload() {
+  if (!player1 || player1.dead) return;
+  const rt = player1.spec ? player1.spec.reloadTime : RELOAD_TIME;
+  player1.reloadTimer = rt;
+  reloadTimer = rt;
+  if (player1.reloadBarGroup) player1.reloadBarGroup.visible = true;
+  if (player1.reloadBarFill) {
+    player1.reloadBarFill.scale.y = 0.01;
+    player1.reloadBarFill.position.y = -0.36 + 0.33 * 0.01;
+  }
+}
+
 function resetTank() {
   tankState.x = POINT_A_X;
   tankState.z = POINT_A_Z;
@@ -1551,6 +1618,7 @@ function updateAiming(player, dt) {
 
   // ── 世界空间炮塔: 首帧从局部 turretYaw 惰性初始化 ──
   const hullYaw = player.state.yaw;
+  const hullAim = aimControlMode === 'hull';
   if (player.worldTurretYaw === undefined) {
     player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
   }
@@ -1585,8 +1653,14 @@ function updateAiming(player, dt) {
     const gpyA = gp.axes[3] || 0;
     const gpyB = gp.axes[5] || 0;
     const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
-    // 右摇杆X驱动世界空间炮塔
-    player.worldTurretYaw += stickToTarget(-gpx) * turretAngVel * dt;
+    if (hullAim) {
+      player.turretYaw += stickToTarget(-gpx) * turretAngVel * dt;
+      while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+      while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+      player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
+    } else {
+      player.worldTurretYaw += stickToTarget(-gpx) * turretAngVel * dt;
+    }
     // 右摇杆激活时: 视角始终跟随炮管世界朝向
     if (Math.abs(gpx) > 0.08) {
       const barrelDir = getBarrelWorldDir(player);
@@ -1674,9 +1748,6 @@ function updateAiming(player, dt) {
       const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
       const worldDir = worldTarget.clone().sub(barrelPos).normalize();
 
-      // 世界空间炮塔目标方向
-      const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
-
       // 炮管俯仰仍用局部空间（相对车体，逻辑不变）
       const invQ = player.group.quaternion.clone().invert();
       const localDir = worldDir.clone().applyQuaternion(invQ);
@@ -1686,12 +1757,21 @@ function updateAiming(player, dt) {
       );
       const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-      // 驱动世界空间炮塔追赶目标
-      player.worldTurretYaw = angleMoveToward(
-        player.worldTurretYaw,
-        worldTargetYaw,
-        turretAngVel * dt
-      );
+      const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
+      let localTargetYaw = null;
+      if (hullAim) {
+        localTargetYaw = Math.atan2(localDir.x, localDir.z);
+        player.turretYaw = angleMoveToward(player.turretYaw, localTargetYaw, turretAngVel * dt);
+        while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+        while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+        player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
+      } else {
+        player.worldTurretYaw = angleMoveToward(
+          player.worldTurretYaw,
+          worldTargetYaw,
+          turretAngVel * dt
+        );
+      }
       player.barrelElevation = angleMoveToward(
         player.barrelElevation,
         clampedElev,
@@ -1699,9 +1779,16 @@ function updateAiming(player, dt) {
       );
 
       const dist = diff.length();
-      let turretDiff = Math.abs(player.worldTurretYaw - worldTargetYaw);
-      turretDiff = turretDiff % (Math.PI * 2);
-      if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;
+      let turretDiff;
+      if (hullAim) {
+        turretDiff = Math.abs(player.turretYaw - localTargetYaw);
+        turretDiff = turretDiff % (Math.PI * 2);
+        if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;
+      } else {
+        turretDiff = Math.abs(player.worldTurretYaw - worldTargetYaw);
+        turretDiff = turretDiff % (Math.PI * 2);
+        if (turretDiff > Math.PI) turretDiff = Math.PI * 2 - turretDiff;
+      }
       const elevDiff = Math.abs(player.barrelElevation - clampedElev);
 
       if (dist <= 150 && turretDiff < 0.05 && elevDiff < 0.04) {
@@ -1771,11 +1858,16 @@ function updateAiming(player, dt) {
     }
   }
 
-  // ── 从世界空间反算局部 turretYaw（用于渲染，替代稳定器）──
-  player.turretYaw = player.worldTurretYaw - (Math.PI / 2 - hullYaw);
-  // 归一化到 [-PI, PI]
-  while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
-  while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+  // ── 车体指向模式: 局部 turretYaw 是主状态; 世界指向模式: 从世界角反算局部角 ──
+  if (hullAim) {
+    while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+    while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+    player.worldTurretYaw = player.turretYaw + (Math.PI / 2 - hullYaw);
+  } else {
+    player.turretYaw = player.worldTurretYaw - (Math.PI / 2 - hullYaw);
+    while (player.turretYaw > Math.PI) player.turretYaw -= Math.PI * 2;
+    while (player.turretYaw < -Math.PI) player.turretYaw += Math.PI * 2;
+  }
 
   player.barrelElevation = Math.max(maxUp, Math.min(maxDown, player.barrelElevation));
   if (useGamepad) {
@@ -2102,7 +2194,10 @@ function gameLoop() {
         drawSniperMinimap();
       } else if (_sm2 && _sm2.style.display !== 'none') _sm2.style.display = 'none';
     }
-    updateReloadRing(reloadTimer, player1.spec ? player1.spec.reloadTime : RELOAD_TIME);
+    updateReloadRing(
+      player1 ? player1.reloadTimer : reloadTimer,
+      player1 && player1.spec ? player1.spec.reloadTime : RELOAD_TIME
+    );
     visibilityTimer += dt;
     // ── 训练场重生处理 ──
     if (isTrainingMode) _processTrainingRespawn(dt);
@@ -2370,18 +2465,18 @@ function gameLoop() {
       const pRad = TANK_HALF_W;
       for (let ei = 0; ei < enemies.length; ei++) {
         const en = enemies[ei];
-        if (!en || !en.visible || en.dead) continue;
-        const eRad =
-          en.cfg && en.cfg.type === 'zombie'
-            ? 0.4
-            : en.cfg && en.cfg.type === 'hexapod'
-              ? 0.6
-              : ENEMY_HALF_W;
+        if (!en || !en.visible || en.dead || en.ai.state === 'dead') continue;
+        const isZombieCollider = en.cfg && en.cfg.type === 'zombie';
+        const eRad = isZombieCollider ? 0.4 : en.cfg && en.cfg.type === 'hexapod' ? 0.6 : ENEMY_HALF_W;
         const dx = newX - en.position.x,
           dz = newZ - en.position.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
         const minDist = pRad + eRad;
         if (dist < minDist && dist > 0.001) {
+          if (isZombieCollider && tryCrushZombie(en, newX, newZ, tankState.yaw, minDist + 0.2)) {
+            crushZombie(en);
+            continue;
+          }
           const overlap = minDist - dist;
           newX += (dx / dist) * overlap;
           newZ += (dz / dist) * overlap;
@@ -2571,8 +2666,7 @@ function gameLoop() {
           _gpRbPressed = true;
           currentShellType = currentShellType === 'ap' ? 'he' : 'ap';
           playSwitchSound();
-          if (player1 && !player1.dead)
-            player1.reloadTimer = player1.spec ? player1.spec.reloadTime : RELOAD_TIME;
+          beginShellSwitchReload();
           console.log('🔫 切换弹种: ' + (currentShellType === 'ap' ? '穿甲弹 AP' : '高爆弹 HE'));
         }
       } else {
@@ -3800,59 +3894,8 @@ function gameLoop() {
         }
         // 🚜 坦克 vs 丧尸碰撞（碾压 或 推开）
         if (isZombie && player1 && !player1.dead) {
-          const crushDist = enemy.position.distanceTo(player1.group.position);
-          if (crushDist < 1.3 && crushDist > 0.01) {
-            const tankForward = new THREE.Vector3(
-              Math.cos(player1.state.yaw),
-              0,
-              Math.sin(player1.state.yaw)
-            );
-            const tankToZombie = new THREE.Vector3()
-              .subVectors(enemy.position, player1.group.position)
-              .normalize();
-            const frontAlignment = tankForward.dot(tankToZombie);
-            const tankTowardZombie = frontAlignment > 0; // 大方向朝丧尸（用于速度计算）
-            const inFrontCone = frontAlignment > 0.87; // 仅在正前方窄锥内碾压（±~30°）
-
-            // 坦克地面速度
-            const tankSpeed = Math.abs(currentLeftSpeed) + Math.abs(currentRightSpeed);
-
-            // 丧尸趋近速度（面向坦克 + 追击/攻击状态才计入）
-            let zombieApproach = 0;
-            if (tankTowardZombie) {
-              const zState = enemy.ai.state;
-              if (zState === 'pursuit') {
-                zombieApproach = (enemy.cfg.speed || 1.5) * 2.5;
-              } else if (zState === 'attack') {
-                zombieApproach = enemy.cfg.speed || 1.5;
-              }
-              // 丧尸是否面向坦克（丧尸前端 +Z：forward = (sin(rotY), 0, cos(rotY))）
-              const zForward = new THREE.Vector3(
-                Math.sin(enemy.rotation.y),
-                0,
-                Math.cos(enemy.rotation.y)
-              );
-              const zombieToTank = new THREE.Vector3()
-                .subVectors(player1.group.position, enemy.position)
-                .normalize();
-              if (zForward.dot(zombieToTank) < 0) zombieApproach = 0; // 背对=无趋近
-            }
-            const combinedSpeed = tankSpeed + zombieApproach;
-
-            if (tankSpeed > 3.0 && combinedSpeed > 4.5 && inFrontCone) {
-              // ⚡ 碾压击杀
-              enemy.hp = 0;
-              enemy.ai.state = 'dead';
-              enemy.ai.animRequest = 'death';
-              enemy.ai.prevState = enemy.ai.prevState || 'idle';
-              enemy.ai.deathAnimStarted = false;
-              if (enemy.userData.hpBarGroup && enemy.userData.hpBarFill) {
-                enemy.userData.hpBarFill.scale.x = 0;
-                enemy.userData.hpBarFill.position.x = -0.75;
-                enemy.userData.hpBarFill.material.color.setRGB(1, 0, 0);
-              }
-            }
-            // 不满足碾压条件 → 丧尸可正常近战攻击（保留碰撞体积）
+          if (tryCrushZombie(enemy, player1.state.x, player1.state.z, player1.state.yaw)) {
+            crushZombie(enemy);
           }
         }
         // HP 条更新
@@ -4051,24 +4094,29 @@ function gameLoop() {
             if (asys && !asys.playing) {
               ai.atkReady = true;
               ai.animRequest = 'walk';
+              ai.animAtkStart = 0;
             }
           }
 
           // 5. 播放 AI 状态请求的动画（AnimationSystem）
           if (ai.animRequest && asys) {
+            const attackAnim = asys.anims.Swing ? 'Swing' : 'Attack';
             const nameMap = {
               idle: 'Idle',
               walk: 'Walk',
               run: 'Run',
-              attack: 'Swing',
+              attack: attackAnim,
               hit: 'Hit',
               death: 'Die',
             };
             const mapped = nameMap[ai.animRequest] || ai.animRequest;
-            const needLoop = ai.state === 'stagger' ? false : !['Hit', 'Die'].includes(mapped);
+            const isAttackAnim = mapped === 'Swing' || mapped === 'Attack';
+            const needLoop = ai.state === 'stagger'
+              ? false
+              : !['Hit', 'Die'].includes(mapped) && !isAttackAnim;
             if (asys.current !== mapped || !asys.playing) {
               asys.play(mapped, needLoop);
-              if (mapped === 'Swing') {
+              if (isAttackAnim) {
                 ai.animHitApplied = false;
               }
             }
@@ -4693,6 +4741,7 @@ function updateAimingForVs(p, dt) {
 
   // ── 世界空间炮塔: 首帧惰性初始化 ──
   const hullYaw = p.state.yaw;
+  const hullAim = aimControlMode === 'hull';
   if (p.worldTurretYaw === undefined) {
     p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
   }
@@ -4710,7 +4759,14 @@ function updateAimingForVs(p, dt) {
       const gpyB = gp.axes[5] || 0;
       const gpy = Math.abs(gpyA) > Math.abs(gpyB) ? gpyA : gpyB;
       const turretSpeed = stickToTarget(-gpx) * turretAngVel;
-      p.worldTurretYaw += turretSpeed * dt;
+      if (hullAim) {
+        p.turretYaw += turretSpeed * dt;
+        while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+        while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+        p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
+      } else {
+        p.worldTurretYaw += turretSpeed * dt;
+      }
       const barrelSpeed = stickToTarget(-gpy) * barrelAngVel;
       const newElev = p.barrelElevation + barrelSpeed * dt;
       p.barrelElevation = Math.max(maxUp, Math.min(maxDown, newElev));
@@ -4721,9 +4777,15 @@ function updateAimingForVs(p, dt) {
     const isMouseInP1Area = mouseX < halfCssW;
     if (!isMouseInP1Area) {
       // 提前返回前必须推导 turretYaw（否则渲染读到过时值）
-      p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
-      while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
-      while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+      if (hullAim) {
+        while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+        while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+        p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
+      } else {
+        p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
+        while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+        while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+      }
       p.barrelElevation = Math.max(maxUp, Math.min(maxDown, p.barrelElevation));
       return;
     }
@@ -4777,9 +4839,6 @@ function updateAimingForVs(p, dt) {
       const worldTarget = new THREE.Vector3(targetAim.x, targetAim.y + gravityDrop, targetAim.z);
       const worldDir = worldTarget.clone().sub(barrelPos).normalize();
 
-      // 世界空间炮塔目标方向
-      const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
-
       // 炮管俯仰仍用局部空间
       const invQ = p.group.quaternion.clone().invert();
       const localDir = worldDir.clone().applyQuaternion(invQ);
@@ -4789,16 +4848,30 @@ function updateAimingForVs(p, dt) {
       );
       const clampedElev = Math.max(maxUp, Math.min(maxDown, targetElev));
 
-      // 驱动世界空间炮塔追赶目标
-      p.worldTurretYaw = angleMoveToward(p.worldTurretYaw, worldTargetYaw, turretAngVel * dt);
+      const worldTargetYaw = Math.atan2(worldDir.x, worldDir.z);
+      if (hullAim) {
+        const localTargetYaw = Math.atan2(localDir.x, localDir.z);
+        p.turretYaw = angleMoveToward(p.turretYaw, localTargetYaw, turretAngVel * dt);
+        while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+        while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+        p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
+      } else {
+        p.worldTurretYaw = angleMoveToward(p.worldTurretYaw, worldTargetYaw, turretAngVel * dt);
+      }
       p.barrelElevation = angleMoveToward(p.barrelElevation, clampedElev, barrelAngVel * dt);
     }
   }
 
-  // ── 从世界空间反算局部 turretYaw ──
-  p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
-  while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
-  while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+  // ── 车体指向模式: 局部 turretYaw 是主状态; 世界指向模式: 从世界角反算局部角 ──
+  if (hullAim) {
+    while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+    while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+    p.worldTurretYaw = p.turretYaw + (Math.PI / 2 - hullYaw);
+  } else {
+    p.turretYaw = p.worldTurretYaw - (Math.PI / 2 - hullYaw);
+    while (p.turretYaw > Math.PI) p.turretYaw -= Math.PI * 2;
+    while (p.turretYaw < -Math.PI) p.turretYaw += Math.PI * 2;
+  }
 
   p.barrelElevation = Math.max(maxUp, Math.min(maxDown, p.barrelElevation));
 }
@@ -7045,6 +7118,8 @@ let selectedMapId = 'test_map_01a';
 
 async function showMapSelector() {
   // 隐藏菜单按钮，显示地图选择面板
+  settingsPanel.classList.remove('active');
+  trainingConfig.classList.remove('active');
   document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = 'none'));
   document
     .querySelectorAll('#menu-overlay > .menu-hint')
@@ -7127,6 +7202,7 @@ async function showMapSelector() {
 
 function hideMapSelector() {
   mapSelector.classList.remove('active');
+  settingsPanel.classList.remove('active');
   document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = ''));
   document.querySelectorAll('#menu-overlay > .menu-hint').forEach((h) => (h.style.display = ''));
   document.querySelectorAll('#menu-overlay > .changelog').forEach((c) => (c.style.display = ''));
@@ -7270,6 +7346,7 @@ function raf() {
 
 // 异步版 rebuildMap（分步上报加载进度）
 async function rebuildMapAsync() {
+  clearCampusCollisionRefs();
   // 清理
   await raf();
   updateLoadingProgress(15, '移除旧地面...');
@@ -7407,7 +7484,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.35  ' +
+    'v0.79.36  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -7438,6 +7515,7 @@ function returnToMenu() {
     });
   }
   hideMapSelector();
+  hideSettings();
   hideGameOverScreen();
   if (window.PlayerControllerManager) window.PlayerControllerManager.deactivate(); // 销毁模块化角色模型/资源
   isTrainingMode = false;
@@ -7589,7 +7667,50 @@ let trainingPlayerAI = true; // 玩家坦克/六足AI托管: 自动攻击敌方�
   btnTrainingCancel.addEventListener('click', hideTrainingConfig);
 })();
 
+(function initSettingsUI() {
+  function syncSettingsButtons() {
+    document.querySelectorAll('#settings-panel .setting-btn').forEach((btn) => {
+      btn.classList.toggle('selected', btn.dataset.val === aimControlMode);
+    });
+  }
+  document.querySelectorAll('#settings-panel .setting-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      aimControlMode = btn.dataset.val === 'hull' ? 'hull' : 'world';
+      try {
+        localStorage.setItem('tank_aim_control_mode', aimControlMode);
+      } catch (e) {}
+      syncSettingsButtons();
+    });
+  });
+  syncSettingsButtons();
+})();
+
+function showSettings() {
+  mapSelector.classList.remove('active');
+  trainingConfig.classList.remove('active');
+  document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = 'none'));
+  document
+    .querySelectorAll('#menu-overlay > .menu-hint')
+    .forEach((h) => (h.style.display = 'none'));
+  document
+    .querySelectorAll('#menu-overlay > .changelog')
+    .forEach((c) => (c.style.display = 'none'));
+  document.querySelectorAll('#settings-panel .setting-btn').forEach((b) => {
+    b.classList.toggle('selected', b.dataset.val === aimControlMode);
+  });
+  settingsPanel.classList.add('active');
+}
+
+function hideSettings() {
+  settingsPanel.classList.remove('active');
+  document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = ''));
+  document.querySelectorAll('#menu-overlay > .menu-hint').forEach((h) => (h.style.display = ''));
+  document.querySelectorAll('#menu-overlay > .changelog').forEach((c) => (c.style.display = ''));
+}
+
 function showTrainingConfig() {
+  mapSelector.classList.remove('active');
+  settingsPanel.classList.remove('active');
   document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = 'none'));
   document
     .querySelectorAll('#menu-overlay > .menu-hint')
@@ -7602,6 +7723,7 @@ function showTrainingConfig() {
 
 function hideTrainingConfig() {
   trainingConfig.classList.remove('active');
+  settingsPanel.classList.remove('active');
   document.querySelectorAll('#menu-overlay > .menu-btn').forEach((b) => (b.style.display = ''));
   document.querySelectorAll('#menu-overlay > .menu-hint').forEach((h) => (h.style.display = ''));
   document.querySelectorAll('#menu-overlay > .changelog').forEach((c) => (c.style.display = ''));
@@ -8036,6 +8158,8 @@ btnEnter.addEventListener('click', showMapSelector);
 btnVersus.addEventListener('click', enterVersusMode);
 btnPreview.addEventListener('click', enterPreviewMode);
 btnTraining.addEventListener('click', showTrainingConfig);
+btnSettings.addEventListener('click', showSettings);
+btnSettingsBack.addEventListener('click', hideSettings);
 btnBack.addEventListener('click', returnToMenu);
 btnPreviewBack.addEventListener('click', exitPreviewMode);
 btnStartGame.addEventListener('click', enterGame);
@@ -8076,7 +8200,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.35 | 丧尸步态一迈一撑交叉循环+教师裤管膝下0.172超长修正+男学生短裤白色侧缝线');
+console.log('🎮 坦克运动demo v0.79.36 | 校园丧尸实装+碾压修复+瞄准设置+地图切换碰撞清理+旧丧尸攻击修复');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

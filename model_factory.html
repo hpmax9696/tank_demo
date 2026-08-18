@@ -1436,8 +1436,11 @@
             const tl = node.thetaLength != null ? node.thetaLength : Math.PI;
             return new THREE.SphereGeometry(s[0], seg[0] || 8, seg[1] || 6, 0, Math.PI * 2, 0, tl);
           }
-          case 'Torus':
-            return new THREE.TorusGeometry(s[0], s[1] || 0.05, seg[0] || 8, seg[1] || 12);
+          case 'Torus': {
+            const ts = (Array.isArray(node.segments) && node.segments[1]) || 12;
+            const rs = (Array.isArray(node.segments) && node.segments[0]) || 8;
+            return new THREE.TorusGeometry(s[0], s[1] || 0.05, rs, ts);
+          }
           case 'Plane':
             return new THREE.PlaneGeometry(s[0], s[1] || s[0], seg[0] || 1, seg[1] || 1);
           case 'Wedge':

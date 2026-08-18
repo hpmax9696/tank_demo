@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.35</title>
+    <title>坦克运动demo v0.79.36</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -269,6 +269,76 @@
         cursor: pointer;
       }
       #training-config .tc-cancel:hover {
+        color: #aaa;
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      /* 设置面板 */
+      #settings-panel {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin: 8px 0;
+        width: 320px;
+      }
+      #settings-panel.active {
+        display: flex;
+      }
+      #settings-panel .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+      }
+      #settings-panel .setting-label {
+        color: #aaa;
+        font-size: 0.9rem;
+        min-width: 84px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      #settings-panel .setting-options {
+        display: flex;
+        gap: 6px;
+      }
+      #settings-panel .setting-btn {
+        padding: 7px 14px;
+        font-size: 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #888;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      #settings-panel .setting-btn:hover {
+        border-color: rgba(255, 255, 255, 0.35);
+        color: #ccc;
+      }
+      #settings-panel .setting-btn.selected {
+        background: #f5954a;
+        color: #fff;
+        border-color: #f5954a;
+      }
+      #settings-panel .setting-hint {
+        color: #666;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        max-width: 280px;
+        text-align: center;
+      }
+      #settings-panel .setting-back {
+        padding: 8px 26px;
+        font-size: 0.85rem;
+        background: rgba(255, 255, 255, 0.06);
+        color: #777;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #settings-panel .setting-back:hover {
         color: #aaa;
         border-color: rgba(255, 255, 255, 0.25);
       }
@@ -744,7 +814,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.35</div>
+      <div class="menu-version">v0.79.36</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -766,6 +836,13 @@
         style="background: linear-gradient(135deg, #4caf50, #2e7d32); color: #fff"
       >
         🎯 训练场
+      </button>
+      <button
+        class="menu-btn"
+        id="btn-settings"
+        style="background: linear-gradient(135deg, #8e7cc3, #5b4b9a); color: #fff"
+      >
+        ⚙️ 设置
       </button>
       <!-- 训练场配置面板 -->
       <div id="training-config">
@@ -811,6 +888,21 @@
         <button class="tc-start" id="btn-training-start">🎯 开始训练</button>
         <button class="tc-cancel" id="btn-training-cancel">返回</button>
       </div>
+      <!-- 设置面板 -->
+      <div id="settings-panel">
+        <div class="setting-row">
+          <span class="setting-label">🎯 坦克瞄准</span>
+          <div class="setting-options" id="aim-mode-opts">
+            <button class="setting-btn" data-val="world">世界指向</button>
+            <button class="setting-btn" data-val="hull">车体指向</button>
+          </div>
+        </div>
+        <div class="setting-hint">
+          世界指向：炮塔保持瞄准世界方向，车体转动不带动炮塔。<br />
+          车体指向：炮塔随车体转动，鼠标/右摇杆只调整炮塔相对车体的偏角。
+        </div>
+        <button class="setting-back" id="btn-settings-back">返回</button>
+      </div>
       <!-- 地图选择面板（点击单人模式后显示） -->
       <div id="map-selector">
         <div class="map-list" id="map-list"></div>
@@ -823,6 +915,14 @@
         单人: WASD+鼠标 &nbsp;│&nbsp; 双人: 1P键盘+鼠标 2P手柄 &nbsp;│&nbsp; 左右分屏
       </div>
       <div class="changelog">
+        <div class="cl-title">
+          🚜 v0.79.36 校园丧尸实装+碾压修复+瞄准设置+地图切换修复 —
+          刷怪丧尸补血条/受击/动画/死亡(cfg.type+Hit别名),清旧测试丧尸;
+          碾压判定提前到碰撞推离前,尸体不再挡车; 首页新增⚙️设置
+          (世界指向/车体指向); 切图清空校园建筑碰撞引用修虚空炮弹;
+          工厂Torus修眼镜项链可见+贴脸中梁+死亡不浮空; 树冠取消视锥
+          剔除; 换弹防Q重复; 旧版丧尸Attack动画修复可正常攻击
+        </div>
         <div class="cl-title">
           🧟 v0.79.35 丧尸步态交叉循环+教师裤管修正+学生短裤白缝线 —
           步态:旧Walk/Run双腿后摆窗重叠~1/4周期且双膝
@@ -867,20 +967,9 @@
           贴图化; 血衣3张贴图:polo_blood白底/shirt_blood
           蓝底/pink_blood粉底(两侧enemies+工厂同步)
         </div>
-        <div class="cl-title">
-          👕 v0.79.31 四变体穿上衣+平面血迹+刘海圆弧贴头 —
-          骨架皮肤躯干按变体穿上衣:学生白polo/教师男蓝衬衫
-          0x3f6399/教师女粉T恤0xe38ba0(学生下躯干polo色
-          外放,教师裤裙色扎入); 袖子:学生白短袖/教师女粉
-          短袖/教师男蓝长袖双段(盖肩到腕不盖手,WRAP半径
-          联动); 血迹=薄Box交叠不规则斑块(胸前6块+袖子
-          1-2块,0x7a1020平面不立体); 学生女刘海重排:沿
-          球面圆弧(x±0.098贴头r0.112,绕Y朝向头心,中心距
-          头心0.092不再悬浮); 教师男Die root高度0.04→0.09
-          (长袖袖端下探致四肢更低)
-        </div>
+        
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.35~v0.79.31) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.36~v0.79.32) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.79.35
+# CODEBUDDY.md — v0.79.36
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -1066,6 +1066,17 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 | ⚠️ 自定义几何 UV   | RidgeBox/TaperedBox/TaperedHex/Wedge 无 UV→贴图不显示——enemies 4 个 mk 函数补平面映射 UV（x/bw+0.5, y/h）；工厂 4 个 build 已有固定 0-1 UV |
 | 血迹几何删除      | blood_splatter addon 从变体移除+袖子内血块删除（全部立体血迹清除）                                      |
 | 验证脚本          | `artifacts/verify_v7931.js`（15：盖肩×3/血衣 map/血迹几何删/长袖三项/刘海）+ 回归 38                     |
+
+### 校园丧尸实装+碾压修复+瞄准设置+地图切换清理 (v0.79.36)
+
+| 项 | 值/说明 |
+| --- | --- |
+| 校园丧尸实装 | `campus_spawner` 刷怪补齐 `cfg.type='zombie'`/HP条/受击/完整AI；校园动画补 `Hit→Stagger` 别名；金福园清旧测试丧尸 |
+| 碾压修复 | 碰撞推离前先判碾压（范围 1.8），死亡丧尸不参与碰撞，尸体不挡车 |
+| 瞄准设置 | 首页 `⚙️ 设置`，世界指向/车体指向，localStorage 持久化；单机/训练/双人均生效 |
+| 地图切换 | `clearCampusCollisionRefs()` 清空 campus 建筑引用，修 01a/04a 虚空炮弹 |
+| 模型/渲染 | Torus 分段 8×12；眼镜中梁贴脸；项链水平绕颈；Die 平滑下沉；树冠关视锥剔除；换弹防 Q 重复；旧丧尸 Attack 映射修复 |
+| 验证 | Playwright 金福园/01a/04a、碾压/攻击/血条/设置；0 控制台错误 |
 
 ### 丧尸步态交叉循环+教师裤管修正+短裤白缝线 (v0.79.35)
 

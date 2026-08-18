@@ -1365,6 +1365,7 @@
             }));
             asys.define(name, DUR[name] || 1.0, tracks);
         });
+        if (!asys.anims.Hit && asys.anims.Stagger) asys.anims.Hit = asys.anims.Stagger;
         // 切动画时复位"非新动画轨道"的关节到创建时树静态姿态
         // （_updateLayer 只写当前动画轨道：Run→Walk 前臂残留弯肘 / Die 后 head z 残留歪头的根因）
         const _initPose = {};

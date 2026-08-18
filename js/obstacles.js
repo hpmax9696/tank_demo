@@ -3182,6 +3182,11 @@ function createObstacles(targetScene = scene) {
   }
   window._obstacleGrid.insertAll(obstacleData);
 
+  if (window._treeIMs) {
+    for (const _tim of window._treeIMs) {
+      _tim.frustumCulled = false;
+    }
+  }
   updateObstacleVisibility();
   updateGrassVisibility();
   window.obstacleMeshes = obstacleMeshes; // 同步重赋值后的数组引用到window(供六足加特林碰撞等跨模块)

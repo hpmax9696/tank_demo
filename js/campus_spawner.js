@@ -123,32 +123,59 @@
     },
   };
 
-  // 生成一只丧尸并注册到 enemies + scene
+  // 生成一只丧尸并注册到 enemies + scene（初始化对齐 engine.createEnemies）
   function _spawnEnemy(variant, x, z, enemies, scene, getGroundHeight) {
     const isTeacher = variant.indexOf('teacher') === 0;
     const hRange = isTeacher ? [1.55, 1.75] : [1.1, 1.5];
     const heightM = isTeacher ? 1.65 : hRange[0] + Math.random() * (hRange[1] - hRange[0]);
-    const model = window.EnemyModels.createCampusZombie({ variant, heightM, seed: _seedCnt++ });
+    const seed = _seedCnt++;
+    const model = window.EnemyModels.createCampusZombie({ variant, heightM, seed });
     const gy = typeof getGroundHeight === 'function' ? getGroundHeight(x, z) : 0;
     model.position.set(x, gy, z);
     model.rotation.set(0, Math.random() * Math.PI * 2, 0);
-    // cfg + hp + userData + ai(对齐 createEnemies 的丧尸初始化)
     const baseCfg = VARIANT_CFG[variant] || VARIANT_CFG.student_m;
-    model.cfg = Object.assign({ reactive: true, aggressive: false }, baseCfg);
+    model.cfg = Object.assign(
+      { type: 'zombie', variant, id: 'spawn_' + seed, patrolPath: [], reactive: true, aggressive: false },
+      baseCfg
+    );
     model.hp = baseCfg.hp;
     model.userData = model.userData || {};
+    model.userData.enemyId = 'spawn_' + seed;
     model.userData.maxHp = model.hp;
     model.userData.enemyType = 'zombie'; // 走丧尸 8 状态机
     model.userData.variant = variant;
     model.userData._noTerrainPitch = true; // 人形直立
+    model.userData.animSystem = model.userData._animSystem;
     model.ai = {
       state: 'idle',
       target: null,
       patrolIndex: 0,
       lastSeenPlayerPos: null,
+      alertTimer: 0,
+      flameTimer: 0,
+      flameRequest: false,
+      flameTicksLeft: 0,
+      isFlaming: false,
+      flameTickTimer: 0,
+      flameStartTime: 0,
+      strafeTimer: 0,
+      strafeDir: 1,
+      wpStuckTimer: 0,
+      hitFlash: 0,
       animRequest: 'idle',
-      attackCooldown: 0,
+      animAtkStart: 0,
+      animHitApplied: false,
+      atkReady: true,
+      atkCooldown: 0,
+      lastHitTime: 0,
+      prevState: 'idle',
+      deathAnimStarted: false,
+      idleTimer: 0,
+      lostTargetTimer: 0,
+      searchTimer: 0,
     };
+    if (typeof window.createEnemyHitFlashOverlay === 'function') window.createEnemyHitFlashOverlay(model);
+    if (typeof window.createEnemyHpBar === 'function') window.createEnemyHpBar(model);
     enemies.push(model);
     if (scene) scene.add(model);
     return model;

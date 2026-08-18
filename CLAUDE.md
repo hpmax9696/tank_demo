@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.35
+3D 坦克对战游戏 — Three.js r160 浏览器游戏 + 地图编辑器 + PvE 战斗 | v0.79.36
 
 ## 运行
 
@@ -273,6 +273,19 @@ legGroup (Y旋转=水平摆角)
 查看 **docs/obstacle_conventions.md** — 新增建筑/树木种类的开发规范（IM 合并、材质全局化、透明 proxy 阴影、阴影策略决策树）
 
 ---
+
+## v0.79.36 本次会话变更 (2026-08-18)
+
+### 校园丧尸实装 + 碾压修复 + 瞄准设置 + 地图切换碰撞清理
+
+- **校园丧尸实装**: `campus_spawner._spawnEnemy` 补齐 `cfg.type='zombie'`、HP条、受击白膜、完整 AI 初始化；`createHumanoidAnimationSystem` 补 `Hit→Stagger` 别名；金福园地图清掉 4 只旧测试丧尸，改为纯 `spawnConfig` 刷怪
+- **碾压系统修复**: 坦克-敌人碰撞推离前先判断 `tryCrushZombie`，允许在 1.8 范围判定；死亡丧尸 `ai.state==='dead'` 不再参与碰撞推离，坦克可压过尸体
+- **瞄准控制设置**: 首页新增 `⚙️ 设置` 面板，`aimControlMode` 支持 `world`（默认）/`hull`；`updateAiming` / `updateAimingForVs` 按模式驱动世界角或局部角；localStorage 持久化
+- **地图切换碰撞清理**: `clearCampusCollisionRefs()` 在 `rebuildMap` / `rebuildMapAsync` 清空 `_campusBuildings` / `_campusBuildingGroups`，修复离开金福园后 01a/04a 炮弹命中虚空
+- **模型工厂与校园人形**: Torus 默认分段 8×12 修复眼镜/项链在工厂可见；眼镜缩为 0.022/0.006 加中梁并贴近头部；项链水平绕颈；Die root 高度按骨架从站立平滑下沉，不再跳高
+- **渲染与 UI**: 树冠 InstancedMesh 关闭 `frustumCulled`；换弹 Q 防重复、`beginShellSwitchReload()` 立即同步装填条；旧版丧尸 Attack 动画映射修复，04a 丧尸可正常攻击
+- **验证**: Playwright 覆盖金福园/01a/04a、碾压、攻击、血条、设置；0 控制台错误
+- **改动**: index.html + engine.js + obstacles.js + campus_spawner.js + maps/campus.map.json + model_factory.html + enemies.js + humanoid_config.js + 文档(版本同步 v0.79.36)
 
 ## v0.79.35 本次会话变更 (2026-08-16)
 

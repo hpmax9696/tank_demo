@@ -787,20 +787,27 @@
       parent: 'head',
       node: {
         type: 'Group',
-        position: [0, 0.03, 0.21],
+        position: [0, 0.019, 0.097],
         children: [
           {
             name: 'ah_gl_l',
             type: 'Torus',
-            size: [0.05, 0.008],
-            position: [-0.06, 0, 0],
+            size: [0.022, 0.006],
+            position: [-0.03, 0, 0],
+            materialId: 'frame_dark',
+          },
+          {
+            name: 'ah_gl_bridge',
+            type: 'Box',
+            size: [0.034, 0.008, 0.008],
+            position: [0, 0, 0],
             materialId: 'frame_dark',
           },
           {
             name: 'ah_gl_r',
             type: 'Torus',
-            size: [0.05, 0.008],
-            position: [0.06, 0, 0],
+            size: [0.022, 0.006],
+            position: [0.03, 0, 0],
             materialId: 'frame_dark',
           },
         ],
@@ -821,8 +828,9 @@
       node: {
         name: 'ah_nk',
         type: 'Torus',
-        size: [0.11, 0.008],
-        position: [0, -0.02, 0.02],
+        size: [0.055, 0.007],
+        position: [0, -0.012, 0],
+        rotation: [Math.PI / 2, 0, 0],
         materialId: 'metal_gold',
       },
     },
@@ -9822,16 +9830,22 @@ var SKELETON_VERSIONS = {
       { kind: 'O', joint: skirtName, prop: 'rotation', axis: 'z', restKey: null, keys: [ { t: 0, v: -zAmp }, { t: 0.5, v: zAmp }, { t: 1, v: -zAmp } ] },
     ];
   }
-  function deriveZombieAnims(verAnims, skirtName, dieRootY) {
+  function deriveZombieAnims(verAnims, skirtName, dieRootY, rootY) {
     var a = JSON.parse(JSON.stringify(verAnims));
     delete a.actions.Punch;
     Object.assign(a.restPoses, ZOMBIE_HUNCH);
-    // Die root 高度末帧按骨架定制（v0.79.27）：整体下沉至躯干贴地，裙摆圆环自然没入地面
+    // Die root 高度按骨架定制：从站立 rootY 平滑下沉至躯干贴地 dieRootY，裙摆圆环自然没入地面
     if (dieRootY != null) {
       (a.actions.Die || []).forEach(function (t) {
         if (t.joint === 'root' && t.axis === 'y' && t.keys.length === 4) {
+          if (rootY != null) {
+            t.keys[0].v = rootY;
+            t.keys[1].v = rootY + (dieRootY - rootY) * 0.4;
+            t.keys[2].v = rootY + (dieRootY - rootY) * 0.7;
+          } else {
+            t.keys[2].v = dieRootY + 0.075;
+          }
           t.keys[3].v = dieRootY;
-          t.keys[2].v = dieRootY + 0.075; // 保持倒地下沉幅度
         }
       });
     }
@@ -9914,7 +9928,8 @@ var SKELETON_VERSIONS = {
       zombieAnims: deriveZombieAnims(
         SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims,
         vk === 'student_f' ? 'ah_skirt' : vk === 'teacher_f' ? 'ah_gskirt' : null,
-        vk === 'teacher_m' ? 0.09 : vk === 'teacher_f' ? 0.12 : 0.1
+        vk === 'teacher_m' ? 0.09 : vk === 'teacher_f' ? 0.12 : 0.1,
+        SKELETON_VERSIONS[VARIANT_SKELETON[vk]].tree.position[1]
       ),
     };
     if (SKELETON_VERSIONS[VARIANT_SKELETON[vk]] && SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims) {
