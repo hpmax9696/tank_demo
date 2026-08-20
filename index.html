@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>坦克运动demo v0.79.36</title>
+    <title>坦克运动demo v0.79.37</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       * {
@@ -814,7 +814,7 @@
     <!-- ========== 主菜单 ========== -->
     <div id="menu-overlay">
       <div class="menu-title">🎮 坦克运动demo</div>
-      <div class="menu-version">v0.79.36</div>
+      <div class="menu-version">v0.79.37</div>
       <button class="menu-btn" id="btn-enter">单人模式</button>
       <button
         class="menu-btn"
@@ -916,6 +916,18 @@
       </div>
       <div class="changelog">
         <div class="cl-title">
+          🪖 v0.79.37 人类士兵模型类别(4变体)+专属动画+左右镜像修正 —
+          模型工厂新增🧍人形敌人"人类士兵": 校园保安(大檐帽+荧光背心+
+          警棍)/步枪兵(迷彩+头盔+战术背心+AK)/霰弹枪兵(泵动霰弹枪)/
+          火箭筒兵(RPG); v1成年男烘焙,活人肤色+直立动画,3套专属动画集:
+          保安曲臂蓄力→直臂横扫129°(躯干转体发力),枪兵待机双手low ready
+          枪口指左前地面/攻击步枪贴腮瞄准(头右倾)+枪口焰3连发+后坐抖动,
+          火箭筒兵待机斜背战斗部露右肩/发射卸筒上肩双手握把+前后双向
+          火焰+战斗部射出; 左右按第一人称约定修正(枪口左偏/头右倾/
+          RPG右肩); 握把向枪托弯/弹匣向枪口弯/帽子贴头不刺穿/霰弹枪
+          部件衔接; 发射特效过曝亮黄白火光
+        </div>
+        <div class="cl-title">
           🚜 v0.79.36 校园丧尸实装+碾压修复+瞄准设置+地图切换修复 —
           刷怪丧尸补血条/受击/动画/死亡(cfg.type+Hit别名),清旧测试丧尸;
           碾压判定提前到碰撞推离前,尸体不再挡车; 首页新增⚙️设置
@@ -955,21 +967,9 @@
           旧挂l_forearm-0.18落手腕→改挂上臂末端
           (渲染y0.13=短袖底,红圈包袖口)
         </div>
-        <div class="cl-title">
-          🩸 v0.79.32 袖子盖肩+血迹改贴图渲染 —
-          学生/教师男不再露肩:短袖加长0.22+上移(袖顶
-          1.050/1.240 ≥ 肩1.037/1.207),女教师短袖同步
-          盖肩; 血迹从立体几何改为**Canvas贴图渲染**
-          (像皮肤一样:底色+斑驳点+深红血迹斑块+飞溅
-          小点+细血痕),删除全部血迹几何(胸前6块薄片+
-          袖子血块); 自定义几何(RidgeBox/TaperedBox/
-          TaperedHex/Wedge)补UV贴图支持,教师男女上躯干
-          贴图化; 血衣3张贴图:polo_blood白底/shirt_blood
-          蓝底/pink_blood粉底(两侧enemies+工厂同步)
-        </div>
         
       </div>
-      <!-- changelog 裁剪：保留最近 5 条 (v0.79.36~v0.79.32) -->
+      <!-- changelog 裁剪：保留最近 5 条 (v0.79.37~v0.79.33) -->
     </div>
 
     <!-- ========== 游戏结束画面 ========== -->

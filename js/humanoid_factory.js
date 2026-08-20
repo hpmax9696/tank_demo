@@ -99,14 +99,21 @@
     });
     _O.root = _root.getObjectByName('root') || _root;
     _P.root = _O.root;
-    // 扩展：收集动画轨道涉及的非 JOINT_NAMES 关节（裙摆等 addon 节点）
+    // 扩展：收集动画轨道涉及的非 JOINT_NAMES 关节（裙摆/武器/特效 addon 节点）
+    // v0.79.37b: 记录收集时初始 scale——复位恢复初始值（火焰 _fx 节点默认 0.001 隐藏，
+    // 旧逻辑无条件 scale.y=1 会把火焰复成可见细条）
     var _cfgActs = animsCfg && animsCfg.actions;
     var _extJoints = {};
+    var _extScale0 = {};
     Object.keys(_cfgActs || {}).forEach(function (an) {
       (_cfgActs[an] || []).forEach(function (t) {
         if (!_P[t.joint] && !_O[t.joint]) {
           var o = _root.getObjectByName(t.joint);
-          if (o) { _O[t.joint] = o; _extJoints[t.joint] = true; }
+          if (o) {
+            _O[t.joint] = o;
+            _extJoints[t.joint] = true;
+            _extScale0[t.joint] = o.scale ? [o.scale.x, o.scale.y, o.scale.z] : null;
+          }
         }
       });
     });
@@ -170,8 +177,13 @@
         if (rx !== undefined) ov.rotation.x = rx;
         if (ry !== undefined) ov.rotation.y = ry;
         if (rz !== undefined) ov.rotation.z = rz;
-        // 扩展关节（裙等 addon）复位 scale.y（无 Die scale 轨道后保持 1；position.y 不清零——裙挂载位被清会"上移一截"，v0.79.29）
-        if (_extJoints[n] && ov.scale) ov.scale.y = 1;
+        // 扩展关节（裙/武器/特效）复位：恢复收集时初始 scale（火焰归隐 0.001；武器/裙回 1）
+        // position.y 不清零——裙挂载位被清会"上移一截"（v0.79.29）
+        if (_extJoints[n]) {
+          var _s0 = _extScale0[n];
+          if (_s0) ov.scale.set(_s0[0], _s0[1], _s0[2]);
+          else if (ov.scale) ov.scale.y = 1;
+        }
       }
     });
     if (!_P.torso)

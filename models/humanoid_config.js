@@ -410,12 +410,78 @@
         'short_hair_m',
         'bun_f',
         'short_sleeve_pink',
-        
+
         'skirt_grey',
         'leather_shoes',
         'necklace_opt',
       ],
       bodyRange: { height: [1.55, 1.75], hunch: [0, 0.05], build: [0.3, 0.45], curves: [0.6, 0.9] },
+    },
+    // ── 人类士兵（v0.79.37 预研：v1-成年男烘焙，敌我双方可用的活人单位）──
+    // cloth 占位 = 制服/迷彩外套色（袖子/裤腿/下摆 __cloth__ 联动换装）；skin = 活人肤色
+    guard: {
+      name: '校园保安·人类士兵',
+      materials: { cloth: 'uniform_navy', skin: 'skin_live' },
+      addons: [
+        'guard_cap',
+        'guard_vest',
+        'duty_belt',
+        'long_sleeve_u',
+        'long_sleeve_f',
+        'long_trouser_thigh',
+        'long_trouser_calf',
+        'leather_shoes',
+        'weapon_baton',
+      ],
+      bodyRange: { height: [1.68, 1.78], hunch: [0, 0.05] },
+    },
+    rifleman: {
+      name: '步枪兵·人类士兵',
+      materials: { cloth: 'camo_cloth', skin: 'skin_live' },
+      addons: [
+        'combat_helmet',
+        'tac_vest',
+        'duty_belt',
+        'long_sleeve_u',
+        'long_sleeve_f',
+        'long_trouser_thigh',
+        'long_trouser_calf',
+        'combat_boots',
+        'weapon_rifle',
+      ],
+      bodyRange: { height: [1.68, 1.8], hunch: [0, 0.05] },
+    },
+    shotgunner: {
+      name: '霰弹枪兵·人类士兵',
+      materials: { cloth: 'camo_cloth', skin: 'skin_live' },
+      addons: [
+        'combat_helmet',
+        'tac_vest',
+        'duty_belt',
+        'long_sleeve_u',
+        'long_sleeve_f',
+        'long_trouser_thigh',
+        'long_trouser_calf',
+        'combat_boots',
+        'weapon_shotgun',
+      ],
+      bodyRange: { height: [1.68, 1.8], hunch: [0, 0.05] },
+    },
+    rocketeer: {
+      name: '火箭筒兵·人类士兵',
+      materials: { cloth: 'camo_cloth', skin: 'skin_live' },
+      addons: [
+        'combat_helmet',
+        'tac_vest',
+        'duty_belt',
+        'long_sleeve_u',
+        'long_sleeve_f',
+        'long_trouser_thigh',
+        'long_trouser_calf',
+        'combat_boots',
+        'weapon_rpg',
+      ],
+      bodyRange: { height: [1.68, 1.8], hunch: [0, 0.05] },
     },
   };
 
@@ -879,6 +945,244 @@
         ],
       },
     },
+
+    // ══ 人类士兵 addon（v0.79.37 预研：__cloth__ 占位 = 变体 materials.cloth 联动换装）══
+    // 长袖上臂段（通用）：保安藏青 / 士兵迷彩由 variant.materials.cloth 决定
+    long_sleeve_u: {
+      parent: 'l_upper_arm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_lsu', type: 'Box', size: [0.1, 0.34, 0.1], position: [0, 0, 0], materialId: '__cloth__' },
+        ],
+      },
+    },
+    // 长袖前臂段（通用）
+    long_sleeve_f: {
+      parent: 'l_forearm',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_lsf', type: 'Box', size: [0.08, 0.3, 0.08], position: [0, -0.05, 0], materialId: '__cloth__' },
+        ],
+      },
+    },
+    // 长裤大腿段（通用）
+    long_trouser_thigh: {
+      parent: 'l_upper_leg',
+      node: {
+        name: 'ah_ltq_l',
+        type: 'Box',
+        size: [0.18, 0.32, 0.22],
+        position: [0, -0.042, 0],
+        materialId: '__cloth__',
+      },
+    },
+    // 长裤小腿段（通用）
+    long_trouser_calf: {
+      parent: 'l_lower_leg',
+      node: {
+        name: 'ah_ltq_c',
+        type: 'Box',
+        size: [0.18, 0.35, 0.22],
+        position: [0, 0, 0],
+        materialId: '__cloth__',
+      },
+    },
+    // 作战靴（士兵）：高帮盖踝 + 鞋底
+    combat_boots: {
+      parent: 'l_foot',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          { name: 'ah_cb', type: 'Box', size: [0.125, 0.11, 0.26], position: [0, 0.02, -0.005], materialId: 'boot_black' },
+          { name: 'ah_cb_sole', type: 'Box', size: [0.132, 0.022, 0.272], position: [0, -0.042, -0.005], materialId: 'belt_black' },
+        ],
+      },
+    },
+    // 战术腰带（保安/士兵通用）：黑腰带 + 银色皮带扣
+    duty_belt: {
+      parent: 'pelvis',
+      node: {
+        type: 'Group',
+        position: [0, 0.05, 0],
+        children: [
+          { name: 'ah_belt', type: 'Box', size: [0.335, 0.05, 0.25], position: [0, 0, 0], materialId: 'belt_black' },
+          { name: 'ah_belt_bk', type: 'Box', size: [0.055, 0.038, 0.018], position: [0, 0, 0.126], materialId: 'strap_silver' },
+        ],
+      },
+    },
+    // 战术背心（士兵）：绿背心主体 + 3 个卡其弹匣袋
+    tac_vest: {
+      parent: 'torso_upper',
+      node: {
+        type: 'Group',
+        position: [0, 0.015, 0.005],
+        children: [
+          { name: 'ah_tv', type: 'Box', size: [0.28, 0.2, 0.24], position: [0, 0, 0], materialId: 'vest_green' },
+          { name: 'ah_tv_p1', type: 'Box', size: [0.052, 0.075, 0.032], position: [-0.072, -0.02, 0.128], materialId: 'pouch_khaki' },
+          { name: 'ah_tv_p2', type: 'Box', size: [0.052, 0.075, 0.032], position: [0, -0.02, 0.132], materialId: 'pouch_khaki' },
+          { name: 'ah_tv_p3', type: 'Box', size: [0.052, 0.075, 0.032], position: [0.072, -0.02, 0.128], materialId: 'pouch_khaki' },
+        ],
+      },
+    },
+    // 荧光背心（保安）：黄绿高可视背心 + 两条银色反光带
+    guard_vest: {
+      parent: 'torso_upper',
+      node: {
+        type: 'Group',
+        position: [0, 0.012, 0.006],
+        children: [
+          { name: 'ah_gv', type: 'Box', size: [0.29, 0.23, 0.25], position: [0, 0, 0], materialId: 'vest_hiviz' },
+          { name: 'ah_gv_s1', type: 'Box', size: [0.296, 0.032, 0.256], position: [0, 0.045, 0], materialId: 'strap_silver' },
+          { name: 'ah_gv_s2', type: 'Box', size: [0.296, 0.032, 0.256], position: [0, -0.045, 0], materialId: 'strap_silver' },
+        ],
+      },
+    },
+    // 作战头盔（士兵）：半球盔 + 前沿帽檐
+    // ⚠️ thetaLength π/2 半球经 geo.center() 后 bbox 中心在原点（视觉底面 = mesh.y − r/2，
+    // 与 hair 同口径）——mesh.y 必须 = 期望底沿 + r/2，否则盔整体下沉半半径、头刺破盔顶（v0.79.37 修复）
+    // 底沿 0.055 高于眼位 y0.019 约 2.6cm（眉线上方，不压眼）；盔顶 0.155 > 头顶 0.0893 余量 0.066
+    combat_helmet: {
+      parent: 'head',
+      node: {
+        type: 'Group',
+        position: [0, 0, -0.004],
+        children: [
+          {
+            name: 'ah_hlm',
+            type: 'Sphere',
+            size: [0.1],
+            position: [0, 0.105, 0],
+            thetaLength: Math.PI / 2,
+            materialId: 'helmet_olive',
+            segments: [12, 8],
+            side: 2,
+          },
+          { name: 'ah_hlm_brim', type: 'Box', size: [0.17, 0.014, 0.05], position: [0, 0.052, 0.095], materialId: 'helmet_olive' },
+        ],
+      },
+    },
+    // 大檐帽（保安）：圆顶 + 金色帽带 + 全圆宽檐 + 前帽徽（半球 center() 补偿同上）
+    // 檐盘 y 0.05 高于眼位 0.019 约 2.3cm；dome 底 0.053 / 顶 0.151 > 头顶 0.0893 余量 0.062
+    guard_cap: {
+      parent: 'head',
+      node: {
+        type: 'Group',
+        position: [0, 0, 0],
+        children: [
+          {
+            name: 'ah_gc_dome',
+            type: 'Sphere',
+            size: [0.098],
+            position: [0, 0.102, 0],
+            thetaLength: Math.PI / 2,
+            materialId: 'uniform_navy',
+            segments: [12, 8],
+            side: 2,
+          },
+          { name: 'ah_gc_band', type: 'Torus', size: [0.096, 0.007], position: [0, 0.053, 0], rotation: [Math.PI / 2, 0, 0], materialId: 'metal_gold' },
+          { name: 'ah_gc_brim', type: 'Cylinder', size: [0.116, 0.013, 0.116], position: [0, 0.05, 0.008], materialId: 'uniform_navy', segments: [14] },
+          { name: 'ah_gc_badge', type: 'Sphere', size: [0.016], position: [0, 0.085, 0.09], materialId: 'metal_gold', segments: [6, 5] },
+        ],
+      },
+    },
+    // ── 武器（挂 r_hand，不参与 mirrorX；手局部 +Z=体前，臂下垂时呈腰际持械）──
+    // v0.79.37b: Group 命名（动画 O 轨道按名收集武器节点）；握把 rotation.x 取正 = 底端向枪托侧弯（-Z）
+    // 警棍（26" 伸缩棍展开 0.51 单位）：橡胶柄 + 钢杆 + 挥击时随手动
+    weapon_baton: {
+      parent: 'r_hand',
+      node: {
+        type: 'Group',
+        name: 'ah_wp_baton',
+        position: [0, -0.02, 0.03],
+        rotation: [-0.25, 0, 0],
+        children: [
+          { name: 'ah_wp_btn_grip', type: 'Cylinder', size: [0.021, 0.13, 0.024], position: [0, -0.065, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_btn_knob', type: 'Sphere', size: [0.026], position: [0, 0.004, 0], materialId: 'gun_dark', segments: [8, 6] },
+          { name: 'ah_wp_btn_shaft', type: 'Cylinder', size: [0.012, 0.36, 0.012], position: [0, -0.3, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_btn_tip', type: 'Sphere', size: [0.013], position: [0, -0.485, 0], materialId: 'gun_metal', segments: [6, 5] },
+        ],
+      },
+    },
+    // 突击步枪（AK 风格 0.67 单位）：机匣 + 枪管 + 木护木 + 弧形弹匣(前弯) + 木枪托 + 枪口火焰(射击轨道点亮)
+    weapon_rifle: {
+      parent: 'r_hand',
+      node: {
+        type: 'Group',
+        name: 'ah_wp_rifle',
+        position: [0.05, -0.02, 0.05], // v0.79.37c x+0.05 枪身向中线（真实据枪护木在中线，左手可及）
+        children: [
+          { name: 'ah_wp_rf_recv', type: 'Box', size: [0.05, 0.075, 0.2], position: [0, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_barrel', type: 'Cylinder', size: [0.013, 0.24, 0.013], position: [0, 0.008, 0.3], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_rf_muzzle', type: 'Cylinder', size: [0.018, 0.05, 0.018], position: [0, 0.008, 0.425], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_hguard', type: 'Box', size: [0.05, 0.055, 0.15], position: [0, -0.002, 0.16], materialId: 'wood_stock' },
+          { name: 'ah_wp_rf_gastube', type: 'Cylinder', size: [0.008, 0.16, 0.008], position: [0, 0.042, 0.18], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_frontsight', type: 'Box', size: [0.014, 0.035, 0.014], position: [0, 0.05, 0.26], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_rearsight', type: 'Box', size: [0.03, 0.02, 0.03], position: [0, 0.05, -0.04], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_mag', type: 'Box', size: [0.036, 0.16, 0.062], position: [0, -0.1, 0.05], rotation: [-0.4, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_rf_grip', type: 'Box', size: [0.032, 0.08, 0.046], position: [0, -0.078, -0.06], rotation: [0.3, 0, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_rf_stock', type: 'Box', size: [0.042, 0.066, 0.17], position: [0, -0.018, -0.185], rotation: [0.06, 0, 0], materialId: 'wood_stock' },
+          { name: 'ah_wp_rf_flash', type: 'Sphere', size: [0.075], position: [0, 0.008, 0.475], materialId: 'flash_orange', segments: [6, 5], _fx: 1, scale: [0.001, 0.001, 0.001] },
+        ],
+      },
+    },
+    // 泵动霰弹枪（0.77 单位）：机匣 + 枪管 + 下置管状弹仓 + 木泵护木 + 木枪托 + 枪口火焰
+    // ⚠️ 部件 z 坐标首尾相接（v0.79.37 修复脱节）；v0.79.37b 握把 +0.38 底端向枪托
+    weapon_shotgun: {
+      parent: 'r_hand',
+      node: {
+        type: 'Group',
+        name: 'ah_wp_shotgun',
+        position: [0.05, -0.02, 0.05], // v0.79.37c x+0.05 同步枪中线偏移
+        children: [
+          { name: 'ah_wp_sg_recv', type: 'Box', size: [0.05, 0.068, 0.16], position: [0, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_sg_barrel', type: 'Cylinder', size: [0.015, 0.34, 0.015], position: [0, 0.015, 0.25], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_sg_magtube', type: 'Cylinder', size: [0.013, 0.28, 0.013], position: [0, -0.038, 0.2], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_sg_pump', type: 'Box', size: [0.058, 0.052, 0.11], position: [0, -0.036, 0.16], materialId: 'wood_stock' },
+          { name: 'ah_wp_sg_grip', type: 'Box', size: [0.036, 0.075, 0.05], position: [0, -0.072, -0.045], rotation: [0.38, 0, 0], materialId: 'wood_stock' },
+          { name: 'ah_wp_sg_stock', type: 'Box', size: [0.042, 0.072, 0.17], position: [0, -0.028, -0.168], rotation: [0.1, 0, 0], materialId: 'wood_stock' },
+          { name: 'ah_wp_sg_bead', type: 'Sphere', size: [0.008], position: [0, 0.033, 0.425], materialId: 'gun_metal', segments: [5, 4] },
+          { name: 'ah_wp_sg_flash', type: 'Sphere', size: [0.08], position: [0, 0.015, 0.448], materialId: 'flash_orange', segments: [6, 5], _fx: 1, scale: [0.001, 0.001, 0.001] },
+        ],
+      },
+    },
+    // 反坦克火箭筒（RPG-7 风格 0.98 单位）：40mm 发射管 + 尾喷喇叭口 + 85mm 超口径锥形战斗部
+    // v0.79.37c: 挂 torso_upper 背后横背（视觉 y = 数据 y + 0.145 pivot 补偿）——管轴 Euler XYZ
+    // y=π/2 → 纯沿 X 左右向（战斗部 +X 伸右肩外），z=-0.17 贴背外不穿身体；
+    // 战斗部三件包 ah_wp_rpg_warhead（发射轨道整组射出）；前后火焰 _fx 默认隐藏
+    weapon_rpg: {
+      parent: 'torso_upper',
+      node: {
+        type: 'Group',
+        name: 'ah_wp_rpg',
+        position: [-0.02, 0, -0.2], // 视觉 y +0.145 pivot 补偿
+        rotation: [-1.5, -0.95, 0], // 斜背（右肩露战斗部）：管轴左下→右上 (-0.81,0.58,0.04)，战斗部从右肩上露出
+        children: [
+          { name: 'ah_wp_rpg_tube', type: 'Cylinder', size: [0.03, 0.62, 0.03], position: [0, 0, 0.05], rotation: [Math.PI / 2, 0, 0], materialId: 'rpg_olive' },
+          { name: 'ah_wp_rpg_venturi', type: 'Cylinder', size: [0.028, 0.11, 0.057], position: [0, 0, -0.315], rotation: [Math.PI / 2, 0, 0], materialId: 'gun_metal' },
+          { name: 'ah_wp_rpg_heat', type: 'Cylinder', size: [0.04, 0.18, 0.04], position: [0, 0, -0.02], rotation: [Math.PI / 2, 0, 0], materialId: 'rpg_olive' },
+          {
+            type: 'Group',
+            name: 'ah_wp_rpg_warhead',
+            position: [0, 0, 0],
+            children: [
+              { name: 'ah_wp_rpg_wh_body', type: 'Cylinder', size: [0.066, 0.15, 0.066], position: [0, 0, 0.42], rotation: [Math.PI / 2, 0, 0], materialId: 'rpg_olive' },
+              { name: 'ah_wp_rpg_wh_cone', type: 'Cylinder', size: [0.02, 0.15, 0.066], position: [0, 0, 0.56], rotation: [Math.PI / 2, 0, 0], materialId: 'rpg_olive' },
+              { name: 'ah_wp_rpg_wh_tip', type: 'Cylinder', size: [0.002, 0.07, 0.02], position: [0, 0, 0.66], rotation: [Math.PI / 2, 0, 0], materialId: 'warhead_tip' },
+            ],
+          },
+          { name: 'ah_wp_rpg_grip_f', type: 'Box', size: [0.034, 0.08, 0.05], position: [0, -0.075, 0.1], rotation: [0.15, 0, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_rpg_grip_r', type: 'Box', size: [0.034, 0.08, 0.05], position: [0, -0.075, -0.1], rotation: [0.15, 0, 0], materialId: 'gun_dark' },
+          { name: 'ah_wp_rpg_sight', type: 'Box', size: [0.032, 0.055, 0.07], position: [0, 0.062, -0.05], materialId: 'gun_dark' },
+          { name: 'ah_wp_rpg_flash_f', type: 'Sphere', size: [0.09], position: [0, 0, 0.5], materialId: 'flash_orange', segments: [6, 5], _fx: 1, scale: [0.001, 0.001, 0.001] },
+          { name: 'ah_wp_rpg_flash_b', type: 'Sphere', size: [0.08], position: [0, 0, -0.42], materialId: 'flash_orange', segments: [6, 5], _fx: 1, scale: [0.001, 0.001, 0.001] },
+        ],
+      },
+    },
   };
 
   // ⑤ 关节名 + rest pose（rest pose 用绝对角度基线，动画关键帧作偏移叠加）
@@ -989,12 +1293,19 @@
     short_sleeve_pink: { limb: 'l_upper_arm', gap: 0.004 },
     long_sleeve_upper_blue: { limb: 'l_upper_arm', gap: 0.004 },
     long_sleeve_fore_blue: { limb: 'l_forearm', gap: 0.004 },
+    // 人类士兵通用长袖/长裤（__cloth__ 占位随变体换装）
+    long_sleeve_u: { limb: 'l_upper_arm', gap: 0.004 },
+    long_sleeve_f: { limb: 'l_forearm', gap: 0.004 },
+    long_trouser_thigh: { limb: 'l_upper_leg', gap: 0.016 },
+    long_trouser_calf: { limb: 'l_lower_leg', gap: 0.016 },
   };
   // 双侧裤腿部件：addon 双挂到左右腿关节（裤腿随腿旋转防穿模；Box 中心 x=0 无需镜像）
   const DUAL_LEG_ADDONS = {
     shorts_m: ['l_upper_leg', 'r_upper_leg'],
     trousers_grey: ['l_upper_leg', 'r_upper_leg'],
     trousers_grey_calf: ['l_lower_leg', 'r_lower_leg'],
+    long_trouser_thigh: ['l_upper_leg', 'r_upper_leg'],
+    long_trouser_calf: ['l_lower_leg', 'r_lower_leg'],
   };
   // v0.79.31 双侧袖部件（手臂双挂；Box 中心 x=0 无需镜像）
   const DUAL_LIMB_ADDONS = {
@@ -1002,7 +1313,11 @@
     short_sleeve_pink: ['l_upper_arm', 'r_upper_arm'],
     long_sleeve_upper_blue: ['l_upper_arm', 'r_upper_arm'],
     long_sleeve_fore_blue: ['l_forearm', 'r_forearm'],
+    long_sleeve_u: ['l_upper_arm', 'r_upper_arm'],
+    long_sleeve_f: ['l_forearm', 'r_forearm'],
   };
+  // 双脚鞋类部件（l_foot + r_foot 各挂一只）
+  const FOOT_ADDONS = ['shoes_blue', 'shoes_white', 'leather_shoes', 'combat_boots'];
   // addon 子树递归重算包裹尺寸：Cylinder 半径 / EllipFrustum 顶椭圆+底圆 / Box 全宽深 = 肢体半径 + gap
   // gapBottom 用于锥形裙摆；zRatio 用于 EllipFrustum 顶面 Z 半轴 = (腿r+gap)×zRatio
   // _deco 子节点（缝线等装饰）：尺寸不改写，position.x 吸附到父 Box wrap 后外侧面（符号保留，mirror 已定侧）
@@ -1057,14 +1372,12 @@
         console.warn('buildHumanoid: 未知 addon', key);
         return;
       }
-      // shoes_* / leather_shoes 等单脚 addon：同时挂 l_foot 与 r_foot
+      // shoes_* / leather_shoes / combat_boots 等双脚 addon：同时挂 l_foot 与 r_foot
       // 裤腿（short/long/calf）：双挂到左右腿关节（随腿旋转防迈步穿模）
       const parents =
         DUAL_LEG_ADDONS[key] ||
         DUAL_LIMB_ADDONS[key] ||
-        (key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
-          ? ['l_foot', 'r_foot']
-          : [def.parent]);
+        (FOOT_ADDONS.indexOf(key) >= 0 ? ['l_foot', 'r_foot'] : [def.parent]);
       parents.forEach((par, idx) => {
         const parentNode = findNode(tree, par);
         if (!parentNode) {
@@ -9661,32 +9974,61 @@ var SKELETON_VERSIONS = {
 
   // MODELS：四变体从骨架版本烘焙（v0.79.24 含衣服 addon + 丧尸动画集）
   // 骨架映射：学生(儿童骨架) / 教师男(成年男骨架) / 教师女(成年女性骨架)
+  // 人类士兵（v0.79.37 预研）：四变体全部 v1-成年男烘焙
   var VARIANT_SKELETON = {
     student_m: 'v1-儿童-20260810',
     student_f: 'v1-儿童-20260810',
     teacher_m: 'v1-成年男-20260810',
     teacher_f: 'v2-成年女性-2026-08-14',
+    guard: 'v1-成年男-20260810',
+    rifleman: 'v1-成年男-20260810',
+    shotgunner: 'v1-成年男-20260810',
+    rocketeer: 'v1-成年男-20260810',
   };
   var VARIANT_BODY = {
     student_m: { build: 0.45, hunch: 0.2, curves: 0 },
     student_f: { build: 0.4, hunch: 0.2, curves: 0 },
     teacher_m: { build: 0.5, hunch: 0.2, curves: 0 },
     teacher_f: { build: 0.38, hunch: 0.2, curves: 0.7 },
+    guard: { build: 0.5, hunch: 0, curves: 0 },
+    rifleman: { build: 0.55, hunch: 0, curves: 0 },
+    shotgunner: { build: 0.55, hunch: 0, curves: 0 },
+    rocketeer: { build: 0.55, hunch: 0, curves: 0 },
   };
   // 骨盆外显色 = 裤/裙同色（学生短裤红 / 教师裤裙灰——上衣扎进裤裙，v0.79.5 语义迁移到烘焙层）
+  // 人类士兵：骨盆=裤色（保安藏青 / 士兵迷彩同料）
   var PELVIS_CLOTH = {
     student_m: 'shorts_red',
     student_f: 'shorts_red',
     teacher_m: 'trousers_grey',
     teacher_f: 'trousers_grey',
+    guard: 'uniform_navy',
+    rifleman: 'camo_cloth',
+    shotgunner: 'camo_cloth',
+    rocketeer: 'camo_cloth',
   };
   // 上衣（torso_upper 材质，v0.79.31：骨架皮肤躯干穿上衣——学生白polo/教师男蓝衬衫/教师女粉T恤）
+  // 人类士兵：保安藏青制服 / 士兵迷彩外套
   var VARIANT_TOP = {
     student_m: 'polo_white',
     student_f: 'polo_white',
     teacher_m: 'shirt_blue',
     teacher_f: 'pink_tee',
+    guard: 'uniform_navy',
+    rifleman: 'camo_cloth',
+    shotgunner: 'camo_cloth',
+    rocketeer: 'camo_cloth',
   };
+  // 下躯干（torso_lower）材质（v0.79.37）：人类士兵=外套下摆色（衣不扎裤）；
+  // 丧尸变体沿用旧逻辑（教师扎裤裙色 / 学生 polo 外放）
+  var VARIANT_LOWER = {
+    guard: 'uniform_navy',
+    rifleman: 'camo_cloth',
+    shotgunner: 'camo_cloth',
+    rocketeer: 'camo_cloth',
+  };
+  // 人类变体集合（活人单位：直立动画、不派生丧尸动画集）
+  var HUMAN_SOLDIER_VARIANTS = { guard: 1, rifleman: 1, shotgunner: 1, rocketeer: 1 };
 
   // bakeModel：从骨架版本烘焙字面值 tree（deriveNode 派生 + 完整 addon 注入，对齐 buildHumanoid）
   //   skeletonVer: SKELETON_VERSIONS 的 key；params: { height, build, hunch, curves, addons, materials }
@@ -9713,9 +10055,7 @@ var SKELETON_VERSIONS = {
       var parents =
         DUAL_LEG_ADDONS[key] ||
         DUAL_LIMB_ADDONS[key] ||
-        (key === 'shoes_blue' || key === 'shoes_white' || key === 'leather_shoes'
-          ? ['l_foot', 'r_foot']
-          : [def.parent]);
+        (FOOT_ADDONS.indexOf(key) >= 0 ? ['l_foot', 'r_foot'] : [def.parent]);
       parents.forEach(function (par, idx) {
         var parentNode = findNode(tree, par);
         if (!parentNode) return;
@@ -9802,9 +10142,10 @@ var SKELETON_VERSIONS = {
       var tlower0 = findNode(tree, 'torso_lower');
       if (tlower0) {
         tlower0.materialId =
-          params._variantKey === 'teacher_m' || params._variantKey === 'teacher_f'
+          VARIANT_LOWER[params._variantKey] ||
+          (params._variantKey === 'teacher_m' || params._variantKey === 'teacher_f'
             ? PELVIS_CLOTH[params._variantKey]
-            : 'polo_white';
+            : 'polo_white');
       }
     }
     // 上衣：上躯干(torso_upper)按变体材质（v0.79.31——原 __skin__ 裸露与四肢同色）
@@ -9910,7 +10251,200 @@ var SKELETON_VERSIONS = {
     return a;
   }
 
+  // ── 人类士兵动画集派生（v0.79.37b）──
+  // 语义约定（烘焙树 = 新数据层，非 legacy 镜像）：upper_arm/upper_leg rotation.x 负=前举/前踢；
+  // 躯干 rotation.y=转体（正=右转）；武器/火焰为 O 轨道扩展关节（collectRefs 按名收集）
+  // kind: 'guard'（警棍横挥）| 'gun'（双手持枪+据枪射击）| 'rocket'（背负+肩扛发射）
+  // Stagger/Die 注入与 Idle 一致的武器姿态恒值轨道（武器位置一致，用户要求）
+  function _constTrack(joint, prop, axis, v) {
+    return { kind: 'O', joint: joint, prop: prop, axis: axis, restKey: null, keys: [{ t: 0, v: v }, { t: 1, v: v }] };
+  }
+  function _weaponConstTracks(weapon, rot, pos) {
+    var tr = [];
+    if (rot) ['x', 'y', 'z'].forEach(function (ax, i) { tr.push(_constTrack(weapon, 'rotation', ax, rot[i] || 0)); });
+    if (pos) ['x', 'y', 'z'].forEach(function (ax, i) { tr.push(_constTrack(weapon, 'position', ax, pos[i] || 0)); });
+    return tr;
+  }
+  // 火焰 scale 轨道生成：shots=[t1,t2,...] 发射时刻；peak 亮起倍率
+  function _flashTracks(flashNode, shots, peak) {
+    var keys = [{ t: 0, v: 0.001 }, { t: 1, v: 0.001 }];
+    shots.forEach(function (ts) {
+      keys.push({ t: Math.max(0, ts - 0.02), v: 0.001 });
+      keys.push({ t: ts, v: peak });
+      keys.push({ t: ts + 0.06, v: 0.001 });
+    });
+    keys.sort(function (a, b) { return a.t - b.t; });
+    return ['x', 'y', 'z'].map(function (ax) {
+      return { kind: 'O', joint: flashNode, prop: 'scale', axis: ax, restKey: null, keys: keys };
+    });
+  }
+  // 枪兵持枪手臂（low ready：双手都在枪上——右手握把左手托护木，枪口斜向下）
+  // ⚠️ 武器世界仰角 y = -sin(upper.x+forearm.x+weapon.x)（实测映射表 probe_axis）
+  // 臂组合 -1.5 + 武器 +2.0 → T=+0.5 枪口朝前下 28°（ILEA/SWAT low ready 口径）
+  function _gunCarryArmTracks() {
+    return [
+      { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -0.45 }, { t: 1, v: -0.45 }] },
+      { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.12 }, { t: 1, v: -0.12 }] },
+      { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -1.05 }, { t: 1, v: -1.05 }] },
+      { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -0.5 }, { t: 1, v: -0.5 }] },
+      { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.5 }, { t: 1, v: -0.5 }] },
+      { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -1.0 }, { t: 1, v: -1.0 }] },
+      { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.3 }, { t: 1, v: -0.3 }] },
+    ];
+  }
+  // 武器仰角补偿常量（与臂组合配套，公式见 _gunCarryArmTracks 注释）
+  // ⚠️ 左右约定：模型面朝 +Z，第一人称 +X=左 / -X=右（l_eye 在 +X、r_arm 在 -X）
+  var GUN_CARRY_COMP = 2.0; // 待机：-1.5 + 2.0 → T=+0.5 枪口朝前下 28°
+  var GUN_CARRY_AZI = 0.4; // 待机枪口左偏（rotation.y 正 → 枪口朝 +X 左前方地面，用户方案）
+  var GUN_AIM_COMP = 1.65; // 腰射据枪（霰弹枪）：-0.5-1.15 + 1.65 → T=0 水平
+  // 贴腮据枪（步枪——用户方案：贴腮用眼通过准星照门瞄准，不腰射）：
+  // 臂全水平 -1.5-0.15 + 补偿 1.65 → 枪口水平且枪在腮高（probe 实测 muzzleY 0.928 ≈ cheek 0.941）
+  // headZ 正 = 头顶向 -X（右）倾——枪在右手侧，头右倾贴腮（v0.79.37d 镜像修正，原 -0.35 反了）
+  var GUN_CHEEK_AIM = {
+    rUpperX: -1.5, rUpperZ: -0.12, rForeX: -0.15,
+    lUpperX: -1.5, lUpperZ: -0.5, lForeX: -0.15, lForeZ: -0.3,
+    weaponX: 1.65, headZ: 0.35,
+  };
+  // RPG 发射臂组合（真实骨架网格搜索 probe_grip_real：右手到后握把 0.142 / 左手到前握把 0.013）
+  var RPG_FIRE_ARMS = {
+    rU: { x: 0, z: 0.5 }, rF: { x: -1.9, z: -0.7 },
+    lU: { x: -0.4, z: -0.7 }, lF: { x: -0.7, z: -0.5 },
+  };
+  // 武器挂载静态姿态（collectRefs 复位基准一致）
+  var SOLDIER_WEAPON_Mount = {
+    baton: { rot: [-0.25, 0, 0], pos: [0, -0.02, 0.03] },
+    rifle: { rot: [0, 0, 0], pos: [0.05, -0.02, 0.05] },
+    shotgun: { rot: [0, 0, 0], pos: [0.05, -0.02, 0.05] },
+    // RPG 斜背（用户方案：右手主手，战斗部从右肩露出——-X 侧）：管轴左下→右上镜像，
+    // rx-1.5/ry**-0.95** → 管轴 (-0.81,0.58,0.04)，战斗部尖 (-0.32,0.94,-0.12) 右肩上（v0.79.37d 镜像修正）
+    rpg_back: { rot: [-1.5, -0.95, 0], pos: [-0.02, 0, -0.2] },
+    // RPG 肩扛据筒（右肩发射）：管沿 +Z 前伸，管位右外侧 x-0.22 肩窝高 y0.18（probe_grip 系列：
+    // 此位下双手可握两握把——后握把右手 d0.14 / 前握把左手 d0.01）
+    rpg_shoulder: { rot: [0.05, 0, 0], pos: [-0.22, 0.18, 0.15] },
+  };
+  function deriveSoldierAnims(verAnims, kind, weaponName, flashName) {
+    var a = JSON.parse(JSON.stringify(verAnims));
+    delete a.actions.Punch; // 人类士兵不用拳击
+    var ARM_JOINTS = { l_upper_arm: 1, r_upper_arm: 1, l_forearm: 1, r_forearm: 1 };
+
+    if (kind === 'guard') {
+      // 保安：Idle/Walk/Run 骨架原版（单手垂棍）；Attack=横挥警棍（棍顺前臂握持——ILEA 口径：
+      // 棍与前臂对齐，力量来自转体+手臂水平摆动；棍补偿轨道全 0，棍随臂横扫不横握）
+      a.actions.Swing = [
+        // 蓄力：躯干大幅右转后引（横扫主力=腰发力；臂前举水平后 z 轴变滚转，偏摆效率低——probe_sweep 实验）
+        { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'y', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: 1.0 }, { t: 0.5, v: -0.9 }, { t: 0.75, v: -0.55 }, { t: 1, v: 0 }] },
+        { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: -0.08 }, { t: 0.5, v: 0.14 }, { t: 1, v: 0 }] },
+        // 右臂举到水平（x=-1.5）；前臂曲臂蓄力→爆发伸直（用户方案：蓄力屈肘缩半径储能，
+        // 挥出过程手臂伸直增大末端扫速——鞭/棒发力力学）
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: -1.5 }, { t: 0.5, v: -1.48 }, { t: 0.75, v: -1.1 }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: -0.5 }, { t: 0.5, v: 0.4 }, { t: 0.75, v: 0.35 }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: -1.25 }, { t: 0.4, v: -0.8 }, { t: 0.5, v: -0.1 }, { t: 0.75, v: -0.05 }, { t: 1, v: 0 }] },
+        // 左臂配重后展
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: 0.35 }, { t: 0.5, v: 0.42 }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.3, v: 0.3 }, { t: 1, v: 0 }] },
+        // 弓步：左腿前跨右腿后蹬 + 重心下沉
+        { kind: 'P', joint: 'l_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.3, v: -0.1 }, { t: 0.5, v: -0.34 }, { t: 0.75, v: -0.28 }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_lower_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.5, v: 0.42 }, { t: 0.75, v: 0.35 }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_upper_leg', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.5, v: 0.26 }, { t: 0.75, v: 0.2 }, { t: 1, v: 0 }] },
+        { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [{ t: 0, v: 0 }, { t: 0.3, v: -0.015 }, { t: 0.5, v: -0.04 }, { t: 0.75, v: -0.03 }, { t: 1, v: 0 }] },
+        // 警棍补偿（probe 实验）：蓄力 -1.9 = 屈肘 -1.25 时棍水平后引过肩（举棍蓄势）；
+        // 爆发伸直后 -0.35 棍顺臂近水平横扫
+        { kind: 'O', joint: 'ah_wp_baton', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.28, v: -1.9 }, { t: 0.4, v: -1.1 }, { t: 0.5, v: -0.35 }, { t: 1, v: 0 }] },
+      ];
+      a.durations = { Idle: 2.2, Walk: 1.4, Run: 0.8, Swing: 1.0, Stagger: 0.5, Die: 1.5 };
+    } else if (kind === 'gun') {
+      // 枪兵：Idle/Walk/Run 双手low ready 持枪（手臂替换为持枪恒值，腿/躯干保留步态）
+      ['Idle', 'Walk', 'Run'].forEach(function (an) {
+        a.actions[an] = (a.actions[an] || []).filter(function (t) { return !ARM_JOINTS[t.joint]; }).concat(_gunCarryArmTracks());
+      });
+      // 武器仰角补偿：臂组合 -1.5 + 1.0 → 枪口朝前下 29°（low ready）
+      ['Idle', 'Walk', 'Run'].forEach(function (an) {
+        a.actions[an] = a.actions[an].concat(_weaponConstTracks(weaponName, [GUN_CARRY_COMP, GUN_CARRY_AZI, 0], null));
+      });
+      // Attack 据枪风格：步枪=贴腮瞄准（枪抬到腮高、头侧倾贴枪、眼过准星照门）；霰弹枪=腰射（保持）
+      var isCheek = weaponName === 'ah_wp_rifle';
+      var _aX = isCheek ? GUN_CHEEK_AIM : { rUpperX: -0.5, rUpperZ: -0.1, rForeX: -1.15, lUpperX: -0.55, lUpperZ: -0.55, lForeX: -1.05, lForeZ: -0.35, weaponX: GUN_AIM_COMP, headZ: 0 };
+      a.actions.Swing = [
+        // 双臂据枪（步枪贴腮：臂全水平 -1.5 → 枪在腮高 muzzleY 0.928 ≈ cheek 0.941）
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -0.45 }, { t: 0.18, v: _aX.rUpperX }, { t: 0.92, v: _aX.rUpperX }, { t: 1, v: -0.45 }] },
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.12 }, { t: 0.18, v: _aX.rUpperZ }, { t: 0.92, v: _aX.rUpperZ }, { t: 1, v: -0.12 }] },
+        { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -1.05 }, { t: 0.18, v: _aX.rForeX }, { t: 0.92, v: _aX.rForeX }, { t: 1, v: -1.05 }] },
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -0.5 }, { t: 0.18, v: _aX.lUpperX }, { t: 0.92, v: _aX.lUpperX }, { t: 1, v: -0.5 }] },
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.5 }, { t: 0.18, v: _aX.lUpperZ }, { t: 0.92, v: _aX.lUpperZ }, { t: 1, v: -0.5 }] },
+        { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -1.0 }, { t: 0.18, v: _aX.lForeX }, { t: 0.92, v: _aX.lForeX }, { t: 1, v: -1.0 }] },
+        { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.3 }, { t: 0.18, v: _aX.lForeZ }, { t: 0.92, v: _aX.lForeZ }, { t: 1, v: -0.3 }] },
+        // 枪身从左下 low ready 转正水平（方位左偏→0，仰角→据枪补偿）
+        { kind: 'O', joint: weaponName, prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: GUN_CARRY_COMP }, { t: 0.18, v: _aX.weaponX }, { t: 0.92, v: _aX.weaponX }, { t: 1, v: GUN_CARRY_COMP }] },
+        { kind: 'O', joint: weaponName, prop: 'rotation', axis: 'y', restKey: null, keys: [{ t: 0, v: GUN_CARRY_AZI }, { t: 0.18, v: 0 }, { t: 0.92, v: 0 }, { t: 1, v: GUN_CARRY_AZI }] },
+        // 步枪贴腮：头侧倾贴枪身（霰弹枪腰射头不动）
+        { kind: 'P', joint: 'head', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.18, v: _aX.headZ }, { t: 0.92, v: _aX.headZ }, { t: 1, v: 0 }] },
+        // 后坐抖动：躯干 x 快速震荡（3 连发同步）+ 重心微沉
+        { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.29, v: 0 }, { t: 0.31, v: 0.045 }, { t: 0.37, v: 0.008 }, { t: 0.54, v: 0 }, { t: 0.56, v: 0.042 }, { t: 0.62, v: 0.006 }, { t: 0.79, v: 0 }, { t: 0.81, v: 0.045 }, { t: 0.87, v: 0.008 }, { t: 1, v: 0 }] },
+        { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [{ t: 0, v: 0 }, { t: 0.3, v: -0.012 }, { t: 0.9, v: -0.012 }, { t: 1, v: 0 }] },
+        // 枪口火焰 3 连发
+      ].concat(_flashTracks(flashName, [0.3, 0.55, 0.8], 1.6));
+      // Stagger/Die：武器与手臂保持 Idle 持枪位（一致要求）
+      a.actions.Stagger = (a.actions.Stagger || []).filter(function (t) { return !ARM_JOINTS[t.joint]; }).concat(_gunCarryArmTracks()).concat(_weaponConstTracks(weaponName, [GUN_CARRY_COMP, GUN_CARRY_AZI, 0], null));
+      a.actions.Die = (a.actions.Die || []).filter(function (t) { return !ARM_JOINTS[t.joint]; }).concat(_gunCarryArmTracks()).concat(_weaponConstTracks(weaponName, [GUN_CARRY_COMP, GUN_CARRY_AZI, 0], null));
+      a.durations = { Idle: 2.2, Walk: 1.4, Run: 0.8, Swing: 1.2, Stagger: 0.5, Die: 1.5 };
+    } else {
+      // 火箭筒兵：Idle/Walk/Run 背负火箭筒（武器恒值=背负位；摆臂幅值减半防穿背筒）
+      ['Idle', 'Walk', 'Run'].forEach(function (an) {
+        a.actions[an] = (a.actions[an] || []).map(function (t) {
+          if (ARM_JOINTS[t.joint]) {
+            t.keys = t.keys.map(function (k) { return { t: k.t, v: k.v * 0.5 }; });
+          }
+          return t;
+        }).concat(_weaponConstTracks(weaponName, SOLDIER_WEAPON_Mount.rpg_back.rot, SOLDIER_WEAPON_Mount.rpg_back.pos));
+      });
+      // Attack：卸筒上肩 → 瞄准 → 前后火焰 + 战斗部射出 → 回背
+      // 肩扛位（SOLDIER_WEAPON_Mount.rpg_shoulder）：管轴沿 +Z 水平朝前、筒在右肩上方
+      a.actions.Swing = [
+        // 武器斜背→肩扛（右肩发射：起点 rpg_back 斜背镜像 → 终点 rpg_shoulder 右肩窝）
+        { kind: 'O', joint: weaponName, prop: 'position', axis: 'x', restKey: null, keys: [{ t: 0, v: -0.02 }, { t: 0.22, v: -0.22 }, { t: 0.88, v: -0.22 }, { t: 1, v: -0.02 }] },
+        { kind: 'O', joint: weaponName, prop: 'position', axis: 'y', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.22, v: 0.18 }, { t: 0.88, v: 0.18 }, { t: 1, v: 0 }] },
+        { kind: 'O', joint: weaponName, prop: 'position', axis: 'z', restKey: null, keys: [{ t: 0, v: -0.2 }, { t: 0.22, v: 0.15 }, { t: 0.88, v: 0.15 }, { t: 1, v: -0.2 }] },
+        { kind: 'O', joint: weaponName, prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: -1.5 }, { t: 0.22, v: 0.05 }, { t: 0.88, v: 0.05 }, { t: 1, v: -1.5 }] },
+        { kind: 'O', joint: weaponName, prop: 'rotation', axis: 'y', restKey: null, keys: [{ t: 0, v: -0.95 }, { t: 0.22, v: 0 }, { t: 0.88, v: 0 }, { t: 1, v: -0.95 }] },
+        { kind: 'O', joint: weaponName, prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.22, v: 0 }, { t: 0.88, v: 0 }, { t: 1, v: 0 }] },
+        // 双手握把（probe_grip_real 网格搜索）：右手握后握把（扳机位）+ 左手横跨扶前握把
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.rU.x }, { t: 0.85, v: RPG_FIRE_ARMS.rU.x }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.rU.z }, { t: 0.85, v: RPG_FIRE_ARMS.rU.z }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.rF.x }, { t: 0.85, v: RPG_FIRE_ARMS.rF.x }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'r_forearm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.rF.z }, { t: 0.85, v: RPG_FIRE_ARMS.rF.z }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.lU.x }, { t: 0.85, v: RPG_FIRE_ARMS.lU.x }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_upper_arm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.lU.z }, { t: 0.85, v: RPG_FIRE_ARMS.lU.z }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.lF.x }, { t: 0.85, v: RPG_FIRE_ARMS.lF.x }, { t: 1, v: 0 }] },
+        { kind: 'P', joint: 'l_forearm', prop: 'rotation', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: RPG_FIRE_ARMS.lF.z }, { t: 0.85, v: RPG_FIRE_ARMS.lF.z }, { t: 1, v: 0 }] },
+        // 头部瞄准微调
+        { kind: 'P', joint: 'head', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.25, v: 0.1 }, { t: 0.85, v: 0.1 }, { t: 1, v: 0 }] },
+        // 发射后坐：躯干后仰回弹 + 重心下沉
+        { kind: 'O', joint: 'torso', prop: 'rotation', axis: 'x', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.43, v: 0 }, { t: 0.47, v: 0.09 }, { t: 0.6, v: 0.02 }, { t: 1, v: 0 }] },
+        { kind: 'O', joint: 'pelvis', prop: 'position', axis: 'y', restKey: 'pelvis:y', keys: [{ t: 0, v: 0 }, { t: 0.45, v: -0.015 }, { t: 0.85, v: -0.015 }, { t: 1, v: 0 }] },
+        // 前后双向火焰 + 战斗部射出
+      ]
+        .concat(_flashTracks('ah_wp_rpg_flash_f', [0.45], 1.6))
+        .concat(_flashTracks('ah_wp_rpg_flash_b', [0.45], 1.4))
+        .concat([
+          { kind: 'O', joint: 'ah_wp_rpg_warhead', prop: 'position', axis: 'z', restKey: null, keys: [{ t: 0, v: 0 }, { t: 0.44, v: 0 }, { t: 0.47, v: 0.35 }, { t: 0.62, v: 4.5 }, { t: 1, v: 4.5 }] },
+        ]);
+      // Stagger/Die：武器恒值=背负位（与 Idle 一致）
+      ['Stagger', 'Die'].forEach(function (an) {
+        a.actions[an] = (a.actions[an] || []).concat(_weaponConstTracks(weaponName, SOLDIER_WEAPON_Mount.rpg_back.rot, SOLDIER_WEAPON_Mount.rpg_back.pos));
+      });
+      a.durations = { Idle: 2.2, Walk: 1.4, Run: 0.8, Swing: 1.6, Stagger: 0.5, Die: 1.5 };
+    }
+    return a;
+  }
+
   var MODELS = {};
+  // 士兵变体动画参数（kind/武器名/火焰名）
+  var SOLDIER_ANIM_CFG = {
+    guard: ['guard', 'ah_wp_baton', null],
+    rifleman: ['gun', 'ah_wp_rifle', 'ah_wp_rf_flash'],
+    shotgunner: ['gun', 'ah_wp_shotgun', 'ah_wp_sg_flash'],
+    rocketeer: ['rocket', 'ah_wp_rpg', null],
+  };
   Object.keys(VARIANT_SKELETON).forEach(function (vk) {
     var hv = HUMANOID_VARIANTS[vk];
     var body = VARIANT_BODY[vk];
@@ -9925,15 +10459,23 @@ var SKELETON_VERSIONS = {
         _variantKey: vk,
       }),
       anims: null,
-      zombieAnims: deriveZombieAnims(
-        SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims,
-        vk === 'student_f' ? 'ah_skirt' : vk === 'teacher_f' ? 'ah_gskirt' : null,
-        vk === 'teacher_m' ? 0.09 : vk === 'teacher_f' ? 0.12 : 0.1,
-        SKELETON_VERSIONS[VARIANT_SKELETON[vk]].tree.position[1]
-      ),
+      // 人类士兵（活人）：不派生丧尸动画集（驼背/拖行/奔袭），
+      // anims = deriveSoldierAnims 士兵专属动画集（持枪/背负/横挥/射击特效）
+      zombieAnims: HUMAN_SOLDIER_VARIANTS[vk]
+        ? null
+        : deriveZombieAnims(
+            SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims,
+            vk === 'student_f' ? 'ah_skirt' : vk === 'teacher_f' ? 'ah_gskirt' : null,
+            vk === 'teacher_m' ? 0.09 : vk === 'teacher_f' ? 0.12 : 0.1,
+            SKELETON_VERSIONS[VARIANT_SKELETON[vk]].tree.position[1]
+          ),
     };
-    if (SKELETON_VERSIONS[VARIANT_SKELETON[vk]] && SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims) {
-      MODELS[vk].anims = JSON.parse(JSON.stringify(SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims));
+    var verAnims = SKELETON_VERSIONS[VARIANT_SKELETON[vk]] && SKELETON_VERSIONS[VARIANT_SKELETON[vk]].anims;
+    if (HUMAN_SOLDIER_VARIANTS[vk] && verAnims && SOLDIER_ANIM_CFG[vk]) {
+      var sc = SOLDIER_ANIM_CFG[vk];
+      MODELS[vk].anims = deriveSoldierAnims(verAnims, sc[0], sc[1], sc[2]);
+    } else if (verAnims) {
+      MODELS[vk].anims = JSON.parse(JSON.stringify(verAnims));
     }
   });
   function getSkeletonList() {

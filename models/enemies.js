@@ -1002,6 +1002,27 @@
             tctx.fillRect(-12 + i * 8, -80, 5, 160);
             tctx.restore();
         }
+        // 人类士兵迷彩（v0.79.37 预研）：林地迷彩——橄榄底 + 深绿/棕/墨绿斑块 + 细噪点
+        const camo = document.createElement('canvas');
+        camo.width = camo.height = 128;
+        const cctx = camo.getContext('2d');
+        cctx.fillStyle = '#7a7d5e';
+        cctx.fillRect(0, 0, 128, 128);
+        const camoCols = ['#5a5e42', '#8b8668', '#3f4432', '#6e6a50'];
+        for (let i = 0; i < 26; i++) {
+            cctx.fillStyle = camoCols[i % 4];
+            cctx.globalAlpha = 0.85;
+            cctx.beginPath();
+            const ccx = Math.random() * 128,
+                ccy = Math.random() * 128;
+            cctx.ellipse(ccx, ccy, 9 + Math.random() * 16, 6 + Math.random() * 10, Math.random() * Math.PI * 2, 0, Math.PI * 2);
+            cctx.fill();
+        }
+        cctx.globalAlpha = 1;
+        for (let i = 0; i < 350; i++) {
+            cctx.fillStyle = `rgba(70,74,52,${0.1 + Math.random() * 0.2})`;
+            cctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+        }
         const make = (cv) => {
             const t = new THREE.CanvasTexture(cv);
             t.colorSpace = THREE.SRGBColorSpace;
@@ -1067,6 +1088,7 @@
             shirt_blood: make(shirtBlood),
             pink_blood: make(pinkBlood),
             stripes: make(strp),
+            camo: make(camo), // v0.79.37 人类士兵迷彩
         };
         return _humanoidTexCache;
     }
@@ -1099,6 +1121,23 @@
             metal_gold: { color: 0xc8a040, roughness: 0.3, metalness: 0.7 },
             school_badge: { map: 'badge', color: 0xffffff, roughness: 0.7, transparent: true },
             shoulder_stripes: { map: 'stripes', color: 0xffffff, roughness: 0.7, transparent: true },
+            // ── 人类士兵（v0.79.37 预研）──
+            skin_live: { color: 0xe8c4a2, roughness: 0.75 },
+            camo_cloth: { map: 'camo', color: 0xffffff, roughness: 0.8 },
+            uniform_navy: { color: 0x2e3d5c, roughness: 0.7 },
+            vest_hiviz: { color: 0xd8e850, roughness: 0.65 },
+            strap_silver: { color: 0xc0c6cc, roughness: 0.35, metalness: 0.6 },
+            belt_black: { color: 0x1e1e22, roughness: 0.6 },
+            helmet_olive: { color: 0x59614a, roughness: 0.6 },
+            vest_green: { color: 0x50573e, roughness: 0.75 },
+            pouch_khaki: { color: 0x8a7d5c, roughness: 0.8 },
+            boot_black: { color: 0x1c1c20, roughness: 0.55, metalness: 0.05 },
+            gun_metal: { color: 0x3c3f45, roughness: 0.4, metalness: 0.75 },
+            gun_dark: { color: 0x25272b, roughness: 0.5, metalness: 0.3 },
+            wood_stock: { color: 0x6e4a2e, roughness: 0.7 },
+            rpg_olive: { color: 0x6a6b4c, roughness: 0.6 },
+            warhead_tip: { color: 0xb06a38, roughness: 0.45, metalness: 0.5 },
+            flash_orange: { color: 0xffcc55, emissive: 0xff6600, emissiveIntensity: 3, roughness: 0.3, metalness: 0 },
         };
         const d = DEFS[id] || { color: 0x888888, roughness: 0.75 };
         const cfg = { color: d.color, roughness: d.roughness, metalness: d.metalness || 0.0 };

@@ -569,6 +569,23 @@
           map: 'stripes',
           transparent: true,
         },
+        // ── 人类士兵（v0.79.37 预研）──
+        skin_live: { color: 0xe8c4a2, roughness: 0.75, metalness: 0.0 },
+        camo_cloth: { color: 0xffffff, roughness: 0.8, metalness: 0.0, map: 'camo' },
+        uniform_navy: { color: 0x2e3d5c, roughness: 0.7, metalness: 0.0 },
+        vest_hiviz: { color: 0xd8e850, roughness: 0.65, metalness: 0.0 },
+        strap_silver: { color: 0xc0c6cc, roughness: 0.35, metalness: 0.6 },
+        belt_black: { color: 0x1e1e22, roughness: 0.6, metalness: 0.0 },
+        helmet_olive: { color: 0x59614a, roughness: 0.6, metalness: 0.0 },
+        vest_green: { color: 0x50573e, roughness: 0.75, metalness: 0.0 },
+        pouch_khaki: { color: 0x8a7d5c, roughness: 0.8, metalness: 0.0 },
+        boot_black: { color: 0x1c1c20, roughness: 0.55, metalness: 0.05 },
+        gun_metal: { color: 0x3c3f45, roughness: 0.4, metalness: 0.75 },
+        gun_dark: { color: 0x25272b, roughness: 0.5, metalness: 0.3 },
+        wood_stock: { color: 0x6e4a2e, roughness: 0.7, metalness: 0.0 },
+        rpg_olive: { color: 0x6a6b4c, roughness: 0.6, metalness: 0.0 },
+        warhead_tip: { color: 0xb06a38, roughness: 0.45, metalness: 0.5 },
+        flash_orange: { color: 0xffcc55, roughness: 0.3, metalness: 0.0, emissive: 0xff6600, emissiveIntensity: 3 },
         default: { color: 0x888888, roughness: 0.6, metalness: 0.2 },
       };
 
@@ -694,6 +711,27 @@
           }
           return cv;
         };
+        // 人类士兵迷彩（v0.79.37 预研）：林地迷彩——与 enemies.js 两侧统一
+        const camo = document.createElement('canvas');
+        camo.width = camo.height = 128;
+        const cctx = camo.getContext('2d');
+        cctx.fillStyle = '#7a7d5e';
+        cctx.fillRect(0, 0, 128, 128);
+        const camoCols = ['#5a5e42', '#8b8668', '#3f4432', '#6e6a50'];
+        for (let i = 0; i < 26; i++) {
+          cctx.fillStyle = camoCols[i % 4];
+          cctx.globalAlpha = 0.85;
+          cctx.beginPath();
+          const ccx = Math.random() * 128,
+            ccy = Math.random() * 128;
+          cctx.ellipse(ccx, ccy, 9 + Math.random() * 16, 6 + Math.random() * 10, Math.random() * Math.PI * 2, 0, Math.PI * 2);
+          cctx.fill();
+        }
+        cctx.globalAlpha = 1;
+        for (let i = 0; i < 350; i++) {
+          cctx.fillStyle = `rgba(70,74,52,${0.1 + Math.random() * 0.2})`;
+          cctx.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5);
+        }
         _humanoidTexCache = {
           polo: make(polo),
           skin: make(skin),
@@ -702,6 +740,7 @@
           polo_blood: make(makeBloodyCloth('#f4f4f0', '210,210,200', 'rgba(122,16,32,0.55)')),
           shirt_blood: make(makeBloodyCloth('#3f6399', '70,100,150', 'rgba(90,10,22,0.6)')),
           pink_blood: make(makeBloodyCloth('#e38ba0', '200,120,140', 'rgba(100,12,26,0.55)')),
+          camo: make(camo), // v0.79.37 人类士兵迷彩
         };
         return _humanoidTexCache;
       }
@@ -3153,7 +3192,26 @@
       })();
       function _applyHumanoidEdit() {
         if (currentModelType !== 'humanoid' || !window.HumanoidConfig) return;
-        var tree = window.HumanoidConfig.buildHumanoid(_humanoidEdit.variant, _humanoidEdit.params);
+        var HC = window.HumanoidConfig;
+        var vk = _humanoidEdit.variant;
+        var tree;
+        // 人类士兵变体（无丧尸动画集标记）：buildHumanoid 只认 legacy 丧尸树（SKELETON_BY_VARIANT），
+        // 走 bakeModel 从骨架版本动态烘焙（体型滑块实时联动，与 MODELS 预烘焙同管线）
+        var mv = HC.MODELS[vk];
+        if (mv && !mv.zombieAnims && mv._skeletonVer) {
+          var hv = HC.HUMANOID_VARIANTS[vk];
+          tree = HC.bakeModel(mv._skeletonVer, {
+            height: _humanoidEdit.params.height,
+            build: _humanoidEdit.params.build,
+            hunch: _humanoidEdit.params.hunch,
+            curves: _humanoidEdit.params.curves,
+            addons: hv.addons,
+            materials: hv.materials,
+            _variantKey: vk,
+          });
+        } else {
+          tree = HC.buildHumanoid(vk, _humanoidEdit.params);
+        }
         if (tree) {
           MODEL_CONFIGS.humanoid = tree;
           // skipGUI: 滑块拖动时只重建模型几何，不销毁 GUI（避免打断拖动）
@@ -4156,7 +4214,12 @@
             .add(_humanoidEdit, 'variant', variantOptions)
             .name('变体')
             .onChange(function (v) {
-              // 切变体重置曲线：女教师 0.7（S 曲线基准），其他 0
+              // 切变体重置体型参数到该变体默认：身高/驼背取 bodyRange 下限（士兵 1.68m/直立，
+              // 学生 1.1m 等），曲线女教师 0.7（S 曲线基准），其他 0
+              var _hv = window.HumanoidConfig.HUMANOID_VARIANTS[v];
+              var _br = (_hv && _hv.bodyRange) || {};
+              if (_br.height) _humanoidEdit.params.height = _br.height[0];
+              if (_br.hunch) _humanoidEdit.params.hunch = _br.hunch[0];
               _humanoidEdit.params.curves = v === 'teacher_f' ? 0.7 : 0;
               _applyHumanoidEdit();
             });

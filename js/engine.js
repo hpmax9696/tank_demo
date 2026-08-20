@@ -7484,7 +7484,7 @@ function updateDebugInfo() {
   }
 
   el.textContent =
-    'v0.79.36  ' +
+    'v0.79.37  ' +
     mapName +
     '  FPS:' +
     fpsCurrent +
@@ -8200,7 +8200,7 @@ loadMapConfig('test_map_01a'); // 默认加载单人地图
 initScene();
 placeCamera();
 renderer.render(scene, camera);
-console.log('🎮 坦克运动demo v0.79.36 | 校园丧尸实装+碾压修复+瞄准设置+地图切换碰撞清理+旧丧尸攻击修复');
+console.log('🎮 坦克运动demo v0.79.37 | 人类士兵模型类别(保安/步枪/霰弹/火箭筒)+专属动画+左右镜像修正');
 
 // 上帝视角：按 F4 切换俯瞰全图（关雾+隐墙）
 window._godMode = false;

@@ -1,4 +1,4 @@
-# CODEBUDDY.md — v0.79.36
+# CODEBUDDY.md — v0.79.37
 
 This file provides guidance to CodeBuddy when working with code in this repository.
 
@@ -1066,6 +1066,22 @@ ScoreSystem.settleScore('test_map_03a', finalScore); // 结算
 | ⚠️ 自定义几何 UV   | RidgeBox/TaperedBox/TaperedHex/Wedge 无 UV→贴图不显示——enemies 4 个 mk 函数补平面映射 UV（x/bw+0.5, y/h）；工厂 4 个 build 已有固定 0-1 UV |
 | 血迹几何删除      | blood_splatter addon 从变体移除+袖子内血块删除（全部立体血迹清除）                                      |
 | 验证脚本          | `artifacts/verify_v7931.js`（15：盖肩×3/血衣 map/血迹几何删/长袖三项/刘海）+ 回归 38                     |
+
+### 人类士兵模型类别+专属动画+左右镜像修正 (v0.79.37)
+
+| 项 | 值/说明 |
+| --- | --- |
+| 新类别 | 模型工厂 🧍 人形敌人新增 4 变体（v1-成年男烘焙 + 活人肤色 skin_live + 直立动画）——校园保安(大檐帽+荧光背心+警棍)/步枪兵(迷彩+头盔+战术背心+AK)/霰弹枪兵(泵动霰弹枪)/火箭筒兵(RPG-7) |
+| 服装机制 | `__cloth__` 占位材质联动换装（藏青 uniform_navy / 迷彩 camo_cloth Canvas 贴图，enemies+factory 两侧统一）；VARIANT_LOWER 下躯干外套色 / PELVIS_CLOTH 骨盆裤色 |
+| 武器挂载 | r_hand（Group 命名 ah_wp_* → O 轨道收集）；RPG 挂 torso_upper（斜背）；武器仰角公式 `y=-sin(臂总屈角+武器补偿)`（probe_axis 实测映射表）；待机补偿 2.0→枪口前下 28° / 贴腮 1.65→水平 / 霰弹腰射 1.65 |
+| 左右约定 | ⚠️ 模型面朝 +Z 时 **+X=第一人称左 / -X=右**（l_eye 在 +X、r_arm 在 -X）；待机枪口左偏 GUN_CARRY_AZI=+0.4 / 贴腮头右倾 headZ=+0.35 / RPG 斜背 ry=-0.95 战斗部露右肩 / 肩扛管位右肩 x=-0.22 |
+| 保安动画 | Swing=曲臂蓄力(前臂-1.25+棍补偿-1.9 举棍过肩水平后引)→直臂横扫(前臂-0.1+躯干转体±1.0rad 腰发力，扫弧 2.25rad/129°)+弓步 |
+| 枪兵动画 | Idle/Walk/Run=双手 low ready（右手握把左手托护木，护木 x+0.05 中线偏移）；Swing=步枪**贴腮瞄准**（臂全水平-1.5/-0.15 枪抬到腮高 muzzleY≈headY、头右倾）/霰弹腰射；枪口焰 3 连发(flash scale 0.001→1.6 脉冲)+躯干后坐抖动 |
+| 火箭筒动画 | Idle 斜背(管轴(-0.81,0.58,0.04) 战斗部尖(-0.32,0.94,-0.12) 右肩露)；Swing=卸筒上肩(背→肩六轨道)→双手握把(RPG_FIRE_ARMS 真实骨架网格搜索：右手→后把 0.142/左手→前把 0.013)→前后双向火焰+战斗部 z 0→4.5 射出→回背 |
+| 特效 | 火焰节点 scale [0.001] 隐藏+轨道脉冲（emissive×3 过曝亮黄白 0xffcc55+0xff6600）；humanoid_factory 扩展关节 scale 复位改恢复收集时初始值（_extScale0） |
+| 几何修 | 半球 geo.center() 补偿修帽子刺穿（盔顶-头顶余量 0.047）；弹匣向枪口弯 rotation.x -0.4 / 握把向枪托弯 +0.3~0.38；霰弹枪部件 z 首尾相接 |
+| 验证 | verify_poses 16（世界系数值：枪口朝向/贴腮高度 muzzleY 0.926 vs head 0.966/双手握把距离/斜背方向）+ verify_soldier_anims 20 + 模型 22 + 游戏冒烟 0 错误；投影像素级铁证（机匣投影 RGB(6,7,10) 与头盔同排 15px）；probe_axis/sweep/larm/grip 系列实验脚本 |
+| 已知问题 | Qwen 视觉在低分辨率 Q 版模型上误判率高（本轮 4 次），改用像素/数值判据；保安蓄力位棍上扬 40°（举棍后引自然姿态）；左手托枪距护木 0.17（前臂长度极限，游戏阶段可做手指 IK） |
 
 ### 校园丧尸实装+碾压修复+瞄准设置+地图切换清理 (v0.79.36)
 

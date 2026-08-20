@@ -44,9 +44,9 @@ python -m http.server 8080 --bind 127.0.0.1
 | `index.html`                            | ~1082 | 主游戏框架（UI+菜单+脚本加载+训练配置）                                     |
 | `js/engine.js`                          | ~8131 | 游戏引擎（状态机/场景/物理/瞄准/摄像机/AI/训练场/狙击）                     |
 | `maploader.js`                          | ~191  | 地图加载模块（蓝图转换+动态加载）                                           |
-| `model_factory.html`                    | ~5570 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + EllipFrustum + 坐标轴开关 + 骨架版本删除+保存分流）  |
-| `js/humanoid_factory.js`                | ~246  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位）         |
-| `models/humanoid_config.js`             | ~9953 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入+EllipFrustum裙+_deco缝线）   |
+| `model_factory.html`                    | ~5636 | 程序化模型编辑器（含 23 动画展台 + 部件树 + 转弯验证 + IK测试 + RidgeBox + EllipFrustum + 坐标轴开关 + 骨架版本删除+保存分流 + 人类士兵变体 bakeModel 路径）  |
+| `js/humanoid_factory.js`                | ~258  | 人形工厂展台桥接（6动作数据驱动+_rotRestY修复+REST偏移+全关节复位+扩展关节scale复位）         |
+| `models/humanoid_config.js`             | ~10510 | 人形配置（BASE骨架+SKELETON_VERSIONS+BASE_ANIMS+版本anims+buildHumanoid+ZOMBIE_HUNCH烘焙注入+EllipFrustum裙+_deco缝线+人类士兵4变体+deriveSoldierAnims+武器挂载）   |
 | `map_editor.html`                       | ~1790 | 地图编辑器核心框架（拆分为6模块）                                           |
 | `js/editor_terrainGen.js`               | ~914  | 地形+村落生成（双管线+掩码网格+FloodFill+容量预验证+建筑簇）                |
 | `js/editor_genStatus.js`                | ~181  | 生成状态面板（实时进度+统计+质量评分+自动隐藏）                             |
@@ -56,7 +56,7 @@ python -m http.server 8080 --bind 127.0.0.1
 | `js/editor_terrainPaint.js`             | ~335  | 地形绘制（笔刷+高度图画布）                                                 |
 | `models/t34_v16_builder.js`             | ~1441 | T-34/85 v1.6 动画坦克构建器（含 \_TANK_PROFILE 共享框架）                   |
 | `models/tiger_v16_builder.js`           | ~904  | 虎式 I 坦克构建器（MG34+马蹄形炮塔+沙漠迷彩）                               |
-| `models/enemies.js`                     | ~1854 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config + RidgeBox + EllipFrustum） |
+| `models/enemies.js`                     | ~1894 | 装甲突击车 + 程序化丧尸（buildHumanoidRig 消费 humanoid_config + RidgeBox + EllipFrustum + 迷彩贴图 + flash_orange） |
 | `models/buildings.js`                   | ~385  | 建筑模型（3种+category分类+18材质全局化+阴影）                              |
 | `models/hexapod_config.js`              |  ~70  | 六足战车模型配置（ANIM_TABLE 23项）                                         |
 | `js/hexapod_core.js`                    | ~1188 | 六足CCD IK核心（纯计算层，步态+踉跄+死亡+步进式转向）                       |
@@ -241,7 +241,7 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 
 ---
 
-## 当前版本（v0.79.36 — 校园丧尸实装(刷怪补cfg/血条/动画/死亡+清旧测试怪)/碾压修复(碰撞推离前判定+尸体不挡车)/瞄准设置(世界指向/车体指向)/地图切换碰撞清理(清campus全局引用)/Torus修复(眼镜项链可见+中梁贴脸+死亡平滑下沉)/树冠关视锥剔除/换弹防Q重复/旧丧尸Attack修复；v0.79.35 丧尸步态交叉循环+教师裤管修正+短裤白缝线）
+## 当前版本（v0.79.37 — 人类士兵模型类别(保安/步枪/霰弹/火箭筒 4 变体 v1成年男烘焙+活人肤色+直立动画)/士兵专属动画集(保安曲臂蓄力直臂横扫129°+枪兵贴腮瞄准low ready+火箭筒斜背露右肩发射双手握把)/左右镜像修正(第一人称约定+X=左：待机左偏/头右倾/RPG右肩)/帽子刺穿弹匣握把霰弹枪衔接修复/枪口焰双向火焰战斗部射出特效；v0.79.36 校园丧尸实装+碾压修复+瞄准设置+地图切换碰撞清理）
 
 ### 关键参数
 
@@ -249,9 +249,9 @@ rebuildModel() → 不自动调用 collectAnimRefs()（避免污染配置）
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | 世界尺寸        | worldWidth×worldDepth（可配置，默认300×300）                                                   |
 | 游玩尺寸        | playWidth×playDepth（空气墙，默认200×200）                                                     |
-| index.html 行数 | ~1178 行                                                                                       |
+| index.html 行数 | ~1175 行                                                                                       |
 | engine.js 行数  | ~8255 行                                                                                       |
-| 总源码行数      | ~50,300 行（51 个源文件）                                                                      |
+| 总源码行数      | ~51,000 行（53 个源文件）                                                                      |
 | 编辑器模块      | 6个：terrainGen(914)+genStatus(181)+entities(653)+waterBridge(659)+data(504)+terrainPaint(335) |
 | 六足系统        | core(1188)+factory(884)+enemy(328)+probe(208)+aimLine(295)+config(70)                          |
 | 坦克速度        | MAX_SPEED=8.0 m/s                                                                              |
